@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# save this file to either /etc/caudecrc or ~/.caudecrc
+
+# default compression levels (try 'caudec -c CODEC -q help' for a full list of possible values)
+compression_FLAC=5 # 0-8
+compression_lossyWAV=S # X, P, C, S, H, E, I
+
+compression_LAME=2 # 0-9, used with LAME_MODE='VBR'
+bitrate_LAME=320 # 16-320, used with LAME_MODE='CBR'
+average_bitrate_LAME=256 # 8-310, used with LAME_MODE='ABR'
+LAME_MODE='VBR' # 'VBR' (variable bitrate), 'CBR' (constant bitrate) or 'ABR' (average bitrate)
+ID3Padding=512 # size in bytes of padding to add to ID3v2 tags
+
+compression_OggVorbis=3 # 0-10, used with OggVorbis_MODE='VBR'
+bitrate_OggVorbis=256 # 32-500, used with OggVorbis_MODE='CBR'
+average_bitrate_OggVorbis=256 # 32-500, used with OggVorbis_MODE='ABR'
+OggVorbis_MODE='VBR' # 'VBR' (variable bitrate), 'CBR' (constant bitrate) or 'ABR' (average bitrate)
+
+maxInstances=1 # maximum number of caudec instances allowed to run concurrently
+maxInputFiles=100 # raise a warning and exit if the number of input files is higher than that
+preventClipping=true # reduce volume to prevent clipping, when resampling or applying gain
+setCompilationFlagWithAlbumArtist=false # always true when ALBUMARTIST="Various Artists" regardless of this setting
+keepWavMetadata=false # set to true to keep WAV metadata with FLAC and WavPack
+tagCompressionSetting=false # store the compression setting in metadata
+ignoreUnsupportedFiles=false # set to true to prevent caudec from aborting when some of the input files are unsupported
+enableColors=true # Enable colors in human-readable output
+useBrightColors=true # If enableColors=true, use bright colors (instead of darker ones)
+
+# Whitelist / Blacklist: lists of comma separated tags
+# Example: 'artist, date, album, tracknumber, title, genre, replaygain_reference_loudness, replaygain_track_gain, replaygain_track_peak, replaygain_album_gain, replaygain_album_peak'
+# Tags in those lists are case-insensitive and format-agnostic.
+# Example: 'albumartist' will match both 'ALBUMARTIST' and 'Album Artist'; 'organization' will match 'ORGANIZATION' and 'Label'.
+
+# Current list of tag name variations:
+# albumartist <---> album artist
+# date <---> year
+# description <---> comment
+# discnumber <---> disc
+# disctotal <---> totaldiscs
+# labelno <---> catalog
+# location <---> record location
+# organization <---> label
+# sourcemedia <---> media
+# tracknumber <---> track
+# tracktotal <---> totaltracks
+
+# tagWhitelist: tags to keep when transcoding (all others are discarded - inactive if empty)
+tagWhitelist=''
+
+# tagBlacklist: tags to discard when transcoding (all others are kept - inactive when empty, and when tagWhitelist is non-empty)
+tagBlacklist=''
+
+# By default, 'caudec -u' sets a user agent string specifying which version of caudec you are running,
+# as well as the name of your kernel, the architecture of your computer, and whether you are using a caudecrc file:
+# 'caudec x.x.x / Linux / x86_64 / - / - / - / none'
+# If you set the following parameter to true, caudec will put some extra information in its user agent string:
+# CPU name, number of logical CPU cores, and total amount of RAM:
+# 'caudec x.x.x / Linux / x86_64 / Intel(R) Core(TM) i7-2670QM CPU @ 2.20GHz / 8 / 7898 / none'
+# This parameter defaults to false (don't send information about CPU and RAM).
+# To see your user agent string without contacting the server, run 'caudec -h'
+sendHardwareDetails=false
