@@ -2078,378 +2078,6 @@ getFileSize ()
 	esac
 }
 
-checkFreeSpace ()
-{
-	local f fsize nBytesFiles=0 otdev otdir kbytes freeSpace=0 copySpace decodedSpace resampledSpace requiredDecodedSpace=0 requiredResampledSpace=0 requiredLossyWAVSpace=0 decodedSize encodedSize requiredMiB freeMiB np=$nProcesses
-
-	requiredSpace=0
-	if [ "$OS" = 'Linux' ]; then
-		freeSpace="$( stat -f -c '%a * %S' "$TDIR" | bc )"
-	else
-		freeSpace="$( df "$TDIR" 2>/dev/null | grep -Fv 'Available' | tr -s ' ' | cut -d ' ' -f 4 )"
-		freeSpace=$(( freeSpace * 512 ))
-	fi
-
-	if [ $nInstances -gt 1 ]; then
-		for d in "${piddir}"/instance.*; do
-			if [ "$d" = "$instanceDir" ]; then continue; fi
-			otdev="$( cat "${d}/tdev" )"
-			if [ "$otdev" = "$TDEV" ]; then
-				for i in {1..15}; do
-					if [ -f "${d}/bytes" ]; then
-						# subtract disk space requirements declared by other instances using the same device
-						fsize="$( cat "${d}/bytes" )"
-						freeSpace=$(( freeSpace - fsize ))
-						# the "bytes" files include the size of already created files, we need to re-adjust $freeSpace
-						otdir="$( cat "${d}/tdir" )"
-						kbytes="$( du -k "$otdir" 2>/dev/null | cut -f 1 )" # we may not have permission
-						if [ -n "$kbytes" ]; then
-							freeSpace=$(( freeSpace + ( kbytes * 1024 ) ))
-						fi
-						break
-					fi
-					sleep 0.3
-				done
-			fi
-		done
-	fi
-
-	freeMiB=$(( (freeSpace + 524288) / 1048576 ))
-
-	# list all file sizes
-	echo -n > "${TDIR}/fileSizes"
-	echo -n > "${TDIR}/rgFileSizes"
-	for f in "${sourceFiles[@]}" ; do
-		getFileSize "$f"
-		if [ "$1" = 'replaygain' ]; then # special case: only some formats need to be decoded
-			case "$f" in
-				*.tak|*.ape) echo "$filesize $f" >> "${TDIR}/rgFileSizes" ;;
-				*.m4a) if isALAC "$f"; then echo "$filesize $f" >> "${TDIR}/rgFileSizes" ; fi ;;
-			esac
-		fi
-		echo "$filesize $f" >> "${TDIR}/fileSizes"
-	done
-
-	while (( nProcesses > 0 )); do # loop and reduce nProcesses with each turn, until the ramdisk requirements are low enough
-		# At worst, we'll be processing $nProcesses files at once and they're going to be the largest of the bunch
-		sort -n -r "${TDIR}/fileSizes" | head -n $nProcesses > "${TDIR}/sortedSizes"
-
-		copySpace=0
-		if [ $preloadSources = true ]; then
-			# evaluate how much ramdisk space is needed to cache input files
-			while read s f; do
-				copySpace=$(( copySpace + s ))
-				if [ "$1" = 'replaygain' ]; then
-					case "$f" in
-						*.m4a) if isAAC "$f"; then copySpace=$(( copySpace + s )) ; fi ;; # aacgain creates a temporary copy
-					esac
-				fi
-			done < "${TDIR}/sortedSizes"
-		elif [ "$1" = 'replaygain' ]; then # MP3 and AAC files needs to be copied
-			while read s f; do
-				case "$f" in
-					*.mp3) copySpace=$(( copySpace + s )) ;;
-					*.m4a) if isAAC "$f"; then copySpace=$(( copySpace + s + s )) ; fi ;; # aacgain creates a temporary copy
-				esac
-			done < "${TDIR}/sortedSizes"
-		fi
-
-		if [ "$1" = 'testing' ]; then # caudec -t
-			requiredDecodedSpace=$copySpace
-			while read fsize f; do
-				# estimate by default that the decoded WAV file is twice as large (50% compression ratio) as the losslessly compressed file (worst case scenario)
-				decodedSize=$(( fsize * 100 / 50 ))
-				case "$f" in
-					*.flac) getFlacDecodedSize "$f" ;;
-					*.tak) getTakDecodedSize "$f" ;;
-					*.wv) getWavpackDecodedSize "$f" ;;
-					*.ape|*.m4a) getFfprobeDecodedSize "$f" ;;
-				esac
-				# if none of the above functions apply, or succeeded, we already have a default $decodedSize from above
-				requiredDecodedSpace=$(( requiredDecodedSpace + decodedSize ))
-			done < "${TDIR}/sortedSizes"
-			requiredSpace=$requiredDecodedSpace
-			if [ $requiredSpace -ge $freeSpace ]; then
-				# there is not enough ramdisk space to cache $nProcesses files (worst case scenario)
-				setNProcesses $(( nProcesses - 1 )) # reduce the number of concurrent processes
-				continue # try again from the start (while loop), with one less process
-			else
-				break # we've got enough ramdisk space, get out of the while loop
-			fi
-		elif [ "$1" = 'hashes' ]; then # caudec -H
-			requiredDecodedSpace=$copySpace
-			while read fsize f; do
-				# estimate by default that the decoded WAV file is twice as large (50% compression ratio) as the losslessly compressed file (worst case scenario)
-				decodedSize=$(( fsize * 100 / 50 ))
-				case "$f" in
-					*.flac) getFlacDecodedSize "$f" ;;
-					*.tak) getTakDecodedSize "$f" ;;
-					*.wv) getWavpackDecodedSize "$f" ;;
-					*.ape|*.m4a) getFfprobeDecodedSize "$f" ;;
-				esac
-				# if none of the above functions apply, or succeeded, we already have a default $decodedSize from above
-				requiredDecodedSpace=$(( requiredDecodedSpace + decodedSize ))
-			done < "${TDIR}/sortedSizes"
-#			if [ $requiredDecodedSpace -gt 0 ]; then
-#				requiredDecodedSpace=$(( requiredDecodedSpace * 105 / 100 )) # add 5% of margin just to be safe
-#			fi
-			if [ $requiredDecodedSpace -ge $freeSpace ]; then
-				# there is not enough ramdisk space to cache and decode $nProcesses files simultaneously (worst case scenario)
-				setNProcesses $(( nProcesses - 1 )) # reduce the number of concurrent processes
-				continue # try again from the start (while loop), with one less process
-			else
-				break # we've got enough ramdisk space, get out of the while loop
-			fi
-		elif [ "$1" = 'replaygain' ]; then # caudec -g
-			requiredDecodedSpace=$copySpace
-			sort -n -r "${TDIR}/rgFileSizes" | head -n $nProcesses > "${TDIR}/rgSortedSizes" # only take into account files that will get decoded
-			while read fsize f; do
-				case "$f" in # filetypes other than those listed below don't need to be decoded
-					*.tak)
-						decodedSize=$(( fsize * 100 / 50 )) # estimate by default a 50% compression ratio
-						getTakDecodedSize "$f"
-						requiredDecodedSpace=$(( requiredDecodedSpace + decodedSize ))
-						;;
-					*.ape)
-						decodedSize=$(( fsize * 10 / 50 ))
-						getFfprobeDecodedSize "$f"
-						requiredDecodedSpace=$(( requiredDecodedSpace + decodedSize ))
-						;;
-					*.m4a)
-						decodedSize=$(( fsize * 100 / 50 )) # file is ALAC, go with the usual lossless compression ratio estimation
-						getFfprobeDecodedSize "$f"
-						requiredDecodedSpace=$(( requiredDecodedSpace + decodedSize ))
-						;;
-				esac
-			done < "${TDIR}/rgSortedSizes"
-#			requiredDecodedSpace=$(( requiredDecodedSpace * 105 / 100 )) # add 5% of margin just to be safe
-			if [ $requiredDecodedSpace -ge $freeSpace ]; then
-				# there is not enough ramdisk space to cache and decode $nProcesses files simultaneously (worst case scenario)
-				setNProcesses $(( nProcesses - 1 )) # reduce the number of concurrent processes
-				continue # try again from the start (while loop), with one less process
-			else
-				break # we've got enough ramdisk space, get out of the while loop
-			fi
-		elif [ "$1" = 'transcoding' ]; then # caudec -c
-			# Stages of transcoding, and their respective ramdisk space requirements:
-			# 1) Cache source files, if requested. Requirement: size(cached file)
-			# 2) Decode the source (cached) file to WAV, then delete the cached file, if any. Requirement: size(cached file) + size(WAV)
-			# 3) Optionally, resample the WAV file, then delete the original WAV file. Requirement: size(WAV) + size(WAV_RESAMPLED)
-			# 4) Transcode the final WAV file. Requirement: size(WAV or WAV_RESAMPLED) + size(transcode)
-
-			# we're in a loop, so we need to make sure to zero out temp files before usage
-			echo -n > "${TDIR}/decodedFileSizes"
-			echo -n > "${TDIR}/resampledFileSizes"
-
-			# First the source file needs to be decoded. Estimate the size of the resulting WAV file:
-			requiredDecodedSpace=$copySpace decodedSpace=0
-			while read fsize f; do
-				case "$f" in
-					*.flac)
-						getFlacDecodedSize "$f"
-						requiredDecodedSpace=$(( requiredDecodedSpace + decodedSize ))
-						decodedSpace=$(( decodedSpace + decodedSize )) # add up the space requirements for just the decoded WAV files, it will be needed for the next step
-						;;
-					*.wv)
-						getWavpackDecodedSize "$f"
-						requiredDecodedSpace=$(( requiredDecodedSpace + decodedSize ))
-						decodedSpace=$(( decodedSpace + decodedSize ))
-						;;
-					*.tak)
-						decodedSize=$(( fsize * 100 / 50 )) # estimate a 50% compression ratio by default
-						getTakDecodedSize "$f"
-						requiredDecodedSpace=$(( requiredDecodedSpace + decodedSize ))
-						decodedSpace=$(( decodedSpace + decodedSize ))
-						;;
-					*.ape|*.m4a)
-						decodedSize=$(( fsize * 100 / 50 ))
-						getFfprobeDecodedSize "$f"
-						requiredDecodedSpace=$(( requiredDecodedSpace + decodedSize ))
-						decodedSpace=$(( decodedSpace + decodedSize ))
-						;;
-					*.aiff|*.caf)
-						decodedSize=$fsize
-						requiredDecodedSpace=$(( requiredDecodedSpace + decodedSize ))
-						decodedSpace=$(( decodedSpace + decodedSize ))
-						;;
-					*.wav)
-						decodedSize=$fsize # source file is a .wav file, its size is already included in $copySpace
-						if [ $preloadSources = true ]; then
-							decodedSpace=$(( decodedSpace + decodedSize ))
-						fi
-						;;
-				esac
-				echo "$decodedSize $f" >> "${TDIR}/decodedFileSizes" # save the decoded sizes for later
-			done < "${TDIR}/sortedSizes"
-#			requiredDecodedSpace=$(( requiredDecodedSpace * 105 / 100 )) # add 5% of margin just to be safe
-			if [ $requiredDecodedSpace -ge $freeSpace ]; then
-				# there is not enough ramdisk space to cache and decode $nProcesses files simultaneously (worst case scenario)
-				setNProcesses $(( nProcesses - 1 )) # reduce the number of concurrent processes
-				continue # try again from the start (while loop), with one less process
-			fi
-
-			# at this point, we no longer have to include $copySpace, since the cached files (if any) are deleted
-			if [ -n "$bitDepth" -o -n "$samplingRate" -o $convertToStereo != 'false' ]; then
-				# The WAV file needs to be resampled. Estimate the size of the resampled WAV file, and add it to the size of the original WAV file:
-				resampledSpace=0 unable=false
-				while read fsize f; do
-					# if we're unable to estimate the size of the resampled WAV file, we can't do much but assume that it is equal to the original WAV file (no resampling)
-					resampledSize="$( grep -F "$f" "${TDIR}/decodedFileSizes" | cut -d ' ' -f 1 )"
-					case "$f" in
-						*.flac) getFlacResampledSize "$f" ;;
-						*.tak) getTakResampledSize "$f" ;;
-						*.wv) getWavpackResampledSize "$f" ;;
-						*.wav|*.aiff|*.caf) getSoxResampledSize "$f" ;;
-						*.ape|*.m4a) getFfprobeResampledSize "$f" ;;
-						*)
-							if [ $unable = false ]; then
-								# only print that warning once
-								printMessage 'warning' 'initialization' 'internal' 'verbose' "unable to predict required space in $mktempDir"
-								unable=true # the warning won't be printed again
-							fi
-							;;
-					esac
-					resampledSpace=$(( resampledSpace + resampledSize )) # add up the space requirements for just the resampled WAV files, it will be needed for the next step
-					echo "$resampledSize $f" >> "${TDIR}/resampledFileSizes" # save the resampled sizes for later
-				done < "${TDIR}/sortedSizes"
-				requiredResampledSpace=$(( decodedSpace + resampledSpace )) # original WAV files + resampled WAV files
-#				requiredResampledSpace=$(( requiredResampledSpace * 105 / 100 )) # add 5% of margin just to be safe
-				if [ $requiredResampledSpace -ge $freeSpace ]; then
-					# there is not enough ramdisk space to decode and resample $nProcesses files simultaneously (worst case scenario)
-					setNProcesses $(( nProcesses - 1 )) # reduce the number of concurrent processes
-					continue # try again from the start (while loop), with one less process
-				fi
-				decodedSpace=$resampledSpace
-				mv "${TDIR}/resampledFileSizes" "${TDIR}/decodedFileSizes"
-			elif [ $applyGain = true ]; then # caudec -G
-				requiredResampledSpace=$(( decodedSpace * 2 )) # original WAV files + replaygained WAV files (they're the same size)
-				if [ $preloadSources = false ]; then
-					while read fsize f; do
-						case "$f" in
-							*.wav) # not included in decodedSpace
-								requiredResampledSpace=$(( requiredResampledSpace + fsize ))
-								decodedSpace=$(( decodedSpace + fsize ))
-								;;
-						esac
-					done < "${TDIR}/sortedSizes"
-				fi
-#				requiredResampledSpace=$(( requiredResampledSpace * 105 / 100 )) # add 5% of margin just to be safe
-				if [ $requiredResampledSpace -ge $freeSpace ]; then
-					# there is not enough ramdisk space to decode and replaygain $nProcesses files simultaneously (worst case scenario)
-					setNProcesses $(( nProcesses - 1 )) # reduce the number of concurrent processes
-					continue # try again from the start (while loop), with one less process
-				fi
-			fi
-
-			# At this point there's only one final WAV file remaining.
-			requiredSpace=$decodedSpace
-			requiredLossyWAVSpace=$decodedSpace
-			while read decodedSize f; do
-				sourceFilename="${f##*/}"
-				sourceBasename="${sourceFilename%.*}"
-				if [ "$sourceBasename" != "${sourceBasename%.lossy}" ]; then
-					sourceIsLossyWAV=true
-				else
-					sourceIsLossyWAV=false
-				fi
-				if [ $nLossyWAV -ge 1 -a $sourceIsLossyWAV = false ]; then
-					# here some lossy* codec is requested, but the source WAV file isn't already lossyWAV
-
-					# first, the source WAV file and the lossyWAV file will need to co-exist
-					requiredLossyWAVSpace=$(( requiredLossyWAVSpace + decodedSize )) # encoded lossyWAV is the same as decodedSize
-
-					# let's see if any codec other than lossy* is requested, as well
-					for outputCodec in $outputCodecs ; do
-						case $outputCodec in
-							lossyWAV|lossyFLAC|lossyTAK|lossyWV) true ;; # nothing to do
-							*) # some codec other than lossy* is requested so…
-								# …we're going to need both the source WAV file, and the lossyWAV file, at once
-								requiredSpace=$(( requiredSpace + decodedSize )) # encoded lossyWAV is the same as decodedSize
-								break
-								;;
-						esac
-					done
-
-				fi
-
-				# Estimate the size of the transcoded file, and add it to the WAV files
-				for outputCodec in $outputCodecs ; do
-					case $outputCodec in
-						WAV) encodedSize=0 ;;
-						AIFF|CAF) encodedSize=$decodedSize ;;
-						FLAC|Flake|WavPack|WavPackHybrid|MonkeysAudio|TAK|ALAC) encodedSize=$(( decodedSize * 80 / 100 )) ;; # guestimate a compression ratio of 80%
-						lossyFLAC|lossyWV|lossyTAK|WavPackLossy) encodedSize=$(( decodedSize * 60 / 100 )) ;;
-						LAME|WinLAME) encodedSize=$(( decodedSize * 25 / 100 )) ;;
-						OggVorbis|WinVorbis) encodedSize=$(( decodedSize * 45 / 100 )) ;;
-						AAC|QAAC) encodedSize=$(( decodedSize * 35 / 100 )) ;;
-						Musepack) encodedSize=$(( decodedSize * 25 / 100 )) ;;
-						Opus) encodedSize=$(( decodedSize * 15 / 100 )) ;;
-					esac
-					requiredSpace=$(( requiredSpace + encodedSize ))
-				done
-			done < "${TDIR}/decodedFileSizes"
-
-#			requiredSpace=$(( requiredSpace * 105 / 100 )) # add 5% of margin just to be safe
-			if [ $requiredLossyWAVSpace -gt $requiredSpace ]; then
-				requiredSpace=$requiredLossyWAVSpace
-			fi
-			if [ $requiredSpace -ge $freeSpace ]; then
-				# there is not enough ramdisk space to transcode $nProcesses files simultaneously (worst case scenario)
-				setNProcesses $(( nProcesses - 1 )) # reduce the number of concurrent processes
-				continue # try again from the start (while loop), with one less process
-			else
-				break # we've got enough ramdisk space, get out of the while loop
-			fi
-		fi
-	done # we're done looping and reducing the number of concurrent processes (if necessary)
-
-	requiredSpace="$( echo -e "${requiredSpace}\n${requiredDecodedSpace}\n${requiredResampledSpace}" | sort -n | tail -n 1 )"
-	requiredSpace=$(( requiredSpace + (10 * 1024 * 1024) )) # add 10 MiB for good measure
-	requiredMiB=$(( (requiredSpace + 524288) / 1048576 )) # add half a mebibyte for rounding
-	if [ $requiredSpace -lt $freeSpace ]; then # we've got enough ramdisk space
-		if [ $np -gt $nProcesses ]; then
-			printMessage 'warning' 'initialization' 'filesystem' 'verbose' "Number of processes reduced to $nProcesses due to insufficient space in $mktempDir"
-			printMessage 'info' 'stderr' "Projected required space: $requiredMiB MiB (available: $freeMiB MiB)"
-			printMessage 'info' 'stderr' "You might want to set preloadSources to false in ~/.caudecrc or /etc/caudecrc."
-		else
-			printMessage 'info' 'debug' "Projected required space: $requiredMiB MiB (available: $freeMiB MiB)"
-		fi
-		echo $requiredSpace > "${instanceDir}/bytes"
-		return $EX_OK
-	else # not enough ramdisk space, even after reducing the number of concurrent processes to 1
-		printMessage 'warning' 'initialization' 'filesystem' 'verbose' "Insufficient space in ${mktempDir}! $requiredMiB MiB required, $freeMiB MiB available."
-		printMessage 'info' 'stderr' "You might want to set preloadSources to false in ~/.caudecrc or /etc/caudecrc."
-		# try other temporary dirs, maybe they have more available space
-		if [ -n "$CAUDECDIR" ]; then
-			if [ "$CAUDECDIR" = "$TMPDIR" -a "$CAUDECDIR" != '/tmp' ]; then
-				CAUDECDIR='/tmp'
-				rm -rf "$TDIR"
-				printMessage 'info' 'stderr' "Switching to $CAUDECDIR."
-				setNProcesses $oProcesses
-				setupSwapdir
-				checkFreeSpace "$1"
-			else
-				printMessage 'abort'
-				cleanExit $EX_CANTCREAT
-			fi
-		else
-			if [ -n "$TMPDIR" -a -w "$TMPDIR" -a "$mktempDir" != "$TMPDIR" ]; then
-				CAUDECDIR="$TMPDIR"
-			elif [ "$mktempDir" != '/tmp' ]; then
-				CAUDECDIR='/tmp'
-			else
-				printMessage 'abort'
-				cleanExit $EX_CANTCREAT
-			fi
-			rm -rf "$TDIR"
-			printMessage 'info' 'stderr' "Switching to $CAUDECDIR."
-			setNProcesses $oProcesses
-			setupSwapdir
-			checkFreeSpace "$1"
-		fi
-	fi
-}
-
 processFilesExist ()
 {
 	for ((i=0; i<2; i++)); do # loop twice to make really sure
@@ -2486,38 +2114,6 @@ getNumberOfTakProcesses ()
 		nTakProcesses=1
 	fi
 	echo "$nTakProcesses"
-}
-
-monitorRamdiskSpace ()
-{
-	local sizeFile="${TDIR}/ramdiskSpaceUsage" kbytes bytes mib requiredMiB sleepTime='0.2'
-
-	if [ $tdirIsRamdisk = false ]; then
-		sleepTime='0.5'
-	fi
-
-	> "$sizeFile"
-	while processFilesExist ; do
-		sleep "$sleepTime"
-		du -k "$SWAPDIR" 2>/dev/null | cut -f 1 >> "$sizeFile" 2>/dev/null
-	done
-
-	kbytes="$( sort -n "$sizeFile" 2>/dev/null | tail -n 1 )"
-	if [ -z "$kbytes" ]; then
-		return $EX_OK
-	fi
-
-	bytes=$(( kbytes * 1024 ))
-	mib="$( echo "scale=3; $kbytes / 1024" | bc )"
-	mib="$( printf "%.0f" "$mib" )"
-	requiredMiB="$( echo "scale=3; $requiredSpace / (1024 * 1024)" | bc )"
-	requiredMiB="$( printf "%.0f" "$requiredMiB" )"
-	if [ $bytes -gt $requiredSpace ]; then
-		printMessage 'warning' 'internal' "ramdisk space usage larger than anticipated ($mib / $requiredMiB MiB)!"
-		printMessage 'info' 'stderr' 'Please file a bug report: http://caudec.net/redirect/bugReport'
-	else
-		printMessage 'info' 'debug' "ramdisk space usage: $mib / $requiredMiB MiB"
-	fi
 }
 
 tagline ()
@@ -4207,7 +3803,7 @@ decode ()
 							echo "SOURCEMD5=${hline}" > "$sourceMD5File"
 							if [ -n "$sourceMD5" -a "$sourceMD5" != "$hline" ]; then
 								printMessage 'warning' 'decoding' 'bad_internal_hash' $p "file:${sourceFile}" 'internal MD5 hash is incorrect (possible bug in the codec)!'
-								printMessage 'info' 'decoding' 'stderr' 'Please file a bug report: http://caudec.net/redirect/bugReport'
+								printMessage 'info' 'decoding' 'stderr' 'Please file a bug report: https://github.com/gcocatre/caudec/issues'
 							fi
 						fi
 						} & ;;
@@ -4335,7 +3931,7 @@ decode ()
 							echo "MD5=${hline}" > "$losslessMD5File"
 							if [ "$wavProcessed" != 'true' -a -n "$sourceMD5" -a "$sourceMD5" != "$hline" ]; then
 								printMessage 'warning' 'decoding' 'bad_internal_hash' $p "file:${sourceFile}" 'internal MD5 hash is incorrect (possible bug in the codec)!'
-								printMessage 'info' 'decoding' 'stderr' 'Please file a bug report: http://caudec.net/redirect/bugReport'
+								printMessage 'info' 'decoding' 'stderr' 'Please file a bug report: https://github.com/gcocatre/caudec/issues'
 							fi
 						fi
 						} &
@@ -5761,7 +5357,7 @@ computeHash ()
 							echo "MD5=${hline}" >> "$sourceTagFile"
 							if [ -n "$sourceMD5" -a "$sourceMD5" != "$hline" ]; then
 								printMessage 'warning' 'hashing' 'bad_internal_hash' $p "file:${sourceFile}" 'internal MD5 hash is incorrect (possible bug in the codec)!'
-								printMessage 'info' 'hashing' 'stderr' 'Please file a bug report: http://caudec.net/redirect/bugReport'
+								printMessage 'info' 'hashing' 'stderr' 'Please file a bug report: https://github.com/gcocatre/caudec/issues'
 							fi
 						fi
 						} & ;;
@@ -7319,52 +6915,44 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 	nJobs=$(( nTracks * nCodecs ))
 	if [ $nProcesses -gt $nJobs ]; then setNProcesses $nJobs ; fi
 	oProcesses=$nProcesses
-	checkFreeSpace 'transcoding'
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
 		time1="$( date '+%s' ).0"
 	fi
-	monitorRamdiskSpace &
 	for ((p=0; p<nProcesses; p++)); do
 		transcode &
 	done
 elif [ $checkFiles = true ]; then
 	if [ $nProcesses -gt $nTracks ]; then setNProcesses $nTracks ; fi
 	oProcesses=$nProcesses
-	checkFreeSpace 'testing'
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
 		time1="$( date '+%s' ).0"
 	fi
-	monitorRamdiskSpace &
 	for ((p=0; p<nProcesses; p++)); do
 		testFiles &
 	done
 elif [ $computeReplaygain = true ]; then
 	if [ $nProcesses -gt $nTracks ]; then setNProcesses $nTracks ; fi
 	oProcesses=$nProcesses
-	checkFreeSpace 'replaygain'
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
 		time1="$( date '+%s' ).0"
 	fi
-	monitorRamdiskSpace &
 	for ((p=0; p<nProcesses; p++)); do
 		computeTrackGains &
 	done
 elif [ $actionHash = true ]; then
 	if [ $nProcesses -gt $nTracks ]; then setNProcesses $nTracks ; fi
 	oProcesses=$nProcesses
-	checkFreeSpace 'hashes'
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
 		time1="$( date '+%s' ).0"
 	fi
-	monitorRamdiskSpace &
 	for ((p=0; p<nProcesses; p++)); do
 		computeHashes &
 	done
