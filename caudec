@@ -1515,10 +1515,10 @@ checkBinaries ()
 				MonkeysAudio) checkBinary 'mac' 'APEv2' ;;
 				TAK) checkBinary 'wine' 'Takc.exe' ;;
 				ALAC) checkBinary 'nohup' 'ffmpeg' 'neroAacTag' ;;
-				lossyWAV) checkBinary 'wine' 'lossyWAV.exe' ;;
-				lossyFLAC) checkBinary 'wine' 'lossyWAV.exe' 'flac' ;;
-				lossyWV) checkBinary 'wine' 'lossyWAV.exe' 'wavpack' ;;
-				lossyTAK) checkBinary 'wine' 'lossyWAV.exe' 'Takc.exe' ;;
+				lossyWAV) checkBinary 'lossywav' ;;
+				lossyFLAC) checkBinary 'lossywav' 'flac' ;;
+				lossyWV) checkBinary 'lossywav' 'wavpack' ;;
+				lossyTAK) checkBinary 'lossywav' 'wine' 'Takc.exe' ;;
 				OggVorbis) checkBinary 'oggenc' ;;
 				WinVorbis) checkBinary 'wine' 'oggenc2.exe' ;;
 				LAME) checkBinary 'lame' ;;
@@ -4598,7 +4598,7 @@ encodeLossyWAV ()
 	if [ $ec -eq $EX_OK ]; then
 		if [ ! -e "$lossywavFile" ]; then
 			cd "$SWAPDIR"
-			runWineExe lossyWAV "${i}.wav" -q $compression_lossyWAV >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			lossywav "${i}.wav" -q $compression_lossyWAV >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			cd "$OLDPWD"
 		fi
 	fi
@@ -4825,9 +4825,9 @@ getEncoderVersions ()
 				;;
 
 			lossy*)
-				lossywavVersion="$( runWineExe lossyWAV -v 2>/dev/null | grep -F 'lossyWAV' | tr -d '\r\n' )" # recent lossyWAV
+				lossywavVersion="$( lossywav -v 2>/dev/null | grep -F 'lossyWAV' | tr -d '\r\n' )" # recent lossyWAV
 				if [ -z "$lossywavVersion" ]; then
-					lossywavVersion="$( runWineExe lossyWAV -v 2>&1 | grep -F 'lossyWAV' | tr -d '\r\n' )" # old lossyWAV
+					lossywavVersion="$( lossywav -v 2>&1 | grep -F 'lossyWAV' | tr -d '\r\n' )" # old lossyWAV
 				fi
 				lossywavVersion="${lossywavVersion##* }"
 				;;
