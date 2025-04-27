@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright © 2012 - 2024 Guillaume Cocatre-Zilgien <guillaume@cocatre.net>
+# Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien <guillaume@cocatre.net>
 # https://github.com/gcocatre/caudec
 #
 # This program is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 
 me='caudec'
 calledAs="${0##*/}"
-VERSION='2.0.0'
+VERSION='1.7.7'
 
 # EX_USAGE: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # EX_DATAERR: The input data was incorrect in some way. This should only be used for user's data & not system files.
