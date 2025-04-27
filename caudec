@@ -1561,50 +1561,6 @@ handleInstance ()
 	fi
 }
 
-setupMacOSRamdisk ()
-{
-	local bytes='' freePages=0 freeBytes=0 sectors=0 ec=$EX_KO mebibytes=0
-
-	if [ -w "/Volumes/${ramdiskName}" ]; then
-		return $EX_OK
-	elif [ -d "/Volumes/${ramdiskName}" -o -e "${piddir}/creatingRamdisk" ]; then
-		for i in {1..15}; do
-			sleep 0.3
-			if [ -w "/Volumes/${ramdiskName}" ]; then return $EX_OK; fi
-		done
-		return $EX_KO
-	fi
-
-	which 'hdiutil' >/dev/null 2>&1 || return $EX_KO
-	which 'diskutil' >/dev/null 2>&1 || return $EX_KO
-	touch "${piddir}/creatingRamdisk"
-
-	freePages="$( vm_stat | grep -F 'Pages free:' | tr -s ' ' | cut -d ' ' -f 3 )"
-	freePages="${freePages%*.}"
-	freeBytes=$(( freePages * 4096 ))
-	sectors=$(( freeBytes / 512 * 90 / 100 )) # we want 90% of free RAM
-
-	if [ $sectors -ge 20480 ]; then # >= 10 MiB
-		ramdiskDevice="$( hdiutil attach -nomount ram://${sectors} 2>> "$errorLogFile" | tr -d '\t' | $sedcmd -e 's@[ ]*$@@' )"
-		test -z "$ramdiskDevice" && return $EX_KO
-		diskutil eraseVolume HFS+ "$ramdiskName" "$ramdiskDevice" >/dev/null 2>> "$errorLogFile" ; ec=$?
-		if [ $ec -eq $EX_OK -a -d "/Volumes/${ramdiskName}" ]; then
-			echo "$ramdiskDevice" > "/Volumes/${ramdiskName}/device"
-			mebibytes=$(( ((sectors * 512) + 524288) / 1048576 )) # add half a mebibyte for proper rounding
-			printMessage 'info' 'debug' "Set up ramdisk with $mebibytes MiB"
-			rm -f "${piddir}/creatingRamdisk"
-			return $EX_OK
-		else
-			hdiutil detach "$ramdiskDevice" >/dev/null 2>&1
-			rm -f "${piddir}/creatingRamdisk"
-			return $EX_KO
-		fi
-	else
-		rm -f "${piddir}/creatingRamdisk"
-		return $EX_KO
-	fi
-}
-
 isRamdisk ()
 {
 	local fstype='n/a' device=''
@@ -1665,8 +1621,10 @@ setupSwapdir ()
 		if [ "$mktempFS" != 'ramdisk' ]; then
 			tdirIsRamdisk=false
 			preloadSources=false
-			printMessage 'warning' 'initialization' 'filesystem' 'verbose' "path:${CAUDECDIR}" "CAUDECDIR isn't on a ramdisk."
-			printMessage 'info' 'stderr' "Performance will likely suffer."
+			if [ "$OS" != 'Darwin' ]; then # NOT macOS
+				printMessage 'warning' 'initialization' 'filesystem' 'verbose' "path:${CAUDECDIR}" "CAUDECDIR isn't on a ramdisk."
+				printMessage 'info' 'stderr' "Performance will likely suffer."
+			fi
 		fi
 	elif [ "$mktempFS" = 'ramdisk' -a "$devshmFS" = 'ramdisk' ]; then # both filesystems are ramdisks
 		if [ -w "$mktempDir" -a -w '/dev/shm' ]; then # both dirs are writable
@@ -1701,19 +1659,9 @@ setupSwapdir ()
 			cleanExit $EX_NOPERM
 		fi
 	else # neither dir is on a tmpfs
-		if [ "$OS" = 'Darwin' ]; then # OS Ⅹ
-			setupMacOSRamdisk ; ec=$?
-			if [ $ec -eq $EX_OK ]; then
-				mktempDir="/Volumes/${ramdiskName}"
-			else
-				tdirIsRamdisk=false
-				preloadSources=false
-				printMessage 'warning' 'initialization' 'filesystem' 'verbose' "Attempt to create a ramdisk failed."
-				printMessage 'info' 'stderr' "Performance will likely suffer."
-			fi
-		else
-			tdirIsRamdisk=false
-			preloadSources=false
+		tdirIsRamdisk=false
+		preloadSources=false
+		if [ "$OS" != 'Darwin' ]; then # NOT macOS
 			printMessage 'warning' 'initialization' 'filesystem' 'verbose' "Neither \"${mktempDir}\" or \"/dev/shm\" is on a ramdisk."
 			printMessage 'info' 'stderr' "Performance will likely suffer."
 		fi
@@ -6913,13 +6861,13 @@ fi
 maxProcesses=''
 if which 'nproc' >/dev/null 2>&1; then # GNU Coreutils installed
 	maxProcesses="$( nproc 2>/dev/null )"
-elif which 'gnproc' >/dev/null 2>&1; then # GNU Coreutils installed on OS Ⅹ
+elif which 'gnproc' >/dev/null 2>&1; then # GNU Coreutils installed on macOS
 	maxProcesses="$( gnproc 2>/dev/null )"
 elif [ -e '/proc/cpuinfo' ]; then # Linux
 	maxProcesses="$( grep -cF 'cpu MHz' /proc/cpuinfo 2>/dev/null )"
-elif [ "$OS" = 'Darwin' ]; then # OS Ⅹ
-	# Many thanks to Tobias Link for helping me port caudec to OS Ⅹ
-	maxProcesses="$( system_profiler -detailLevel full SPHardwareDataType 2>/dev/null | grep -F 'Total Number of Cores:' 2>/dev/null | cut -d ':' -f 2 2>/dev/null | tr -d ' ' 2>/dev/null )"
+elif [ "$OS" = 'Darwin' ]; then # macOS
+	# Many thanks to Tobias Link for helping me port caudec to macOS
+	maxProcesses="$( system_profiler -detailLevel full SPHardwareDataType 2>/dev/null | grep -F 'Total Number of Cores:' 2>/dev/null | cut -d ':' -f 2 2>/dev/null | tr -d ' ' | cut -d '(' -f 1 2>/dev/null )"
 fi
 
 case "$maxProcesses" in
