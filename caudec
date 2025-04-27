@@ -2107,8 +2107,8 @@ getNumberOfTakProcesses ()
 	local nRunningProcesses nTakProcesses
 
 	nRunningProcesses="$( getNumberOfCaudecProcesses )"
-	nTakProcesses=$(( maxProcesses - nRunningProcesses ))
-	if [ $nTakProcesses -gt 4 ]; then
+	nTakProcesses=$(( maxProcessesSetByUser - nRunningProcesses ))
+	if [ $nTakProcesses -gt 4 ]; then # FIXMEL: why?
 		nTakProcesses=4
 	elif [ $nTakProcesses -lt 1 ]; then
 		nTakProcesses=1
@@ -2121,7 +2121,7 @@ getNumberOfAvailableThreads ()
 	local nRunningProcesses nThreads
 
 	nRunningProcesses="$( getNumberOfCaudecProcesses )"
-	nThreads=$(( nProcesses - nRunningProcesses ))
+	nThreads=$(( maxProcessesSetByUser - nRunningProcesses ))
 	if [ $nThreads -lt 1 ]; then
 		nThreads=1
 	fi
@@ -4382,12 +4382,13 @@ encode ()
 			WavPack)
 				destExtension='wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt" kfm='-r'
 				if [ $keepWavMetadata = true ]; then kfm=''; fi
+				nThreads="$( getNumberOfAvailableThreads )"
 				if [ -z "$compression_WavPack" -o "$compression_WavPack" = 'd' -o "$compression_WavPack" = 'default' ]; then
 					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=WavPack $wavpackVersion / default"; fi
-					wavpack -q -m $kfm -o "$encodedFile" "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					wavpack -q --threads=$nThreads -m $kfm -o "$encodedFile" "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
 					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=WavPack $wavpackVersion / -$compression_WavPack"; fi
-					wavpack -q -m $kfm -o "$encodedFile" -${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					wavpack -q --threads=$nThreads -m $kfm -o "$encodedFile" -${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
@@ -4399,6 +4400,7 @@ encode ()
 			WavPackHybrid)
 				destExtension='wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt" kfm='-r'
 				if [ $keepWavMetadata = true ]; then kfm=''; fi
+				nThreads="$( getNumberOfAvailableThreads )"
 				if [ -z "$compression_WavPack" -o "$compression_WavPack" = 'd' -o "$compression_WavPack" = 'default' ]; then
 					if [ $tagCompressionSetting = true ]; then
 						if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
@@ -4407,7 +4409,7 @@ encode ()
 							compressionTag="Encoding=WavPack $wavpackVersion / default / $bitrate_WavPackLossy kbps (ABR)"
 						fi
 					fi
-					wavpack -q -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -c "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					wavpack -q --threads=$nThreads -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -c "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
 					if [ $tagCompressionSetting = true ]; then
 						if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
@@ -4416,7 +4418,7 @@ encode ()
 							compressionTag="Encoding=WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
 						fi
 					fi
-					wavpack -q -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -c${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					wavpack -q --threads=$nThreads -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -c${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
@@ -4428,6 +4430,7 @@ encode ()
 			WavPackLossy)
 				destExtension='wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt" kfm='-r'
 				if [ $keepWavMetadata = true ]; then kfm=''; fi
+				nThreads="$( getNumberOfAvailableThreads )"
 				if [ -z "$compression_WavPack" -o "$compression_WavPack" = 'd' -o "$compression_WavPack" = 'default' ]; then
 					if [ $tagCompressionSetting = true ]; then
 						if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
@@ -4436,7 +4439,7 @@ encode ()
 							compressionTag="Encoding=WavPack $wavpackVersion / default / $bitrate_WavPackLossy kbps (ABR)"
 						fi
 					fi
-					wavpack -q $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					wavpack -q --threads=$nThreads $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
 					if [ $tagCompressionSetting = true ]; then
 						if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
@@ -4445,7 +4448,7 @@ encode ()
 							compressionTag="Encoding=WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
 						fi
 					fi
-					wavpack -q $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					wavpack -q --threads=$nThreads $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
@@ -4504,7 +4507,8 @@ encode ()
 
 			lossyWV)
 				destExtension='lossy.wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt"
-				wavpack -q -m -o "$encodedFile" --blocksize=512 --merge-blocks "$lossywavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				nThreads="$( getNumberOfAvailableThreads )"
+				wavpack -q --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks "$lossywavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
@@ -6502,6 +6506,8 @@ case "$maxProcesses" in
 		;;
 esac
 
+maxProcessesSetByUser=$maxProcesses
+
 destDir='' copyPath=false outputCodecs='' lastCodec='' nCodecs=0 copyWAV=false verbose=true checkFiles=false
 nLossyWAV=0 copyLossyWAV=false
 bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false actionHash=false applyGain=false applyGainType='' computeSoundcheck=false soundcheckMode='' convertToStereo='false'
@@ -6566,6 +6572,7 @@ while getopts 'zsn:o:O:P:kKDtdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				[0-9]|[0-9][0-9])
 					if [ $OPTARG -le $maxProcesses ]; then
 						nProcesses=$OPTARG
+						maxProcessesSetByUser=$OPTARG
 					else
 						printMessage 'error' 'usage' 'bad_value' "$me -n: the number of processes must be an integer between 1 and $maxProcesses" ; exit $EX_USAGE
 					fi
