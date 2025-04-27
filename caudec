@@ -3461,7 +3461,14 @@ sanitizeApeTags ()
 		fi
 	done < <( sort -u "$destTagFile" 2>/dev/null ) > "${destTagFile}.tmp"
 	if [ -f "${destTagFile}.tmp" ]; then
-		echo -en "\n" >> "${destTagFile}.tmp"
+		if [ "$OS" = 'Linux' ]; then
+			destTagFileSize=$(stat -f %s "${destTagFile}.tmp")
+		else
+			destTagFileSize=$(stat -f %z "${destTagFile}.tmp")
+		fi
+		if [ $destTagFileSize -gt 0 ]; then
+			echo -en "\n" >> "${destTagFile}.tmp"
+		fi
 		rm -f "$destTagFile" >/dev/null 2>&1
 		mv "${destTagFile}.tmp" "$destTagFile" >/dev/null 2>&1
 	fi
