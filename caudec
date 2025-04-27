@@ -2116,6 +2116,19 @@ getNumberOfTakProcesses ()
 	echo "$nTakProcesses"
 }
 
+getNumberOfAvailableThreads ()
+{
+	local nRunningProcesses nThreads
+
+	nRunningProcesses="$( getNumberOfCaudecProcesses )"
+	nThreads=$(( nProcesses - nRunningProcesses ))
+	if [ $nThreads -lt 1 ]; then
+		nThreads=1
+	fi
+	echo "$nThreads"
+}
+
+
 tagline ()
 {
 	local IFS=' ' tags switch value pattern nLines ereg
@@ -4347,7 +4360,8 @@ encode ()
 				# Kohlrabi is a very cool dude
 				if [ $keepWavMetadata = true ]; then kfm='--keep-foreign-metadata' ; fi
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=FLAC $flacVersion / -$compression_FLAC"; fi
-				printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -P 4096 $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
+				nThreads="$( getNumberOfAvailableThreads )"
+				printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P 4096 $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
 				importArtworkIntoFLAC || ec=$EX_KO
 				;;
 
@@ -4483,7 +4497,8 @@ encode ()
 			lossyFLAC)
 				destExtension='lossy.flac'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.vc.txt"
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
-				printf -- "--totally-silent`tagline -T`\x00%s" "$lossywavFile" | xargs -0 flac -P 4096 -5 -b 512 --keep-foreign-metadata -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
+				nThreads="$( getNumberOfAvailableThreads )"
+				printf -- "--totally-silent`tagline -T`\x00%s" "$lossywavFile" | xargs -0 flac -j $nThreads -P 4096 -5 -b 512 --keep-foreign-metadata -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
 				importArtworkIntoFLAC || ec=$EX_KO
 				;;
 
