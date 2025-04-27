@@ -50,13 +50,3 @@ tagWhitelist=''
 
 # tagBlacklist: tags to discard when transcoding (all others are kept - inactive when empty, and when tagWhitelist is non-empty)
 tagBlacklist=''
-
-# By default, 'caudec -u' sets a user agent string specifying which version of caudec you are running,
-# as well as the name of your kernel, the architecture of your computer, and whether you are using a caudecrc file:
-# 'caudec x.x.x / Linux / x86_64 / - / - / - / none'
-# If you set the following parameter to true, caudec will put some extra information in its user agent string:
-# CPU name, number of logical CPU cores, and total amount of RAM:
-# 'caudec x.x.x / Linux / x86_64 / Intel(R) Core(TM) i7-2670QM CPU @ 2.20GHz / 8 / 7898 / none'
-# This parameter defaults to false (don't send information about CPU and RAM).
-# To see your user agent string without contacting the server, run 'caudec -h'
-sendHardwareDetails=false

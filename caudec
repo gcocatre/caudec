@@ -74,7 +74,6 @@ if [ -r '/etc/caudecrc' ]; then
 	. '/etc/caudecrc'
 	test -n "$maxInstances" && rootMaxInstances="$maxInstances"
 	test -n "$maxInputFiles" && rootMaxInputFiles="$maxInputFiles"
-	test -n "$sendHardwareDetails" && rootSendHardwareDetails="$sendHardwareDetails"
 	test -n "$preloadSources" && rootPreloadSources="$preloadSources"
 fi
 
@@ -141,10 +140,6 @@ case "$maxInputFiles" in
 	*) maxInputFiles=100 ;;
 esac
 
-# false by default
-if [ -n "$rootSendHardwareDetails" ]; then sendHardwareDetails="$rootSendHardwareDetails"; fi
-if [ "$sendHardwareDetails" = 'true' ]; then sendHardwareDetails=true; else sendHardwareDetails=false; fi
-
 # true by default
 if [ -n "$rootPreloadSources" ]; then preloadSources="$rootPreloadSources"; fi
 if [ "$preloadSources" = 'false' ]; then preloadSources=false; else preloadSources=true; fi
@@ -178,18 +173,17 @@ printUsage ()
 {
 	if [ "$calledAs" = 'decaude' ]; then
 		echo "caudec ${VERSION}: multiprocess audio converter
-Copyright © 2012 - 2014 Guillaume Cocatre-Zilgien
-http://caudec.net/
+Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
+https://github.com/gcocatre/caudec
 
 Usage: decaude FILES
 Decodes FILES to WAV (same as 'caudec -d' and 'caudec -c wav').
 Instead of multiple files, one or more directories may be specified.
 See also: caudec -h"
 	else
-		genUserAgent
 		echo "caudec ${VERSION}: multiprocess audio converter
-Copyright © 2012 - 2014 Guillaume Cocatre-Zilgien
-http://caudec.net/
+Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
+https://github.com/gcocatre/caudec
 
 Usage: $me [ GLOBAL OPTIONS ] [ PROCESSING ] [ ENCODING/DECODING/RG ] FILES
 Operate on multiple audio files at once, in parallel.
@@ -304,13 +298,8 @@ Replaygain options (mutually exclusive from -c/-d/-t):
 
 Information:
   -h        display this help and exit
-  -u        check for new versions
   -V        output version information and exit
 
-
-User Agent string, sent when checking for new versions (-u):
-$userAgent
-See 'sendHardwareDetails' configuration parameter in caudecrc.
 
 caudec uses a temporary directory for processing files (default: \$TMPDIR, /tmp
 or /dev/shm). If you wish to use another directory, set the CAUDECDIR
@@ -322,7 +311,7 @@ To enable debugging, set the CAUDECDEBUG environment variable to 'true'
 as well as a log of errors that occurred while using external tools.
 
 For more help, see the online documentation:
-http://caudec.net/documentation/"
+https://github.com/gcocatre/caudec"
 	fi
 }
 
@@ -620,121 +609,6 @@ findWineDirs ()
 
 	if [ $informWineDirsFound = true ]; then
 		printMessage 'info' 'initialization' 'Wine user directories were found, and the relevant configuration variables were saved to ~/.caudecrc.'
-	fi
-}
-
-genUserAgent ()
-{
-	local kernelName archName cpuName='-' cpuCores='-' ram='-' cpuFreq='' configFile='none'
-
-	if [ -e "${HOME}/.caudecrc" -a -e '/etc/caudecrc' ]; then
-		configFile='both'
-	elif [ -e "${HOME}/.caudecrc" ]; then
-		configFile='home'
-	elif [ -e '/etc/caudecrc' ]; then
-		configFile='etc'
-	else
-		configFile='none'
-	fi
-
-	kernelName="$( uname -s 2>/dev/null )"
-	if [ -n "$kernelName" ]; then
-		kernelName="${kernelName// \/ / ∕ }";
-	else
-		kernelName='unknown'
-	fi
-
-	archName="$( uname -m 2>/dev/null )"
-	if [ -n "$archName" ]; then
-		archName="${archName// \/ / ∕ }"
-	else
-		archName='unknown'
-	fi
-
-	if [ $sendHardwareDetails = true ]; then
-		if [ -e '/proc/cpuinfo' ]; then
-			cpuName="$( grep -i 'model name' /proc/cpuinfo 2>/dev/null | head -n 1 2>/dev/null | tr -ds "\t" ' ' 2>/dev/null | cut -d ' ' -f 3- 2>/dev/null )"
-			if [ -n "$cpuName" ]; then
-				cpuName="${cpuName// \/ / ∕ }"
-			else
-				cpuName='unknown'
-			fi
-
-			cpuCores="$( getNumberOfCpuCores )"
-			if [ -z "$cpuCores" ]; then
-				cpuCores='unknown'
-			fi
-		elif [ "$OS" = 'Darwin' ]; then # OS Ⅹ
-			cpuName="$( system_profiler -detailLevel full SPHardwareDataType 2>/dev/null | grep -F 'Processor Name:' 2>/dev/null | cut -d ':' -f 2 2>/dev/null | tr -s ' ' 2>/dev/null )"
-			if [ -z "$cpuName" ]; then cpuName='unknown'; else cpuName="${cpuName:1}"; fi
-			cpuFreq="$( system_profiler -detailLevel full SPHardwareDataType 2>/dev/null | grep -F 'Processor Speed:' 2>/dev/null | cut -d ':' -f 2 2>/dev/null | tr -s ' ' 2>/dev/null )"
-			if [ -n "$cpuFreq" ]; then
-				cpuName="$cpuName @ ${cpuFreq:1}"
-			fi
-			if which 'gnproc' >/dev/null 2>&1; then
-				cpuCores="$( gnproc 2>/dev/null )"
-			else
-				cpuCores="$( system_profiler -detailLevel full SPHardwareDataType 2>/dev/null | grep -F 'Total Number of Cores:' 2>/dev/null | cut -d ':' -f 2 2>/dev/null | tr -d ' ' 2>/dev/null )"
-			fi
-			if [ -z "$cpuCores" ]; then cpuCores='unknown'; fi
-		else
-			cpuName='unknown'
-			cpuCores='unknown'
-		fi
-
-		if [ -e '/proc/meminfo' ]; then
-			ram="$( grep -i 'MemTotal:' /proc/meminfo 2>/dev/null | tr -cd '0-9' 2>/dev/null )"
-			if [ -n "$ram" ]; then
-				ram=$(( ram / 1024 ))
-			else
-				ram='unknown'
-			fi
-		elif [ "$OS" = 'Darwin' ]; then # OS Ⅹ
-			ram="$( system_profiler -detailLevel full SPHardwareDataType 2>/dev/null | grep -F 'Memory:' 2>/dev/null | cut -d ':' -f 2 2>/dev/null | tr -s ' ' 2>/dev/null )"
-			if [ -z "$ram" ]; then ram='unknown'; else ram="${ram:1}"; fi
-		else
-			ram='unknown'
-		fi
-	fi
-	userAgent="caudec $VERSION / $kernelName / $archName / $cpuName / $cpuCores / $ram / $configFile"
-}
-
-checkNewVersion ()
-{
-	local v foo a='' b='' c='' x='' y='' z='' m='' n='' ec
-
-	if checkBinary 'wget'; then
-		genUserAgent
-		printMessage 'info' 'debug' 'user_agent' 'stderr' 'verbose' "$userAgent"
-		v="$( wget -U "$userAgent" -O - 'http://caudec.net/downloads/version' 2>/dev/null | head -n 1 2>/dev/null )"
-		if [ -z "$v" ]; then
-			printMessage 'error' 'checking_version' 'server' "an error occurred while trying to connect to server, please try again later." ; exit $EX_TEMPFAIL
-		else
-			echo "$v" | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' >/dev/null 2>&1 ; ec=$?
-			if [ $ec -ne $EX_OK ]; then
-				printMessage 'error' 'checking_version' 'server' "server returned bad data, please try again later." ; exit $EX_PROTOCOL
-			else
-				foo="${VERSION% *}" # strip out ' SVN'
-				if [ "$v" == "$foo" ]; then
-					printMessage 'success' 'checking_version' 'up_to_date' "caudec is up to date (version $VERSION)." ; exit $EX_OK
-				else
-					a="${v%%.*}"
-					b="${v%.*}"; b="${b#*.}"
-					c="${v##*.}"
-					x="${foo%%.*}"
-					y="${foo%.*}"; y="${y#*.}"
-					z="${foo##*.}"
-
-					m=$(( (a * 1000000) + (b * 1000) + c ))
-					n=$(( (x * 1000000) + (y * 1000) + z ))
-					if [ $m -gt $n ]; then
-						printMessage 'info' 'checking_version' 'new_version_available' "A new version of caudec is available ($v): http://caudec.net/downloads/" ; exit $EX_OK
-					else
-						printMessage 'error' 'checking_version' 'running_newer_version' "you're running a version that's newer than the one available online." ; exit $EX_KO
-					fi
-				fi
-			fi
-		fi
 	fi
 }
 
@@ -7391,8 +7265,6 @@ while getopts 'zsn:o:O:P:kKDtdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			;;
 
 		h) printUsage; exit $EX_OK ;;
-
-		u) checkNewVersion ; exit $EX_OK ;;
 
 		V) echo "$me $VERSION"; exit $EX_OK ;;
 
