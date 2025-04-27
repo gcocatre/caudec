@@ -238,7 +238,7 @@ Processing / resampling options:
 
 Encoding options:
   -c CODEC  use specified CODEC: wav, aiff, caf,
-            flac, flake, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy)
+            flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
             ape, tak, alac, lossyWAV, lossyFLAC, lossyWV, lossyTAK, mp3 / lame,
             winlame, ogg / vorbis, winvorbis, aac, qaac, mpc / musepack, opus.
             Note that artwork preservation in MP3s requires eyeD3.
@@ -646,14 +646,6 @@ getCompressionSetting ()
 				b|best) compression_FLAC=8 ;;
 				'') compression_FLAC=5 ;;
 				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be an integer between 0 and 8, or one of fast or best" ; exit $EX_USAGE ;;
-			esac
-			;;
-
-		Flake)
-			case "$v" in
-				[0-9]|1[0-2]) compression_Flake="$v" ;;
-				'') compression_Flake=5 ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be an integer between 0 and 12" ; exit $EX_USAGE ;;
 			esac
 			;;
 
@@ -1384,7 +1376,6 @@ checkBinaries ()
 			case "$outputCodec" in
 				AIFF|CAF) checkBinary 'sox' ;;
 				FLAC) checkBinary 'flac' ;;
-				Flake) checkBinary 'flake' 'metaflac' ;;
 				WavPack|WavPackHybrid|WavPackLossy) checkBinary 'wavpack' ;;
 				MonkeysAudio) checkBinary 'mac' 'APEv2' ;;
 				TAK) checkBinary 'wine' 'Takc.exe' ;;
@@ -2168,7 +2159,7 @@ tagline ()
 				done
 				;;
 
-			FLAC|Flake|WavPack|WavPackHybrid|MonkeysAudio|TAK|ALAC)
+			FLAC|WavPack|WavPackHybrid|MonkeysAudio|TAK|ALAC)
 				if isWavProcessed ; then # SoX was used on the WAV file for resampling, applying gain, or converting to stereo
 					grep -viE "µµµCRC32=|µµµMD5=|µµµSHA1=|µµµSHA256=|µµµSHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 					mv "${destTagFile}.${outputCodec}.tmp" "${destTagFile}.${outputCodec}"
@@ -3796,7 +3787,7 @@ decode ()
 		for outputCodec in $outputCodecs; do
 			case "$outputCodec" in
 				lossy*|*Vorbis|Opus|WavPackLossy|Musepack|*LAME|AAC|QAAC) hasLossy=true ;;
-				FLAC|Flake|WavPack|WavPackHybrid|MonkeysAudio|TAK|ALAC) hasLossless=true ;;
+				FLAC|WavPack|WavPackHybrid|MonkeysAudio|TAK|ALAC) hasLossless=true ;;
 			esac
 		done
 
@@ -4001,7 +3992,7 @@ decode ()
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
-			FLAC|Flake|lossyFLAC|OggVorbis|WinVorbis|Opus) convertTags $sourceTagFormat 'vc' ;;
+			FLAC|lossyFLAC|OggVorbis|WinVorbis|Opus) convertTags $sourceTagFormat 'vc' ;;
 			WavPack*|MonkeysAudio|TAK|lossyWV|lossyTAK|Musepack) convertTags $sourceTagFormat 'ape' ;;
 			LAME|WinLAME) convertTags $sourceTagFormat 'lame' ;;
 			AAC|QAAC|ALAC) convertTags $sourceTagFormat 'm4a' ;;
@@ -4238,7 +4229,6 @@ getEncoderVersions ()
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
 			FLAC) flacVersion="$( flac --version | head -n 1 )"; flacVersion="${flacVersion##* }" ;;
-			Flake) flakeVersion="$( flake -h 2>&1 | grep -F 'version' )"; flakeVersion="${flakeVersion##* }" ;;
 			MonkeysAudio) apeVersion="$( mac 2>&1 | grep -F '(c)' | tr -d ' ' | cut -d '(' -f 2 | cut -d ')' -f 1 )"; apeVersion="${apeVersion#v}" ;;
 			WinVorbis) winoggencVersion="$( runWineExe oggenc2 -v 2>/dev/null | head -n 1 | tr -d '\r\n' )" ;;
 			LAME) lameVersion="$( lame --version 2>/dev/null | grep -E 'LAME.*version' | cut -d 'v' -f 2 | cut -d '(' -f 1 | cut -d ' ' -f 2- )" ; lameVersion="${lameVersion% *}" ;;
@@ -4365,20 +4355,6 @@ encode ()
 				importArtworkIntoFLAC || ec=$EX_KO
 				;;
 
-			Flake)
-				destExtension='flac'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.vc.txt"
-				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=Flake $flakeVersion / -$compression_Flake"; fi
-				flake -q -p 4096 -${compression_Flake} "$wavFile" -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				if [ $ec -eq $EX_OK ]; then
-					if [ -f "$destTagFile" ]; then
-						printf -- "--no-utf8-convert`tagline --set-tag`\x00%s" "$encodedFile" | xargs -0 metaflac >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					fi
-					if [ $ec -eq $EX_OK ]; then
-						importArtworkIntoFLAC || ec=$EX_KO
-					fi
-				fi
-				;;
-
 			WavPack)
 				destExtension='wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt" kfm='-r'
 				if [ $keepWavMetadata = true ]; then kfm=''; fi
@@ -4391,6 +4367,7 @@ encode ()
 					wavpack -q --threads=$nThreads -m $kfm -o "$encodedFile" -${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
+					# FIXME
 					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
@@ -4421,6 +4398,7 @@ encode ()
 					wavpack -q --threads=$nThreads -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -c${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
+					# FIXME
 					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
@@ -4451,6 +4429,7 @@ encode ()
 					wavpack -q --threads=$nThreads $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
+					# FIXME
 					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
@@ -4510,6 +4489,7 @@ encode ()
 				nThreads="$( getNumberOfAvailableThreads )"
 				wavpack -q --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks "$lossywavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
+					# FIXME
 					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					importBinariesIntoAPEv2 || ec=$EX_KO
@@ -6111,7 +6091,6 @@ getOutputCodecProps ()
 		AIFF)                destExtension='aiff'       cname='AIFF' ;;
 		CAF)                 destExtension='caf'        cname='CAF' ;;
 		FLAC)                destExtension='flac'       cname='FLAC' ;;
-		Flake)               destExtension='flac'       cname='Flake' ;;
 		WavPack)             destExtension='wv'         cname='WavPack' ;;
 		WavPackHybrid)       destExtension='wv'         cname='WavPack Hybrid' ;;
 		WavPackLossy)        destExtension='wv'         cname='WavPack Lossy' ;;
@@ -6370,7 +6349,6 @@ setDestDir ()
 	if [ "$outputCodec" = 'AIFF' -o -z "$dir_AIFF" ]; then dir_AIFF="$destDir"; fi
 	if [ "$outputCodec" = 'CAF' -o -z "$dir_CAF" ]; then dir_CAF="$destDir"; fi
 	if [ "$outputCodec" = 'FLAC' -o -z "$dir_FLAC" ]; then dir_FLAC="$destDir"; fi
-	if [ "$outputCodec" = 'Flake' -o -z "$dir_Flake" ]; then dir_Flake="$destDir"; fi
 	if [ "$outputCodec" = 'WavPack' -o -z "$dir_WavPack" ]; then dir_WavPack="$destDir"; fi
 	if [ "$outputCodec" = 'WavPackHybrid' -o -z "$dir_WavPackHybrid" ]; then dir_WavPackHybrid="$destDir"; fi
 	if [ "$outputCodec" = 'WavPackLossy' -o -z "$dir_WavPackLossy" ]; then dir_WavPackLossy="$destDir"; fi
@@ -6401,7 +6379,6 @@ getDestDir ()
 		AIFF) destDir="$dir_AIFF" ;;
 		CAF) destDir="$dir_CAF" ;;
 		FLAC) destDir="$dir_FLAC" ;;
-		Flake) destDir="$dir_Flake" ;;
 		WavPack) destDir="$dir_WavPack" ;;
 		WavPackHybrid) destDir="$dir_WavPackHybrid" ;;
 		WavPackLossy) destDir="$dir_WavPackLossy" ;;
@@ -6526,7 +6503,6 @@ if [ -n "$hashes" ]; then
 fi
 
 getCompressionSetting 'FLAC' "$compression_FLAC" 'caudecrc'
-getCompressionSetting 'Flake' "$compression_Flake" 'caudecrc'
 getCompressionSetting 'WavPack' "$compression_WavPack" 'caudecrc'
 getCompressionSetting 'MonkeysAudio' "$compression_MonkeysAudio" 'caudecrc'
 getCompressionSetting 'TAK' "$compression_TAK" 'caudecrc'
@@ -6648,7 +6624,6 @@ while getopts 'zsn:o:O:P:kKDtdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				aiff)                lastCodec='AIFF' ;;
 				caf)                 lastCodec='CAF' ;;
 				flac)                lastCodec='FLAC' ;;
-				flake)               lastCodec='Flake' ;;
 				wv)                  lastCodec='WavPack' ;;
 				wvh)                 lastCodec='WavPackHybrid' ;;
 				wvl)                 lastCodec='WavPackLossy' ;;
@@ -6701,7 +6676,6 @@ while getopts 'zsn:o:O:P:kKDtdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 
 			case "$lastCodec" in
 				FLAC) getCompressionSetting 'FLAC' "$OPTARG" ;;
-				Flake) getCompressionSetting 'Flake' "$OPTARG" ;;
 				WavPack|WavPackHybrid|WavPackLossy) getCompressionSetting 'WavPack' "$OPTARG" ;;
 				MonkeysAudio) getCompressionSetting 'MonkeysAudio' "$OPTARG" ;;
 				TAK) getCompressionSetting 'TAK' "$OPTARG" ;;
