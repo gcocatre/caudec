@@ -4349,7 +4349,7 @@ encode ()
 				destExtension='flac'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.vc.txt" kfm=''
 				# Kohlrabi is a very cool dude
 				if [ $keepWavMetadata = true ]; then kfm='--keep-foreign-metadata' ; fi
-				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=FLAC $flacVersion / -$compression_FLAC"; fi
+				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / FLAC $flacVersion / -$compression_FLAC"; fi
 				nThreads="$( getNumberOfAvailableThreads )"
 				printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P 4096 $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
 				importArtworkIntoFLAC || ec=$EX_KO
@@ -4360,10 +4360,10 @@ encode ()
 				if [ $keepWavMetadata = true ]; then kfm=''; fi
 				nThreads="$( getNumberOfAvailableThreads )"
 				if [ -z "$compression_WavPack" -o "$compression_WavPack" = 'd' -o "$compression_WavPack" = 'default' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=WavPack $wavpackVersion / default"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default"; fi
 					wavpack -q --threads=$nThreads -m $kfm -o "$encodedFile" "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
-					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=WavPack $wavpackVersion / -$compression_WavPack"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack"; fi
 					wavpack -q --threads=$nThreads -m $kfm -o "$encodedFile" -${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
@@ -4381,18 +4381,18 @@ encode ()
 				if [ -z "$compression_WavPack" -o "$compression_WavPack" = 'd' -o "$compression_WavPack" = 'default' ]; then
 					if [ $tagCompressionSetting = true ]; then
 						if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
-							compressionTag="Encoding=WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
+							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
 						else
-							compressionTag="Encoding=WavPack $wavpackVersion / default / $bitrate_WavPackLossy kbps (ABR)"
+							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy kbps (ABR)"
 						fi
 					fi
 					wavpack -q --threads=$nThreads -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -c "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
 					if [ $tagCompressionSetting = true ]; then
 						if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
-							compressionTag="Encoding=WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy bits per sample (ABR)"
+							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy bits per sample (ABR)"
 						else
-							compressionTag="Encoding=WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
+							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
 						fi
 					fi
 					wavpack -q --threads=$nThreads -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -c${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
@@ -4412,18 +4412,18 @@ encode ()
 				if [ -z "$compression_WavPack" -o "$compression_WavPack" = 'd' -o "$compression_WavPack" = 'default' ]; then
 					if [ $tagCompressionSetting = true ]; then
 						if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
-							compressionTag="Encoding=WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
+							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
 						else
-							compressionTag="Encoding=WavPack $wavpackVersion / default / $bitrate_WavPackLossy kbps (ABR)"
+							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy kbps (ABR)"
 						fi
 					fi
 					wavpack -q --threads=$nThreads $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
 					if [ $tagCompressionSetting = true ]; then
 						if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
-							compressionTag="Encoding=WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy bits per sample (ABR)"
+							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy bits per sample (ABR)"
 						else
-							compressionTag="Encoding=WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
+							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
 						fi
 					fi
 					wavpack -q --threads=$nThreads $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
@@ -4440,7 +4440,7 @@ encode ()
 				destExtension='ape'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt"
 				mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
 					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
@@ -4454,7 +4454,7 @@ encode ()
 				runWineExe Takc -e -p${compression_TAK} -tn${nTakProcesses} -md5 ".\\${i}.wav" ".\\${encodedFilename}" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				cd "$OLDPWD"
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=TAK $takVersion / -p$compression_TAK"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / TAK $takVersion / -p$compression_TAK"; fi
 					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
@@ -4478,7 +4478,7 @@ encode ()
 
 			lossyFLAC)
 				destExtension='lossy.flac'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.vc.txt"
-				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
+				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 				nThreads="$( getNumberOfAvailableThreads )"
 				printf -- "--totally-silent`tagline -T`\x00%s" "$lossywavFile" | xargs -0 flac -j $nThreads -P 4096 -5 -b 512 --keep-foreign-metadata -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
 				importArtworkIntoFLAC || ec=$EX_KO
@@ -4490,7 +4490,7 @@ encode ()
 				wavpack -q --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks "$lossywavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 					# FIXME
-					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
@@ -4504,7 +4504,7 @@ encode ()
 				runWineExe Takc -e -p2 -tn${nTakProcesses} -fsl512 -md5 ".\\${i}.lossy.wav" ".\\${encodedFilename}" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				cd "$OLDPWD"
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
@@ -4514,13 +4514,13 @@ encode ()
 			OggVorbis)
 				destExtension='ogg'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.vc.txt"
 				if [ "$OggVorbis_MODE" = 'VBR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=oggenc $oggencVersion / -q $compression_OggVorbis"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / -q $compression_OggVorbis"; fi
 					printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc -q $compression_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				elif [ "$OggVorbis_MODE" = 'ABR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=oggenc $oggencVersion / $average_bitrate_OggVorbis kbps (ABR)"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / $average_bitrate_OggVorbis kbps (ABR)"; fi
 					printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $average_bitrate_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=oggenc $oggencVersion / $bitrate_OggVorbis kbps (CBR)"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / $bitrate_OggVorbis kbps (CBR)"; fi
 					printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $bitrate_OggVorbis -m $bitrate_OggVorbis -M $bitrate_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				;;
@@ -4530,13 +4530,13 @@ encode ()
 				cd "$SWAPDIR"
 				setWineParams 'oggenc2'
 				if [ "$OggVorbis_MODE" = 'VBR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$winoggencVersion / -q $compression_OggVorbis"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $winoggencVersion / -q $compression_OggVorbis"; fi
 					printf -- "-Q`tagline -c`\x00%s" "${i}.wav" | WINEPREFIX="$winePath" xargs -0 $wineExe oggenc2 -q $compression_OggVorbis -o "$encodedFilename" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				elif [ "$OggVorbis_MODE" = 'ABR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$winoggencVersion / $average_bitrate_OggVorbis kbps (ABR)"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $winoggencVersion / $average_bitrate_OggVorbis kbps (ABR)"; fi
 					printf -- "-Q`tagline -c`\x00%s" "${i}.wav" | WINEPREFIX="$winePath" xargs -0 $wineExe oggenc2 --managed -b $average_bitrate_OggVorbis -o "$encodedFilename" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$winoggencVersion / $bitrate_OggVorbis kbps (CBR)"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $winoggencVersion / $bitrate_OggVorbis kbps (CBR)"; fi
 					printf -- "-Q`tagline -c`\x00%s" "${i}.wav" | WINEPREFIX="$winePath" xargs -0 $wineExe oggenc2 --managed -b $bitrate_OggVorbis -m $bitrate_OggVorbis -M $bitrate_OggVorbis -o "$encodedFilename" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				setWineParams ''
@@ -4549,13 +4549,13 @@ encode ()
 					LAME_MODE='CBR' bitrate_LAME=320
 				fi
 				if [ "$LAME_MODE" = 'VBR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=LAME $lameVersion / -V $compression_LAME"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $lameVersion / -V $compression_LAME"; fi
 					printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S -V $compression_LAME --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				elif [ "$LAME_MODE" = 'ABR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=LAME $lameVersion / $average_bitrate_LAME kbps (ABR)"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $lameVersion / $average_bitrate_LAME kbps (ABR)"; fi
 					printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S --abr $average_bitrate_LAME --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=LAME $lameVersion / $bitrate_LAME kbps (CBR)"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $lameVersion / $bitrate_LAME kbps (CBR)"; fi
 					if [ $bitrate_LAME -eq 320 ]; then
 						printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					else
@@ -4572,13 +4572,13 @@ encode ()
 				cd "$SWAPDIR"
 				setWineParams 'lame'
 				if [ "$LAME_MODE" = 'VBR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=LAME $winlameVersion / -V $compression_LAME"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $winlameVersion / -V $compression_LAME"; fi
 					printf -- "-o`tagline`\x00%s\x00%s" "${i}.wav" "$encodedFilename" | WINEPREFIX="$winePath" xargs -0 $wineExe lame -S -V $compression_LAME --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				elif [ "$LAME_MODE" = 'ABR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=LAME $winlameVersion / $average_bitrate_LAME kbps (ABR)"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $winlameVersion / $average_bitrate_LAME kbps (ABR)"; fi
 					printf -- "-o`tagline`\x00%s\x00%s" "${i}.wav" "$encodedFilename" | WINEPREFIX="$winePath" xargs -0 $wineExe lame -S --abr $average_bitrate_LAME --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=LAME $winlameVersion / $bitrate_LAME kbps (CBR)"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $winlameVersion / $bitrate_LAME kbps (CBR)"; fi
 					if [ $bitrate_LAME -eq 320 ]; then
 						printf -- "-o`tagline`\x00%s\x00%s" "${i}.wav" "$encodedFilename" | WINEPREFIX="$winePath" xargs -0 $wineExe lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					else
@@ -4640,7 +4640,7 @@ encode ()
 				destExtension='mpc'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt"
 				mpcenc --quality ${compression_Musepack} --silent "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=MPC Encoder $mpcVersion / --quality $compression_Musepack"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / MPC Encoder $mpcVersion / --quality $compression_Musepack"; fi
 					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
@@ -4650,13 +4650,13 @@ encode ()
 			Opus)
 				destExtension='opus'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.vc.txt"
 				if [ "$Opus_MODE" = 'VBR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$opusVersion / $compression_Opus kbps (VBR)"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $opusVersion / $compression_Opus kbps (VBR)"; fi
 					printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --vbr --bitrate $compression_Opus >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				elif [ "$Opus_MODE" = 'ABR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$opusVersion / $average_bitrate_Opus kbps (CVBR)"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $opusVersion / $average_bitrate_Opus kbps (CVBR)"; fi
 					printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --cvbr --bitrate $average_bitrate_Opus >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$opusVersion / $bitrate_Opus kbps (CBR)"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $opusVersion / $bitrate_Opus kbps (CBR)"; fi
 					printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --hard-cbr --bitrate $bitrate_Opus >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				;;
