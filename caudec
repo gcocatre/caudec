@@ -3347,7 +3347,7 @@ computeSHA ()
 	if [ "$OS" = 'Linux' ]; then
 		dgst="$( sox $earg "$wavFile" -t raw - 2>> "$errorLogFile" | $hashvar - 2>> "$errorLogFile" )"
 	else
-		dgst="$( sox $earg "$wavFile" -t raw - 2>> "$errorLogFile" | shasum -a $hashvar -p - 2>> "$errorLogFile" )"
+		dgst="$( sox $earg "$wavFile" -t raw - 2>> "$errorLogFile" | shasum -a $hashvar - 2>> "$errorLogFile" )"
 	fi
 	dgst="${dgst%% *}"
 	if [ -n "$dgst" ]; then
