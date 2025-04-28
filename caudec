@@ -23,7 +23,7 @@
 
 me='caudec'
 calledAs="${0##*/}"
-VERSION='1.7.7'
+VERSION='1.8.0'
 
 # EX_USAGE: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # EX_DATAERR: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -82,10 +82,6 @@ if [ -r "${HOME}/.caudecrc" ]; then
 fi
 
 # sanitize caudecrc input
-
-if [ -n "$WIN64PATH" -a ! -d "${WIN64PATH}/drive_c/windows/syswow64" ]; then WIN64PATH=''; fi
-if [ -n "$WIN32PATH" -a ! -d "${WIN32PATH}/drive_c/windows" ]; then WIN32PATH=''; fi
-export WINEDEBUG='err-all,warn-all,fixme-all,trace-all'
 
 if [ -n "$replaygain_percentile" ]; then # backwards compatibility
 	replaygainPercentile="$replaygain_percentile"
@@ -189,7 +185,7 @@ Usage: $me [ GLOBAL OPTIONS ] [ PROCESSING ] [ ENCODING/DECODING/RG ] FILES
 Operate on multiple audio files at once, in parallel.
 Instead of multiple files, one or more directories may be specified.
 Multiple codec switches (optionally paired with a -q switch) may be specified.
-Supported input files: .wav, .aiff, .caf, .flac, .wv, .ape, .tak, .m4a (ALAC)
+Supported input files: .wav, .aiff, .caf, .flac, .wv, .ape, .m4a (ALAC)
 
 
 Global options:
@@ -239,8 +235,8 @@ Processing / resampling options:
 Encoding options:
   -c CODEC  use specified CODEC: wav, aiff, caf,
             flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
-            ape, tak, alac, lossyWAV, lossyFLAC, lossyWV, lossyTAK, mp3 / lame,
-            winlame, ogg / vorbis, winvorbis, aac, qaac, mpc / musepack, opus.
+            ape, alac, lossyWAV, lossyFLAC, lossyWV, mp3 / lame,
+            ogg / vorbis, aac, mpc / musepack, opus.
             Note that artwork preservation in MP3s requires eyeD3.
 
   -C CODEC  use specified CODEC, but discard existing metadata
@@ -249,11 +245,11 @@ Encoding options:
             a list of valid values)
 
   -b ARG    constant or target bitrate in bits per sample (for -c wvh/wvl)
-            or in kilobits per second (for -c wvh/wvl, opus, mp3/lame/winlame,
-            aac, qaac, ogg/vorbis/winvorbis)
+            or in kilobits per second (for -c wvh/wvl, opus, mp3/lame,
+            aac, ogg/vorbis)
 
-  -B ARG    average bitrate in kilobits per second (for -c mp3/lame/winlame,
-            aac, qaac, ogg/vorbis/winvorbis, opus)
+  -B ARG    average bitrate in kilobits per second (for -c mp3/lame,
+            aac, ogg/vorbis, opus)
 
   -G ARG    apply Replaygain (album or track) if found in source file metadata,
             after decoding and BEFORE encoding (irreversible). Note: it is
@@ -270,7 +266,7 @@ Encoding options:
   -G GAIN   apply arbitrary GAIN (signed number from -99.99 to +99.99)
 
   -H HASH   compute hash of raw PCM (CRC32, MD5, SHA1, SHA256 or SHA512,
-            lossless codecs and lossyFLAC, lossyWV, lossyTAK only)
+            lossless codecs and lossyFLAC, lossyWV only)
   -H ^HASH  do NOT compute HASH even if it's in caudecrc
 
 
@@ -278,7 +274,7 @@ Decoding options:
   -d        decode to WAV (same as -c wav)
   -t        test file integrity
   -H HASH   compute hash of raw PCM (CRC32, MD5, SHA1, SHA256 or SHA512,
-            lossless codecs and lossyFLAC, lossyWV, lossyTAK only)
+            lossless codecs and lossyFLAC, lossyWV only)
   -H ^HASH  do NOT compute HASH even if it's in caudecrc
 
 
@@ -573,45 +569,6 @@ printMessage ()
 	return $EX_OK
 }
 
-findWineDirs ()
-{
-	local newlineAdded=false informWineDirsFound=false
-
-	if [ -z "$WIN64PATH" ]; then
-		WIN64PATH="$( find "$HOME" -type d -regex '.*/drive_c/windows/syswow64$' 2>/dev/null | head -n 1 )"
-		if [ -n "$WIN64PATH" ]; then
-			WIN64PATH="${WIN64PATH%/drive_c/windows/syswow64}"
-			echo '' >> "${HOME}/.caudecrc"
-			echo "WIN64PATH=\"${WIN64PATH}\" # Wine user dir, 64 bit (automatically found by caudec)" >> "${HOME}/.caudecrc"
-			informWineDirsFound=true
-			newlineAdded=true
-		fi
-	fi
-
-	if [ -z "$WIN32PATH" ]; then
-		while IFS= read -d $'\0' -r path; do
-			if [ -z "$path" ]; then continue; fi
-			path="${path%/drive_c/windows}"
-			if [ -n "$WIN64PATH" -a "$path" = "$WIN64PATH" ]; then
-				continue
-			else
-				WIN32PATH="$path"
-				if [ $newlineAdded = false ]; then
-					echo '' >> "${HOME}/.caudecrc"
-					newlineAdded=true
-				fi
-				echo "WIN32PATH=\"${WIN32PATH}\" # Wine user dir, 32 bit (automatically found by caudec)" >> "${HOME}/.caudecrc"
-				informWineDirsFound=true
-				break
-			fi
-		done < <(find "$HOME" -type d -regex '.*/drive_c/windows$' -print0 2>/dev/null)
-	fi
-
-	if [ $informWineDirsFound = true ]; then
-		printMessage 'info' 'initialization' 'Wine user directories were found, and the relevant configuration variables were saved to ~/.caudecrc.'
-	fi
-}
-
 isALAC ()
 {
 	if ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$1" 2>/dev/null | grep -F 'codec_name=alac' >/dev/null 2>&1; then
@@ -671,15 +628,7 @@ getCompressionSetting ()
 			esac
 			;;
 
-		TAK)
-			case "$v" in
-				[0-4]|[0-4]e|[0-4]m) compression_TAK="$v" ;;
-				'') compression_TAK=2 ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be an integer between 0 and 4, optionally followed by 'e' (extra) or 'm' (max)" ; exit $EX_USAGE ;;
-			esac
-			;;
-
-		lossyWAV|lossyFLAC|lossyWV|lossyTAK)
+		lossyWAV|lossyFLAC|lossyWV)
 			case "$v" in
 				x|p|c|s|h|e|i) compression_lossyWAV="$( echo "$v" | tr '[:lower:]' '[:upper:]' )" ;;
 				X|P|C|S|H|E|I) compression_lossyWAV="$v" ;;
@@ -695,7 +644,7 @@ getCompressionSetting ()
 			esac
 			;;
 
-		LAME|WinLAME)
+		LAME)
 			case "$v" in
 				[0-9]) compression_LAME="$v" ;;
 				medium) compression_LAME=4 ;;
@@ -715,16 +664,7 @@ getCompressionSetting ()
 			esac
 			;;
 
-		QAAC)
-			case "$v" in
-				[0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-7]) compression_QAAC="$v" ;;
-				itunes|iTunes|ITUNES) compression_QAAC='iTunes' ;;
-				'') compression_QAAC=90 ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be an integer between 0 and 127 (True VBR), or 'iTunes' (constrained VBR 256 kbps)" ; exit $EX_USAGE ;;
-			esac
-			;;
-
-		OggVorbis|WinVorbis)
+		OggVorbis)
 			case "$v" in
 				[0-9]|10) compression_OggVorbis="$v" ;;
 				'') compression_OggVorbis=3 ;;
@@ -789,7 +729,7 @@ getConstantBitrate ()
 			fi
 			;;
 
-		LAME|WinLAME)
+		LAME)
 			if [ -z "$v" ]; then
 				bitrate_LAME=320
 			else
@@ -811,18 +751,7 @@ getConstantBitrate ()
 			fi
 			;;
 
-		QAAC)
-			if [ -z "$v" ]; then
-				bitrate_QAAC=256
-			else
-				case "$v" in
-					[0-9]|[1-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) bitrate_QAAC="$v" ;;
-					*) printMessage 'error' 'usage' 'bad_value' "$errormsg constant bitrate for $c must be an integer between 0 and 320 in kilobits per second" ; exit $EX_USAGE ;;
-				esac
-			fi
-			;;
-
-		OggVorbis|WinVorbis)
+		OggVorbis)
 			if [ -z "$v" ]; then
 				bitrate_OggVorbis=256
 			else
@@ -859,7 +788,7 @@ getAverageBitrate ()
 	fi
 
 	case "$c" in
-		LAME|WinLAME)
+		LAME)
 			if [ -z "$v" ]; then
 				average_bitrate_LAME=256
 			else
@@ -881,18 +810,7 @@ getAverageBitrate ()
 			fi
 			;;
 
-		QAAC)
-			if [ -z "$v" ]; then
-				average_bitrate_QAAC=256
-			else
-				case "$v" in
-					[0-9]|[1-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) average_bitrate_QAAC="$v" ;;
-					*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $c must be an integer between 0 and 320 in kilobits per second" ; exit $EX_USAGE ;;
-				esac
-			fi
-			;;
-
-		OggVorbis|WinVorbis)
+		OggVorbis)
 			if [ -z "$v" ]; then
 				average_bitrate_OggVorbis=256
 			else
@@ -934,7 +852,6 @@ getBitrateMode ()
 	case "$c" in
 		LAME) LAME_MODE="$mode" ;;
 		AAC) AAC_MODE="$mode" ;;
-		QAAC) QAAC_MODE="$mode" ;;
 		OggVorbis) OggVorbis_MODE="$mode" ;;
 		Opus) Opus_MODE="$mode" ;;
 	esac
@@ -1024,14 +941,14 @@ getInputFiles ()
 							inputFiles[$nTracks]="$file"
 							((nTracks++))
 						fi
-					done < <(find "$a" -type f -regex '.*\.\(wav\|aiff\|caf\|flac\|wv\|ape\|tak\|m4a\|mp3\|ogg\|mpc\|opus\)$' -print0 2>/dev/null)
+					done < <(find "$a" -type f -regex '.*\.\(wav\|aiff\|caf\|flac\|wv\|ape\|m4a\|mp3\|ogg\|mpc\|opus\)$' -print0 2>/dev/null)
 				else
 					while IFS= read -d $'\0' -r file ; do
 						if [ -f "$file" -a -r "$file" ]; then
 							inputFiles[$nTracks]="$file"
 							((nTracks++))
 						fi
-					done < <(find -E "$a" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|tak|m4a|mp3|ogg|mpc|opus)$' -print0 2>/dev/null)
+					done < <(find -E "$a" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|m4a|mp3|ogg|mpc|opus)$' -print0 2>/dev/null)
 				fi
 			else
 				printMessage 'warning' 'usage' 'filesystem' "path:${a}" 'directory is not readable (permission denied).' ; ec=$EX_NOINPUT
@@ -1121,7 +1038,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 
 			if [ -n "$outputCodecs" ]; then # transcode
 				case "$f" in
-					*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape|*.tak) keepInputFile=true ;;
+					*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape) keepInputFile=true ;;
 					*.m4a)
 						if isALAC "$f"; then
 							keepInputFile=true
@@ -1144,7 +1061,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 			else # actions other than transcoding
 				if [ $checkFiles = true -o $actionHash = true ]; then
 					case "$f" in
-						*.flac|*.wv|*.ape|*.tak) keepInputFile=true ;;
+						*.flac|*.wv|*.ape) keepInputFile=true ;;
 						*.m4a)
 							if isALAC "$f"; then
 								keepInputFile=true
@@ -1181,7 +1098,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 
 				if [ $computeReplaygain = true ]; then
 					case "$f" in
-						*.flac|*.wv|*.ape|*.tak|*.m4a|*.mp3|*.ogg)
+						*.flac|*.wv|*.ape|*.m4a|*.mp3|*.ogg)
 							nChannels="$( getNumberOfChannels "$f" )"
 							if [ $nChannels -le 2 ]; then
 								keepInputFile=true
@@ -1266,33 +1183,13 @@ checkBinary ()
 		p="x${b}Y"
 		if [ "$searchedBinaries" = "${searchedBinaries//$p/@}" ]; then # search for binary hasn't been done before
 			searchedBinaries="${searchedBinaries}${p}"
-			case "$b" in
-				*.exe)
-					if [ -d "$WIN64PATH" -a -e "${WIN64PATH}/drive_c/windows/${b}" ]; then
-						foundBinaries="${foundBinaries}${p}"
-						continue
-					elif [ -d "$WIN32PATH" -a -e "${WIN32PATH}/drive_c/windows/${b}" ]; then
-						foundBinaries="${foundBinaries}${p}"
-						continue
-					else
-						rc=$EX_KO binaryMissing=true
-						printMessage 'warning' 'initialization' 'filesystem' "Binary \"${b}\" not found. Make sure it is present in either \"\${WIN64PATH}/drive_c/windows/\" or \"\${WIN32PATH}/drive_c/windows/\"."
-					fi
-					;;
-
-				*)
-					if which "$b" >/dev/null 2>&1 ; then
-						foundBinaries="${foundBinaries}${p}"
-						if [ "$b" = 'wine' ]; then
-							findWineDirs
-						fi
-						continue
-					else
-						rc=$EX_KO binaryMissing=true
-						printMessage 'warning' 'initialization' 'filesystem' "Binary \"${b}\" not found. Make sure it is in your \$PATH."
-					fi
-					;;
-			esac
+			if which "$b" >/dev/null 2>&1 ; then
+				foundBinaries="${foundBinaries}${p}"
+				continue
+			else
+				rc=$EX_KO binaryMissing=true
+				printMessage 'warning' 'initialization' 'filesystem' "Binary \"${b}\" not found. Make sure it is in your \$PATH."
+			fi
 		elif [ -z "$foundBinaries" -o "$foundBinaries" = "${foundBinaries//$p/@}" ]; then # binary was previously searched, but not found
 			rc=$EX_KO
 		fi
@@ -1327,7 +1224,6 @@ checkBinaries ()
 					*.flac) checkBinary 'metaflac' ;;
 					*.wv) checkBinary 'APEv2' 'wvgain' ;;
 					*.ape) checkBinary 'mac' 'APEv2' 'wavegain' ;;
-					*.tak) checkBinary 'wine' 'Takc.exe' 'APEv2' 'wavegain' ;;
 					*.m4a)
 						if checkBinary 'ffprobe'; then
 							if isALAC "$f"; then
@@ -1351,7 +1247,6 @@ checkBinaries ()
 					*.flac) checkBinary 'flac' 'metaflac' ;;
 					*.wv) checkBinary 'wvunpack' 'APEv2' ;;
 					*.ape) checkBinary 'mac' 'APEv2' ;;
-					*.tak) checkBinary 'wine' 'Takc.exe' 'APEv2' ;;
 					*.m4a) checkBinary 'nohup' 'ffmpeg' 'neroAacTag' ;;
 				esac
 			done
@@ -1362,7 +1257,6 @@ checkBinaries ()
 					*.flac) checkBinary 'flac' 'metaflac' ;;
 					*.wv) checkBinary 'wvunpack' 'APEv2' ;;
 					*.ape) checkBinary 'mac' 'APEv2' ;;
-					*.tak) checkBinary 'wine' 'Takc.exe' 'APEv2' ;;
 					*.m4a) checkBinary 'nohup' 'ffmpeg' 'neroAacTag' ;;
 				esac
 			done
@@ -1378,18 +1272,13 @@ checkBinaries ()
 				FLAC) checkBinary 'flac' ;;
 				WavPack|WavPackHybrid|WavPackLossy) checkBinary 'wavpack' ;;
 				MonkeysAudio) checkBinary 'mac' 'APEv2' ;;
-				TAK) checkBinary 'wine' 'Takc.exe' ;;
 				ALAC) checkBinary 'nohup' 'ffmpeg' 'neroAacTag' ;;
 				lossyWAV) checkBinary 'lossywav' ;;
 				lossyFLAC) checkBinary 'lossywav' 'flac' ;;
 				lossyWV) checkBinary 'lossywav' 'wavpack' ;;
-				lossyTAK) checkBinary 'lossywav' 'wine' 'Takc.exe' ;;
 				OggVorbis) checkBinary 'oggenc' ;;
-				WinVorbis) checkBinary 'wine' 'oggenc2.exe' ;;
 				LAME) checkBinary 'lame' ;;
-				WinLAME) checkBinary 'wine' 'lame.exe' ;;
 				AAC) checkBinary 'neroAacEnc' 'neroAacTag' ;;
-				QAAC) checkBinary 'wine' 'qaac.exe' 'neroAacTag' ;;
 				Musepack) checkBinary 'mpcenc' ;;
 				Opus) checkBinary 'opusenc' ;;
 			esac
@@ -1713,7 +1602,7 @@ setupSwapdir ()
 		fi
 		for outputCodec in $outputCodecs; do
 			touch "${TDIR}/${outputCodec}_${i}"
-			if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' -o "$outputCodec" = 'lossyTAK' ]; then
+			if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' ]; then
 				touch "${TDIR}/${outputCodec}_${i}_LOSSYWAV_NEEDED"
 				touch "${TDIR}/lossyWAV_${i}_WAV_NEEDED"
 			else
@@ -1742,18 +1631,6 @@ getNumberOfChannels ()
 			fi
 			;;
 
-		*.tak)
-			bn="$( basename "$f" )"
-			dn="$( dirname "$f" )"
-			cd "$dn"
-			if gotNewTAK ; then
-				c="$( runWineExe Takc -fi -fim5 ".\\${bn}" 2>/dev/null | tr -d '\r' | cut -d ';' -f 4 )"
-			else
-				c="$( runWineExe Takc -fi -fim0 ".\\${bn}" 2>/dev/null | tr -d '\r' | grep -F 'Audio format:' | cut -d ',' -f 4 | tr -cd '0-9' )"
-			fi
-			cd "$OLDPWD"
-			;;
-
 		*) c="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$f" 2>/dev/null | grep -F 'channels=' | tr -cd '0-9' )" ;;
 	esac
 
@@ -1777,37 +1654,6 @@ getFlacDecodedSize ()
 		done
 		decodedSize=$(( samples * c * (b / 8) ))
 	fi
-}
-
-getTakDecodedSize ()
-{
-	local bn dn data b c samples
-
-	bn="$( basename "$1" )"
-	dn="$( dirname "$1" )"
-	cd "$dn"
-	if gotNewTAK ; then
-		data="$( runWineExe Takc -fi -fim5 ".\\${bn}" 2>/dev/null | tr -d '\r\n' )"
-		if [ -n "$data" ]; then
-			b="$( echo "$data" | cut -d ';' -f 3 )"
-			c="$( echo "$data" | cut -d ';' -f 4 )"
-			samples="$( echo "$data" | cut -d ';' -f 5 )"
-			if [ -n "$b" -a -n "$c" -a -n "$samples" ]; then
-				decodedSize=$(( samples * c * (b / 8) ))
-			fi
-		fi
-	else
-		data="$( runWineExe Takc -fi -fim0 ".\\${bn}" 2>/dev/null | tr -d '\r' )"
-		if [ -n "$data" ]; then
-			b="$( echo "$data" | grep -F 'Audio format:' | cut -d ',' -f 3 | tr -cd '0-9' )"
-			c="$( echo "$data" | grep -F 'Audio format:' | cut -d ',' -f 4 | tr -cd '0-9' )"
-			samples="$( echo "$data" | grep -F 'Samples per channel:' | tr -cd '0-9' )"
-			if [ -n "$b" -a -n "$c" -a -n "$samples" ]; then
-				decodedSize=$(( samples * c * (b / 8) ))
-			fi
-		fi
-	fi
-	cd "$OLDPWD"
 }
 
 getWavpackDecodedSize ()
@@ -1908,69 +1754,6 @@ getFlacResampledSize ()
 			resampledSize=$(( samples * c * (b / 8) ))
 		fi
 	fi
-}
-
-getTakResampledSize ()
-{
-	local bn dn data samples c b osr sr
-
-	bn="$( basename "$1" )"
-	dn="$( dirname "$1" )"
-	cd "$dn"
-	if gotNewTAK ; then
-		data="$( runWineExe Takc -fi -fim5 ".\\${bn}" 2>/dev/null | tr -d '\r\n' )"
-		if [ -n "$data" ]; then
-			samples="$( echo "$data" | cut -d ';' -f 5 )"
-			if [ $convertToStereo = 'false' ]; then
-				c="$( echo "$data" | cut -d ';' -f 4 )"
-			else
-				c=2
-			fi
-			if [ -n "$bitDepth" ]; then
-				b=$bitDepth
-			else
-				b="$( echo "$data" | cut -d ';' -f 3 )"
-			fi
-			if [ -n "$samplingRate" ]; then
-				osr="$( echo "$data" | cut -d ';' -f 2 )"
-				sr=$samplingRate
-				if [ -n "$samples" -a -n "$sr" -a -n "$osr" -a -n "$c" -a -n "$b" ]; then
-					resampledSize=$(( (samples * sr / osr) * c * (b / 8) ))
-				fi
-			else
-				if [ -n "$samples" -a -n "$c" -a -n "$b" ]; then
-					resampledSize=$(( samples * c * (b / 8) ))
-				fi
-			fi
-		fi
-	else
-		data="$( runWineExe Takc -fi -fim0 ".\\${bn}" 2>/dev/null | tr -d '\r' )"
-		if [ -n "$data" ]; then
-			samples="$( echo "$data" | grep -F 'Samples per channel:' | tr -cd '0-9' )"
-			if [ $convertToStereo = 'false' ]; then
-				c="$( echo "$data" | grep -F 'Audio format:' | cut -d ',' -f 4 | tr -cd '0-9' )"
-			else
-				c=2
-			fi
-			if [ -n "$bitDepth" ]; then
-				b=$bitDepth
-			else
-				b="$( echo "$data" | grep -F 'Audio format:' | cut -d ',' -f 3 | tr -cd '0-9' )"
-			fi
-			if [ -n "$samplingRate" ]; then
-				osr="$( echo "$data" | grep -F 'Audio format:' | cut -d ',' -f 2 | tr -cd '0-9' )"
-				sr=$samplingRate
-				if [ -n "$samples" -a -n "$sr" -a -n "$osr" -a -n "$c" -a -n "$b" ]; then
-					resampledSize=$(( (samples * sr / osr) * c * (b / 8) ))
-				fi
-			else
-				if [ -n "$samples" -a -n "$c" -a -n "$b" ]; then
-					resampledSize=$(( samples * c * (b / 8) ))
-				fi
-			fi
-		fi
-	fi
-	cd "$OLDPWD"
 }
 
 getWavpackResampledSize ()
@@ -2093,20 +1876,6 @@ getNumberOfCaudecProcesses ()
 	esac
 }
 
-getNumberOfTakProcesses ()
-{
-	local nRunningProcesses nTakProcesses
-
-	nRunningProcesses="$( getNumberOfCaudecProcesses )"
-	nTakProcesses=$(( maxProcessesSetByUser - nRunningProcesses ))
-	if [ $nTakProcesses -gt 4 ]; then # FIXMEL: why?
-		nTakProcesses=4
-	elif [ $nTakProcesses -lt 1 ]; then
-		nTakProcesses=1
-	fi
-	echo "$nTakProcesses"
-}
-
 getNumberOfAvailableThreads ()
 {
 	local nRunningProcesses nThreads
@@ -2147,7 +1916,7 @@ tagline ()
 		fi
 
 		case "$outputCodec" in
-			WavPackLossy|LAME|WinLAME|AAC|QAAC|OggVorbis|WinVorbis|Musepack|Opus)
+			WavPackLossy|LAME|AAC|OggVorbis|Musepack|Opus)
 				if [ "$outputCodec" = 'WavPackLossy' ]; then
 					grep -viE "MD5=|CRC32=|SHA1=|SHA256=|SHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 				else
@@ -2159,7 +1928,7 @@ tagline ()
 				done
 				;;
 
-			FLAC|WavPack|WavPackHybrid|MonkeysAudio|TAK|ALAC)
+			FLAC|WavPack|WavPackHybrid|MonkeysAudio|ALAC)
 				if isWavProcessed ; then # SoX was used on the WAV file for resampling, applying gain, or converting to stereo
 					grep -viE "µµµCRC32=|µµµMD5=|µµµSHA1=|µµµSHA256=|µµµSHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 					mv "${destTagFile}.${outputCodec}.tmp" "${destTagFile}.${outputCodec}"
@@ -2957,7 +2726,7 @@ extractFlacArtwork ()
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
-			OggVorbis|WinVorbis) continue ;; # unsupported formats
+			OggVorbis) continue ;; # unsupported formats
 		esac
 		pattern="x${outputCodec}Y"
 		if [ "$preserveMetadata" != "${preserveMetadata//$pattern/@}" ]; then
@@ -3003,7 +2772,7 @@ extractAlacArtwork ()
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
-			OggVorbis|WinVorbis) continue ;; # unsupported formats
+			OggVorbis) continue ;; # unsupported formats
 		esac
 		pattern="x${outputCodec}Y"
 		if [ "$preserveMetadata" != "${preserveMetadata//$pattern/@}" ]; then
@@ -3026,7 +2795,7 @@ extractAPEv2Artwork ()
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
-			OggVorbis|WinVorbis) continue ;; # unsupported formats
+			OggVorbis) continue ;; # unsupported formats
 		esac
 		pattern="x${outputCodec}Y"
 		if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then continue; fi
@@ -3048,7 +2817,7 @@ extractAPEv2Binaries ()
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
-			MonkeysAudio|WavPack*|Musepack|TAK|lossyWV|lossyTAK)
+			MonkeysAudio|WavPack*|Musepack|lossyWV)
 				pattern="x${outputCodec}Y"
 				if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then continue; fi
 
@@ -3452,33 +3221,6 @@ saveDurations ()
 			fi
 			;;
 
-		*.tak)
-			cd "$SWAPDIR"
-			if gotNewTAK ; then
-				data="$( runWineExe Takc -fi -fim5 ".\\${i}.$sourceFilename" 2>/dev/null | tr -d '\r\n' )"
-				if [ -n "$data" ]; then
-					samples="$( echo "$data" | cut -d ';' -f 5 )"
-					sampleRate="$( echo "$data" | cut -d ';' -f 2 )"
-					if [ -n "$samples" -a -n "$sampleRate" ]; then
-						seconds="$( echo "scale=2; $samples / $sampleRate" | bc )"
-					fi
-				fi
-			else
-				data="$( runWineExe Takc -fi -fim0 ".\\${i}.$sourceFilename" 2>/dev/null | tr -d '\r' )"
-				if [ -n "$data" ]; then
-					samples="$( echo "$data" | grep -F 'Samples per channel:' | tr -cd '0-9' )"
-					sampleRate="$( echo "$data" | grep -F 'Audio format:' | cut -d ',' -f 2 | tr -cd '0-9' )"
-					if [ -n "$samples" -a -n "$sampleRate" ]; then
-						seconds="$( echo "scale=2; $samples / $sampleRate" | bc )"
-					fi
-				fi
-			fi
-			cd "$OLDPWD"
-			if [ -n "$seconds" ]; then
-				echo -n " + ${seconds}" >> "${TDIR}/durations"
-			fi
-			;;
-
 		*.ape|*.m4a)
 			duration="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$copyFile" 2>/dev/null | grep -F 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '0-9.' )"
 			if [ -n "$duration" ]; then
@@ -3671,19 +3413,6 @@ decode ()
 				fi
 				;;
 
-			tak)
-				sourceTagFormat='ape'
-				getInternalMD5 "$copyFile"
-				cd "$SWAPDIR"
-				runWineExe Takc -d ".\\${i}.${sourceFilename}" ".\\${i}.wav" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				cd "$OLDPWD"
-				if [ $ec -eq $EX_OK ]; then
-					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
-					extractAPEv2Binaries
-					extractAPEv2Artwork
-				fi
-				;;
-
 			m4a)
 				sourceTagFormat='m4a'
 				# nohup is needed because ffmpeg messes with the terminal somehow
@@ -3786,8 +3515,8 @@ decode ()
 		fi
 		for outputCodec in $outputCodecs; do
 			case "$outputCodec" in
-				lossy*|*Vorbis|Opus|WavPackLossy|Musepack|*LAME|AAC|QAAC) hasLossy=true ;;
-				FLAC|WavPack|WavPackHybrid|MonkeysAudio|TAK|ALAC) hasLossless=true ;;
+				lossy*|*Vorbis|Opus|WavPackLossy|Musepack|LAME|AAC) hasLossy=true ;;
+				FLAC|WavPack|WavPackHybrid|MonkeysAudio|ALAC) hasLossless=true ;;
 			esac
 		done
 
@@ -3992,10 +3721,10 @@ decode ()
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
-			FLAC|lossyFLAC|OggVorbis|WinVorbis|Opus) convertTags $sourceTagFormat 'vc' ;;
-			WavPack*|MonkeysAudio|TAK|lossyWV|lossyTAK|Musepack) convertTags $sourceTagFormat 'ape' ;;
-			LAME|WinLAME) convertTags $sourceTagFormat 'lame' ;;
-			AAC|QAAC|ALAC) convertTags $sourceTagFormat 'm4a' ;;
+			FLAC|lossyFLAC|OggVorbis|Opus) convertTags $sourceTagFormat 'vc' ;;
+			WavPack*|MonkeysAudio|lossyWV|Musepack) convertTags $sourceTagFormat 'ape' ;;
+			LAME) convertTags $sourceTagFormat 'lame' ;;
+			AAC|ALAC) convertTags $sourceTagFormat 'm4a' ;;
 		esac
 	done
 
@@ -4028,7 +3757,7 @@ encodeLossyWAV ()
 	if [ $ec -eq $EX_OK ]; then
 		for outputCodec in $outputCodecs; do
 			case "$outputCodec" in
-				lossyFLAC|lossyWV|lossyTAK)
+				lossyFLAC|lossyWV)
 					for h in $hashes; do
 						case $h in
 							CRC32)
@@ -4120,35 +3849,6 @@ getEyeD3Version ()
 	fi
 }
 
-gotNewTAK ()
-{
-	if [ -z "$gotRecentTAK" ]; then
-		gotRecentTAK=false
-		if runWineExe Takc -version >/dev/null 2>&1; then
-			gotRecentTAK=true
-		fi
-	fi
-
-	if [ "$gotRecentTAK" = 'true' ]; then
-		return $EX_OK
-	else
-		return $EX_KO
-	fi
-
-# New TAK data format (-fi -fim5):
-# Sample type: 0 = integer / 1 = floating point
-# Sampling rate
-# Bit depth
-# Number of channels
-# Total number of samples
-# MD5 hash
-# Encoder version
-# Internal codec number
-# Compression preset
-# Frame size in samples
-# Wave file meta data present: 0 = no / 1 = yes
-}
-
 gotNewWavpack ()
 {
 	local o=''
@@ -4180,47 +3880,6 @@ gotNewWavpack ()
 # 10. filename
 }
 
-runWineExe ()
-{
-	local exe="$1"
-
-	if [ -d "$WIN64PATH" -a -e "${WIN64PATH}/drive_c/windows/${exe}.exe" ]; then
-		WINEPREFIX="$WIN64PATH" wineserver -d0 -p0 >/dev/null 2>&1
-		if [ $gotWine64 = true ]; then
-			WINEPREFIX="$WIN64PATH" wine64 "$@"
-		else
-			WINEPREFIX="$WIN64PATH" wine "$@"
-		fi
-	elif [ -d "$WIN32PATH" -a -e "${WIN32PATH}/drive_c/windows/${exe}.exe" ]; then
-		WINEPREFIX="$WIN32PATH" wineserver -d0 -p0 >/dev/null 2>&1
-		WINEPREFIX="$WIN32PATH" wine "$@"
-	else
-		echo "Windows EXE '$exe' not found." >> "$errorLogFile"
-		return $EX_KO
-	fi
-}
-
-setWineParams ()
-{
-	local exe="$1"
-
-	if [ -z "$exe" ]; then
-		unset winePath wineExe
-	else
-		if [ -d "$WIN64PATH" -a -e "${WIN64PATH}/drive_c/windows/${exe}.exe" ]; then
-			winePath="$WIN64PATH"
-			if [ $gotWine64 = true ]; then
-				wineExe='wine64'
-			else
-				wineExe='wine'
-			fi
-		else
-			winePath="$WIN32PATH"
-			wineExe='wine'
-		fi
-	fi
-}
-
 getEncoderVersions ()
 {
 	local oggencPath vorbisPrefix libvorbisVersion
@@ -4230,9 +3889,7 @@ getEncoderVersions ()
 		case "$outputCodec" in
 			FLAC) flacVersion="$( flac --version | head -n 1 )"; flacVersion="${flacVersion##* }" ;;
 			MonkeysAudio) apeVersion="$( mac 2>&1 | grep -F '(c)' | tr -d ' ' | cut -d '(' -f 2 | cut -d ')' -f 1 )"; apeVersion="${apeVersion#v}" ;;
-			WinVorbis) winoggencVersion="$( runWineExe oggenc2 -v 2>/dev/null | head -n 1 | tr -d '\r\n' )" ;;
 			LAME) lameVersion="$( lame --version 2>/dev/null | grep -E 'LAME.*version' | cut -d 'v' -f 2 | cut -d '(' -f 1 | cut -d ' ' -f 2- )" ; lameVersion="${lameVersion% *}" ;;
-			WinLAME) winlameVersion="$( runWineExe lame --version 2>/dev/null | grep -E 'LAME.*version' | cut -d 'v' -f 2 | cut -d '(' -f 1 | cut -d ' ' -f 2- )" ; winlameVersion="${winlameVersion% *}" ;;
 			Musepack) mpcVersion="$( mpcenc 2>&1 | grep -F 'MPC Encoder' | cut -d ' ' -f 3 )" ;;
 			Opus) opusVersion="$( opusenc --version 2>/dev/null | grep -F 'opusenc' )" ;;
 
@@ -4251,15 +3908,6 @@ getEncoderVersions ()
 					lossywavVersion="$( lossywav -v 2>&1 | grep -F 'lossyWAV' | tr -d '\r\n' )" # old lossyWAV
 				fi
 				lossywavVersion="${lossywavVersion##* }"
-				;;
-
-			TAK)
-				if gotNewTAK; then
-					takVersion="$( runWineExe Takc -version 2>/dev/null | head -n 1 | tr -d '\r\n' )"
-					takVersion="${takVersion##* }"
-				else
-					takVersion="$( runWineExe Takc 2>/dev/null | grep -F 'TAKC V' | cut -d 'V' -f 2- | tr -d '\r\n' )"
-				fi
 				;;
 
 			OggVorbis)
@@ -4321,7 +3969,7 @@ overwriteDestFile ()
 
 encode ()
 {
-	local ec=$EX_OK pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses nTakProcesses
+	local ec=$EX_OK pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses
 
 	compressionTag=''
 
@@ -4447,20 +4095,6 @@ encode ()
 				fi
 				;;
 
-			TAK)
-				destExtension='tak'; encodedFilename="${i}-${outputCodec}.${destExtension}"; encodedFile="${SWAPDIR}/${encodedFilename}"; destTagFile="${TDIR}/${i}.ape.txt"
-				cd "$SWAPDIR"
-				nTakProcesses="$( getNumberOfTakProcesses )"
-				runWineExe Takc -e -p${compression_TAK} -tn${nTakProcesses} -md5 ".\\${i}.wav" ".\\${encodedFilename}" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				cd "$OLDPWD"
-				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / TAK $takVersion / -p$compression_TAK"; fi
-					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					importBinariesIntoAPEv2 || ec=$EX_KO
-					importArtworkIntoAPEv2 || ec=$EX_KO
-				fi
-				;;
-
 			ALAC)
 				destExtension='m4a'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.m4a.txt"
 				# nohup is needed because ffmpeg messes with the terminal somehow
@@ -4497,20 +4131,6 @@ encode ()
 				fi
 				;;
 
-			lossyTAK)
-				destExtension='lossy.tak'; encodedFilename="${i}-${outputCodec}.${destExtension}"; encodedFile="${SWAPDIR}/${encodedFilename}"; destTagFile="${TDIR}/${i}.ape.txt"
-				cd "$SWAPDIR"
-				nTakProcesses="$( getNumberOfTakProcesses )"
-				runWineExe Takc -e -p2 -tn${nTakProcesses} -fsl512 -md5 ".\\${i}.lossy.wav" ".\\${encodedFilename}" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				cd "$OLDPWD"
-				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
-					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					importBinariesIntoAPEv2 || ec=$EX_KO
-					importArtworkIntoAPEv2 || ec=$EX_KO
-				fi
-				;;
-
 			OggVorbis)
 				destExtension='ogg'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.vc.txt"
 				if [ "$OggVorbis_MODE" = 'VBR' ]; then
@@ -4523,24 +4143,6 @@ encode ()
 					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / $bitrate_OggVorbis kbps (CBR)"; fi
 					printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $bitrate_OggVorbis -m $bitrate_OggVorbis -M $bitrate_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
-				;;
-
-			WinVorbis)
-				destExtension='ogg'; encodedFilename="${i}-${outputCodec}.${destExtension}"; encodedFile="${SWAPDIR}/${encodedFilename}"; destTagFile="${TDIR}/${i}.vc.txt"
-				cd "$SWAPDIR"
-				setWineParams 'oggenc2'
-				if [ "$OggVorbis_MODE" = 'VBR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $winoggencVersion / -q $compression_OggVorbis"; fi
-					printf -- "-Q`tagline -c`\x00%s" "${i}.wav" | WINEPREFIX="$winePath" xargs -0 $wineExe oggenc2 -q $compression_OggVorbis -o "$encodedFilename" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				elif [ "$OggVorbis_MODE" = 'ABR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $winoggencVersion / $average_bitrate_OggVorbis kbps (ABR)"; fi
-					printf -- "-Q`tagline -c`\x00%s" "${i}.wav" | WINEPREFIX="$winePath" xargs -0 $wineExe oggenc2 --managed -b $average_bitrate_OggVorbis -o "$encodedFilename" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				else
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $winoggencVersion / $bitrate_OggVorbis kbps (CBR)"; fi
-					printf -- "-Q`tagline -c`\x00%s" "${i}.wav" | WINEPREFIX="$winePath" xargs -0 $wineExe oggenc2 --managed -b $bitrate_OggVorbis -m $bitrate_OggVorbis -M $bitrate_OggVorbis -o "$encodedFilename" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				fi
-				setWineParams ''
-				cd "$OLDPWD"
 				;;
 
 			LAME)
@@ -4567,31 +4169,6 @@ encode ()
 				fi
 				;;
 
-			WinLAME)
-				destExtension='mp3'; encodedFilename="${i}-${outputCodec}.${destExtension}"; encodedFile="${SWAPDIR}/${encodedFilename}"; destTagFile="${TDIR}/${i}.lame.txt"
-				cd "$SWAPDIR"
-				setWineParams 'lame'
-				if [ "$LAME_MODE" = 'VBR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $winlameVersion / -V $compression_LAME"; fi
-					printf -- "-o`tagline`\x00%s\x00%s" "${i}.wav" "$encodedFilename" | WINEPREFIX="$winePath" xargs -0 $wineExe lame -S -V $compression_LAME --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				elif [ "$LAME_MODE" = 'ABR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $winlameVersion / $average_bitrate_LAME kbps (ABR)"; fi
-					printf -- "-o`tagline`\x00%s\x00%s" "${i}.wav" "$encodedFilename" | WINEPREFIX="$winePath" xargs -0 $wineExe lame -S --abr $average_bitrate_LAME --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				else
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $winlameVersion / $bitrate_LAME kbps (CBR)"; fi
-					if [ $bitrate_LAME -eq 320 ]; then
-						printf -- "-o`tagline`\x00%s\x00%s" "${i}.wav" "$encodedFilename" | WINEPREFIX="$winePath" xargs -0 $wineExe lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					else
-						printf -- "-o`tagline`\x00%s\x00%s" "${i}.wav" "$encodedFilename" | WINEPREFIX="$winePath" xargs -0 $wineExe lame -S -b $bitrate_LAME --cbr --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					fi
-				fi
-				setWineParams ''
-				cd "$OLDPWD"
-				if [ $ec -eq $EX_OK ]; then
-					importArtworkIntoMP3 || ec=$EX_KO
-				fi
-				;;
-
 			AAC)
 				destExtension='m4a'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.m4a.txt"
 				if [ "$AAC_MODE" = 'VBR' ]; then
@@ -4609,31 +4186,6 @@ encode ()
 						importArtworkIntoM4A || ec=$EX_KO
 					fi
 				fi
-				;;
-
-			QAAC)
-				destExtension='m4a'; encodedFilename="${i}-${outputCodec}.${destExtension}"; encodedFile="${SWAPDIR}/${encodedFilename}"; destTagFile="${TDIR}/${i}.m4a.txt"
-				cd "$SWAPDIR"
-				setWineParams 'qaac'
-				if [ "$compression_QAAC" = 'iTunes' ]; then
-					WINEPREFIX="$winePath" $wineExe qaac -s --cvbr 256 -o "$encodedFilename" "${i}.wav" >/dev/null 2>&1 || ec=$EX_KO
-				elif [ "$QAAC_MODE" = 'VBR' ]; then
-					WINEPREFIX="$winePath" $wineExe qaac -s -V $compression_QAAC -o "$encodedFilename" "${i}.wav" >/dev/null 2>&1 || ec=$EX_KO
-				elif [ "$QAAC_MODE" = 'ABR' ]; then
-					WINEPREFIX="$winePath" $wineExe qaac -s -a $average_bitrate_QAAC -o "$encodedFilename" "${i}.wav" >/dev/null 2>&1 || ec=$EX_KO
-				else
-					WINEPREFIX="$winePath" $wineExe qaac -s -c $bitrate_QAAC -o "$encodedFilename" "${i}.wav" >/dev/null 2>&1 || ec=$EX_KO
-				fi
-				if [ $ec -eq $EX_OK ]; then
-					if [ -f "$destTagFile" ]; then
-						printf -- "%s`tagline`" "$encodedFilename" | xargs -0 neroAacTag >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					fi
-					if [ $ec -eq $EX_OK ]; then
-						importArtworkIntoM4A || ec=$EX_KO
-					fi
-				fi
-				setWineParams ''
-				cd "$OLDPWD"
 				;;
 
 			Musepack)
@@ -4845,7 +4397,7 @@ transcode ()
 
 			for outputCodec in $outputCodecs; do
 				test "$outputCodec" = 'lossyWAV' && continue
-				if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' -o "$outputCodec" = 'lossyTAK' ]; then
+				if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' ]; then
 					if [ -e "$lossywavEncodingLockFile" ]; then # lossyWAV encoding in progress, skip to next codec
 						allDone=false
 						continue
@@ -4858,7 +4410,7 @@ transcode ()
 					if [ $ec -ne $EX_OK ]; then addTranscodingErrorFile "$sourceFile" ; fi
 					rm -f "${encodingLockFile}_WAV_NEEDED"
 					ls "${TDIR}/"*"_${i}_WAV_NEEDED" >/dev/null 2>&1 || rm -f "$wavFile"
-					if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' -o "$outputCodec" = 'lossyTAK' ]; then
+					if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' ]; then
 						rm -f "${encodingLockFile}_LOSSYWAV_NEEDED"
 						ls "${TDIR}/"*"_${i}_LOSSYWAV_NEEDED" >/dev/null 2>&1 || rm -f "$lossywavFile"
 					fi
@@ -5088,34 +4640,6 @@ testHashedFile ()
 			fi
 			;;
 
-		*.tak)
-			APEv2 "$copyFile" > "$sourceTagFile" 2>/dev/null || ec=$EX_KO
-			if [ $ec -eq $EX_OK ]; then
-				getHashTags ;	ec=$?
-				if [ $ec -eq $EX_OK ]; then
-					if [ -n "$hashMD5" ]; then
-						getInternalMD5 "$copyFile"
-						if [ -n "$sourceMD5" -a "$sourceMD5" != "$hashMD5" ]; then
-							ec=$EX_IOERR
-						fi
-					fi
-					if [ $ec -eq $EX_OK ]; then
-						getSuitableHash ; ec=$?
-						if [ -n "$testHashType" ]; then
-							cd "$SWAPDIR"
-							runWineExe Takc -d ".\\${i}.${sourceFilename}" ".\\${i}.wav" >/dev/null 2>&1 || ec=$EX_KO
-							cd "$OLDPWD"
-							if [ $ec -eq $EX_OK ]; then
-								compareHashes || ec=$EX_KO
-							fi
-						fi
-					fi
-				fi
-			else
-				ec=$EX_DATAERR
-			fi
-			;;
-
 		*.m4a)
 			if extractAlacMetadata; then
 				getHashTags ;	getSuitableHash ; ec=$?
@@ -5164,16 +4688,6 @@ testFile ()
 					if [ $macHasVerify = true ]; then
 						mac "$copyFile" -v >/dev/null 2>&1; ec=$?
 					fi
-				fi
-				saveDurations
-				;;
-
-			*.tak)
-				testHashedFile ; ec=$?
-				if [ $ec -eq $EX_DATAERR -o $ec -eq $EX_OSFILE ]; then
-					cd "$SWAPDIR"
-					runWineExe Takc -t -md5 ".\\${i}.${sourceFilename}" >/dev/null 2>&1; ec=$?
-					cd "$OLDPWD"
 				fi
 				saveDurations
 				;;
@@ -5254,24 +4768,6 @@ getInternalMD5 ()
 				sourceMD5="$( wvunpack -s "$f" 2>&1 | grep -F 'original md5:' | tr -d ' ' | cut -d ':' -f 2 )"
 			fi
 			;;
-
-		*.tak)
-			dn="$( dirname "$f" 2>/dev/null )"
-			if [ -n "$dn" -a -d "$dn" ]; then
-				cd "$dn"
-				bn="$( basename "$f" )"
-				if gotNewTAK; then
-					sourceMD5="$( runWineExe Takc -fi -fim5 ".\\${bn}" 2>/dev/null | cut -d ';' -f 6 )"
-				else
-					sourceMD5="$( runWineExe Takc -fi -fim3 ".\\${bn}" 2>/dev/null | tr -s ' ' | tr -d '\r\n' )"
-					sourceMD5="${sourceMD5##* }"
-					if [ "$sourceMD5" = 'available' ]; then
-						sourceMD5=''
-					fi
-				fi
-				cd "$OLDPWD"
-			fi
-			;;
 	esac
 }
 
@@ -5295,16 +4791,6 @@ computeHash ()
 				if [ $ec -eq $EX_OK ]; then
 					getInternalMD5 "$copyFile"
 					wvunpack -q -m -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				fi
-				;;
-
-			*.tak)
-				touch "$sourceTagFile"
-				if [ $ec -eq $EX_OK ]; then
-					getInternalMD5 "$copyFile"
-					cd "$SWAPDIR"
-					runWineExe Takc -d ".\\${i}.${sourceFilename}" ".\\${i}.wav" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					cd "$OLDPWD"
 				fi
 				;;
 
@@ -5382,7 +4868,7 @@ computeHash ()
 					printf -- "--no-utf8-convert`tagline --set-tag`\x00%s" "$sourceFile" | xargs -0 metaflac --remove-all-tags >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					;;
 
-				*.wv|*.tak|*.ape)
+				*.wv|*.ape)
 					destTagFile="${TDIR}/${i}.ape.txt" outputCodec="WavPack"
 					cp "$sourceTagFile" "$destTagFile" >/dev/null 2>&1 &&
 					printf -- "-z`tagline -t`\x00%s" "$sourceFile" | xargs -0 APEv2 >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
@@ -5518,7 +5004,7 @@ saveGain ()
 			printf -- "-z`tagline -t`\x00%s" "$destFile" | xargs -0 APEv2 >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			;;
 
-		*.ape|*.tak)
+		*.ape)
 			destTagFile="${TDIR}/${i}.ape.txt"
 			if [ "$gainType" = 'TRACK' ]; then
 				gainTypeText='Track'
@@ -5769,17 +5255,6 @@ computeTrackGain ()
 
 			*.ape)
 				mac "$copyFile" "$wavFile" -d >/dev/null 2>> "$errorLogFile" ; ec=$?
-				if [ $ec -eq $EX_OK ]; then
-					touch "$sourceTagFile"
-					destTagFile="${TDIR}/${i}.ape.txt"
-					runWavegain || ec=$EX_KO
-				fi
-				;;
-
-			*.tak)
-				cd "$SWAPDIR"
-				runWineExe Takc -d ".\\${i}.${sourceFilename}" ".\\${i}.wav" >/dev/null 2>> "$errorLogFile"; ec=$?
-				cd "$OLDPWD"
 				if [ $ec -eq $EX_OK ]; then
 					touch "$sourceTagFile"
 					destTagFile="${TDIR}/${i}.ape.txt"
@@ -6095,18 +5570,13 @@ getOutputCodecProps ()
 		WavPackHybrid)       destExtension='wv'         cname='WavPack Hybrid' ;;
 		WavPackLossy)        destExtension='wv'         cname='WavPack Lossy' ;;
 		MonkeysAudio)        destExtension='ape'        cname="Monkey's Audio" ;;
-		TAK)                 destExtension='tak'        cname="TAK" ;;
 		ALAC)                destExtension='m4a'        cname='ALAC' ;;
 		lossyWAV)            destExtension='lossy.wav'  cname='lossyWAV' ;;
 		lossyFLAC)           destExtension='lossy.flac' cname='lossyFLAC' ;;
 		lossyWV)             destExtension='lossy.wv'   cname='lossyWV' ;;
-		lossyTAK)            destExtension='lossy.tak'  cname='lossyTAK' ;;
 		OggVorbis)           destExtension='ogg'        cname='Ogg Vorbis' ;;
-		WinVorbis)           destExtension='ogg'        cname='Win Vorbis' ;;
 		LAME)                destExtension='mp3'        cname='LAME' ;;
-		WinLAME)             destExtension='mp3'        cname='Win LAME' ;;
 		AAC)                 destExtension='m4a'        cname='AAC' ;;
-		QAAC)                destExtension='m4a'        cname='QAAC' ;;
 		Musepack)            destExtension='mpc'        cname='Musepack' ;;
 		Opus)                destExtension='opus'       cname='Opus' ;;
 	esac
@@ -6353,18 +5823,13 @@ setDestDir ()
 	if [ "$outputCodec" = 'WavPackHybrid' -o -z "$dir_WavPackHybrid" ]; then dir_WavPackHybrid="$destDir"; fi
 	if [ "$outputCodec" = 'WavPackLossy' -o -z "$dir_WavPackLossy" ]; then dir_WavPackLossy="$destDir"; fi
 	if [ "$outputCodec" = 'MonkeysAudio' -o -z "$dir_MonkeysAudio" ]; then dir_MonkeysAudio="$destDir"; fi
-	if [ "$outputCodec" = 'TAK' -o -z "$dir_TAK" ]; then dir_TAK="$destDir"; fi
 	if [ "$outputCodec" = 'ALAC' -o -z "$dir_ALAC" ]; then dir_ALAC="$destDir"; fi
 	if [ "$outputCodec" = 'lossyWAV' -o -z "$dir_lossyWAV" ]; then dir_lossyWAV="$destDir"; fi
 	if [ "$outputCodec" = 'lossyFLAC' -o -z "$dir_lossyFLAC" ]; then dir_lossyFLAC="$destDir"; fi
 	if [ "$outputCodec" = 'lossyWV' -o -z "$dir_lossyWV" ]; then dir_lossyWV="$destDir"; fi
-	if [ "$outputCodec" = 'lossyTAK' -o -z "$dir_lossyTAK" ]; then dir_lossyTAK="$destDir"; fi
 	if [ "$outputCodec" = 'LAME' -o -z "$dir_LAME" ]; then dir_LAME="$destDir"; fi
-	if [ "$outputCodec" = 'WinLAME' -o -z "$dir_WinLAME" ]; then dir_WinLAME="$destDir"; fi
 	if [ "$outputCodec" = 'AAC' -o -z "$dir_AAC" ]; then dir_AAC="$destDir"; fi
-	if [ "$outputCodec" = 'QAAC' -o -z "$dir_QAAC" ]; then dir_QAAC="$destDir"; fi
 	if [ "$outputCodec" = 'OggVorbis' -o -z "$dir_OggVorbis" ]; then dir_OggVorbis="$destDir"; fi
-	if [ "$outputCodec" = 'WinVorbis' -o -z "$dir_WinVorbis" ]; then dir_WinVorbis="$destDir"; fi
 	if [ "$outputCodec" = 'Musepack' -o -z "$dir_Musepack" ]; then dir_Musepack="$destDir"; fi
 	if [ "$outputCodec" = 'Opus' -o -z "$dir_Opus" ]; then dir_Opus="$destDir"; fi
 }
@@ -6383,18 +5848,13 @@ getDestDir ()
 		WavPackHybrid) destDir="$dir_WavPackHybrid" ;;
 		WavPackLossy) destDir="$dir_WavPackLossy" ;;
 		MonkeysAudio) destDir="$dir_MonkeysAudio" ;;
-		TAK) destDir="$dir_TAK" ;;
 		ALAC) destDir="$dir_ALAC" ;;
 		lossyWAV) destDir="$dir_lossyWAV" ;;
 		lossyFLAC) destDir="$dir_lossyFLAC" ;;
 		lossyWV) destDir="$dir_lossyWV" ;;
-		lossyTAK) destDir="$dir_lossyTAK" ;;
 		LAME) destDir="$dir_LAME" ;;
-		WinLAME) destDir="$dir_WinLAME" ;;
 		AAC) destDir="$dir_AAC" ;;
-		QAAC) destDir="$dir_QAAC" ;;
 		OggVorbis) destDir="$dir_OggVorbis" ;;
-		WinVorbis) destDir="$dir_WinVorbis" ;;
 		Musepack) destDir="$dir_Musepack" ;;
 		Opus) destDir="$dir_Opus" ;;
 	esac
@@ -6444,11 +5904,6 @@ if which 'uname' >/dev/null 2>&1 ; then
 fi
 
 checkBinaries
-if which 'wine64' >/dev/null 2>&1; then
-	gotWine64=true
-else
-	gotWine64=false
-fi
 
 maxProcesses=''
 if which 'nproc' >/dev/null 2>&1; then # GNU Coreutils installed
@@ -6490,11 +5945,9 @@ fi
 getCompressionSetting 'FLAC' "$compression_FLAC" 'caudecrc'
 getCompressionSetting 'WavPack' "$compression_WavPack" 'caudecrc'
 getCompressionSetting 'MonkeysAudio' "$compression_MonkeysAudio" 'caudecrc'
-getCompressionSetting 'TAK' "$compression_TAK" 'caudecrc'
 getCompressionSetting 'lossyWAV' "$compression_lossyWAV" 'caudecrc'
 getCompressionSetting 'LAME' "$compression_LAME" 'caudecrc'
 getCompressionSetting 'AAC' "$compression_AAC" 'caudecrc'
-getCompressionSetting 'QAAC' "$compression_QAAC" 'caudecrc'
 getCompressionSetting 'OggVorbis' "$compression_OggVorbis" 'caudecrc'
 getCompressionSetting 'Musepack' "$compression_Musepack" 'caudecrc'
 getCompressionSetting 'Opus' "$compression_Opus" 'caudecrc'
@@ -6502,19 +5955,16 @@ getCompressionSetting 'Opus' "$compression_Opus" 'caudecrc'
 getConstantBitrate 'WavPackLossy' "$bitrate_WavPackLossy" 'caudecrc'
 getConstantBitrate 'LAME' "$bitrate_LAME" 'caudecrc'
 getConstantBitrate 'AAC' "$bitrate_AAC" 'caudecrc'
-getConstantBitrate 'QAAC' "$bitrate_QAAC" 'caudecrc'
 getConstantBitrate 'OggVorbis' "$bitrate_OggVorbis" 'caudecrc'
 getConstantBitrate 'Opus' "$bitrate_Opus" 'caudecrc'
 
 getAverageBitrate 'LAME' "$average_bitrate_LAME" 'caudecrc'
 getAverageBitrate 'AAC' "$average_bitrate_AAC" 'caudecrc'
-getAverageBitrate 'QAAC' "$average_bitrate_QAAC" 'caudecrc'
 getAverageBitrate 'OggVorbis' "$average_bitrate_OggVorbis" 'caudecrc'
 getAverageBitrate 'Opus' "$average_bitrate_Opus" 'caudecrc'
 
 getBitrateMode 'LAME' "$LAME_MODE" 'caudecrc'
 getBitrateMode 'AAC' "$AAC_MODE" 'caudecrc'
-getBitrateMode 'QAAC' "$QAAC_MODE" 'caudecrc'
 getBitrateMode 'OggVorbis' "$OggVorbis_MODE" 'caudecrc'
 getBitrateMode 'Opus' "$Opus_MODE" 'caudecrc'
 
@@ -6613,18 +6063,13 @@ while getopts 'zsn:o:O:P:kKDtdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				wvh)                 lastCodec='WavPackHybrid' ;;
 				wvl)                 lastCodec='WavPackLossy' ;;
 				ape)                 lastCodec='MonkeysAudio' ;;
-				tak)                 lastCodec='TAK' ;;
 				alac)                lastCodec='ALAC' ;;
 				lossyWAV|lossywav)   lastCodec='lossyWAV'; ((nLossyWAV++)) ; copyLossyWAV=true ;;
 				lossyFLAC|lossyflac) lastCodec='lossyFLAC'; ((nLossyWAV++)) ;;
 				lossyWV|lossywv)     lastCodec='lossyWV'; ((nLossyWAV++)) ;;
-				lossyTAK|lossytak)   lastCodec='lossyTAK'; ((nLossyWAV++)) ;;
 				mp3|lame)            lastCodec='LAME' ;;
-				winlame)             lastCodec='WinLAME' ;;
 				aac)                 lastCodec='AAC' ;;
-				qaac)                lastCodec='QAAC' ;;
 				ogg|vorbis)          lastCodec='OggVorbis' ;;
-				winvorbis)           lastCodec='WinVorbis' ;;
 				mpc|musepack)        lastCodec='Musepack' ;;
 				opus)                lastCodec='Opus' ;;
 				*) printMessage 'error' 'usage' 'bad_value' "$me -c: invalid codec (try $me -h)" ; exit $EX_USAGE ;;
@@ -6663,12 +6108,10 @@ while getopts 'zsn:o:O:P:kKDtdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				FLAC) getCompressionSetting 'FLAC' "$OPTARG" ;;
 				WavPack|WavPackHybrid|WavPackLossy) getCompressionSetting 'WavPack' "$OPTARG" ;;
 				MonkeysAudio) getCompressionSetting 'MonkeysAudio' "$OPTARG" ;;
-				TAK) getCompressionSetting 'TAK' "$OPTARG" ;;
-				lossyWAV|lossyFLAC|lossyWV|lossyTAK) getCompressionSetting 'lossyWAV' "$OPTARG" ;;
-				LAME|WinLAME) getCompressionSetting 'LAME' "$OPTARG" ; LAME_MODE='VBR' ;;
+				lossyWAV|lossyFLAC|lossyWV) getCompressionSetting 'lossyWAV' "$OPTARG" ;;
+				LAME) getCompressionSetting 'LAME' "$OPTARG" ; LAME_MODE='VBR' ;;
 				AAC) getCompressionSetting 'AAC' "$OPTARG" ; AAC_MODE='VBR' ;;
-				QAAC) getCompressionSetting 'QAAC' "$OPTARG" ; QAAC_MODE='VBR' ;;
-				OggVorbis|WinVorbis) getCompressionSetting 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='VBR' ;;
+				OggVorbis) getCompressionSetting 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='VBR' ;;
 				Musepack) getCompressionSetting 'Musepack' "$OPTARG" ;;
 				Opus) getCompressionSetting 'Opus' "$OPTARG" ; Opus_MODE='VBR' ;;
 				*) printMessage 'error' 'usage' 'command_line' "$me -q: parameter not available with the selected codec" ; exit $EX_USAGE ;;
@@ -6684,10 +6127,9 @@ while getopts 'zsn:o:O:P:kKDtdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				case "$lastCodec" in
 					WavPackHybrid|WavPackLossy) getConstantBitrate 'WavPackLossy' "$OPTARG" ;;
 					Opus) getConstantBitrate 'Opus' "$OPTARG" ; Opus_MODE='CBR' ;;
-					LAME|WinLAME) getConstantBitrate 'LAME' "$OPTARG" ; LAME_MODE='CBR' ;;
-					OggVorbis|WinVorbis) getConstantBitrate 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='CBR' ;;
+					LAME) getConstantBitrate 'LAME' "$OPTARG" ; LAME_MODE='CBR' ;;
+					OggVorbis) getConstantBitrate 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='CBR' ;;
 					AAC) getConstantBitrate 'AAC' "$OPTARG" ; AAC_MODE='CBR' ;;
-					QAAC) getConstantBitrate 'QAAC' "$OPTARG" ; QAAC_MODE='CBR' ;;
 					*) printMessage 'error' 'usage' 'command_line' "$me -b: parameter not available with the selected codec" ; exit $EX_USAGE ;;
 				esac
 			fi
@@ -6698,10 +6140,9 @@ while getopts 'zsn:o:O:P:kKDtdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				printMessage 'error' 'usage' 'command_line' "$me -B: you must select a codec first (-c)" ; exit $EX_USAGE
 			fi
 			case "$lastCodec" in
-				LAME|WinLAME) getAverageBitrate 'LAME' "$OPTARG" ; LAME_MODE='ABR' ;;
-				OggVorbis|WinVorbis) getAverageBitrate 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='ABR' ;;
+				LAME) getAverageBitrate 'LAME' "$OPTARG" ; LAME_MODE='ABR' ;;
+				OggVorbis) getAverageBitrate 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='ABR' ;;
 				AAC) getAverageBitrate 'AAC' "$OPTARG" ; AAC_MODE='ABR' ;;
-				QAAC) getAverageBitrate 'QAAC' "$OPTARG" ; QAAC_MODE='ABR' ;;
 				Opus) getAverageBitrate 'Opus' "$OPTARG" ; Opus_MODE='ABR' ;;
 				*) printMessage 'error' 'usage' 'command_line' "$me -B: parameter not available with the selected codec" ; exit $EX_USAGE ;;
 			esac

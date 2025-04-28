@@ -2,6 +2,8 @@
 
 # save this file to either /etc/caudecrc or ~/.caudecrc
 
+# CAUDECDIR="" # set to a directory of your choosing (e.g. ${HOME}/tmp)
+
 # default compression levels (try 'caudec -c CODEC -q help' for a full list of possible values)
 compression_FLAC=5 # 0-8
 compression_lossyWAV=S # X, P, C, S, H, E, I
