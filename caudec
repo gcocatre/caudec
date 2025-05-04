@@ -4742,7 +4742,7 @@ getLock ()
 {
 	local lockFile="$1"
 	if [ "$OS" = 'Darwin' ]; then
-		lockf -s -n -t 0 "$lockFile" test -e "$lockFile" &>/dev/null
+		lockf -s -n -t 1 "$lockFile" test -e "$lockFile" &>/dev/null
 	else
 		unlink "$lockFile" 2>/dev/null
 	fi
@@ -4752,7 +4752,7 @@ getAndRenameLock ()
 {
 	local lockFileOne="$1" lockFileTwo="$2"
 	if [ "$OS" = 'Darwin' ]; then
-		lockf -s -n -t 0 "$lockFileOne" mv "$lockFileOne" "$lockFileTwo" &>/dev/null
+		lockf -k -s -n -t 1 "$lockFileOne" mv "$lockFileOne" "$lockFileTwo" &>/dev/null
 	else
 		test -e "$lockFileOne" && mv "$lockFileTwo" 2>/dev/null
 	fi
