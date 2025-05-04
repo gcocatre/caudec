@@ -4231,7 +4231,9 @@ encode ()
 		if [ $ec -eq $EX_OK ]; then
 			if [ -e "$encodedFile" ]; then
 				chmod 0644 "$encodedFile"
-				if [ -L "$encodedFile" -o "$outputCodec" = 'WAV' ]; then
+				if [ "$outputCodecs" = 'WAV' ]; then
+					mv "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
+				elif [ -L "$encodedFile" -o "$outputCodec" = 'WAV' ]; then
 					cp "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
 				else
 					mv "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
