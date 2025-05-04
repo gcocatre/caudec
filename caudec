@@ -3428,7 +3428,9 @@ decode ()
 		esac
 
 		if [ $sourceIsLossyWAV = true ]; then
-			ln -s "${i}.wav" "${SWAPDIR}/${i}.lossy.wav" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			if [ ! -h "${i}.wav" ]; then # FIXME
+				ln -s "${i}.wav" "${SWAPDIR}/${i}.lossy.wav" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			fi
 		fi
 	else
 		ec=$EX_KO
@@ -4317,9 +4319,14 @@ prepareSource ()
 		else # sourceFile is a relative path; prepend current directory
 			sourcePath="${PWD}/${sourceFile}"
 		fi
-		ln -s "$sourcePath" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+		if [ ! -h "$copyFile" ]; then # FIXME
+			ln -s "$sourcePath" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+		fi
+
 		if [ -e "${sourcePath}c" ]; then # WavPack correction file
-			ln -s "${sourcePath}c" "${copyFile}c" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			if [ ! -h "${copyFile}c" ]; then # FIXME
+				ln -s "${sourcePath}c" "${copyFile}c" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			fi
 		fi
 	fi
 
@@ -4371,7 +4378,8 @@ transcode ()
 			lossywavSHA256File="${TDIR}/${i}.lossywavSHA256"
 			lossywavSHA512File="${TDIR}/${i}.lossywavSHA512"
 
-			if test -e "$transcodingLockFile" && mv "$transcodingLockFile" "$decodingLockFile" 2>/dev/null; then
+			# if test -e "$transcodingLockFile" && mv "$transcodingLockFile" "$decodingLockFile" 2>/dev/null; then
+			if getAndRenameLock "$transcodingLockFile" "$decodingLockFile"; then
 				allDone=false
 				prepareSource &&
 				decode || ec=$EX_KO
@@ -4730,6 +4738,26 @@ testFile ()
 	return $ec
 }
 
+getLock ()
+{
+	local lockFile="$1"
+	if [ "$OS" = 'Darwin' ]; then
+		lockf -s -n -t 0 "$lockFile" test -e "$lockFile" &>/dev/null
+	else
+		unlink "$lockFile" 2>/dev/null
+	fi
+}
+
+getAndRenameLock ()
+{
+	local lockFileOne="$1" lockFileTwo="$2"
+	if [ "$OS" = 'Darwin' ]; then
+		lockf -s -n -t 0 "$lockFileOne" mv "$lockFileOne" "$lockFileTwo" &>/dev/null
+	else
+		test -e "$lockFileOne" && mv "$lockFileTwo" 2>/dev/null
+	fi
+}
+
 testFiles ()
 {
 	local ec=$EX_OK
@@ -4741,7 +4769,7 @@ testFiles ()
 		sourceTagFile="${TDIR}/${i}.txt"
 		testingLockFile="${TDIR}/${i}"
 
-		if unlink "$testingLockFile" 2>/dev/null; then
+		if getLock "$testingLockFile"; then
 			prepareSource &&
 			testFile || ec=$EX_KO
 			if [ -e "$wavFile" ]; then rm -f "$wavFile" >/dev/null 2>&1; fi
@@ -4905,7 +4933,7 @@ computeHashes ()
 		wavFile="${SWAPDIR}/${i}.wav"
 		hashingLockFile="${TDIR}/${i}"
 
-		if unlink "$hashingLockFile" 2>/dev/null; then
+		if getLock "$hashingLockFile"; then
 			prepareSource || ec=$EX_KO
 			if [ $ec -eq $EX_OK ]; then
 				computeHash || ec=$EX_KO
@@ -5449,7 +5477,7 @@ computeTrackGains ()
 		destFile="$sourceFile"
 		wavFile="${SWAPDIR}/${i}.wav"
 
-		if unlink "$gainLockFile" 2>/dev/null; then
+		if getLock "$gainLockFile"; then
 			prepareSource &&
 			computeTrackGain || ec=$EX_KO
 			if [ -e "$wavFile" ]; then rm -f "$wavFile" >/dev/null 2>&1; fi

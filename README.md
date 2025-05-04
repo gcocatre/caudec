@@ -1,6 +1,6 @@
 # caudec: multiprocess audio converter
 
-Copyright © 2012 - 2024 Guillaume Cocatre-Zilgien
+Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 
 https://github.com/gcocatre/caudec
 
@@ -8,11 +8,11 @@ caudec is a command-line utility that transcodes (converts) audio files from one
 
 ## Features
 
-* Supported input formats / codecs: WAV, FLAC.
-* Supported output formats / codecs: WAV, FLAC, lossyWAV, MP3 (LAME), Ogg Vorbis.
+* Supported input formats / codecs: WAV, AIFF, CAF, FLAC, WavPack, Monkey's Audio, Apple Lossless.
+* Supported output formats / codecs: all of the above, as well as lossyWAV / lossyFLAC / lossyWV, MP3, Ogg Vorbis, Opus, Musepack.
 * Transcoding to several different codecs at once is possible. In that case, decoding of input files is done only once.
 * Metadata is preserved (as much as possible) from one codec to another.
-* Multiprocess Replaygain scanner for FLAC, MP3, Ogg Vorbis.
+* Multiprocess Replaygain scanner for FLAC, WavPack, Monkey's Audio, MP3, Ogg Vorbis.
 
 ## Requirements
 
@@ -21,7 +21,7 @@ caudec uses common UNIX tools (which, uname, grep, stat, sed/gsed, date/gdate, t
 ### Mandatory Software
 
 * bc: http://www.gnu.org/software/bc/
-~~* SoX: http://sox.sourceforge.net/~~
+* SoX: http://sox.sourceforge.net/
 
 ### Optional Software
 
@@ -34,16 +34,15 @@ caudec uses common UNIX tools (which, uname, grep, stat, sed/gsed, date/gdate, t
 
 #### Replaygain
 
-~~* wavegain: http://freecode.com/projects/wavegain~~
+* wavegain: http://freecode.com/projects/wavegain
 * vorbisgain: http://sjeng.org/vorbisgain.html
 * mp3gain: http://mp3gain.sourceforge.net/
 
 #### Miscellaneous
-* wget (for checking for new versions): http://www.gnu.org/software/wget/wget.html
-~~* APEv2 (for files with APEv2 metadata): http://caudec.net/~~
-~~* cksfv (for hashing CRC32): http://zakalwe.fi/~shd/foss/cksfv/~~
-~~* md5sum (Linux) or md5 (OS Ⅹ) for hashing MD5 sums~~
-~~* sha1sum, sha256sum, sha512sum (Linux) or shasum (OS Ⅹ) for hashing SHA sums~~
+* APEv2 (for files with APEv2 metadata): https://github.com/gcocatre/caudec
+* cksfv (for hashing CRC32): http://zakalwe.fi/~shd/foss/cksfv/
+* md5sum (Linux) or md5 (macOS) for hashing MD5 sums
+* sha1sum, sha256sum, sha512sum (Linux) or shasum (macOS) for hashing SHA sums
 * eyeD3 (for MP3 tagging): http://eyed3.nicfit.net/
 
 
