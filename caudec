@@ -4276,7 +4276,8 @@ prepareSource ()
 			copyLockFile="${iodir}/$( stat -f '%d' "$sourceFile" 2>> "$errorLogFile" )"
 		fi
 		until test $copyDone = true; do
-			if test -f "$copyLockFile" && mv "$copyLockFile" "${copyLockFile}.lock" >/dev/null 2>&1; then
+			# if test -f "$copyLockFile" && mv "$copyLockFile" "${copyLockFile}.lock" >/dev/null 2>&1; then
+			if getAndRenameLock "$copyLockFile" "${copyLockFile}.lock"; then
 				touch "${instanceDir}/ioLockFiles/${copyLockFile##*/}"
 				echo "$$" > "${copyLockFile}.lock"
 
