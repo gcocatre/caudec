@@ -2842,7 +2842,7 @@ extractAPEv2Binaries ()
 
 importArtworkIntoFLAC ()
 {
-	local ec=$EX_OK picType description='' descFile='' pattern
+	local ec=$EX_OK picBasename="" picType description='' descFile='' pattern
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -2851,7 +2851,8 @@ importArtworkIntoFLAC ()
 
 	for f in "${SWAPDIR}/picture-${i}-"*_*; do
 		if [ ! -e "$f" ]; then continue; fi
-		picType="${f#*_}"; picType="${picType%.*}"; descFile="${f%_*}.txt"
+		picBasename="$( basename "$f" )"
+		picType="${picBasename#*_}"; picType="${picType%.*}"; descFile="${f%_*}.txt"
 		description=''
 		if [ -f "$descFile" ]; then
 			description="$( cat "$descFile" 2>> "$errorLogFile" )"; description="${description//|//}" # replace | with /
@@ -2863,7 +2864,7 @@ importArtworkIntoFLAC ()
 
 genOpusArtworkCommandLine ()
 {
-	local ec=$EX_OK picType description='' descFile='' pattern cmdline=''
+	local ec=$EX_OK picBasename="" picType description='' descFile='' pattern cmdline=''
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -2873,7 +2874,8 @@ genOpusArtworkCommandLine ()
 
 	for f in "${SWAPDIR}/picture-${i}-"*_*; do
 		if [ ! -e "$f" ]; then continue; fi
-		picType="${f#*_}"; picType="${picType%.*}"; descFile="${f%_*}.txt"
+		picBasename="$( basename "$f" )"
+		picType="${picBasename#*_}"; picType="${picType%.*}"; descFile="${f%_*}.txt"
 		description=''
 		if [ -f "$descFile" ]; then
 			description="$( cat "$descFile" 2>> "$errorLogFile" )"; description="${description//|//}" # replace | with /
@@ -2886,7 +2888,7 @@ genOpusArtworkCommandLine ()
 
 importArtworkIntoM4A ()
 {
-	local ec=$EX_OK picType picTypeText pattern
+	local ec=$EX_OK picBasename="" picType picTypeText pattern
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -2895,7 +2897,8 @@ importArtworkIntoM4A ()
 
 	for f in "${SWAPDIR}/picture-${i}-"*_*; do
 		if [ ! -e "$f" ]; then continue; fi
-		picType="${f#*_}"; picType="${picType%.*}"
+		picBasename="$( basename "$f" )"
+		picType="${picBasename#*_}"; picType="${picType%.*}"
 		case $picType in
 			3) picTypeText='front' ;;
 			4) picTypeText='back' ;;
@@ -2908,7 +2911,7 @@ importArtworkIntoM4A ()
 
 importArtworkIntoAPEv2 ()
 {
-	local ec=$EX_OK picType picTypeText pattern af='' argString='' lastPicType=''
+	local ec=$EX_OK picBasename="" picType picTypeText pattern af='' argString='' lastPicType=''
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -2917,7 +2920,8 @@ importArtworkIntoAPEv2 ()
 
 	for f in "${SWAPDIR}/picture-${i}-"*_*; do
 		if [ ! -e "$f" ]; then continue; fi
-		picType="${f#*_}"; picType="${picType%.*}"
+		picBasename="$( basename "$f" )"
+		picType="${picBasename#*_}"; picType="${picType%.*}"
 		if [ "$lastPicType" = "$picType" ]; then
 			continue
 		fi
@@ -2981,7 +2985,7 @@ importBinariesIntoAPEv2 ()
 
 importArtworkIntoMP3 ()
 {
-	local ec=$EX_OK picType picTypeText pattern descFile description='' frontCoverFile='' n=0
+	local ec=$EX_OK picBasename="" picType picTypeText pattern descFile description='' frontCoverFile='' n=0
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -2992,7 +2996,8 @@ importArtworkIntoMP3 ()
 	for f in "${SWAPDIR}/picture-${i}-"*_*; do
 		if [ ! -e "$f" ]; then continue; fi
 		((n++))
-		picType="${f#*_}"; picType="${picType%.*}"; descFile="${f%_*}.txt"
+		picBasename="$( basename "$f" )"
+		picType="${picBasename#*_}"; picType="${picType%.*}"; descFile="${f%_*}.txt"
 		case $picType in
 			0) picTypeText='OTHER' ;;
 			1) picTypeText='ICON' ;;
