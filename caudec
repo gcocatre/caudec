@@ -3807,7 +3807,6 @@ encodeLossyWAV ()
 			if [ $overwriteLossyWAV = true ]; then
 				chmod 0644 "$encodedFile"
 				cp "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
-				touch "$destFile" >/dev/null 2>> "$errorLogFile" # make sure that the mtime value is current
 				printMessage 'success' 'encoding' $p "file:${destFile}"
 			fi
 		fi
@@ -4238,9 +4237,7 @@ encode ()
 				else
 					mv "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
 				fi
-				touch "$destFile" >/dev/null 2>> "$errorLogFile" # make sure that the mtime value is current
 				test -e "${encodedFile}c" && mv "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile" # WavPack Hybrid correction files
-				test -e "${destFile}c" && touch "${destFile}c" >/dev/null 2>> "$errorLogFile" # make sure that the mtime value is current
 				printMessage 'success' "$statusInfo" "file:${destFile}" $p
 			fi
 		else
