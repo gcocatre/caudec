@@ -4015,14 +4015,12 @@ encode ()
 				nThreads="$( getNumberOfAvailableThreads )"
 				if [ -z "$compression_WavPack" -o "$compression_WavPack" = 'd' -o "$compression_WavPack" = 'default' ]; then
 					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default"; fi
-					wavpack -q --threads=$nThreads -m $kfm -o "$encodedFile" "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
 					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack"; fi
-					wavpack -q --threads=$nThreads -m $kfm -o "$encodedFile" -${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					# FIXME
-					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
 				fi
@@ -4040,7 +4038,7 @@ encode ()
 							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy kbps (ABR)"
 						fi
 					fi
-					wavpack -q --threads=$nThreads -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -c "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
 					if [ $tagCompressionSetting = true ]; then
 						if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
@@ -4049,11 +4047,9 @@ encode ()
 							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
 						fi
 					fi
-					wavpack -q --threads=$nThreads -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -c${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -c${compression_WavPack} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					# FIXME
-					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
 				fi
@@ -4063,28 +4059,15 @@ encode ()
 				destExtension='wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt" kfm='-r'
 				if [ $keepWavMetadata = true ]; then kfm=''; fi
 				nThreads="$( getNumberOfAvailableThreads )"
-				if [ -z "$compression_WavPack" -o "$compression_WavPack" = 'd' -o "$compression_WavPack" = 'default' ]; then
-					if [ $tagCompressionSetting = true ]; then
-						if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
-							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
-						else
-							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy kbps (ABR)"
-						fi
+				if [ $tagCompressionSetting = true ]; then
+					if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
+						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
+					else
+						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy kbps (ABR)"
 					fi
-					wavpack -q --threads=$nThreads $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				else
-					if [ $tagCompressionSetting = true ]; then
-						if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
-							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy bits per sample (ABR)"
-						else
-							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
-						fi
-					fi
-					wavpack -q --threads=$nThreads $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -${compression_WavPack} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
+				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					# FIXME
-					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
 				fi
@@ -4127,11 +4110,9 @@ encode ()
 			lossyWV)
 				destExtension='lossy.wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt"
 				nThreads="$( getNumberOfAvailableThreads )"
-				wavpack -q --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks "$lossywavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
+				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					# FIXME
-					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
-					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
 				fi
