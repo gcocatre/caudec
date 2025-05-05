@@ -4111,7 +4111,7 @@ encode ()
 				destExtension='lossy.wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt"
 				nThreads="$( getNumberOfAvailableThreads )"
 				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
-				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				printf -- "-q`tagline -w`\x00%s" "$lossywavFile" | xargs -0 wavpack --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
