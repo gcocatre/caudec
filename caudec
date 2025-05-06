@@ -3434,9 +3434,11 @@ decode ()
 			*) ec=$EX_KO ;;
 		esac
 
+		# FIXME: can't remember: does it have to do with preloadFiles=true on a ramdisk, and transcoding to multiple codecs?
+		# I'm just going to assume I had a good reason for this.
 		if [ $sourceIsLossyWAV = true ]; then
-			if [ ! -h "${i}.wav" ]; then # FIXME
-				ln -s "${i}.wav" "${SWAPDIR}/${i}.lossy.wav" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			if [ ! -h "$lossywavFile" ]; then
+				ln -s "${i}.wav" "$lossywavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			fi
 		fi
 	else
@@ -3744,7 +3746,7 @@ encodeLossyWAV ()
 {
 	local ec=$EX_OK overwriteLossyWAV=true
 
-	encodedFile="${SWAPDIR}/${i}.lossy.wav"
+	encodedFile="$lossywavFile"
 
 	if [ $copyLossyWAV = true ]; then
 		getFileProps "$sourceFile" 'lossyWAV'
