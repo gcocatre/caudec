@@ -1182,15 +1182,17 @@ checkBinary ()
 	for b in "$@"; do
 		p="x${b}Y"
 		if [ "$searchedBinaries" = "${searchedBinaries//$p/@}" ]; then # search for binary hasn't been done before
-			searchedBinaries="${searchedBinaries}${p}"
+			searchedBinaries="${searchedBinaries}${p}" # make sure we don't check twice for nothing
 			if which "$b" >/dev/null 2>&1 ; then
 				foundBinaries="${foundBinaries}${p}"
 				continue
 			else
 				rc=$EX_KO binaryMissing=true
-				printMessage 'warning' 'initialization' 'filesystem' "Binary \"${b}\" not found. Make sure it is in your \$PATH."
+				printMessage 'warning' 'initialization' 'filesystem' \
+"Binary \"${b}\" not found. Make sure it is in your \$PATH, and that you've upgraded it to the latest available version."
 			fi
-		elif [ -z "$foundBinaries" -o "$foundBinaries" = "${foundBinaries//$p/@}" ]; then # binary was previously searched, but not found
+		elif [ -z "$foundBinaries" -o "$foundBinaries" = "${foundBinaries//$p/@}" ]; then
+			# binary was previously searched, but not found
 			rc=$EX_KO
 		fi
 	done
