@@ -1626,11 +1626,7 @@ getNumberOfChannels ()
 		*.flac) c="$( metaflac --show-channels "$f" 2>/dev/null )" ;;
 
 		*.wv)
-			if gotNewWavpack; then
-				c="$( wvunpack -f "$f" 2>/dev/null | cut -d ';' -f 4 )"
-			else
-				c="$( wvunpack -s "$f" 2>/dev/null | grep -E '^channels:' | tr -cd '0-9' )"
-			fi
+			c="$( wvunpack -f "$f" 2>/dev/null | cut -d ';' -f 4 )"
 			;;
 
 		*) c="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$f" 2>/dev/null | grep -F 'channels=' | tr -cd '0-9' )" ;;
@@ -1662,21 +1658,14 @@ getWavpackDecodedSize ()
 {
 	local ratio data b c samples
 
-	if gotNewWavpack; then
-		data="$( wvunpack -f "$1" 2>/dev/null )"
-		if [ -n "$data" ]; then
-			b="$( echo "$data" | cut -d ';' -f 2 )"
-			c="$( echo "$data" | cut -d ';' -f 4 )"
-			samples="$( echo "$data" | cut -d ';' -f 6 )"
-			if [ -n "$b" -a -n "$c" -a -n "$samples" ]; then
-				decodedSize=$(( samples * c * (b / 8) ))
-			fi
+	data="$( wvunpack -f "$1" 2>/dev/null )"
+	if [ -n "$data" ]; then
+		b="$( echo "$data" | cut -d ';' -f 2 )"
+		c="$( echo "$data" | cut -d ';' -f 4 )"
+		samples="$( echo "$data" | cut -d ';' -f 6 )"
+		if [ -n "$b" -a -n "$c" -a -n "$samples" ]; then
+			decodedSize=$(( samples * c * (b / 8) ))
 		fi
-	else
-		ratio="$( wvunpack -s "$1" 2>/dev/null | grep -F 'compression:' | cut -d ':' -f 2 | tr -d ' %' )"
-		ratio="$( echo "scale=2; 100 - $ratio" | bc )"
-		decodedSize="$( echo "scale=1; ($fsize * 100 / $ratio) + 0.5" | bc )"
-		decodedSize="${decodedSize%.*}"
 	fi
 }
 
@@ -1762,34 +1751,30 @@ getWavpackResampledSize ()
 {
 	local bn dn data samples c b osr sr
 
-	if gotNewWavpack ; then
-		data="$( wvunpack -f "$1" 2>/dev/null )"
-		if [ -n "$data" ]; then
-			samples="$( echo "$data" | cut -d ';' -f 6 )"
-			if [ $convertToStereo = 'false' ]; then
-				c="$( echo "$data" | cut -d ';' -f 4 )"
-			else
-				c=2
+	data="$( wvunpack -f "$1" 2>/dev/null )"
+	if [ -n "$data" ]; then
+		samples="$( echo "$data" | cut -d ';' -f 6 )"
+		if [ $convertToStereo = 'false' ]; then
+			c="$( echo "$data" | cut -d ';' -f 4 )"
+		else
+			c=2
+		fi
+		if [ -n "$bitDepth" ]; then
+			b=$bitDepth
+		else
+			b="$( echo "$data" | cut -d ';' -f 2 )"
+		fi
+		if [ -n "$samplingRate" ]; then
+			osr="$( echo "$data" | cut -d ';' -f 1 )"
+			sr=$samplingRate
+			if [ -n "$samples" -a -n "$sr" -a -n "$osr" -a -n "$c" -a -n "$b" ]; then
+				resampledSize=$(( (samples * sr / osr) * c * (b / 8) ))
 			fi
-			if [ -n "$bitDepth" ]; then
-				b=$bitDepth
-			else
-				b="$( echo "$data" | cut -d ';' -f 2 )"
-			fi
-			if [ -n "$samplingRate" ]; then
-				osr="$( echo "$data" | cut -d ';' -f 1 )"
-				sr=$samplingRate
-				if [ -n "$samples" -a -n "$sr" -a -n "$osr" -a -n "$c" -a -n "$b" ]; then
-					resampledSize=$(( (samples * sr / osr) * c * (b / 8) ))
-				fi
-			else
-				if [ -n "$samples" -a -n "$c" -a -n "$b" ]; then
-					resampledSize=$(( samples * c * (b / 8) ))
-				fi
+		else
+			if [ -n "$samples" -a -n "$c" -a -n "$b" ]; then
+				resampledSize=$(( samples * c * (b / 8) ))
 			fi
 		fi
-	else
-		getSoxResampledSize "$1"
 	fi
 }
 
@@ -3204,26 +3189,24 @@ saveDurations ()
 			;;
 
 		*.wv)
-			if gotNewWavpack ; then
-				data="$( wvunpack -f "$copyFile" 2>/dev/null )"
-				if [ -n "$data" ]; then
-					samples="$( echo "$data" | cut -d ';' -f 6 )"
-					sampleRate="$( echo "$data" | cut -d ';' -f 1 )"
-					if [ -n "$samples" -a -n "$sampleRate" ]; then
-						seconds="$( echo "scale=2; $samples / $sampleRate" | bc )"
-						echo -n " + ${seconds}" >> "${TDIR}/durations"
-					fi
-				fi
-			else
-				duration="$( wvunpack -s "$copyFile" 2>/dev/null | grep -F 'duration:' | cut -d ':' -f 2- | tr -d ' ' )"
-				if [ -n "$duration" ]; then
-					hours="${duration%%:*}" ; hours="${hours#0}"
-					minutes="${duration%:*}" ; minutes="${minutes#*:}" ; minutes="${minutes#0}"
-					seconds="${duration##*:}"
-					centiseconds="${seconds#*.}"
-					seconds="${seconds%.*}" ; seconds="${seconds#0}"
-					seconds=$(( (hours * 3600) + (minutes * 60) + seconds ))
-					echo -n " + ${seconds}.${centiseconds}" >> "${TDIR}/durations"
+			# New WavPack data format (-f):
+			# 1. sampling rate
+			# 2. bit-depth (1-32)
+			# 3. format ("int" or "float")
+			# 4. number of channels
+			# 5. channel mask (in hex because it's a mask, always prefixed with "0x")
+			# 6. number of samples (missing if unknown)
+			# 7. md5sum (technically is hex, but not prefixed with "0x", might be missing)
+			# 8. encoder version (basically this will always be 4, but there are some old files out there, could be 5 one day)
+			# 9. encoding mode (in hex because it's a bitfield, always prefixed with "0x")
+			# 10. filename
+			data="$( wvunpack -f "$copyFile" 2>/dev/null )"
+			if [ -n "$data" ]; then
+				samples="$( echo "$data" | cut -d ';' -f 6 )"
+				sampleRate="$( echo "$data" | cut -d ';' -f 1 )"
+				if [ -n "$samples" -a -n "$sampleRate" ]; then
+					seconds="$( echo "scale=3; $samples / $sampleRate" | bc )"
+					echo -n " + ${seconds}" >> "${TDIR}/durations"
 				fi
 			fi
 			;;
@@ -3859,37 +3842,6 @@ getEyeD3Version ()
 	fi
 }
 
-gotNewWavpack ()
-{
-	local o=''
-
-	if [ -z "$gotRecentWavpack" ]; then
-		gotRecentWavpack=false
-		o="$( wavpack --version 2>/dev/null )"
-		if [ -n "$o" ]; then
-			gotRecentWavpack=true
-		fi
-	fi
-
-	if [ "$gotRecentWavpack" = 'true' ]; then
-		return $EX_OK
-	else
-		return $EX_KO
-	fi
-
-# New WavPack data format (-f):
-# 1. sampling rate
-# 2. bit-depth (1-32)
-# 3. format ("int" or "float")
-# 4. number of channels
-# 5. channel mask (in hex because it's a mask, always prefixed with "0x")
-# 6. number of samples (missing if unknown)
-# 7. md5sum (technically is hex, but not prefixed with "0x", might be missing)
-# 8. encoder version (basically this will always be 4, but there are some old files out there, could be 5 one day)
-# 9. encoding mode (in hex because it's a bitfield, always prefixed with "0x")
-# 10. filename
-}
-
 getEncoderVersions ()
 {
 	local oggencPath vorbisPrefix libvorbisVersion
@@ -3904,11 +3856,7 @@ getEncoderVersions ()
 			Opus) opusVersion="$( opusenc --version 2>/dev/null | grep -F 'opusenc' )" ;;
 
 			WavPack|WavPackHybrid|WavPackLossy)
-				if gotNewWavpack; then
-					wavpackVersion="$( wavpack --version 2>/dev/null | head -n 1 )"
-				else
-					wavpackVersion="$( wavpack --help 2>&1 | grep -F 'Version' )"
-				fi
+				wavpackVersion="$( wavpack --version 2>/dev/null | head -n 1 )"
 				wavpackVersion="${wavpackVersion##* }"
 				;;
 
@@ -4227,7 +4175,9 @@ encode ()
 				else
 					mv "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
 				fi
-				test -e "${encodedFile}c" && mv "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile" # WavPack Hybrid correction files
+				if [ -e "${encodedFile}c" ]; then
+					mv "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile" # WavPack Hybrid correction files
+				fi
 				printMessage 'success' "$statusInfo" "file:${destFile}" $p
 			fi
 		else
@@ -4256,9 +4206,9 @@ cleanUpCopyLockFile ()
 
 prepareSource ()
 {
-	local arg="$1" sourcePath copyDone=false ec=$EX_OK cptimer1='' cptimer2='' cpseconds copyLockFile n=0
+	local sourcePath copyDone=false ec=$EX_OK cptimer1='' cptimer2='' cpseconds copyLockFile n=0
 
-	if [ $preloadSources = true -a -z "$arg" ]; then
+	if [ $preloadSources = true ]; then
 		if [ "$OS" = 'Linux' ]; then
 			copyLockFile="${iodir}/$( stat -c '%d' "$sourceFile" 2>> "$errorLogFile" )"
 		else
@@ -4782,11 +4732,7 @@ getInternalMD5 ()
 		*.flac) sourceMD5="$( metaflac --show-md5sum "$f" 2>/dev/null )" ;;
 
 		*.wv)
-			if gotNewWavpack; then
-				sourceMD5="$( wvunpack -f "$f" 2>/dev/null | cut -d ';' -f 7 )"
-			else
-				sourceMD5="$( wvunpack -s "$f" 2>&1 | grep -F 'original md5:' | tr -d ' ' | cut -d ':' -f 2 )"
-			fi
+			sourceMD5="$( wvunpack -f "$f" 2>/dev/null | cut -d ';' -f 7 )"
 			;;
 	esac
 }
@@ -5141,27 +5087,12 @@ saveSeconds ()
 			;;
 
 		*.wv)
-			if gotNewWavpack ; then
-				data="$( wvunpack -f "$copyFile" 2>/dev/null )"
-				if [ -n "$data" ]; then
-					samples="$( echo "$data" | cut -d ';' -f 6 )"
-					sr="$( echo "$data" | cut -d ';' -f 1 )"
-					if [ -n "$samples" -a -n "$sr" ]; then
-						seconds=$(( (samples + (sr / 2)) / sr ))
-					fi
-				fi
-			else
-				duration="$( wvunpack -s "$copyFile" 2>/dev/null | grep -F 'duration:' | cut -d ':' -f 2- | tr -d ' ' )"
-				if [ -n "$duration" ]; then
-					hours="${duration%%:*}" ; hours="${hours#0}"
-					minutes="${duration%:*}" ; minutes="${minutes#*:}" ; minutes="${minutes#0}"
-					seconds="${duration##*:}"
-					centiseconds="${seconds#*.}" ; centiseconds="${centiseconds#0}"
-					seconds="${seconds%.*}" ; seconds="${seconds#0}"
-					seconds=$(( (hours * 3600) + (minutes * 60) + seconds ))
-					if [ $centiseconds -ge 50 ]; then
-						((seconds++))
-					fi
+			data="$( wvunpack -f "$copyFile" 2>/dev/null )"
+			if [ -n "$data" ]; then
+				samples="$( echo "$data" | cut -d ';' -f 6 )"
+				sr="$( echo "$data" | cut -d ';' -f 1 )"
+				if [ -n "$samples" -a -n "$sr" ]; then
+					seconds=$(( (samples + (sr / 2)) / sr ))
 				fi
 			fi
 			;;
