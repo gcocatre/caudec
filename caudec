@@ -597,12 +597,20 @@ getCompressionSetting ()
 			esac
 			;;
 
-		WavPack*)
+		WavPack|WavPackHybrid)
 			case "$v" in
-				d|default) compression_WavPack='d' ;;
-				x|x[1-6]|f|fx|fx[1-6]|h|hx|hx[1-6]|hh|hhx|hhx[1-6]) compression_WavPack="$v" ;;
-				'') compression_WavPack='d' ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be a combination of [f|h|hh][x[1-6]], or d[efault]" ; exit $EX_USAGE ;;
+				x|x[1-6]|g|gx|gx[1-6]|f|fx|fx[1-6]|h|hx|hx[1-6]|hh|hhx|hhx[1-6]) compression_WavPack="$v" ;;
+				'') compression_WavPack='g' ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be a combination of [f|g|h|hh][x[1-6]]" ; exit $EX_USAGE ;;
+			esac
+			;;
+
+		WavPackLossy)
+			case "$v" in
+				x) compression_WavPack="1" ;;
+				x[1-6]) compression_WavPack="${v:1:1}" ;;
+				'') compression_WavPack='' ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be a combination of [x[1-6]]" ; exit $EX_USAGE ;;
 			esac
 			;;
 
@@ -3954,18 +3962,17 @@ encode ()
 
 			WavPack)
 				destExtension='wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt" kfm='-r'
-				if [ $keepWavMetadata = true ]; then kfm=''; fi
-				nThreads="$( getNumberOfAvailableThreads )"
-				if [ -z "$compression_WavPack" -o "$compression_WavPack" = 'd' -o "$compression_WavPack" = 'default' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default"; fi
-					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				if [ -e "${destFile}c" ]; then
+					printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$me -c wv: correction files are present. Please delete them and try again." ; ec=$EX_KO
 				else
+					if [ $keepWavMetadata = true ]; then kfm=''; fi
+					nThreads="$( getNumberOfAvailableThreads )"
 					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack"; fi
 					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				fi
-				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					importBinariesIntoAPEv2 || ec=$EX_KO
-					importArtworkIntoAPEv2 || ec=$EX_KO
+					if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
+						importBinariesIntoAPEv2 || ec=$EX_KO
+						importArtworkIntoAPEv2 || ec=$EX_KO
+					fi
 				fi
 				;;
 
@@ -3973,25 +3980,14 @@ encode ()
 				destExtension='wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt" kfm='-r'
 				if [ $keepWavMetadata = true ]; then kfm=''; fi
 				nThreads="$( getNumberOfAvailableThreads )"
-				if [ -z "$compression_WavPack" -o "$compression_WavPack" = 'd' -o "$compression_WavPack" = 'default' ]; then
-					if [ $tagCompressionSetting = true ]; then
-						if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
-							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
-						else
-							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy kbps (ABR)"
-						fi
+				if [ $tagCompressionSetting = true ]; then
+					if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
+						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy bits per sample (ABR)"
+					else
+						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
 					fi
-					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				else
-					if [ $tagCompressionSetting = true ]; then
-						if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
-							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy bits per sample (ABR)"
-						else
-							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
-						fi
-					fi
-					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} -c${compression_WavPack} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
+				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -c${compression_WavPack} -b${bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
@@ -4000,19 +3996,23 @@ encode ()
 
 			WavPackLossy)
 				destExtension='wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt" kfm='-r'
-				if [ $keepWavMetadata = true ]; then kfm=''; fi
-				nThreads="$( getNumberOfAvailableThreads )"
-				if [ $tagCompressionSetting = true ]; then
-					if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
-						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
-					else
-						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy kbps (ABR)"
+				if [ -e "${destFile}c" ]; then
+					printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$me -c wv: correction files are present. Please delete them and try again." ; ec=$EX_KO
+				else
+					if [ $keepWavMetadata = true ]; then kfm=''; fi
+					nThreads="$( getNumberOfAvailableThreads )"
+					if [ $tagCompressionSetting = true ]; then
+						if [ -n "$compression_WavPack" ]; then
+							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
+						else
+							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -x${compression_WavPack} / $bitrate_WavPackLossy kbps (ABR)"
+						fi
 					fi
-				fi
-				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -b${bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					importBinariesIntoAPEv2 || ec=$EX_KO
-					importArtworkIntoAPEv2 || ec=$EX_KO
+					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -x${compression_WavPack} -b${bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
+						importBinariesIntoAPEv2 || ec=$EX_KO
+						importArtworkIntoAPEv2 || ec=$EX_KO
+					fi
 				fi
 				;;
 
@@ -5664,6 +5664,7 @@ printHumanStats ()
 			slist="${slist}\x00${f//%/%%}c"
 		fi
 	done
+
 	if [ "$OS" = 'Linux' ]; then
 		bytes_source="$( { echo -n 'scale=0; 0'; printf "%s${slist}" ' + %s' | xargs -0 stat -L --printf; echo; } | bc )"
 	else
@@ -6052,7 +6053,8 @@ while getopts 'zsn:o:O:P:kKDtdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 
 			case "$lastCodec" in
 				FLAC) getCompressionSetting 'FLAC' "$OPTARG" ;;
-				WavPack|WavPackHybrid|WavPackLossy) getCompressionSetting 'WavPack' "$OPTARG" ;;
+				WavPack|WavPackHybrid) getCompressionSetting 'WavPack' "$OPTARG" ;;
+				WavPackLossy) getCompressionSetting 'WavPackLossy' "$OPTARG" ;;
 				MonkeysAudio) getCompressionSetting 'MonkeysAudio' "$OPTARG" ;;
 				lossyWAV|lossyFLAC|lossyWV) getCompressionSetting 'lossyWAV' "$OPTARG" ;;
 				LAME) getCompressionSetting 'LAME' "$OPTARG" ; LAME_MODE='VBR' ;;
