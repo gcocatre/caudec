@@ -83,15 +83,6 @@ fi
 
 # sanitize caudecrc input
 
-if [ -n "$replaygain_percentile" ]; then # backwards compatibility
-	replaygainPercentile="$replaygain_percentile"
-	unset replaygain_percentile
-fi
-case "$replaygainPercentile" in
-	[0-9]*) if [ $replaygainPercentile -le 0 -o $replaygainPercentile -ge 100 ]; then replaygainPercentile=34; fi ;;
-	*) replaygainPercentile=34 ;;
-esac
-
 case "$ID3Padding" in
 	[0-9]*) true ;; # nothing to do
 	*) ID3Padding=512 ;;
@@ -5069,7 +5060,7 @@ saveGain ()
 
 saveSeconds ()
 {
-	local samples sr seconds=1 duration hours minutes centiseconds ec=$EX_OK line milliseconds data
+	local samples sr seconds=1 duration hours minutes centiseconds ec=$EX_OK line milliseconds=0 data
 
 	case "$copyFile" in
 		*.flac)
@@ -5083,8 +5074,9 @@ saveSeconds ()
 					fi
 				done
 				seconds=$(( (samples + (sr / 2)) / sr ))
+				milliseconds="$( echo "scale=0; $samples * 1000 / $sr" | bc )"
 			fi
-			;;
+			;; # FIXME
 
 		*.wv)
 			data="$( wvunpack -f "$copyFile" 2>/dev/null )"
@@ -5161,22 +5153,22 @@ runWavegain ()
 
 computeTrackGain ()
 {
-	local ec=$EX_OK line decimals sGain
+	local ec=$EX_OK line nLines=0 decimals sGain
 
 	if [ -e "$copyFile" ]; then
 		case "$copyFile" in
 			*.flac)
 				metaflac --add-replay-gain "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK ]; then
-					trackGain="$( metaflac --export-tags-to=- "$copyFile" 2>> "$errorLogFile" | grep -F 'REPLAYGAIN_TRACK_GAIN=' | cut -d '=' -f 2 | cut -d ' ' -f 1 | tr -d '+' )"
-					trackPeak="$( metaflac --export-tags-to=- "$copyFile" 2>> "$errorLogFile" | grep -F 'REPLAYGAIN_TRACK_PEAK=' | cut -d '=' -f 2 )"
-					if [ -n "$trackGain" -a -n "$trackPeak" ]; then
-						echo "$trackGain" > "$trackGainFile"
-						echo "$trackPeak" > "$trackPeakFile"
-						saveSeconds
-					else
-						ec=$EX_KO
-					fi
+					trackGain="$( metaflac --show-tag="REPLAYGAIN_TRACK_GAIN" "$copyFile" 2>> "$errorLogFile" | cut -d '=' -f 2 | cut -d ' ' -f 1 | tr -d '+' )"
+					trackPeak="$( metaflac --show-tag="REPLAYGAIN_TRACK_PEAK" "$copyFile" 2>> "$errorLogFile" | cut -d '=' -f 2 )"
+				fi
+				if [ -n "$trackGain" -a -n "$trackPeak" ]; then
+					echo "$trackGain" > "$trackGainFile"
+					echo "$trackPeak" > "$trackPeakFile"
+					saveSeconds
+				else
+					ec=$EX_KO
 				fi
 				;;
 
@@ -5412,27 +5404,30 @@ computeTrackGains ()
 	return $ec
 }
 
+# rm -f /tmp/REPLAYGAIN_ALBUM_GAIN_DIFF.txt; for d in */*; do f="$( gls "$d" | head -n 1 )"; correctGain="$( metaflac --show-tag=REPLAYGAIN_ALBUM_GAIN "${d}/${f}" | sed -e 's@.*=@@' -e 's@^+\.@+0.@' -e 's@^-\.@-0.@' -e 's@ dB@@' )"; newGain="$( metaflac --show-tag=REPLAYGAIN_ALBUM_GAIN "~/replaygain/${d}/${f}" | sed -e 's@.*=@@' -e 's@^+\.@+0.@' -e 's@^-\.@-.@' -e 's@ dB@@' )"; diff="$( echo -e "(${correctGain}) - (${newGain})" | tr -d "+" | bc -z )"; if [ "${diff:0:1}" != '-' ]; then diff="+${diff}"; fi ; echo -e "${diff}\t${correctGain}\t${newGain}\t${d}" >> /tmp/REPLAYGAIN_ALBUM_GAIN_DIFF.txt ; done
 computeAlbumGain ()
 {
-	local ec=$EX_OK tg seconds=1 N=0 rank
+	# This is a very fast way of computing the album gain, but it is also less precise than the official implementation.
+	# A comparison between gains on 754 albums revealed max differences ranging from -2.06 dB to +1.50 dB.
+	# PINK_REF is from flac/src/share/replaygain_analysis/replaygain_analysis.c
+	local ec=$EX_OK PINK_REF="64.82" rank trackGain trackSeconds=1 N=0
 
 	for ((i=0; i<${#sourceFiles[@]}; i++)); do
-		if [ ! -f "${TDIR}/${i}.trackgain" ]; then
+		if [ -e "${TDIR}/${i}.trackgain" -a -e "${TDIR}/${i}.seconds" ]; then
+			trackGain="$( cat "${TDIR}/${i}.trackgain" )"
+			trackSeconds="$( cat "${TDIR}/${i}.seconds" )"
+			if [ -z "$trackSeconds" ]; then
+				trackSeconds=1
+			fi
+			for (( s=0; s<trackSeconds; s++ )); do
+				echo "$trackGain" >> "${TDIR}/trackgains"
+				((N++))
+			done
+			cat "${TDIR}/${i}.trackpeak" >> "${TDIR}/trackpeaks" 2>/dev/null
+		else
 			printMessage 'error' 'album_gain' "Album gain"
 			return $EX_KO
 		fi
-		tg="$( cat "${TDIR}/${i}.trackgain" )"
-		if [ -e "${TDIR}/${i}.seconds" ]; then
-			seconds="$( cat "${TDIR}/${i}.seconds" )"
-			if [ -z "$seconds" ]; then
-				seconds=1
-			fi
-		fi
-		for (( s=0; s<seconds; s++ )); do
-			echo "$tg" >> "${TDIR}/trackgains"
-			((N++))
-		done
-		cat "${TDIR}/${i}.trackpeak" >> "${TDIR}/trackpeaks" 2>/dev/null
 	done
 
 	albumPeak="$( sort -n "${TDIR}/trackpeaks" 2>/dev/null | tail -n 1 )"
@@ -5456,9 +5451,9 @@ computeAlbumGain ()
 		sort -n "${TDIR}/trackgains" > "${TDIR}/trackgains.tmp" 2>/dev/null
 		mv "${TDIR}/trackgains.tmp" "${TDIR}/trackgains"
 
-		rank="$( echo "scale=2; (${replaygainPercentile}/100) * $N + (1 / 2)" | bc )"
+		rank="$( echo "scale=5; (${PINK_REF} / 100) * $N + (1 / 2)" | bc )"
 		rank="$( printf "%.0f" "$rank" )"
-		albumGain="$( head -n $rank "${TDIR}/trackgains" 2>/dev/null | tail -n 1 )"
+		albumGain="$( tail -n $rank "${TDIR}/trackgains" 2>/dev/null | head -n 1 )"
 		if [ -z "$albumGain" ]; then
 			printMessage 'error' 'album_gain' "Album gain"
 			return $EX_KO
