@@ -439,7 +439,7 @@ genHumanReadableString ()
 			elif [ "$statusInfo" = 'touch_file' ]; then
 				str="$( printf "${GR}%2u ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$dateTime" "$fileName" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
-				str="$( printf "${GR} * ${OK}OK ${NM}%s ${NM}%s\n" "$albumTime" "Album duration" )"
+				str="$( printf "${GR} * ${OK}OK ${NM}%s ${NM}%s\n" "$albumTime" "Album length" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$hashType" ]; then
 					str="$( printf "${GR}%2u ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$hashType" "$fileName" )"
@@ -994,14 +994,20 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 
 	for f in "${inputFiles[@]}" ; do
 		keepInputFile=false
+		dn="$( dirname "$f" )"
 		if [ ! -e "$f" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'no such file.' ; ec=$EX_NOINPUT
 		elif [ ! -f "$f" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'not a regular file.' ; ec=$EX_DATAERR
 		elif [ ! -r "$f" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for reading (permission denied).' ; ec=$EX_NOINPUT
+		elif [ ! -w "$f" ]; then
+			if [ $computeReplaygain = true -o $actionHash = true -o $touchFiles = true ]; then
+				printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
+			fi
+		elif [ ! -w "$dn" -a $touchFiles = true ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${dn}" 'cannot open dir for writing (permission denied).' ; ec=$EX_CANTCREAT
 		else
-			dn="$( dirname "$f" )"
 			if [ -z "$refDn" ] ; then refDn="$dn"; fi
 			if [ $copyPath = true ]; then
 				cdpath='/./' pdpath='/../'
@@ -1174,7 +1180,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 		fi
 	done
 
-	if [ $touchFiles = true -a $gotAudioFile = false ]; then
+	if [ $touchFiles = true -a $gotAudioFile = false -a -w "$dn" ]; then
 		printMessage 'warning' 'processing' 'unsupported' 'at least one supported audio file is required.'; ec=$EX_DATAERR
 		printMessage 'abort' 'verbose'
 		cleanExit $ec
@@ -5730,7 +5736,7 @@ touchAllFiles ()
 		albumSeconds="${touchString:13:2}"
 		printMessage 'success' 'touch_files' "albumTime:${albumHours}:${albumMinutes}:${albumSeconds}"
 	else
-		printMessage 'error' 'touch_files' "Album duration"
+		printMessage 'error' 'touch_files' "Album length"
 	fi
 
 	return $ec
