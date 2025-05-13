@@ -195,6 +195,9 @@ Global options:
             accidental deletion; also, read-only source files will NOT be
             deleted.
 
+  -T        touch files using metadata to reflect the music's release date
+						and duration. All files will be touched, even non music files.
+
   -z        produce machine-parsable output; must be the first parameter on the
             command line to take effect. Run 'caudec -z' on its own to print
             a description of the syntax.
@@ -269,7 +272,7 @@ Decoding options:
   -H ^HASH  do NOT compute HASH even if it's in caudecrc
 
 
-Replaygain options (mutually exclusive from -c/-d/-t):
+Replaygain options (mutually exclusive from -c/-d/-t/-T):
   -g        generate Replaygain metadata
   -G ARG    MP3 & AAC: compute and apply gain of type ARG (album or track)
             (no tags, works everywhere)
@@ -433,6 +436,10 @@ genHumanReadableString ()
 				str="$( printf "${GR}%2u ${OK}OK ${NM}%9s ${CY}%s${NM}\n" $p "$gain dB" "$fileName" )"
 			elif [ "$statusInfo" = 'album_gain' ]; then
 				str="$( printf "${GR} * ${OK}OK ${NM}%9s ${NM}%s\n" "$gain dB" 'Album gain' )"
+			elif [ "$statusInfo" = 'touch_file' ]; then
+				str="$( printf "${GR}%2u ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$dateTime" "$fileName" )"
+			elif [ "$statusInfo" = 'touch_files' ]; then
+				str="$( printf "${GR} * ${OK}OK ${NM}%s ${NM}%s\n" "$albumTime" "Album duration" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$hashType" ]; then
 					str="$( printf "${GR}%2u ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$hashType" "$fileName" )"
@@ -516,7 +523,7 @@ printMessage ()
 			verbose) msgVerbose='verbose' ;;
 			debug) msgDebug='debug' statusInfo='debugging' ;;
 			stderr) msgOut='stderr' ;;
-			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|checking_version) statusInfo="$a" ;;
+			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|touch_file|touch_files|checking_version) statusInfo="$a" ;;
 			unsupported|quota|bad_value|filesystem|command_line|internal|user_agent) statusData="$a" ;;
 			server|up_to_date|new_version_available|running_newer_version) statusData="$a" ;;
 			file:*) file="${a#file:}"; filePath="$( dirname "$file" )"; fileName="$( basename "$file" )" ;;
@@ -526,6 +533,8 @@ printMessage ()
 			*x) rate="${a%x}" ;;
 			bitrate_*) codec="${a#bitrate_}" ;;
 			[0-9]*) p="$a" ;;
+			dateTime:[0-9]*) dateTime="${a#dateTime:}" ;;
+			albumTime:[0-9:]*) albumTime="${a#albumTime:}" ;;
 
 			CRC32|MD5|SHA1|SHA256|SHA512) hashType="$a" ;;
 			no_hash|no_hash_tool|bad_internal_hash) hashError="$a" ;;
@@ -969,7 +978,7 @@ getInputFiles ()
 
 checkInputFiles ()
 {
-	local f ec=$EX_OK bn dn cdpath pdpath basenames='' isf=0 keepInputFile errorMSG gotExistingFiles=false nChannels=0
+	local f ec=$EX_OK bn dn refDN cdpath pdpath basenames='' isf=0 keepInputFile errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
 
 	if [ $nTracks -gt $maxInputFiles ]; then
 		printMessage 'warning' 'usage' 'quota' "the number of input files ($nTracks) is greater than maxInputFiles=${maxInputFiles}."
@@ -993,6 +1002,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 			printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for reading (permission denied).' ; ec=$EX_NOINPUT
 		else
 			dn="$( dirname "$f" )"
+			if [ -z "$refDn" ] ; then refDn="$dn"; fi
 			if [ $copyPath = true ]; then
 				cdpath='/./' pdpath='/../'
 				if [ "${f:0:2}" = './' -o "${f:0:3}" = '../' -o "$dn" != "${dn//$cdpath/@}" -o "$dn" != "${dn//$pdpath/@}" ]; then
@@ -1143,6 +1153,19 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 							;;
 					esac
 				fi
+
+				if [ $touchFiles = true ]; then
+					if [ "$dn" != "$refDn" ]; then
+						printMessage 'error' 'usage' 'filesystem' "all files must be in the same directory" ; ec=$EX_DATAERR
+						printMessage 'abort' 'verbose'
+						cleanExit $ec
+					fi
+					case "$f" in
+						*.flac|*.wv|*.ogg) gotAudioFile=true ;;
+					esac
+					sourceFiles[$isf]="$f"
+					((isf++))
+				fi
 			fi
 		fi
 		if [ $keepInputFile = true ]; then
@@ -1150,6 +1173,12 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 			((isf++))
 		fi
 	done
+
+	if [ $touchFiles = true -a $gotAudioFile = false ]; then
+		printMessage 'error' 'processing' 'unsupported' 'at least one supported audio file is required.'; ec=$EX_DATAERR
+		printMessage 'abort' 'verbose'
+		cleanExit $ec
+	fi
 
 	unset inputFiles
 
@@ -3154,16 +3183,17 @@ getSoxDuration ()
 
 getSoxSeconds ()
 {
+	local msec
 	getSoxDuration "$1"
 	seconds="${duration%.*}"
-	milliseconds="${duration#*.}"
-	if [ -z "$milliseconds" ]; then
-		milliseconds='0'
+	msec="${duration#*.}"
+	if [ -z "$msec" ]; then
+		msec=0
 	fi
-	if [ ${milliseconds:0:1} -ge 5 ]; then
+	milliseconds="$( echo "scale=3; $seconds + 0.$msec" | bc )"
+	if [ $msec -ge 500 ]; then
 		((seconds++))
 	fi
-	milliseconds="$( echo "scale=3; $seconds + 0.${milliseconds}" | bc )"
 }
 
 saveDurations ()
@@ -4200,7 +4230,7 @@ prepareSource ()
 {
 	local sourcePath copyDone=false ec=$EX_OK cptimer1='' cptimer2='' cpseconds copyLockFile n=0
 
-	if [ $preloadSources = true ]; then
+	if [ $preloadSources = true -a $touchFiles = false ]; then
 		if [ "$OS" = 'Linux' ]; then
 			copyLockFile="${iodir}/$( stat -c '%d' "$sourceFile" 2>> "$errorLogFile" )"
 		else
@@ -4251,13 +4281,15 @@ prepareSource ()
 		else # sourceFile is a relative path; prepend current directory
 			sourcePath="${PWD}/${sourceFile}"
 		fi
-		if [ ! -h "$copyFile" ]; then # FIXME
-			ln -s "$sourcePath" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-		fi
+		if [ -n "$copyFile" ]; then
+			if [ ! -h "$copyFile" ]; then # FIXME
+				ln -s "$sourcePath" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			fi
 
-		if [ -e "${sourcePath}c" ]; then # WavPack correction file
-			if [ ! -h "${copyFile}c" ]; then # FIXME
-				ln -s "${sourcePath}c" "${copyFile}c" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			if [ -e "${sourcePath}c" ]; then # WavPack correction file
+				if [ ! -h "${copyFile}c" ]; then # FIXME
+					ln -s "${sourcePath}c" "${copyFile}c" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				fi
 			fi
 		fi
 	fi
@@ -5062,11 +5094,17 @@ saveGain ()
 
 saveSeconds ()
 {
-	local samples sampleRate seconds=0 duration hours minutes centiseconds ec=$EX_OK line milliseconds=0 data
+	local samples sampleRate seconds=0 duration hours minutes centiseconds ec=$EX_OK line msec milliseconds=0 data file
 
-	case "$copyFile" in
+	if [ $touchFiles = true ]; then
+		file="$sourceFile"
+	else
+		file="$copyFile"
+	fi
+
+	case "$file" in
 		*.flac)
-			data="$( metaflac --show-total-samples --show-sample-rate "$copyFile" 2>> "$errorLogFile" )"
+			data="$( metaflac --show-total-samples --show-sample-rate "$file" 2>> "$errorLogFile" )"
 			if [ -n "$data" ]; then
 				for v in $data; do
 					if [ -z "$samples" ]; then
@@ -5081,7 +5119,7 @@ saveSeconds ()
 			;;
 
 		*.wv)
-			data="$( wvunpack -f "$copyFile" 2>/dev/null )"
+			data="$( wvunpack -f "$file" 2>/dev/null )"
 			if [ -n "$data" ]; then
 				samples="$( echo "$data" | cut -d ';' -f 6 )"
 				sampleRate="$( echo "$data" | cut -d ';' -f 1 )"
@@ -5093,33 +5131,33 @@ saveSeconds ()
 			;;
 
 		*.ogg)
-			line="$( ogginfo "$copyFile" 2>> "$errorLogFile" | grep -F 'Playback length:' | tr -d '\t ' | cut -d ':' -f 2-3 )"
+			line="$( ogginfo "$file" 2>> "$errorLogFile" | grep -F 'Playback length:' | tr -d '\t ' | cut -d ':' -f 2-3 )"
 			if [ -n "$line" ]; then
 				minutes="${line%:*}" ; minutes="${minutes%m}"
-				seconds="${line#*:}" ; seconds="${seconds#s}"
-				milliseconds="${seconds#*.}"
+				seconds="${line#*:}" ; seconds="${seconds%s}"; seconds="${seconds%\.*}"
+				msec="${line#*\.}" ; msec="${msec%s}"
 				seconds="${seconds%.*}" ; seconds="${seconds#0}"
-				if [ "${milliseconds:0:1}" -ge 5 ]; then
+				milliseconds="$( echo "scale=3; (($minutes * 60) + $seconds + 0.$msec) / 1" | bc -l )"
+				if [ "${msec:0:1}" -ge 5 ]; then
 					((seconds++))
 				fi
 				seconds=$(( (minutes * 60) + seconds ))
-				milliseconds="$( echo "scale=3; ($minutes * 60) + $seconds + 0.${milliseconds}" | bc )"
 			fi
 			;;
 
 		*.m4a)
-			line="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$copyFile" 2>/dev/null | grep -F 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '0-9.' )"
+			line="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | grep -F 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '0-9.' )"
 			if [ -n "$line" ]; then
 				seconds="${line%.*}" milliseconds="${line#*.}"
 				if [ "${milliseconds:0:1}" -ge 5 ]; then
 					((seconds++))
 				fi
-				milliseconds="$( echo "scale=3; $seconds + 0.${milliseconds}" | bc )"
+				milliseconds="$( echo "scale=3; ($seconds + 0.${milliseconds}) / 1" | bc )"
 			fi
 			;;
 
 		*.mp3)
-			getSoxSeconds "$copyFile"
+			getSoxSeconds "$file"
 			;;
 
 		*)
@@ -5497,6 +5535,193 @@ computeAlbumGain ()
 		gain="+${gain}"
 	fi
 	printMessage 'success' 'album_gain' "${gain} dB" "Album gain: $gain dB"
+
+	return $ec
+}
+
+echoTouchString ()
+{
+  local trackDate="$1" hours="$2" minutes="$3" seconds="$4"
+  if [ ${#hours} -lt 2 ]; then hours="0${hours}"; fi
+  if [ ${#minutes} -lt 2 ]; then minutes="0${minutes}"; fi
+  if [ ${#seconds} -lt 2 ]; then seconds="0${seconds}"; fi
+  echo "${trackDate}${hours}${minutes}.${seconds}"
+}
+
+getTouchString ()
+{
+  local trackDate="$1" totalSeconds="$2" str="" fDays fHours fMinutes fSeconds fMilliseconds=0
+
+  fSeconds=$totalSeconds
+  fDays="$( echo "scale=0; $fSeconds / 86400" | bc )"
+  fSeconds="$( echo "$fSeconds - ($fDays * 86400)" | bc )"
+  fHours="$( echo "scale=0; $fSeconds / 3600" | bc )"
+  fSeconds="$( echo "$fSeconds - ($fHours * 3600)" | bc )"
+  fMinutes="$( echo "scale=0; $fSeconds / 60" | bc )"
+  fSeconds="$( echo "scale=0; ($fSeconds - ($fMinutes * 60)) / 1" | bc )" # divide by 1 because "scale" only works on divisions
+  fMilliseconds="$( echo "$totalSeconds" | cut -d "." -f 2 )"
+
+	if [ "$fMilliseconds" == "" ]; then fMilliseconds=0; fi
+  if [ $fMilliseconds -ge 500 ]; then
+    fSeconds="$( echo "$fSeconds + 1" | bc )"
+  fi
+
+  echoTouchString $trackDate $fHours $fMinutes $fSeconds
+}
+
+computeTrackDateTime ()
+{
+	local ec=0 trackYear trackMonth trackDay
+
+	case "$sourceFile" in
+		*.flac|*.wv|*ogg)
+			case "$sourceFile" in
+				*.flac) date=$( metaflac --no-filename --show-tag=date "$sourceFile" | tr -cd "[:digit:]-" ) ;;
+				*.wv) date=$( wvtag -x Year "$sourceFile" 2>/dev/null | tr -cd "[:digit:]-" ) ;;
+				*.ogg) date=$( vorbiscomment "$sourceFile" | grep -iF "date=" | tr -cd "[:digit:]-" ) ;;
+			esac
+			if [ ${#date} -eq 4 ]; then
+				trackYear="$date"
+				trackMonth="01"
+				trackDay="01"
+			elif [ ${#date} -eq 7 ]; then
+				trackYear=$( echo "$date" | cut -d "-" -f 1 )
+				trackMonth=$( echo "$date" | cut -d "-" -f 2 )
+				trackDay="01"
+			elif [ ${#date} -eq 10 ]; then
+				trackYear=$( echo "$date" | cut -d "-" -f 1 )
+				trackMonth=$( echo "$date" | cut -d "-" -f 2 )
+				trackDay=$( echo "$date" | cut -d "-" -f 3 )
+			else
+				trackYear="$( date "+%Y" )"
+				trackMonth="$( date "+%m" )"
+				trackDay="$( date "+%d" )"
+			fi
+
+			echo "${trackYear}${trackMonth}${trackDay}" > "$sourceTagFile"
+
+			saveSeconds; ec=$?
+			;;
+
+		*) continue ;;
+	esac
+
+	if [ $ec -eq $EX_OK ]; then
+		printMessage 'success' 'touch_file' $p "dateTime:${trackYear}-${trackMonth}-${trackDay}" "file:${sourceFile}"
+	else
+		printMessage 'error' 'touch_file' $p "dateTime:${trackYear}-${trackMonth}-${trackDay}" "file:${sourceFile}"
+	fi
+
+	return $ec
+}
+
+computeTrackDateTimes ()
+{
+	local ec=$EX_OK
+
+
+	for ((i=0; i<${#sourceFiles[@]}; i++)); do
+		sourceFile="${sourceFiles[$i]}"
+		sourceFilename="${sourceFile##*/}"
+		sourceTagFile="${TDIR}/${i}.txt"
+		touchLockFile="${TDIR}/${i}"
+		secondsFile="${TDIR}/${i}.seconds"
+		millisecondsFile="${TDIR}/${i}.milliseconds"
+
+		if getLock "$touchLockFile"; then
+			prepareSource &&
+			computeTrackDateTime || ec=$EX_KO
+		fi
+	done
+
+	rm -f "${instanceDir}/process.${p}"
+	return $ec
+}
+
+touchAllFiles ()
+{
+	local ec=$EX_OK touchString totalSeconds trackDate="19700101" albumHours albumMinutes albumSeconds trackMilliseconds n dir curdir="" curdirTouched
+
+	for ((i=0; i<${#sourceFiles[@]}; i++)); do
+		sourceFile="${sourceFiles[$i]}"
+		sourceTagFile="${TDIR}/${i}.txt"
+		secondsFile="${TDIR}/${i}.seconds"
+		millisecondsFile="${TDIR}/${i}.milliseconds"
+
+		dir="$( dirname "$sourceFile" )"
+		if [ "$dir" != "$curdir" ]; then
+			curdir="$dir"
+			curdirTouched="false"
+			touchString="197001010000.00"
+			totalSeconds=0
+			n=1
+		fi
+
+	  case "$sourceFile" in
+    	*.flac|*.wv|*ogg)
+				read trackDate < "$sourceTagFile"
+				read trackMilliseconds < "$millisecondsFile"
+				trackMilliseconds="$( printf "%.3f" "$trackMilliseconds" )"
+				;;
+
+			*.wvc) continue ;;
+
+			*)
+				if [ -z "$trackDate" ]; then
+					trackDate="19700101"
+				fi
+				touchString="$( getTouchString $trackDate $totalSeconds )"
+				touch -t "$touchString" "$sourceFile"
+				if [ "$curdirTouched" == "false" ]; then
+					touch -t "$touchString" "$curdir"
+					curdirTouched="true"
+				fi
+				;;
+		esac
+
+		if [ $n -eq 1 ]; then
+			touchString="$( getTouchString $trackDate $totalSeconds )"
+			touch -t "$touchString" "$sourceFile"
+			if [ -e "${sourceFile}c" ]; then touch -t "$touchString" "${sourceFile}c"; fi # WavPack correction file
+			if [ -e "$millisecondsFile" ]; then
+				read trackMilliseconds < "$millisecondsFile"
+			else
+				trackMilliseconds=0
+			fi
+			totalSeconds="$( echo "scale=3; $totalSeconds + $trackMilliseconds" | bc )"
+		else
+			touchString="$( getTouchString $trackDate $totalSeconds )"
+			touch -t "$touchString" "$sourceFile"
+			if [ -e "${sourceFile}c" ]; then touch -t "$touchString" "${sourceFile}c"; fi # WavPack correction file
+			if [ -e "$millisecondsFile" ]; then
+				read trackMilliseconds < "$millisecondsFile"
+			else
+				trackMilliseconds=0
+			fi
+			totalSeconds="$( echo "scale=3; $totalSeconds + $trackMilliseconds" | bc )"
+		fi
+
+    n=$(( n + 1 ))
+	done
+
+
+	if [ "$curdirTouched" == "false" ]; then
+		if [ -z "$trackDate" ]; then
+			trackDate="19700101"
+		fi
+		touchString="$( getTouchString $trackDate $totalSeconds )"
+		touch -t "$touchString" "$curdir"
+	fi
+
+	if [ $ec -eq $EX_OK ]; then
+		touchString="$( getTouchString $trackDate $totalSeconds )"
+		albumHours="${touchString:8:2}"
+		albumMinutes="${touchString:10:2}"
+		albumSeconds="${touchString:13:2}"
+		printMessage 'success' 'touch_files' "albumTime:${albumHours}:${albumMinutes}:${albumSeconds}"
+	else
+		printMessage 'error' 'touch_files' "Album duration"
+	fi
 
 	return $ec
 }
@@ -5885,8 +6110,10 @@ maxProcessesSetByUser=$maxProcesses
 
 destDir='' copyPath=false outputCodecs='' lastCodec='' nCodecs=0 copyWAV=false verbose=true checkFiles=false
 nLossyWAV=0 copyLossyWAV=false
-bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false actionHash=false applyGain=false applyGainType='' computeSoundcheck=false soundcheckMode='' convertToStereo='false'
+bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false actionHash=false
+applyGain=false applyGainType='' computeSoundcheck=false soundcheckMode='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human' deleteSourceFiles=false
+touchFiles=false
 peakReference=0
 
 if [ "$calledAs" = 'decaude' ]; then
@@ -5932,7 +6159,7 @@ if which 'mac' >/dev/null 2>&1; then
 	fi
 fi
 
-while getopts 'zsn:o:O:P:kKDtdc:C:H:q:b:B:r:2gG:S:huV' o ; do
+while getopts 'zsn:o:O:P:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 	case $o in
 		s) verbose=false ;;
 
@@ -6010,6 +6237,8 @@ while getopts 'zsn:o:O:P:kKDtdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			;;
 
 		t) checkFiles=true ;;
+
+		T) touchFiles=true ;;
 
 		c|C)
 			case "$OPTARG" in
@@ -6244,11 +6473,20 @@ fi
 unset gotPCMCodecsOnly
 if [ -z "$hashes" ]; then actionHash=false; fi
 
-if [ -z "$outputCodecs" -a $checkFiles = false -a $computeReplaygain = false -a $actionHash = false ]; then
+if [ -z "$outputCodecs" -a $checkFiles = false -a $computeReplaygain = false -a $actionHash = false -a $touchFiles = false ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: no action specified"
 	exit $EX_USAGE
 elif [ -n "$outputCodecs" -a $checkFiles = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -t are mutually exclusive. Try again with either one alone."
+	exit $EX_USAGE
+elif [ -n "$outputCodecs" -a $touchFiles = true ]; then
+	printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -T are mutually exclusive. Try again with either one alone."
+	exit $EX_USAGE
+elif [ $computeReplaygain = true -a $touchFiles = true ]; then
+	printMessage 'error' 'usage' 'command_line' "$me: -g/-G/-S and -T are mutually exclusive. Try again with either one alone."
+	exit $EX_USAGE
+elif [ $actionHash = true -a $touchFiles = true ]; then
+	printMessage 'error' 'usage' 'command_line' "$me: -H and -T are mutually exclusive. Try again with either one alone."
 	exit $EX_USAGE
 elif [ -n "$outputCodecs" -a $computeReplaygain = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -g/-S are mutually exclusive. Try again with either one alone."
@@ -6326,6 +6564,17 @@ elif [ $computeReplaygain = true ]; then
 	for ((p=0; p<nProcesses; p++)); do
 		computeTrackGains &
 	done
+elif [ $touchFiles = true ]; then
+	if [ $nProcesses -gt $nTracks ]; then setNProcesses $nTracks ; fi
+	oProcesses=$nProcesses
+	if [ $gnudate = true ]; then
+		time1="$( $datecmd '+%s.%N' )"
+	else
+		time1="$( date '+%s' ).0"
+	fi
+	for ((p=0; p<nProcesses; p++)); do
+		computeTrackDateTimes &
+	done
 elif [ $actionHash = true ]; then
 	if [ $nProcesses -gt $nTracks ]; then setNProcesses $nTracks ; fi
 	oProcesses=$nProcesses
@@ -6340,9 +6589,13 @@ elif [ $actionHash = true ]; then
 fi
 ec=$EX_OK ; for p in $( jobs -p ); do wait $p || ec=$EX_KO ; done
 
-if [ $computeReplaygain = true -a $ec -eq $EX_OK ]; then
-	if [ $applyGain = false -o "${applyGainType%_*}" = 'ALBUM' ]; then
-		computeAlbumGain || ec=$EX_KO
+if [ $ec -eq $EX_OK ]; then
+	if [ $computeReplaygain = true ]; then
+		if [ $applyGain = false -o "${applyGainType%_*}" = 'ALBUM' ]; then
+			computeAlbumGain || ec=$EX_KO
+		fi
+	elif [ $touchFiles = true ]; then
+		touchAllFiles || ec=$EX_KO
 	fi
 fi
 
