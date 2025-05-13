@@ -1161,7 +1161,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 						cleanExit $ec
 					fi
 					case "$f" in
-						*.flac|*.wv|*.ogg) gotAudioFile=true ;;
+						*.flac|*.ogg|*.wv|*.ape) gotAudioFile=true ;;
 					esac
 					sourceFiles[$isf]="$f"
 					((isf++))
@@ -1175,7 +1175,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 	done
 
 	if [ $touchFiles = true -a $gotAudioFile = false ]; then
-		printMessage 'error' 'processing' 'unsupported' 'at least one supported audio file is required.'; ec=$EX_DATAERR
+		printMessage 'warning' 'processing' 'unsupported' 'at least one supported audio file is required.'; ec=$EX_DATAERR
 		printMessage 'abort' 'verbose'
 		cleanExit $ec
 	fi
@@ -1252,6 +1252,7 @@ checkBinaries ()
 			for f in "${sourceFiles[@]}" ; do
 				case "$f" in
 					*.flac) checkBinary 'metaflac' ;;
+					*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
 					*.wv) checkBinary 'APEv2' 'wvgain' ;;
 					*.ape) checkBinary 'mac' 'APEv2' 'wavegain' ;;
 					*.m4a)
@@ -1264,7 +1265,6 @@ checkBinaries ()
 						fi
 						;;
 					*.mp3) checkBinary 'lame' 'mp3gain' ; if [ $applyGain = false ]; then checkBinary 'eyeD3'; fi ;;
-					*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
 				esac
 			done
 			if [ $computeSoundcheck = true ]; then
@@ -1278,6 +1278,15 @@ checkBinaries ()
 					*.wv) checkBinary 'wvunpack' 'APEv2' ;;
 					*.ape) checkBinary 'mac' 'APEv2' ;;
 					*.m4a) checkBinary 'nohup' 'ffmpeg' 'neroAacTag' ;;
+				esac
+			done
+		elif [ $touchFiles = true ]; then
+			for f in "${sourceFiles[@]}" ; do
+				case "$f" in
+					*.flac) checkBinary 'metaflac' ;;
+					*.ogg) checkBinary 'ogginfo' 'vorbiscomment' ;;
+					*.wv) checkBinary 'wvtag' 'ffprobe' ;;
+					*.ape) checkBinary 'mac' 'APEv2' 'ffprobe' ;;
 				esac
 			done
 		else # transcode
@@ -5145,7 +5154,7 @@ saveSeconds ()
 			fi
 			;;
 
-		*.m4a)
+		*.ape|*.m4a)
 			line="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | grep -F 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '0-9.' )"
 			if [ -n "$line" ]; then
 				seconds="${line%.*}" milliseconds="${line#*.}"
@@ -5574,11 +5583,12 @@ computeTrackDateTime ()
 	local ec=0 trackYear trackMonth trackDay
 
 	case "$sourceFile" in
-		*.flac|*.wv|*ogg)
+		*.flac|*ogg|*.wv|*.ape)
 			case "$sourceFile" in
 				*.flac) date=$( metaflac --no-filename --show-tag=date "$sourceFile" | tr -cd "[:digit:]-" ) ;;
-				*.wv) date=$( wvtag -x Year "$sourceFile" 2>/dev/null | tr -cd "[:digit:]-" ) ;;
 				*.ogg) date=$( vorbiscomment "$sourceFile" | grep -iF "date=" | tr -cd "[:digit:]-" ) ;;
+				*.wv) date=$( wvtag -x Year "$sourceFile" 2>/dev/null | tr -cd "[:digit:]-" ) ;;
+				*.ape) date=$( APEv2 -z "$sourceFile" 2>/dev/null | grep -iF year= | tr -cd "[:digit:]-" ) ;;
 			esac
 			if [ ${#date} -eq 4 ]; then
 				trackYear="$date"
@@ -5658,7 +5668,7 @@ touchAllFiles ()
 		fi
 
 	  case "$sourceFile" in
-    	*.flac|*.wv|*ogg)
+    	*.flac|*ogg|*.wv|*.ape)
 				read trackDate < "$sourceTagFile"
 				read trackMilliseconds < "$millisecondsFile"
 				trackMilliseconds="$( printf "%.3f" "$trackMilliseconds" )"
