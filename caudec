@@ -3163,6 +3163,7 @@ getSoxSeconds ()
 	if [ ${milliseconds:0:1} -ge 5 ]; then
 		((seconds++))
 	fi
+	milliseconds="$( echo "scale=3; $seconds + 0.${milliseconds}" | bc )"
 }
 
 saveDurations ()
@@ -4293,6 +4294,7 @@ transcode ()
 			trackGainFile="${TDIR}/${i}.trackgain"
 			trackPeakFile="${TDIR}/${i}.trackpeak"
 			secondsFile="${TDIR}/${i}.seconds"
+			millisecondsFile="${TDIR}/${i}.milliseconds"
 			sourceCRC32File="${TDIR}/${i}.sourceCRC32"
 			sourceMD5File="${TDIR}/${i}.sourceMD5"
 			sourceSHA1File="${TDIR}/${i}.sourceSHA1"
@@ -5060,7 +5062,7 @@ saveGain ()
 
 saveSeconds ()
 {
-	local samples sr seconds=1 duration hours minutes centiseconds ec=$EX_OK line milliseconds=0 data
+	local samples sampleRate seconds=0 duration hours minutes centiseconds ec=$EX_OK line milliseconds=0 data
 
 	case "$copyFile" in
 		*.flac)
@@ -5070,21 +5072,22 @@ saveSeconds ()
 					if [ -z "$samples" ]; then
 						samples="$v"
 					else
-						sr="$v"
+						sampleRate="$v"
 					fi
 				done
-				seconds=$(( (samples + (sr / 2)) / sr ))
-				milliseconds="$( echo "scale=0; $samples * 1000 / $sr" | bc )"
+				seconds=$(( (samples + (sampleRate / 2)) / sampleRate )) # (sampleRate / 2) is for rounding
+				milliseconds="$( echo "scale=3; $samples / $sampleRate" | bc )"
 			fi
-			;; # FIXME
+			;;
 
 		*.wv)
 			data="$( wvunpack -f "$copyFile" 2>/dev/null )"
 			if [ -n "$data" ]; then
 				samples="$( echo "$data" | cut -d ';' -f 6 )"
-				sr="$( echo "$data" | cut -d ';' -f 1 )"
-				if [ -n "$samples" -a -n "$sr" ]; then
-					seconds=$(( (samples + (sr / 2)) / sr ))
+				sampleRate="$( echo "$data" | cut -d ';' -f 1 )"
+				if [ -n "$samples" -a -n "$sampleRate" ]; then
+					seconds=$(( (samples + (sampleRate / 2)) / sampleRate )) # (sampleRate / 2) is for rounding
+					milliseconds="$( echo "scale=3; $samples / $sampleRate" | bc )"
 				fi
 			fi
 			;;
@@ -5100,6 +5103,7 @@ saveSeconds ()
 					((seconds++))
 				fi
 				seconds=$(( (minutes * 60) + seconds ))
+				milliseconds="$( echo "scale=3; ($minutes * 60) + $seconds + 0.${milliseconds}" | bc )"
 			fi
 			;;
 
@@ -5110,6 +5114,7 @@ saveSeconds ()
 				if [ "${milliseconds:0:1}" -ge 5 ]; then
 					((seconds++))
 				fi
+				milliseconds="$( echo "scale=3; $seconds + 0.${milliseconds}" | bc )"
 			fi
 			;;
 
@@ -5123,6 +5128,7 @@ saveSeconds ()
 	esac
 
 	echo "$seconds" > "$secondsFile"
+	echo "$milliseconds" > "$millisecondsFile"
 	echo -n " + $seconds" >> "${TDIR}/durations"
 	return $ec
 }
@@ -5388,6 +5394,7 @@ computeTrackGains ()
 		trackGainFile="${TDIR}/${i}.trackgain"
 		trackPeakFile="${TDIR}/${i}.trackpeak"
 		secondsFile="${TDIR}/${i}.seconds"
+		millisecondsFile="${TDIR}/${i}.milliseconds"
 		wavegainFile="${TDIR}/${i}.wavegain"
 		destFile="$sourceFile"
 		wavFile="${SWAPDIR}/${i}.wav"
@@ -5416,6 +5423,7 @@ computeAlbumGain ()
 		trackGainFile="${TDIR}/${i}.trackgain"
 		trackPeakFile="${TDIR}/${i}.trackpeak"
 		trackSecondsFile="${TDIR}/${i}.seconds"
+		trackMillisecondsFile="${TDIR}/${i}.milliseconds"
 		if [ -e "$trackGainFile" -a -e "$trackSecondsFile" ]; then
 			trackGain="$( cat "$trackGainFile" )"
 			trackSeconds="$( cat "$trackSecondsFile" )"
