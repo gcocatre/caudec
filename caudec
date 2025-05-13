@@ -6507,6 +6507,9 @@ elif [ $checkFiles = true -a $computeReplaygain = true ]; then
 elif [ $checkFiles = true -a $actionHash = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -H and -t are mutually exclusive. Try again with either one alone."
 	exit $EX_USAGE
+elif [ -n "$checkFiles" -a $touchFiles = true ]; then
+	printMessage 'error' 'usage' 'command_line' "$me: -t and -T are mutually exclusive. Try again with either one alone."
+	exit $EX_USAGE
 elif [ $computeReplaygain = true -a $actionHash = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -g/-G/-S and -H are mutually exclusive. Try again with either one alone."
 	exit $EX_USAGE
