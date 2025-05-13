@@ -5409,13 +5409,16 @@ computeAlbumGain ()
 {
 	# This is a very fast way of computing the album gain, but it is also less precise than the official implementation.
 	# A comparison between gains on 754 albums revealed max differences ranging from -2.06 dB to +1.50 dB.
-	# PINK_REF is from flac/src/share/replaygain_analysis/replaygain_analysis.c
-	local ec=$EX_OK PINK_REF="64.82" rank trackGain trackSeconds=1 N=0
+	# PINK_REF="64.82" is from flac/src/share/replaygain_analysis/replaygain_analysis.c
+	local ec=$EX_OK PINK_REF_COMPLEMENT="35.18" rank trackGain trackSeconds=1 N=0
 
 	for ((i=0; i<${#sourceFiles[@]}; i++)); do
-		if [ -e "${TDIR}/${i}.trackgain" -a -e "${TDIR}/${i}.seconds" ]; then
-			trackGain="$( cat "${TDIR}/${i}.trackgain" )"
-			trackSeconds="$( cat "${TDIR}/${i}.seconds" )"
+		trackGainFile="${TDIR}/${i}.trackgain"
+		trackPeakFile="${TDIR}/${i}.trackpeak"
+		trackSecondsFile="${TDIR}/${i}.seconds"
+		if [ -e "$trackGainFile" -a -e "$trackSecondsFile" ]; then
+			trackGain="$( cat "$trackGainFile" )"
+			trackSeconds="$( cat "$trackSecondsFile" )"
 			if [ -z "$trackSeconds" ]; then
 				trackSeconds=1
 			fi
@@ -5423,7 +5426,7 @@ computeAlbumGain ()
 				echo "$trackGain" >> "${TDIR}/trackgains"
 				((N++))
 			done
-			cat "${TDIR}/${i}.trackpeak" >> "${TDIR}/trackpeaks" 2>/dev/null
+			cat "$trackPeakFile" >> "${TDIR}/trackpeaks" 2>/dev/null
 		else
 			printMessage 'error' 'album_gain' "Album gain"
 			return $EX_KO
@@ -5451,9 +5454,11 @@ computeAlbumGain ()
 		sort -n "${TDIR}/trackgains" > "${TDIR}/trackgains.tmp" 2>/dev/null
 		mv "${TDIR}/trackgains.tmp" "${TDIR}/trackgains"
 
-		rank="$( echo "scale=5; (${PINK_REF} / 100) * $N + (1 / 2)" | bc )"
+		# By using PINK_REF_COMPLEMENT instead of PINK_REF, running 'head' MIGHT be slightly faster than
+		# running 'tail' with PINK_REF because 'head' will output fewer lines than 'tail'.
+		rank="$( echo "scale=5; (${PINK_REF_COMPLEMENT} / 100) * $N + (1 / 2)" | bc )"
 		rank="$( printf "%.0f" "$rank" )"
-		albumGain="$( tail -n $rank "${TDIR}/trackgains" 2>/dev/null | head -n 1 )"
+		albumGain="$( head -n $rank "${TDIR}/trackgains" 2>/dev/null | tail -n 1 )"
 		if [ -z "$albumGain" ]; then
 			printMessage 'error' 'album_gain' "Album gain"
 			return $EX_KO
@@ -5468,13 +5473,11 @@ computeAlbumGain ()
 
 	for ((i=0, j=1; i<${#sourceFiles[@]}; i++, j++)); do
 		if [ $j -le 8 ]; then
-			sourceTagFile="${TDIR}/${i}.txt"
 			destFile="${sourceFiles[$i]}"
 			saveGain 'ALBUM' &
 		else
 			wait
 			j=1
-			sourceTagFile="${TDIR}/${i}.txt"
 			destFile="${sourceFiles[$i]}"
 			saveGain 'ALBUM' &
 		fi
