@@ -196,7 +196,7 @@ Global options:
             deleted.
 
   -T        touch files using metadata to reflect the music's release date
-						and duration. All files will be touched, even non music files.
+            and duration. All files will be touched, even non music files.
 
   -z        produce machine-parsable output; must be the first parameter on the
             command line to take effect. Run 'caudec -z' on its own to print
