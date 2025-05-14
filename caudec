@@ -4209,6 +4209,19 @@ encode ()
 				if [ -e "${encodedFile}c" ]; then
 					mv "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile" # WavPack Hybrid correction files
 				fi
+
+				if [ $copyArtworkFiles = true ]; then
+					for f in "$sourceDirname"/*.{HEIC,JPEG,JPG,JXL,PNG,heic,jpeg,jpg,jxl,png}; do
+						if [ -f "$f" ]; then
+							artFileBasename="${f##*/}"
+							destArtFile="${destPath}/${artFileBasename}"
+							if [ ! -e "$destArtFile" ]; then
+								cp "$f" "$destArtFile"
+							fi
+						fi
+					done
+				fi
+
 				printMessage 'success' "$statusInfo" "file:${destFile}" $p
 			fi
 		else
@@ -6123,7 +6136,7 @@ nLossyWAV=0 copyLossyWAV=false
 bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false actionHash=false
 applyGain=false applyGainType='' computeSoundcheck=false soundcheckMode='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human' deleteSourceFiles=false
-touchFiles=false
+touchFiles=false copyArtworkFiles=false
 peakReference=0
 
 if [ "$calledAs" = 'decaude' ]; then
@@ -6169,7 +6182,7 @@ if which 'mac' >/dev/null 2>&1; then
 	fi
 fi
 
-while getopts 'zsn:o:O:P:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
+while getopts 'zsn:o:O:P:akKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 	case $o in
 		s) verbose=false ;;
 
@@ -6187,6 +6200,8 @@ while getopts 'zsn:o:O:P:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				*) printMessage 'error' 'usage' 'bad_value' "$me -n: the number of processes must be an integer between 1 and $maxProcesses" ; exit $EX_USAGE ;;
 			esac
 			;;
+
+		a) copyArtworkFiles=true ;;
 
 		o)
 			destDir="$OPTARG"
@@ -6491,6 +6506,9 @@ elif [ -n "$outputCodecs" -a $checkFiles = true ]; then
 	exit $EX_USAGE
 elif [ -n "$outputCodecs" -a $touchFiles = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -T are mutually exclusive. Try again with either one alone."
+	exit $EX_USAGE
+elif [ -z "$outputCodecs" -a $copyArtworkFiles = true ]; then
+	printMessage 'error' 'usage' 'command_line' "$me: -a is only available when transcoding (-c)."
 	exit $EX_USAGE
 elif [ $computeReplaygain = true -a $touchFiles = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -g/-G/-S and -T are mutually exclusive. Try again with either one alone."
