@@ -606,20 +606,11 @@ getCompressionSetting ()
 			esac
 			;;
 
-		WavPack|WavPackHybrid)
+		WavPack|WavPackHybrid|WavPackLossy)
 			case "$v" in
 				x|x[1-6]|g|gx|gx[1-6]|f|fx|fx[1-6]|h|hx|hx[1-6]|hh|hhx|hhx[1-6]) compression_WavPack="$v" ;;
 				'') compression_WavPack='g' ;;
 				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be a combination of [f|g|h|hh][x[1-6]]" ; exit $EX_USAGE ;;
-			esac
-			;;
-
-		WavPackLossy)
-			case "$v" in
-				x) compression_WavPack="1" ;;
-				x[1-6]) compression_WavPack="${v:1:1}" ;;
-				'') compression_WavPack='' ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be a combination of [x[1-6]]" ; exit $EX_USAGE ;;
 			esac
 			;;
 
@@ -4051,13 +4042,13 @@ encode ()
 					if [ $keepWavMetadata = true ]; then kfm=''; fi
 					nThreads="$( getNumberOfAvailableThreads )"
 					if [ $tagCompressionSetting = true ]; then
-						if [ -n "$compression_WavPack" ]; then
+						if [ -z "$compression_WavPack" ]; then
 							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
 						else
-							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -x${compression_WavPack} / $bitrate_WavPackLossy kbps (ABR)"
+							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
 						fi
 					fi
-					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -x${compression_WavPack} -b${bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -$compression_WavPack -b${bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 						importBinariesIntoAPEv2 || ec=$EX_KO
 						importArtworkIntoAPEv2 || ec=$EX_KO
