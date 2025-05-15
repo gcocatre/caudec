@@ -188,8 +188,9 @@ Global options:
   -P DIR    set and create output directory, and mirror the source file's
             path components (e.g. 'a/b/file.flac' => 'DIR/a/b/file.ogg')
   -a        copy all cover art files to the output directory
-  -f ARG    copy certain files to the output directory. ARG may be a comma
-            separated list of files, and / or file extensions preceded by a dot
+  -f ARG    copy certain files to the output directory. ARG may be a 'all',
+            a comma separated list of files, and / or file extensions preceded
+						by a dot
   -k        keep existing destination files (don't overwrite them)
   -K        keep existing destination files if they're newer than their source
 
@@ -199,7 +200,11 @@ Global options:
             deleted.
 
   -T        touch files using metadata to reflect the music's release date
-            and duration. All files will be touched, even non music files.
+            and duration. Provide all files as arguments, not just audio files,
+            although at least one audio file is required for this to work.
+            It is recommended that the first argument(s) be audio files, other
+            file(s) being last, so that the timestamps of non audio files
+            will reflect the album's entire length.
 
   -z        produce machine-parsable output; must be the first parameter on the
             command line to take effect. Run 'caudec -z' on its own to print
@@ -212,7 +217,8 @@ output directories. For instance:
 
 Similarly, specifying -a/-f after a -c parameter will affect only that codec.
 For instance:
-\$ caudec -c flac -P '/data/flac' -f cover.jpg -c mp3 -P '/data/mp3' -f folder.jpg \"artist/album\"/*.flac
+\$ caudec -c flac -P '/data/flac' -f cover.jpg \\
+  -c mp3 -P '/data/mp3' -f folder.jpg \"artist/album\"/*.flac
 
 Processing / resampling options:
   -b BITS   bit depth (16, 24)
@@ -4488,6 +4494,7 @@ transcode ()
 					fi
 				fi
 			fi
+		chmod u+rwX "$destPath" "${destPath}"/* 2>> "$errorLogFile"
 		done
 		sleep 0.1 # make sure idling processes don't hog the CPU
 	done
@@ -6380,10 +6387,9 @@ while getopts 'zsn:o:O:P:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 
 		f)
 			case "$OPTARG" in
-				true|all) copyOtherFiles="true" ;;
-				false) copyOtherFiles="false" ;;
+				all) copyOtherFiles="all" ;;
 				*.*,*) copyOtherFiles="$( echo "$OPTARG" | tr -d " " )" ;;
-				""|" "*) printMessage 'error' 'usage' 'bad_value' "$me -f: valid values are true (or 'all'), false, a filename, or a comma separated list of either files or file extensions WITH leading dot" ; exit $EX_USAGE ;;
+				true|false|""|" "*) printMessage 'error' 'usage' 'bad_value' "$me -f: valid values are 'all', a filename, or a comma separated list of either files or file extensions WITH leading dots" ; exit $EX_USAGE ;;
 				*) copyOtherFiles="$OPTARG" ;;
 			esac
 			if [ -n "$lastCodec" ]; then
