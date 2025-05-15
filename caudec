@@ -187,6 +187,9 @@ Global options:
   -O DIR    set output directory, create it if it doesn't exist already
   -P DIR    set and create output directory, and mirror the source file's
             path components (e.g. 'a/b/file.flac' => 'DIR/a/b/file.ogg')
+  -a        copy all cover art files to the output directory
+  -f ARG    copy certain files to the output directory. ARG may be a comma
+            separated list of files, and / or file extensions preceded by a dot
   -k        keep existing destination files (don't overwrite them)
   -K        keep existing destination files if they're newer than their source
 
@@ -207,6 +210,9 @@ specify a -o/O/P parameter after each -c parameter in order to set per-codec
 output directories. For instance:
 \$ caudec -c flac -P '/data/flac' -c mp3 -P '/data/mp3' \"artist/album\"/*.flac
 
+Similarly, specifying -a/-f after a -c parameter will affect only that codec.
+For instance:
+\$ caudec -c flac -P '/data/flac' -f cover.jpg -c mp3 -P '/data/mp3' -f folder.jpg \"artist/album\"/*.flac
 
 Processing / resampling options:
   -b BITS   bit depth (16, 24)
