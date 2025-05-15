@@ -4210,8 +4210,9 @@ encode ()
 					mv "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile" # WavPack Hybrid correction files
 				fi
 
-				if [ "$copyOtherFiles" != "false" ]; then
-					case "$copyOtherFiles" in
+				getCodecOtherFiles "$outputCodec"
+				if [ "$doCopyOtherFiles" != "false" ]; then
+					case "$doCopyOtherFiles" in
 						true|all)
 							for f in "$sourceDirname"/*; do
 								for audioFile in "$sourceDirname"/*.{WAV,CAF,AIFF,FLAC,WV,WVC,APE,M4A,OGG,MP3,MPC,OPUS,wav,caf,aiff,flac,wv,wvc,ape,m4a,ogg,mp3,mpc,opus}; do
@@ -4228,15 +4229,15 @@ encode ()
 							;;
 
 						*.*","*|*.*)
-							if [ -f "${sourceDirname}/${copyOtherFiles}" ]; then
+							if [ -f "${sourceDirname}/${doCopyOtherFiles}" ]; then
 								# that's actually a file, not a comma separated list of files or extensions
-								destOtherFile="${destPath}/${copyOtherFiles}"
+								destOtherFile="${destPath}/${doCopyOtherFiles}"
 								if [ ! -e "$destOtherFile" ]; then
-									cp "${sourceDirname}/${copyOtherFiles}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
+									cp "${sourceDirname}/${doCopyOtherFiles}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
 								fi
 							else # comma separated list
 								OIFS="$IFS"; IFS=','
-								read -a listOfOtherFiles <<< "$copyOtherFiles"
+								read -a listOfOtherFiles <<< "$doCopyOtherFiles"
 								for otherFile in "${listOfOtherFiles[@]}"; do
 									case "$otherFile" in
 										.*)
@@ -4267,7 +4268,8 @@ encode ()
 					esac
 				fi
 
-				if [ $copyArtworkFiles = true ]; then
+				getCodecArtworkFiles "$outputCodec"
+				if [ "$doCopyArtworkFiles" = "true" ]; then
 					for f in "$sourceDirname"/*.{HEIC,JPEG,JPG,JXL,PNG,heic,jpeg,jpg,jxl,png}; do
 						if [ -f "$f" ]; then
 							artFileBasename="${f##*/}"
@@ -6123,6 +6125,110 @@ getDestDir ()
 	esac
 }
 
+setCodecOtherFiles ()
+{
+	local copyOtherCodecFiles="$1" outputCodec="$2"
+
+	if [ "$outputCodec" = 'WAV' -o -z "$copyOtherFiles_WAV" ]; then copyOtherFiles_WAV="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'AIFF' -o -z "$copyOtherFiles_AIFF" ]; then copyOtherFiles_AIFF="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'CAF' -o -z "$copyOtherFiles_CAF" ]; then copyOtherFiles_CAF="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'FLAC' -o -z "$copyOtherFiles_FLAC" ]; then copyOtherFiles_FLAC="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'WavPack' -o -z "$copyOtherFiles_WavPack" ]; then copyOtherFiles_WavPack="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'WavPackHybrid' -o -z "$copyOtherFiles_WavPackHybrid" ]; then copyOtherFiles_WavPackHybrid="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'WavPackLossy' -o -z "$copyOtherFiles_WavPackLossy" ]; then copyOtherFiles_WavPackLossy="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'MonkeysAudio' -o -z "$copyOtherFiles_MonkeysAudio" ]; then copyOtherFiles_MonkeysAudio="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'ALAC' -o -z "$copyOtherFiles_ALAC" ]; then copyOtherFiles_ALAC="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'lossyWAV' -o -z "$copyOtherFiles_lossyWAV" ]; then copyOtherFiles_lossyWAV="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'lossyFLAC' -o -z "$copyOtherFiles_lossyFLAC" ]; then copyOtherFiles_lossyFLAC="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'lossyWV' -o -z "$copyOtherFiles_lossyWV" ]; then copyOtherFiles_lossyWV="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'LAME' -o -z "$copyOtherFiles_LAME" ]; then copyOtherFiles_LAME="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'AAC' -o -z "$copyOtherFiles_AAC" ]; then copyOtherFiles_AAC="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'OggVorbis' -o -z "$copyOtherFiles_OggVorbis" ]; then copyOtherFiles_OggVorbis="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'Musepack' -o -z "$copyOtherFiles_Musepack" ]; then copyOtherFiles_Musepack="$copyOtherCodecFiles"; fi
+	if [ "$outputCodec" = 'Opus' -o -z "$copyOtherFiles_Opus" ]; then copyOtherFiles_Opus="$copyOtherCodecFiles"; fi
+}
+
+getCodecOtherFiles ()
+{
+	local outputCodec="$1"
+
+	case "$outputCodec" in
+		WAV) doCopyOtherFiles="$copyOtherFiles_WAV" ;;
+		AIFF) doCopyOtherFiles="$copyOtherFiles_AIFF" ;;
+		CAF) doCopyOtherFiles="$copyOtherFiles_CAF" ;;
+		FLAC) doCopyOtherFiles="$copyOtherFiles_FLAC" ;;
+		WavPack) doCopyOtherFiles="$copyOtherFiles_WavPack" ;;
+		WavPackHybrid) doCopyOtherFiles="$copyOtherFiles_WavPackHybrid" ;;
+		WavPackLossy) doCopyOtherFiles="$copyOtherFiles_WavPackLossy" ;;
+		MonkeysAudio) doCopyOtherFiles="$copyOtherFiles_MonkeysAudio" ;;
+		ALAC) doCopyOtherFiles="$copyOtherFiles_ALAC" ;;
+		lossyWAV) doCopyOtherFiles="$copyOtherFiles_lossyWAV" ;;
+		lossyFLAC) doCopyOtherFiles="$copyOtherFiles_lossyFLAC" ;;
+		lossyWV) doCopyOtherFiles="$copyOtherFiles_lossyWV" ;;
+		LAME) doCopyOtherFiles="$copyOtherFiles_LAME" ;;
+		AAC) doCopyOtherFiles="$copyOtherFiles_AAC" ;;
+		OggVorbis) doCopyOtherFiles="$copyOtherFiles_OggVorbis" ;;
+		Musepack) doCopyOtherFiles="$copyOtherFiles_Musepack" ;;
+		Opus) doCopyOtherFiles="$copyOtherFiles_Opus" ;;
+	esac
+
+	if [ -z "$doCopyOtherFiles" ]; then
+		doCopyOtherFiles="$copyOtherFiles"
+	fi
+}
+
+setCodecArtworkFiles ()
+{
+	local copyArtworkCodecFiles="$1" outputCodec="$2"
+
+	if [ "$outputCodec" = 'WAV' -o -z "$copyArtworkFiles_WAV" ]; then copyArtworkFiles_WAV="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'AIFF' -o -z "$copyArtworkFiles_AIFF" ]; then copyArtworkFiles_AIFF="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'CAF' -o -z "$copyArtworkFiles_CAF" ]; then copyArtworkFiles_CAF="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'FLAC' -o -z "$copyArtworkFiles_FLAC" ]; then copyArtworkFiles_FLAC="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'WavPack' -o -z "$copyArtworkFiles_WavPack" ]; then copyArtworkFiles_WavPack="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'WavPackHybrid' -o -z "$copyArtworkFiles_WavPackHybrid" ]; then copyArtworkFiles_WavPackHybrid="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'WavPackLossy' -o -z "$copyArtworkFiles_WavPackLossy" ]; then copyArtworkFiles_WavPackLossy="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'MonkeysAudio' -o -z "$copyArtworkFiles_MonkeysAudio" ]; then copyArtworkFiles_MonkeysAudio="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'ALAC' -o -z "$copyArtworkFiles_ALAC" ]; then copyArtworkFiles_ALAC="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'lossyWAV' -o -z "$copyArtworkFiles_lossyWAV" ]; then copyArtworkFiles_lossyWAV="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'lossyFLAC' -o -z "$copyArtworkFiles_lossyFLAC" ]; then copyArtworkFiles_lossyFLAC="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'lossyWV' -o -z "$copyArtworkFiles_lossyWV" ]; then copyArtworkFiles_lossyWV="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'LAME' -o -z "$copyArtworkFiles_LAME" ]; then copyArtworkFiles_LAME="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'AAC' -o -z "$copyArtworkFiles_AAC" ]; then copyArtworkFiles_AAC="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'OggVorbis' -o -z "$copyArtworkFiles_OggVorbis" ]; then copyArtworkFiles_OggVorbis="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'Musepack' -o -z "$copyArtworkFiles_Musepack" ]; then copyArtworkFiles_Musepack="$copyArtworkCodecFiles"; fi
+	if [ "$outputCodec" = 'Opus' -o -z "$copyArtworkFiles_Opus" ]; then copyArtworkFiles_Opus="$copyArtworkCodecFiles"; fi
+}
+
+getCodecArtworkFiles ()
+{
+	local outputCodec="$1"
+
+	case "$outputCodec" in
+		WAV) doCopyArtworkFiles="$copyArtworkFiles_WAV" ;;
+		AIFF) doCopyArtworkFiles="$copyArtworkFiles_AIFF" ;;
+		CAF) doCopyArtworkFiles="$copyArtworkFiles_CAF" ;;
+		FLAC) doCopyArtworkFiles="$copyArtworkFiles_FLAC" ;;
+		WavPack) doCopyArtworkFiles="$copyArtworkFiles_WavPack" ;;
+		WavPackHybrid) doCopyArtworkFiles="$copyArtworkFiles_WavPackHybrid" ;;
+		WavPackLossy) doCopyArtworkFiles="$copyArtworkFiles_WavPackLossy" ;;
+		MonkeysAudio) doCopyArtworkFiles="$copyArtworkFiles_MonkeysAudio" ;;
+		ALAC) doCopyArtworkFiles="$copyArtworkFiles_ALAC" ;;
+		lossyWAV) doCopyArtworkFiles="$copyArtworkFiles_lossyWAV" ;;
+		lossyFLAC) doCopyArtworkFiles="$copyArtworkFiles_lossyFLAC" ;;
+		lossyWV) doCopyArtworkFiles="$copyArtworkFiles_lossyWV" ;;
+		LAME) doCopyArtworkFiles="$copyArtworkFiles_LAME" ;;
+		AAC) doCopyArtworkFiles="$copyArtworkFiles_AAC" ;;
+		OggVorbis) doCopyArtworkFiles="$copyArtworkFiles_OggVorbis" ;;
+		Musepack) doCopyArtworkFiles="$copyArtworkFiles_Musepack" ;;
+		Opus) doCopyArtworkFiles="$copyArtworkFiles_Opus" ;;
+	esac
+
+	if [ -z "$doCopyArtworkFiles" ]; then
+		doCopyArtworkFiles="$copyArtworkFiles"
+	fi
+}
+
 getNumberOfCpuCores ()
 {
 	local x lastCpuID currentCpuID totalNumberOfCores=0
@@ -6193,7 +6299,7 @@ nLossyWAV=0 copyLossyWAV=false
 bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false actionHash=false
 applyGain=false applyGainType='' computeSoundcheck=false soundcheckMode='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human' deleteSourceFiles=false
-touchFiles=false copyArtworkFiles=false copyOtherFiles="false"
+touchFiles=false copyArtworkFiles="false" copyOtherFiles="false"
 peakReference=0
 
 if [ "$calledAs" = 'decaude' ]; then
@@ -6258,7 +6364,13 @@ while getopts 'zsn:o:O:P:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			esac
 			;;
 
-		a) copyArtworkFiles=true ;;
+		a)
+			copyArtworkFiles="true"
+			if [ -n "$lastCodec" ]; then
+				setCodecArtworkFiles "$copyArtworkFiles" "$lastCodec"
+				copyArtworkFiles="false"
+			fi
+			;;
 
 		f)
 			case "$OPTARG" in
@@ -6268,6 +6380,10 @@ while getopts 'zsn:o:O:P:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				""|" "*) printMessage 'error' 'usage' 'bad_value' "$me -f: valid values are true (or 'all'), false, a filename, or a comma separated list of either files or file extensions WITH leading dot" ; exit $EX_USAGE ;;
 				*) copyOtherFiles="$OPTARG" ;;
 			esac
+			if [ -n "$lastCodec" ]; then
+				setCodecOtherFiles "$copyOtherFiles" "$lastCodec"
+				copyOtherFiles="false"
+			fi
 			;;
 
 		o)
