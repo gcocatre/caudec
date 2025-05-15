@@ -4216,7 +4216,7 @@ encode ()
 							artFileBasename="${f##*/}"
 							destArtFile="${destPath}/${artFileBasename}"
 							if [ ! -e "$destArtFile" ]; then
-								cp "$f" "$destArtFile"
+								cp "$f" "$destArtFile" >/dev/null 2>> "$errorLogFile"
 							fi
 						fi
 					done
