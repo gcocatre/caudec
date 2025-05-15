@@ -190,7 +190,7 @@ Global options:
   -a        copy all cover art files to the output directory
   -f ARG    copy certain files to the output directory. ARG may be a 'all',
             a comma separated list of files, and / or file extensions preceded
-						by a dot
+            by a dot
   -k        keep existing destination files (don't overwrite them)
   -K        keep existing destination files if they're newer than their source
 
