@@ -33,6 +33,10 @@ bitrate_Opus=96 # 6-320, used with Opus_MODE='CBR'
 average_bitrate_Opus=96 # 6-320, used with Opus_Mode='ABR'
 Opus_MODE='VBR' # 'VBR' (variable bitrate), 'CBR' (constant bitrate) or 'ABR' (average bitrate)
 
+alwaysCopyArtworkFiles="false" # copy all images from the source directory when transcoding
+alwaysCopyOtherFilesForLossless="" # copy certain files when transcoding to lossless (see caudec -h for format)
+alwaysCopyOtherFilesForLossy="" # copy certain files when transcoding to lossy (see caudec -h for format)
+
 maxInstances=1 # maximum number of caudec instances allowed to run concurrently
 maxInputFiles=100 # raise a warning and exit if the number of input files is higher than that
 preloadSources=false # cache source files to a ramdisk before processing them (see "Performance" on the online documentation)

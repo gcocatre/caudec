@@ -6142,23 +6142,35 @@ setCodecOtherFiles ()
 {
 	local copyOtherCodecFiles="$1" outputCodec="$2"
 
-	if [ "$outputCodec" = 'WAV' -o -z "$copyOtherFiles_WAV" ]; then copyOtherFiles_WAV="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'AIFF' -o -z "$copyOtherFiles_AIFF" ]; then copyOtherFiles_AIFF="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'CAF' -o -z "$copyOtherFiles_CAF" ]; then copyOtherFiles_CAF="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'FLAC' -o -z "$copyOtherFiles_FLAC" ]; then copyOtherFiles_FLAC="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'WavPack' -o -z "$copyOtherFiles_WavPack" ]; then copyOtherFiles_WavPack="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'WavPackHybrid' -o -z "$copyOtherFiles_WavPackHybrid" ]; then copyOtherFiles_WavPackHybrid="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'WavPackLossy' -o -z "$copyOtherFiles_WavPackLossy" ]; then copyOtherFiles_WavPackLossy="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'MonkeysAudio' -o -z "$copyOtherFiles_MonkeysAudio" ]; then copyOtherFiles_MonkeysAudio="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'ALAC' -o -z "$copyOtherFiles_ALAC" ]; then copyOtherFiles_ALAC="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'lossyWAV' -o -z "$copyOtherFiles_lossyWAV" ]; then copyOtherFiles_lossyWAV="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'lossyFLAC' -o -z "$copyOtherFiles_lossyFLAC" ]; then copyOtherFiles_lossyFLAC="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'lossyWV' -o -z "$copyOtherFiles_lossyWV" ]; then copyOtherFiles_lossyWV="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'LAME' -o -z "$copyOtherFiles_LAME" ]; then copyOtherFiles_LAME="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'AAC' -o -z "$copyOtherFiles_AAC" ]; then copyOtherFiles_AAC="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'OggVorbis' -o -z "$copyOtherFiles_OggVorbis" ]; then copyOtherFiles_OggVorbis="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'Musepack' -o -z "$copyOtherFiles_Musepack" ]; then copyOtherFiles_Musepack="$copyOtherCodecFiles"; fi
-	if [ "$outputCodec" = 'Opus' -o -z "$copyOtherFiles_Opus" ]; then copyOtherFiles_Opus="$copyOtherCodecFiles"; fi
+	case "$alwaysCopyOtherFilesForLossless" in
+		*.*,*) alwaysCopyOtherFilesForLossless="$( echo "$OPTARG" | tr -d " " )" ;;
+		true|false|""|" "*) alwaysCopyOtherFilesForLossless="" ;;
+	esac
+
+	case "$alwaysCopyOtherFilesForLossy" in
+		*.*,*) alwaysCopyOtherFilesForLossy="$( echo "$OPTARG" | tr -d " " )" ;;
+		true|false|""|" "*) alwaysCopyOtherFilesForLossy="" ;;
+	esac
+
+	case "$outputCodec" in
+		WAV) if [ -n "$alwaysCopyOtherFilesForLossless" ]; then copyOtherFiles_WAV="$alwaysCopyOtherFilesForLossless"; else copyOtherFiles_WAV="$copyOtherCodecFiles"; fi ;;
+		AIFF) if [ -n "$alwaysCopyOtherFilesForLossless" ]; then copyOtherFiles_AIFF="$alwaysCopyOtherFilesForLossless"; else copyOtherFiles_AIFF="$copyOtherCodecFiles"; fi ;;
+		CAF) if [ -n "$alwaysCopyOtherFilesForLossless" ]; then copyOtherFiles_CAF="$alwaysCopyOtherFilesForLossless"; else copyOtherFiles_CAF="$copyOtherCodecFiles"; fi ;;
+		FLAC) if [ -n "$alwaysCopyOtherFilesForLossless" ]; then copyOtherFiles_FLAC="$alwaysCopyOtherFilesForLossless"; else copyOtherFiles_FLAC="$copyOtherCodecFiles"; fi ;;
+		WavPack) if [ -n "$alwaysCopyOtherFilesForLossless" ]; then copyOtherFiles_WavPack="$alwaysCopyOtherFilesForLossless"; else copyOtherFiles_WavPack="$copyOtherCodecFiles"; fi ;;
+		WavPackHybrid) if [ -n "$alwaysCopyOtherFilesForLossless" ]; then copyOtherFiles_WavPackHybrid="$alwaysCopyOtherFilesForLossless"; else copyOtherFiles_WavPackHybrid="$copyOtherCodecFiles"; fi ;;
+		WavPackLossy) if [ -n "$alwaysCopyOtherFilesForLossy" ]; then copyOtherFiles_WavPackLossy="$alwaysCopyOtherFilesForLossy"; else copyOtherFiles_WavPackLossy="$copyOtherCodecFiles"; fi  ;;
+		MonkeysAudio) if [ -n "$alwaysCopyOtherFilesForLossless" ]; then copyOtherFiles_MonkeysAudio="$alwaysCopyOtherFilesForLossless"; else copyOtherFiles_MonkeysAudio="$copyOtherCodecFiles"; fi ;;
+		ALAC) if [ -n "$alwaysCopyOtherFilesForLossless" ]; then copyOtherFiles_ALAC="$alwaysCopyOtherFilesForLossless"; else copyOtherFiles_ALAC="$copyOtherCodecFiles"; fi ;;
+		lossyWAV) if [ -n "$alwaysCopyOtherFilesForLossy" ]; then copyOtherFiles_lossyWAV="$alwaysCopyOtherFilesForLossy"; else copyOtherFiles_lossyWAV="$copyOtherCodecFiles"; fi ;;
+		lossyFLAC) if [ -n "$alwaysCopyOtherFilesForLossy" ]; then copyOtherFiles_lossyFLAC="$alwaysCopyOtherFilesForLossy"; else copyOtherFiles_lossyFLAC="$copyOtherCodecFiles"; fi ;;
+		lossyWV) if [ -n "$alwaysCopyOtherFilesForLossy" ]; then copyOtherFiles_lossyWV="$alwaysCopyOtherFilesForLossy"; else copyOtherFiles_lossyWV="$copyOtherCodecFiles"; fi ;;
+		LAME) if [ -n "$alwaysCopyOtherFilesForLossy" ]; then copyOtherFiles_LAME="$alwaysCopyOtherFilesForLossy"; else copyOtherFiles_LAME="$copyOtherCodecFiles"; fi ;;
+		AAC) if [ -n "$alwaysCopyOtherFilesForLossy" ]; then copyOtherFiles_AAC="$alwaysCopyOtherFilesForLossy"; else copyOtherFiles_AAC="$copyOtherCodecFiles"; fi ;;
+		OggVorbis) if [ -n "$alwaysCopyOtherFilesForLossy" ]; then copyOtherFiles_OggVorbis="$alwaysCopyOtherFilesForLossy"; else copyOtherFiles_OggVorbis="$copyOtherCodecFiles"; fi ;;
+		Musepack) if [ -n "$alwaysCopyOtherFilesForLossy" ]; then copyOtherFiles_Musepack="$alwaysCopyOtherFilesForLossy"; else copyOtherFiles_Musepack="$copyOtherCodecFiles"; fi ;;
+		Opus) if [ -n "$alwaysCopyOtherFilesForLossy" ]; then copyOtherFiles_Opus="$alwaysCopyOtherFilesForLossy"; else copyOtherFiles_Opus="$copyOtherCodecFiles"; fi ;;
+	esac
 }
 
 getCodecOtherFiles ()
@@ -6312,8 +6324,11 @@ nLossyWAV=0 copyLossyWAV=false
 bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false actionHash=false
 applyGain=false applyGainType='' computeSoundcheck=false soundcheckMode='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human' deleteSourceFiles=false
-touchFiles=false copyArtworkFiles="false" copyOtherFiles="false"
-peakReference=0
+touchFiles=false peakReference=0
+
+ copyArtworkFiles="false" copyOtherFiles="false"
+if [ -n "$alwaysCopyArtworkFiles" ]; then copyArtworkFiles="$alwaysCopyArtworkFiles"; fi
+
 
 if [ "$calledAs" = 'decaude' ]; then
 	lastCodec='WAV'
@@ -6484,6 +6499,9 @@ while getopts 'zsn:o:O:P:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			outputCodecs="$outputCodecs $lastCodec"; ((nCodecs++))
 			if [ "$o" = 'c' ]; then
 				preserveMetadata="${preserveMetadata}x${lastCodec}Y"
+			fi
+			if [ -n "$alwaysCopyOtherFilesForLossless" -o -n "$alwaysCopyOtherFilesForLossy" ]; then
+				setCodecArtworkFiles "$copyArtworkFiles" "$lastCodec"
 			fi
 			;;
 
