@@ -6402,7 +6402,6 @@ while getopts 'zsn:o:O:P:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 		f)
 			case "$OPTARG" in
 				all) copyOtherFiles="all" ;;
-				*.*,*) copyOtherFiles="$( echo "$OPTARG" | tr -d " " )" ;;
 				true|false|""|" "*) printMessage 'error' 'usage' 'bad_value' "$me -f: valid values are 'all', a filename, or a comma separated list of either files or file extensions WITH leading dots" ; exit $EX_USAGE ;;
 				*) copyOtherFiles="$OPTARG" ;;
 			esac
