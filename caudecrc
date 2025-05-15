@@ -33,7 +33,7 @@ bitrate_Opus=96 # 6-320, used with Opus_MODE='CBR'
 average_bitrate_Opus=96 # 6-320, used with Opus_Mode='ABR'
 Opus_MODE='VBR' # 'VBR' (variable bitrate), 'CBR' (constant bitrate) or 'ABR' (average bitrate)
 
-alwaysCopyArtworkFiles="false" # copy all images from the source directory when transcoding
+alwaysCopyArtworkFiles="false" # "true" or "false" copy all images from the source directory when transcoding
 alwaysCopyOtherFilesForLossless="" # copy certain files when transcoding to lossless (see caudec -h for format)
 alwaysCopyOtherFilesForLossy="" # copy certain files when transcoding to lossy (see caudec -h for format)
 

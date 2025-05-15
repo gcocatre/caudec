@@ -4225,11 +4225,12 @@ encode ()
 				getCodecOtherFiles "$outputCodec"
 				if [ "$doCopyOtherFiles" != "false" ]; then
 					case "$doCopyOtherFiles" in
-						true|all)
+						all)
 							for f in "$sourceDirname"/*; do
-								for audioFile in "$sourceDirname"/*.{WAV,CAF,AIFF,FLAC,WV,WVC,APE,M4A,OGG,MP3,MPC,OPUS,wav,caf,aiff,flac,wv,wvc,ape,m4a,ogg,mp3,mpc,opus}; do
-									continue
-								done
+								case "$f" in
+									*.WAV|*.CAF|*.AIFF|*.FLAC|*.WV|*.WVC|*.APE|*.M4A|*.OGG|*.MP3|*.MPC|*.OPUS) continue ;;
+									*.wav|*.caf|*.aiff|*.flac|*.wv|*.wvc|*.ape|*.m4a|*.ogg|*.mp3|*.mpc|*.opus) continue ;;
+								esac
 								if [ -f "$f" ]; then
 									otherFileBasename="${f##*/}"
 									destOtherFile="${destPath}/${otherFileBasename}"
@@ -6143,12 +6144,10 @@ setCodecOtherFiles ()
 	local copyOtherCodecFiles="$1" outputCodec="$2"
 
 	case "$alwaysCopyOtherFilesForLossless" in
-		*.*,*) alwaysCopyOtherFilesForLossless="$( echo "$OPTARG" | tr -d " " )" ;;
 		true|false|""|" "*) alwaysCopyOtherFilesForLossless="" ;;
 	esac
 
 	case "$alwaysCopyOtherFilesForLossy" in
-		*.*,*) alwaysCopyOtherFilesForLossy="$( echo "$OPTARG" | tr -d " " )" ;;
 		true|false|""|" "*) alwaysCopyOtherFilesForLossy="" ;;
 	esac
 
@@ -6500,8 +6499,11 @@ while getopts 'zsn:o:O:P:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			if [ "$o" = 'c' ]; then
 				preserveMetadata="${preserveMetadata}x${lastCodec}Y"
 			fi
-			if [ -n "$alwaysCopyOtherFilesForLossless" -o -n "$alwaysCopyOtherFilesForLossy" ]; then
+			if [ -n "$alwaysCopyArtworkFiles" ]; then
 				setCodecArtworkFiles "$copyArtworkFiles" "$lastCodec"
+			fi
+			if [ -n "$alwaysCopyOtherFilesForLossless" -o -n "$alwaysCopyOtherFilesForLossy" ]; then
+				setCodecOtherFiles "$copyOtherFiles" "$lastCodec"
 			fi
 			;;
 
