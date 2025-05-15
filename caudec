@@ -3966,7 +3966,7 @@ overwriteDestFile ()
 
 encode ()
 {
-	local ec=$EX_OK pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses
+	local ec=$EX_OK pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses listOfOtherFiles audioFile otherFile otherFileBasename extOtherFile destOtherFile
 
 	compressionTag=''
 
@@ -4208,6 +4208,63 @@ encode ()
 				fi
 				if [ -e "${encodedFile}c" ]; then
 					mv "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile" # WavPack Hybrid correction files
+				fi
+
+				if [ "$copyOtherFiles" != "false" ]; then
+					case "$copyOtherFiles" in
+						true|all)
+							for f in "$sourceDirname"/*; do
+								for audioFile in "$sourceDirname"/*.{WAV,CAF,AIFF,FLAC,WV,WVC,APE,M4A,OGG,MP3,MPC,OPUS,wav,caf,aiff,flac,wv,wvc,ape,m4a,ogg,mp3,mpc,opus}; do
+									continue
+								done
+								if [ -f "$f" ]; then
+									otherFileBasename="${f##*/}"
+									destOtherFile="${destPath}/${otherFileBasename}"
+									if [ ! -e "$destOtherFile" ]; then
+										cp "$f" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
+									fi
+								fi
+							done
+							;;
+
+						*.*","*|*.*)
+							if [ -f "${sourceDirname}/${copyOtherFiles}" ]; then
+								# that's actually a file, not a comma separated list of files or extensions
+								destOtherFile="${destPath}/${copyOtherFiles}"
+								if [ ! -e "$destOtherFile" ]; then
+									cp "${sourceDirname}/${copyOtherFiles}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
+								fi
+							else # comma separated list
+								OIFS="$IFS"; IFS=','
+								read -a listOfOtherFiles <<< "$copyOtherFiles"
+								for otherFile in "${listOfOtherFiles[@]}"; do
+									case "$otherFile" in
+										.*)
+											for extOtherFile in "$sourceDirname"/*"$otherFile"; do
+												if [ -f "$extOtherFile" ]; then
+													otherFileBasename="${extOtherFile##*/}"
+													destOtherFile="${destPath}/${otherFileBasename}"
+													if [ ! -e "${destOtherFile}" ]; then
+														cp "$extOtherFile" "${destOtherFile}" >/dev/null 2>> "$errorLogFile"
+													fi
+												fi
+											done
+										;;
+
+										*)
+											if [ -f "${sourceDirname}/${otherFile}" ]; then
+												destOtherFile="${destPath}/${otherFile}"
+												if [ ! -e "$destOtherFile" ]; then
+													cp "${sourceDirname}/${otherFile}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
+												fi
+											fi
+										;;
+									esac
+								done
+								IFS="$OIFS"
+							fi
+							;;
+					esac
 				fi
 
 				if [ $copyArtworkFiles = true ]; then
@@ -6136,7 +6193,7 @@ nLossyWAV=0 copyLossyWAV=false
 bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false actionHash=false
 applyGain=false applyGainType='' computeSoundcheck=false soundcheckMode='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human' deleteSourceFiles=false
-touchFiles=false copyArtworkFiles=false
+touchFiles=false copyArtworkFiles=false copyOtherFiles="false"
 peakReference=0
 
 if [ "$calledAs" = 'decaude' ]; then
@@ -6182,7 +6239,7 @@ if which 'mac' >/dev/null 2>&1; then
 	fi
 fi
 
-while getopts 'zsn:o:O:P:akKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
+while getopts 'zsn:o:O:P:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 	case $o in
 		s) verbose=false ;;
 
@@ -6202,6 +6259,16 @@ while getopts 'zsn:o:O:P:akKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			;;
 
 		a) copyArtworkFiles=true ;;
+
+		f)
+			case "$OPTARG" in
+				true|all) copyOtherFiles="true" ;;
+				false) copyOtherFiles="false" ;;
+				*.*,*) copyOtherFiles="$( echo "$OPTARG" | tr -d " " )" ;;
+				""|" "*) printMessage 'error' 'usage' 'bad_value' "$me -f: valid values are true (or 'all'), false, a filename, or a comma separated list of either files or file extensions WITH leading dot" ; exit $EX_USAGE ;;
+				*) copyOtherFiles="$OPTARG" ;;
+			esac
+			;;
 
 		o)
 			destDir="$OPTARG"
