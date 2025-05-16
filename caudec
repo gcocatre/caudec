@@ -6357,7 +6357,7 @@ maxProcessesSetByUser=$maxProcesses
 
 # Set default values
 outputCodecs='' lastCodec='' nCodecs=0 copyWAV=false verbose=true
-destDir='' linkDir='' copyPath=false
+destDir='' linkDir='' gotLinkedDir=false copyPath=false
 nLossyWAV=0 copyLossyWAV=false
 bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false
 applyGain=false applyGainType='' computeSoundcheck=false soundcheckMode='' convertToStereo='false'
@@ -6431,10 +6431,14 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			;;
 
 		a)
-			copyArtworkFiles="true"
-			if [ -n "$lastCodec" ]; then
-				setCodecArtworkFiles "$copyArtworkFiles" "$lastCodec"
+			if [ -z "$lastCodec" ]; then
+				copyArtworkFiles="true"
+			elif [ -n "$lastCodec" ]; then
+				setCodecArtworkFiles "true" "$lastCodec"
 				copyArtworkFiles="false"
+			fi
+			if [ $gotLinkedDir = true ]; then
+				setCodecArtworkFiles "true" "WavPackLossy"
 			fi
 			;;
 
@@ -6467,6 +6471,9 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			;;
 
 		l)
+			if [ $gotLinkedDir = true ]; then
+				printMessage 'error' 'usage' 'command_line' "$me -l: there can be only one hard link dir for WavPackHybrid." ; exit $EX_USAGE
+			fi
 			linkDir="$OPTARG"
 			if [ "$linkDir" != '/' -a "${linkDir%/}" != "$linkDir" ]; then
 				linkDir="${linkDir%/}"
@@ -6478,6 +6485,7 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			elif [ ! -w "$linkDir" ]; then
 				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
 			fi
+			gotLinkedDir=true
 			;;
 
 		O|P)
@@ -6500,6 +6508,9 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			;;
 
 		L)
+			if [ $gotLinkedDir = true ]; then
+				printMessage 'error' 'usage' 'command_line' "$me -L: there can be only one hard link dir for WavPackHybrid." ; exit $EX_USAGE
+			fi
 			linkDir="$OPTARG"
 			if [ "$linkDir" != '/' -a "${linkDir%/}" != "$linkDir" ]; then
 				linkDir="${linkDir%/}"
@@ -6513,6 +6524,7 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			elif [ ! -w "$linkDir" ]; then
 				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -L: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
 			fi
+			gotLinkedDir=true
 			copyPath=true # FIXME: can't remember what this does
 			;;
 
