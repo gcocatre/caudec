@@ -981,7 +981,7 @@ getInputFiles ()
 
 checkInputFiles ()
 {
-	local f ec=$EX_OK bn dn refDN cdpath pdpath basenames='' isf=0 keepInputFile errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
+	local f ec=$EX_OK bn dn refDn cdpath pdpath basenames='' isf=0 keepInputFile errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
 
 	if [ $nTracks -gt $maxInputFiles ]; then
 		printMessage 'warning' 'usage' 'quota' "the number of input files ($nTracks) is greater than maxInputFiles=${maxInputFiles}."
@@ -1013,6 +1013,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 		elif [ ! -w "$dn" -a $touchFiles = true ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${dn}" 'cannot open dir for writing (permission denied).' ; ec=$EX_CANTCREAT
 		else
+			# FIXME: I don't remember what this does
 			if [ -z "$refDn" ] ; then refDn="$dn"; fi
 			if [ $copyPath = true ]; then
 				cdpath='/./' pdpath='/../'
@@ -4211,15 +4212,21 @@ encode ()
 		if [ $ec -eq $EX_OK ]; then
 			if [ -e "$encodedFile" ]; then
 				chmod 0644 "$encodedFile"
+				if [ -e "${encodedFile}c" ]; then # WavPack Hybrid correction files
+					chmod 0644 "${encodedFile}c"
+				fi
 				if [ "$outputCodecs" = 'WAV' ]; then
 					mv "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
 				elif [ -L "$encodedFile" -o "$outputCodec" = 'WAV' ]; then
 					cp "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
+					if [ -e "${encodedFile}c" ]; then
+						cp "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile"
+					fi
 				else
 					mv "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
-				fi
-				if [ -e "${encodedFile}c" ]; then
-					mv "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile" # WavPack Hybrid correction files
+					if [ -e "${encodedFile}c" ]; then  # WavPack Hybrid correction files
+						mv "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile"
+					fi
 				fi
 
 				getCodecOtherFiles "$outputCodec"
@@ -6318,12 +6325,13 @@ esac
 
 maxProcessesSetByUser=$maxProcesses
 
-destDir='' copyPath=false outputCodecs='' lastCodec='' nCodecs=0 copyWAV=false verbose=true checkFiles=false
+outputCodecs='' lastCodec='' nCodecs=0 copyWAV=false verbose=true
+destDir='' copyPath=false
 nLossyWAV=0 copyLossyWAV=false
-bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false actionHash=false
+bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false
 applyGain=false applyGainType='' computeSoundcheck=false soundcheckMode='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human' deleteSourceFiles=false
-touchFiles=false peakReference=0
+checkFiles=false actionHash=false touchFiles=false peakReference=0
 
  copyArtworkFiles="false" copyOtherFiles="false"
 if [ -n "$alwaysCopyArtworkFiles" ]; then copyArtworkFiles="$alwaysCopyArtworkFiles"; fi
