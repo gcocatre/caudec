@@ -6472,7 +6472,7 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				linkDir="${linkDir%/}"
 			fi
 			if [ ! -e "$linkDir" ]; then
-				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: directory doesn't exist. Either create it manually, or try again with -O." ; exit $EX_CANTCREAT
+				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: directory doesn't exist. Either create it manually, or try again with -L." ; exit $EX_CANTCREAT
 			elif [ ! -d "$linkDir" ]; then
 				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: not a directory." ; exit $EX_CANTCREAT
 			elif [ ! -w "$linkDir" ]; then
