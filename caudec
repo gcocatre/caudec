@@ -4318,9 +4318,28 @@ encode ()
 							destArtFile="${destPath}/${artFileBasename}"
 							if [ ! -e "$destArtFile" ]; then
 								cp "$f" "$destArtFile" >/dev/null 2>> "$errorLogFile"
+								if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
+									destLinkArtFile="${destLinkPath}/${artFileBasename}"
+									rm -f "$destLinkArtFile" >/dev/null 2>> "$errorLogFile" # for consistency
+								fi
 							fi
 						fi
 					done
+				fi
+				if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
+					getCodecArtworkFiles "WavPackLossy"
+					if [ "$doCopyArtworkFiles" = "true" ]; then
+						for f in "$destPath"/*.{HEIC,JPEG,JPG,JXL,PNG,heic,jpeg,jpg,jxl,png}; do
+							if [ -f "$f" ]; then
+								artFileBasename="${f##*/}"
+								destArtFile="${destPath}/${artFileBasename}"
+								destLinkArtFile="${destLinkPath}/${artFileBasename}"
+								if [ ! -e "$destLinkArtFile" ]; then
+									ln "$destArtFile" "$destLinkArtFile" >/dev/null 2>> "$errorLogFile"
+								fi
+							fi
+						done
+					fi
 				fi
 
 				printMessage 'success' "$statusInfo" "file:${destFile}" $p
@@ -6435,7 +6454,6 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				copyArtworkFiles="true"
 			elif [ -n "$lastCodec" ]; then
 				setCodecArtworkFiles "true" "$lastCodec"
-				copyArtworkFiles="false"
 			fi
 			if [ $gotLinkedDir = true ]; then
 				setCodecArtworkFiles "true" "WavPackLossy"
