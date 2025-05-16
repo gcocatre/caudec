@@ -183,14 +183,22 @@ Global options:
   -s        be silent, only print errors
   -n N      launch N processes concurrently (1-${maxProcesses});
             by default, the number of CPU cores.
+
   -o DIR    set already existing output directory
   -O DIR    set output directory, create it if it doesn't exist already
   -P DIR    set and create output directory, and mirror the source file's
             path components (e.g. 'a/b/file.flac' => 'DIR/a/b/file.ogg')
+
+  -l DIR    set already existing directory for hard linking lossy.wv files from
+            WavPackHybrid's output direcetory
+  -L DIR    set and create a directory for hard linking lossy .wv files from
+            WavPackHybrid's output direcetory
+
   -a        copy all cover art files to the output directory
   -f ARG    copy certain files to the output directory. ARG may be a 'all',
             a comma separated list of files, and / or file extensions preceded
             by a dot
+
   -k        keep existing destination files (don't overwrite them)
   -K        keep existing destination files if they're newer than their source
 
