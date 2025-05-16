@@ -4201,6 +4201,11 @@ encode ()
 			if ! mkdir -p "$destPath" >/dev/null 2>&1 ; then
 				ec=$EX_KO
 			fi
+			if [ -n "$destLinkPath" ]; then
+				if ! mkdir -p "$destLinkPath" >/dev/null 2>&1 ; then
+					ec=$EX_KO
+				fi
+			fi
 		fi
 
 		if [ "$outputCodec" = 'WAV' ]; then
@@ -4226,6 +4231,15 @@ encode ()
 					mv "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
 					if [ -e "${encodedFile}c" ]; then  # WavPack Hybrid correction files
 						mv "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile"
+					fi
+				fi
+
+				if [ "$outputCodec" = "WavPackHybrid" -a -n "$destLinkPath" ]; then
+					if [ -e "$destLinkFile" ]; then # delete old link for consistency``
+						rm -f "$destLinkFile" >/dev/null 2>> "$errorLogFile"
+					fi
+					if [ -f "$destFile" ]; then
+						ln "$destFile" "$destLinkPath" >/dev/null 2>> "$errorLogFile"
 					fi
 				fi
 
@@ -5893,9 +5907,17 @@ getFileProps ()
 		if [ $copyPath = true ]; then
 			destPath="${destDir}/${sourceDirname#/}"
 			destFile="${destPath}/${destFilename}"
+			if [ -n "$linkDir" ]; then
+				destLinkPath="${linkDir}/${sourceDirname#/}"
+				destLinkFile="${destLinkPath}/${destFilename}"
+			fi
 		else
 			destPath="$destDir"
 			destFile="${destDir}/${destFilename}"
+			if [ -n "$linkDir" ]; then
+				destLinkPath="$linkDir"
+				destLinkFile="${linkDir}/${destFilename}"
+			fi
 		fi
 	fi
 }
@@ -6325,8 +6347,9 @@ esac
 
 maxProcessesSetByUser=$maxProcesses
 
+# Set default values
 outputCodecs='' lastCodec='' nCodecs=0 copyWAV=false verbose=true
-destDir='' copyPath=false
+destDir='' linkDir='' copyPath=false
 nLossyWAV=0 copyLossyWAV=false
 bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false
 applyGain=false applyGainType='' computeSoundcheck=false soundcheckMode='' convertToStereo='false'
@@ -6380,7 +6403,7 @@ if which 'mac' >/dev/null 2>&1; then
 	fi
 fi
 
-while getopts 'zsn:o:O:P:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
+while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 	case $o in
 		s) verbose=false ;;
 
@@ -6435,6 +6458,20 @@ while getopts 'zsn:o:O:P:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			unset destDir
 			;;
 
+		l)
+			linkDir="$OPTARG"
+			if [ "$linkDir" != '/' -a "${linkDir%/}" != "$linkDir" ]; then
+				linkDir="${linkDir%/}"
+			fi
+			if [ ! -e "$linkDir" ]; then
+				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: directory doesn't exist. Either create it manually, or try again with -O." ; exit $EX_CANTCREAT
+			elif [ ! -d "$linkDir" ]; then
+				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: not a directory." ; exit $EX_CANTCREAT
+			elif [ ! -w "$linkDir" ]; then
+				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
+			fi
+			;;
+
 		O|P)
 			destDir="$OPTARG"
 			if [ "$destDir" != '/' -a "${destDir%/}" != "$destDir" ]; then
@@ -6452,6 +6489,23 @@ while getopts 'zsn:o:O:P:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			if [ "$o" = 'P' ]; then copyPath=true; fi
 			setDestDir "$destDir" "$lastCodec"
 			unset destDir
+			;;
+
+		L)
+			linkDir="$OPTARG"
+			if [ "$linkDir" != '/' -a "${linkDir%/}" != "$linkDir" ]; then
+				linkDir="${linkDir%/}"
+			fi
+			if [ ! -e "$linkDir" ]; then
+				if ! mkdir -p "$linkDir" >/dev/null 2>&1 ; then
+					printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -L: failed to create directory (do you have write permissions?)." ; exit $EX_CANTCREAT
+				fi
+			elif [ ! -d "$linkDir" ]; then
+				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -L: not a directory." ; exit $EX_CANTCREAT
+			elif [ ! -w "$linkDir" ]; then
+				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -L: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
+			fi
+			copyPath=true # FIXME: can't remember what this does
 			;;
 
 		k)
