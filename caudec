@@ -6611,9 +6611,9 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			esac
 			;;
 
-		t) checkFiles=true ;;
+		t) checkFiles=true copyOtherFiles=false ;;
 
-		T) touchFiles=true ;;
+		T) touchFiles=true copyOtherFiles=false ;;
 
 		c|C)
 			case "$OPTARG" in
@@ -6645,6 +6645,7 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 		d) lastCodec='WAV'; outputCodecs="$outputCodecs $lastCodec"; ((nCodecs++)); copyWAV=true ;;
 
 		H)
+			copyOtherFiles=false
 			case "$OPTARG" in
 				crc32|CRC32)   hashes="${hashes}CRC32 "  ;;
 				md5|MD5)   hashes="${hashes}MD5 "  ;;
@@ -6734,9 +6735,10 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 
 		2) convertToStereo='flat' ;;
 
-		g) computeReplaygain=true ;;
+		g) computeReplaygain=true copyOtherFiles=false ;;
 
 		G)
+			copyOtherFiles=false
 			if [ -z "$lastCodec" ]; then
 				computeReplaygain=true
 			fi
@@ -6776,6 +6778,7 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			;;
 
 		S)
+			copyOtherFiles=false
 			computeReplaygain=true computeSoundcheck=true
 			case "$OPTARG" in
 				album) soundcheckMode='ALBUM' ;;
