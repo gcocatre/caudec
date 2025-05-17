@@ -3795,7 +3795,6 @@ overwriteDestFile ()
 	fi
 }
 
-# COPY FILES
 copyOrLinkAllFiles ()
 {
 	local codec="$1" f otherFileBasename destOtherFile destOtherLinkedFile
@@ -3826,7 +3825,6 @@ copyOrLinkAllFiles ()
 	done
 }
 
-# COPY FILES
 copyOrLinkCommaSeparatedFiles ()
 {
 	local codec="$1" pattern="$2" listOfOtherFiles otherFile extOtherFile otherFileBasename destOtherFile destOtherLinkedFile
@@ -3879,7 +3877,6 @@ copyOrLinkCommaSeparatedFiles ()
 	IFS="$OIFS"
 }
 
-# COPY FILES
 copyOrLinkFile ()
 {
 	local codec="$1" otherFile="$2" extOtherFile otherFileBasename destOtherFile destOtherLinkedFile
@@ -3931,8 +3928,6 @@ copyOrLinkFile ()
 		;;
 	esac
 }
-
-# COPY FILES
 
 copyOrLinkOtherFiles ()
 {
@@ -4254,8 +4249,6 @@ encode ()
 				fi
 
 				copyArtworkFiles "$outputCodec"
-
-				# COPY FILES
 				copyOrLinkOtherFiles "$outputCodec"
 				if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
 					copyOrLinkOtherFiles "WavPackLossy"
@@ -6158,7 +6151,6 @@ getDestDir ()
 
 }
 
-# COPY FILES
 setCodecOtherFiles ()
 {
 	local outputCodec="$1" pattern="$2"
@@ -6226,7 +6218,6 @@ setCodecOtherFiles ()
 	fi
 }
 
-# COPY FILES
 getCodecOtherFiles ()
 {
 	local outputCodec="$1" otherFilesPattern=""
@@ -6506,7 +6497,6 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			;;
 
 		f)
-			# COPY FILES
 			copyOtherFiles=true
 			if [ -z "$lastCodec" ]; then
 				setCodecOtherFiles "default" "$OPTARG"
