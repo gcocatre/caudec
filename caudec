@@ -211,6 +211,9 @@ Global options:
   -T        touch files using metadata to reflect the music's release date
             and duration. Provide all files as arguments, not just audio files,
             although at least one audio file is required for this to work.
+            Use with -l/-L when dealing with a hard linked collection (-c wvh).
+            Ex: $me -T ~/Music/Artist/Album/*
+            Ex: $me -l ~/Music/WV -T ~/Music/WavPackHybrid/Artist/Album/*
 
   -z        produce machine-parsable output; must be the first parameter on the
             command line to take effect. Run 'caudec -z' on its own to print
@@ -1014,10 +1017,6 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 				printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
 		elif [ ! -w "$f" -a $actionHash = true ]; then
 				printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
-		elif [ ! -w "$f" -a $touchFiles = true ]; then
-				printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
-		elif [ ! -w "$dn" -a $touchFiles = true ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${dn}" 'cannot open dir for writing (permission denied).' ; ec=$EX_CANTCREAT
 		else
 			if [ -z "$refDn" ] ; then refDn="$dn"; fi # for touching mtime files
 			if [ $copyPath = true ]; then
@@ -1192,7 +1191,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 		fi
 	done
 
-	if [ $touchFiles = true -a $gotAudioFile = false -a -w "$dn" ]; then
+	if [ $touchFiles = true -a $gotAudioFile = false ]; then
 		printMessage 'warning' 'processing' 'unsupported' 'at least one supported audio file is required.'; ec=$EX_DATAERR
 		printMessage 'abort' 'verbose'
 		cleanExit $ec
@@ -5693,11 +5692,15 @@ computeTrackDateTimes ()
 
 touchAllFiles ()
 {
-	local ec=$EX_OK touchString totalSeconds trackDate="19700101" albumHours albumMinutes albumSeconds trackMilliseconds n=0 dir="" inode linkedFile linkPath=""
+	local ec=$EX_OK trackYear trackMonth trackDay trackDate defaultTrackDate touchString totalSeconds albumHours albumMinutes albumSeconds trackMilliseconds n=0 dir="" inode linkedFile linkPath=""
 
-	trackDate="19700101"
+	trackYear="$( date "+%Y" )"
+	trackMonth="$( date "+%m" )"
+	trackDay="$( date "+%d" )"
+	trackDate="${trackYear}${trackMonth}${trackDay}"
+	defaultTrackDate="$trackDate"
 	trackMilliseconds=0
-	touchString="197001010000.00"
+	touchString="${trackDate}0000.00"
 	totalSeconds=0
 
 	for ((i=0; i<${#sourceFiles[@]}; i++)); do
@@ -5715,7 +5718,9 @@ touchAllFiles ()
     	*.flac|*ogg|*.wv|*.ape)
 				n=$(( n + 1 ))
 				read trackDate < "$sourceTagFile"
+				if [ -z "$trackDate" ]; then trackDate="$defaultTrackDate"; fi
 				read trackMilliseconds < "$millisecondsFile"
+				if [ -z "$trackMilliseconds" ]; then trackMilliseconds=0; fi
 				trackMilliseconds="$( printf "%.3f" "$trackMilliseconds" )"
 				if [ -n "$linkDir" ]; then
 					if [ -z "$linkPath" ]; then
@@ -5739,8 +5744,10 @@ touchAllFiles ()
 
 		if [ $n -eq 1 ]; then
 			touchString="$( getTouchString $trackDate $totalSeconds )"
-			touch -t "$touchString" "$sourceFile"
-			if [ -e "${sourceFile}c" ]; then touch -t "$touchString" "${sourceFile}c"; fi # WavPack correction file
+			touch -t "$touchString" "$sourceFile" || ec=$EX_IOERR
+			if [ -e "${sourceFile}c" ]; then  # WavPack correction file
+				touch -t "$touchString" "${sourceFile}c" || ec=$EX_IOERR
+			fi
 			if [ -e "$millisecondsFile" ]; then
 				read trackMilliseconds < "$millisecondsFile"
 			else
@@ -5749,8 +5756,10 @@ touchAllFiles ()
 			totalSeconds="$( echo "scale=3; $totalSeconds + $trackMilliseconds" | bc )"
 		else
 			touchString="$( getTouchString $trackDate $totalSeconds )"
-			touch -t "$touchString" "$sourceFile"
-			if [ -e "${sourceFile}c" ]; then touch -t "$touchString" "${sourceFile}c"; fi # WavPack correction file
+			touch -t "$touchString" "$sourceFile" || ec=$EX_IOERR
+			if [ -e "${sourceFile}c" ]; then # WavPack correction file
+				touch -t "$touchString" "${sourceFile}c" || ec=$EX_IOERR
+			fi
 			if [ -e "$millisecondsFile" ]; then
 				read trackMilliseconds < "$millisecondsFile"
 			else
@@ -5766,25 +5775,17 @@ touchAllFiles ()
 			*.flac|*ogg|*.wv|*.wvc|*.ape) continue ;;
 			*)
 				touchString="$( getTouchString $trackDate $totalSeconds )"
-				touch -t "$touchString" "$sourceFile"
+				touch -t "$touchString" "$sourceFile" || ec=$EX_IOERR
 				;;
 		esac
 	done
 
-	if [ -w "$dir" ]; then
-		touchString="$( getTouchString $trackDate $totalSeconds )"
-		touch -t "$touchString" "$dir"
-	else
-		printMessage 'warning' 'usage' 'filesystem' "path:${dir}" 'cannot touch directory (permission denied).'
-	fi
+	touchString="$( getTouchString $trackDate $totalSeconds )"
+	touch -t "$touchString" "$dir" || ec=$EX_IOERR
 
 	if [ -n "$linkPath" ]; then
-		if [ -w "$linkPath" ]; then
-			touchString="$( getTouchString $trackDate $totalSeconds )"
-			touch -t "$touchString" "$linkPath"
-		else
-			printMessage 'warning' 'usage' 'filesystem' "path:${linkPath}" 'cannot touch directory (permission denied).'
-		fi
+		touchString="$( getTouchString $trackDate $totalSeconds )"
+		touch -t "$touchString" "$linkPath" || ec=$EX_IOERR
 	fi
 
 	if [ $ec -eq $EX_OK ]; then
