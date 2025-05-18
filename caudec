@@ -5801,19 +5801,6 @@ touchAllFiles ()
 	return $ec
 }
 
-diffStr ()
-{
-	local a="$1" b="$2" u="$3" diff
-	if test "$u" = '%'; then u='%%'; fi
-	diff="$( echo "scale=3; $a - $b" | bc )"
-	if test "${diff:0:1}" = '-'; then
-		diff="+$( printf "%.1f${u}" "${diff:1}" )"
-	else
-		diff="-$( printf "%.1f${u}" $diff )"
-	fi
-	echo -n "$diff"
-}
-
 getCodecExtension ()
 {
 	local codec="$1" ext
