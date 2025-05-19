@@ -877,7 +877,7 @@ getBitrateMode ()
 
 cleanExit ()
 {
-	local nLines=0
+	local nLines=0 swapDirBasename
 
 	if [ -n "$CAUDECDEBUG" -a "$verbose" = "true" -a "$outputMode" != 'machine' -a $1 -ne $EX_OK -a $1 -ne $EX_INTERRUPT -a -e "$errorLogFile" ]; then
 		nLines="$( cat "$errorLogFile" 2>/dev/null | wc -l | tr -cd '0-9' )"
@@ -887,7 +887,11 @@ cleanExit ()
 		fi
 	fi
 
-	test -n "$SWAPDIR" && rm -rf "$SWAPDIR"
+	if [ -n "$SWAPDIR" ]; then
+		rm -rf "$SWAPDIR"
+		swapDirBasename="$( basename "$SWAPDIR" )"
+		rm "${piddir}"/"${swapDirBasename}"
+	fi
 	test -n "$TDIR" && rm -rf "$TDIR"
 
 	for f in "$instanceDir"/ioLockFiles/* ; do
