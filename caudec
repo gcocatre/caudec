@@ -6473,9 +6473,7 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 
 		# from an original idea by Porcus on https://hydrogenaudio.org/index.php/topic,127856.msg1062957.html#msg1062957
 		l)
-			if [ $gotLinkedDir = true ]; then
-				printMessage 'error' 'usage' 'command_line' "$me -l: there can be only one hard link dir for WavPackHybrid." ; exit $EX_USAGE
-			fi
+			gotLinkedDir=false
 			linkDir="$OPTARG"
 			if [ "$linkDir" != '/' -a "${linkDir%/}" != "$linkDir" ]; then
 				linkDir="${linkDir%/}"
@@ -6514,9 +6512,7 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			if [ -z "$lastCodec" ]; then
 				printMessage 'error' 'usage' 'command_line' "$me -L: it must be preceded by -c wvh." ; exit $EX_USAGE
 			fi
-			if [ $gotLinkedDir = true ]; then
-				printMessage 'error' 'usage' 'command_line' "$me -L: there can be only one hard link dir for WavPackHybrid." ; exit $EX_USAGE
-			fi
+			gotLinkedDir=false
 			linkDir="$OPTARG"
 			if [ "$linkDir" != '/' -a "${linkDir%/}" != "$linkDir" ]; then
 				linkDir="${linkDir%/}"
