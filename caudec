@@ -1289,8 +1289,8 @@ checkBinaries ()
 				case "$f" in
 					*.flac) checkBinary 'metaflac' ;;
 					*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
-					*.wv) checkBinary 'APEv2' 'wvgain' ;;
-					*.ape) checkBinary 'mac' 'APEv2' 'wavegain' ;;
+					*.wv) checkBinary 'APEv2' 'wvunpack' 'wvgain' ;;
+					*.ape) checkBinary 'mac' 'APEv2' 'wavegain' 'ffprobe' ;;
 					*.m4a)
 						if checkBinary 'ffprobe'; then
 							if isALAC "$f"; then
@@ -1321,7 +1321,7 @@ checkBinaries ()
 				case "$f" in
 					*.flac) checkBinary 'metaflac' ;;
 					*.ogg) checkBinary 'ogginfo' 'vorbiscomment' ;;
-					*.wv) checkBinary 'wvtag' 'ffprobe' ;;
+					*.wv) checkBinary 'wvtag' 'wvunpack' ;;
 					*.ape) checkBinary 'mac' 'APEv2' 'ffprobe' ;;
 				esac
 			done
@@ -6903,6 +6903,9 @@ if [ $ec -eq $EX_OK ]; then
 	if [ $computeReplaygain = true ]; then
 		if [ $applyGain = false -o "${applyGainType%_*}" = 'ALBUM' ]; then
 			computeAlbumGain || ec=$EX_KO
+		fi
+		if [ $touchFiles = true ]; then
+			touchAllFiles || ec=$EX_KO
 		fi
 	elif [ $touchFiles = true ]; then
 		touchAllFiles || ec=$EX_KO
