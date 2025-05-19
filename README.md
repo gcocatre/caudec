@@ -11,8 +11,9 @@ caudec is a command-line utility that transcodes (converts) audio files from one
 * Supported input formats / codecs: WAV, AIFF, CAF, FLAC, WavPack, Monkey's Audio, Apple Lossless.
 * Supported output formats / codecs: all of the above, as well as lossyWAV / lossyFLAC / lossyWV, MP3, Ogg Vorbis, Opus, Musepack.
 * Transcoding to several different codecs at once is possible. In that case, decoding of input files is done only once.
-* Metadata is preserved (as much as possible) from one codec to another.
+* Metadata is preserved (as much as possible) from one codec to another. Artwork can be copied too.
 * Multiprocess Replaygain scanner for FLAC, WavPack, Monkey's Audio, MP3, Ogg Vorbis.
+* Ability to hard link lossy files to a different directory when encoding to WavPack Hybrid.
 
 ## Requirements
 
