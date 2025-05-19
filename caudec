@@ -1582,7 +1582,6 @@ setupSwapdir ()
 		mktempFS="$( isRamdisk "$mktempDir" )"
 		if [ "$mktempFS" != 'ramdisk' ]; then
 			tdirIsRamdisk=false
-			preloadSources=false
 			if [ "$OS" != 'Darwin' ]; then # NOT macOS
 				printMessage 'warning' 'initialization' 'filesystem' 'verbose' "path:${CAUDECDIR}" "CAUDECDIR isn't on a ramdisk."
 				printMessage 'info' 'stderr' "Performance will likely suffer."
@@ -1622,7 +1621,6 @@ setupSwapdir ()
 		fi
 	else # neither dir is on a tmpfs
 		tdirIsRamdisk=false
-		preloadSources=false
 		if [ "$OS" != 'Darwin' ]; then # NOT macOS
 			printMessage 'warning' 'initialization' 'filesystem' 'verbose' "Neither \"${mktempDir}\" or \"/dev/shm\" is on a ramdisk."
 			printMessage 'info' 'stderr' "Performance will likely suffer."
