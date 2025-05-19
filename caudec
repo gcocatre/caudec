@@ -150,8 +150,6 @@ fi
 
 # Global values ================================================================
 
-ramdiskName='caudecRamdisk'
-ramdiskDevice=''
 piddir='/tmp/caudec'
 iodir="${piddir}/io"
 
@@ -312,10 +310,10 @@ Information:
   -V        output version information and exit
 
 
-caudec uses a temporary directory for processing files (default: \$TMPDIR, /tmp
-or /dev/shm). If you wish to use another directory, set the CAUDECDIR
-environment variable to its path (export CAUDECDIR=\"/some/dir\"). It is
-strongly recommended that the directory be mounted on some kind of ramdisk.
+caudec uses a temporary directory for processing files (\$TMPDIR or /tmp by
+default). If you wish to use another directory, set the CAUDECDIR environment
+variable to its path (export CAUDECDIR=\"/some/dir\"), or set CAUDECDIR in your
+configuration file (~/.caudecrc or /etc/caudecrc).
 
 To enable debugging, set the CAUDECDEBUG environment variable to 'true'
 (export CAUDECDEBUG='true'). caudec will output some additional information,
@@ -903,16 +901,7 @@ cleanExit ()
 	cleanUpInstances
 	ls -d "${piddir}"/instance.* >/dev/null 2>&1 || rm -rf "$iodir"
 
-	rmdir "$piddir" >/dev/null 2>&1
-
-	if [ -d "/Volumes/${ramdiskName}" ]; then
-		if ! ls -d "/Volumes/${ramdiskName}"/caudec.* >/dev/null 2>&1; then # ramdisk no longer used
-			ramdiskDevice="$( cat "/Volumes/${ramdiskName}/device" )"
-			until hdiutil detach "$ramdiskDevice" >/dev/null 2>&1 ; do # can fail with message "ressource busy"
-				sleep 1
-			done
-		fi
-	fi
+	rm -rf "$piddir" >/dev/null 2>&1
 
 	exit $1
 }
@@ -1523,40 +1512,12 @@ handleInstance ()
 	fi
 }
 
-isRamdisk ()
-{
-	local fstype='n/a' device=''
-	if [ ! -d "$1" ]; then echo 'other'; return; fi
-	if [ "$OS" = 'Linux' ]; then
-		fstype="$( df -aT "$1" | tail -n 1 | tr -s ' ' | cut -d ' ' -f 2 )"
-		if [ "$fstype" = 'tmpfs' -o "$fstype" = 'ramfs' ]; then
-			echo 'ramdisk'
-		else
-			device="$( df -a "$1" | tail -n 1 | tr -s ' ' | cut -d ' ' -f 1 )"
-			if [ "$device" != "${device#/dev/ram*}" -o "$device" != "${device#/dev/rd/*}" ]; then
-				echo 'ramdisk'
-			else
-				echo 'other'
-			fi
-		fi
-	else
-		echo 'other'
-	fi
-}
-
 setupSwapdir ()
 {
 	local i c mktempFS='other' devshmFS='other' mktempSpace devshmSpace ec=1 copyLockFile
 
-	tdirIsRamdisk=true
-
 	if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
 
-	mktempFS="$( isRamdisk "$mktempDir" )"
-	devshmFS="$( isRamdisk '/dev/shm' )"
-
-	# Find out which of $mktempDir or /dev/shm is more appropriate
-	# First they need to be on a tmpfs, then they need to be writable, then we choose the one with the most available space
 	if [ -n "$CAUDECDIR" ]; then
 		if [ "$CAUDECDIR" != '/' ]; then
 			CAUDECDIR="${CAUDECDIR%/}" # remove trailing slash
@@ -1579,52 +1540,6 @@ setupSwapdir ()
 			cleanExit $EX_NOPERM
 		fi
 		mktempDir="$CAUDECDIR"
-		mktempFS="$( isRamdisk "$mktempDir" )"
-		if [ "$mktempFS" != 'ramdisk' ]; then
-			tdirIsRamdisk=false
-			if [ "$OS" != 'Darwin' ]; then # NOT macOS
-				printMessage 'warning' 'initialization' 'filesystem' 'verbose' "path:${CAUDECDIR}" "CAUDECDIR isn't on a ramdisk."
-				printMessage 'info' 'stderr' "Performance will likely suffer."
-			fi
-		fi
-	elif [ "$mktempFS" = 'ramdisk' -a "$devshmFS" = 'ramdisk' ]; then # both filesystems are ramdisks
-		if [ -w "$mktempDir" -a -w '/dev/shm' ]; then # both dirs are writable
-			# check free space on each filesystem
-			mktempSpace="$( stat -f -c '%a * %S' "$mktempDir" | bc )"
-			devshmSpace="$( stat -f -c '%a * %S' '/dev/shm' | bc )"
-			if [ $devshmSpace -gt $mktempSpace ]; then # /dev/shm has more available space than $mktempDir
-				mktempDir='/dev/shm'
-			fi
-		elif [ -w "$mktempDir" ]; then
-			true # we choose $mktempDir, nothing to do
-		elif [ -w '/dev/shm' ]; then
-			mktempDir='/dev/shm'
-		else # neither dir is writable
-			printMessage 'warning' 'initialization' 'filesystem' "path:${mktempDir}" "directory is not writable (permission denied)."
-			printMessage 'warning' 'initialization' 'filesystem' "path:/dev/shm" "directory is not writable (permission denied)."
-			printMessage 'abort'
-			cleanExit $EX_NOPERM
-		fi
-	elif [ "$mktempFS" = 'ramdisk' ]; then
-		if [ ! -w "$mktempDir" ]; then
-			printMessage 'warning' 'initialization' 'filesystem' "path:${mktempDir}" "directory is not writable (permission denied)."
-			printMessage 'abort'
-			cleanExit $EX_NOPERM
-		fi
-	elif [ "$devshmFS" = 'ramdisk' ]; then
-		if [ -w '/dev/shm' ]; then
-			mktempDir='/dev/shm'
-		else
-			printMessage 'warning' 'initialization' 'filesystem' "path:/dev/shm" "directory is not writable (permission denied)."
-			printMessage 'abort'
-			cleanExit $EX_NOPERM
-		fi
-	else # neither dir is on a tmpfs
-		tdirIsRamdisk=false
-		if [ "$OS" != 'Darwin' ]; then # NOT macOS
-			printMessage 'warning' 'initialization' 'filesystem' 'verbose' "Neither \"${mktempDir}\" or \"/dev/shm\" is on a ramdisk."
-			printMessage 'info' 'stderr' "Performance will likely suffer."
-		fi
 	fi
 
 	if [ ! -e "$mktempDir" ]; then
@@ -1694,6 +1609,7 @@ setupSwapdir ()
 	echo -n "0" > "${TDIR}/durations"
 	echo -n "0" > "${TDIR}/readTimes"
 	touch "${TDIR}/transcodingErrorFiles"
+	ln -s "$SWAPDIR" "$piddir"
 }
 
 getNumberOfChannels ()
@@ -3281,8 +3197,7 @@ decode ()
 			*) ec=$EX_KO ;;
 		esac
 
-		# FIXME: can't remember: does it have to do with preloadFiles=true on a ramdisk, and transcoding to multiple codecs?
-		# I'm just going to assume I had a good reason for this.
+		# FIXME: can't remember why this is needed
 		if [ $sourceIsLossyWAV = true ]; then
 			if [ ! -h "$lossywavFile" ]; then
 				ln -s "${i}.wav" "$lossywavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
