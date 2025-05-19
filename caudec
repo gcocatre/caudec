@@ -6367,6 +6367,22 @@ if which 'mac' >/dev/null 2>&1; then
 	fi
 fi
 
+if [ -n "$linkDir_WavPackLossy" ]; then
+	linkDir="$linkDir_WavPackLossy"
+	if [ "$linkDir" != '/' -a "${linkDir%/}" != "$linkDir" ]; then
+		linkDir="${linkDir%/}"
+	fi
+	if [ ! -e "$linkDir" ]; then
+		printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: directory doesn't exist. Either create it manually, or try again with -L." ; exit $EX_CANTCREAT
+	elif [ ! -d "$linkDir" ]; then
+		printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: not a directory." ; exit $EX_CANTCREAT
+	elif [ ! -w "$linkDir" ]; then
+		printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
+	else
+		copyPath=true
+	fi
+fi
+
 if [ $copyArtworkFilesByDefault = true ]; then
 	setCodecArtworkFiles "all" true
 	copyArtworkFiles=true
@@ -6472,6 +6488,7 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
 			fi
 			gotLinkedDir=true
+			copyPath=true # FIXME: can't remember what this does
 			;;
 
 		O|P)
