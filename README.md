@@ -40,7 +40,7 @@ caudec uses common UNIX tools (which, uname, grep, stat, sed/gsed, date/gdate, t
 * mp3gain: http://mp3gain.sourceforge.net/
 
 #### Miscellaneous
-* APEv2 (for files with APEv2 metadata): https://github.com/gcocatre/caudec
+* APEv2 (for files with APEv2 metadata): https://github.com/gcocatre/APEv2
 * cksfv (for hashing CRC32): http://zakalwe.fi/~shd/foss/cksfv/
 * md5sum (Linux) or md5 (macOS) for hashing MD5 sums
 * sha1sum, sha256sum, sha512sum (Linux) or shasum (macOS) for hashing SHA sums
