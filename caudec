@@ -5620,16 +5620,42 @@ touchAllFiles ()
 	touchString="${trackDate}0000.00"
 	totalSeconds=0
 
+	dir="$( dirname "${sourceFiles[0]}" )"
+
+	audioFiles=()
+	otherFiles=()
+
+	for ((i=0, a=0, o=0; i<${#sourceFiles[@]}; i++)); do
+		sourceFile="${sourceFiles[$i]}"
+		case "$sourceFile" in
+    	*.flac|*ogg|*.wv|*.ape) audioFiles[$a]="$sourceFile" ; a=$(( a + 1 )) ;;
+			*.wvc) continue ;; # will be touched when the matching .wv file is touched
+			*.aiff|*.caf|*.m4a|*.mp3|*.mpc|*.opus) continue ;; # unsupported audio files
+			*) otherFiles[$o]="$sourceFile" ; o=$(( o + 1 )) ;; # all non-audio files
+		esac
+	done
+
+	for ((a=0; a<${#audioFiles[@]}; a++)); do
+		if [ -z "$linkPath" ]; then
+			inode="$( ls -i "${sourceFiles[0]}" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
+			if [ -n "$inode" ]; then
+				while read linkedFile; do
+					if [ -z "$linkPath" ]; then
+						linkPath="$( dirname "$linkedFile" )"
+						break
+					fi
+				done < <( find "$linkDir" -inum "$inode" 2>/dev/null)
+			fi
+		else
+			break
+		fi
+	done
+
 	for ((i=0; i<${#sourceFiles[@]}; i++)); do
 		sourceFile="${sourceFiles[$i]}"
 		sourceTagFile="${TDIR}/${i}.txt"
 		secondsFile="${TDIR}/${i}.seconds"
 		millisecondsFile="${TDIR}/${i}.milliseconds"
-
-		if [ -z "$dir" ]; then
-			dir="$( dirname "$sourceFile" )"
-			linkPath=""
-		fi
 
 	  case "$sourceFile" in
     	*.flac|*ogg|*.wv|*.ape)
@@ -5639,19 +5665,6 @@ touchAllFiles ()
 				read trackMilliseconds < "$millisecondsFile"
 				if [ -z "$trackMilliseconds" ]; then trackMilliseconds=0; fi
 				trackMilliseconds="$( printf "%.3f" "$trackMilliseconds" )"
-				if [ -n "$linkDir" ]; then
-					if [ -z "$linkPath" ]; then
-						inode="$( ls -i "$sourceFile" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
-						if [ -n "$inode" ]; then
-							while read linkedFile; do
-								if [ -z "$linkPath" ]; then
-									linkPath="$( dirname "$linkedFile" )"
-									break
-								fi
-							done < <( find "$linkDir" -inum "$inode" )
-						fi
-					fi
-				fi
 				;;
 
 			*.wvc) continue ;;
@@ -5686,15 +5699,10 @@ touchAllFiles ()
 		fi
 	done
 
-	for ((i=0; i<${#sourceFiles[@]}; i++)); do
-		sourceFile="${sourceFiles[$i]}"
-		case "$sourceFile" in
-			*.flac|*ogg|*.wv|*.wvc|*.ape) continue ;;
-			*)
-				touchString="$( getTouchString $trackDate $totalSeconds )"
-				touch -t "$touchString" "$sourceFile" || ec=$EX_IOERR
-				;;
-		esac
+	for ((o=0; o<${#otherFiles[@]}; o++)); do
+		otherFile="${otherFiles[$o]}"
+		touchString="$( getTouchString $trackDate $totalSeconds )"
+		touch -t "$touchString" "$otherFile" || ec=$EX_IOERR
 	done
 
 	touchString="$( getTouchString $trackDate $totalSeconds )"
