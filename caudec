@@ -5485,13 +5485,13 @@ computeAlbumGain ()
 		fi
 	fi
 
-	for ((i=0, j=1; i<${#sourceFiles[@]}; i++, j++)); do
-		if [ $j -le 8 ]; then
+	for ((i=0, j=0; i<${#sourceFiles[@]}; i++, j++)); do
+		if [ $j -lt $nProcesses ]; then
 			destFile="${sourceFiles[$i]}"
 			saveGain 'ALBUM' &
 		else
 			wait
-			j=1
+			j=0
 			destFile="${sourceFiles[$i]}"
 			saveGain 'ALBUM' &
 		fi
