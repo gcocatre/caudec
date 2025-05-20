@@ -153,6 +153,9 @@ fi
 piddir='/tmp/caudec'
 iodir="${piddir}/io"
 
+maxFlacThreads=128
+maxWavPackThreads=12
+
 # Functions ====================================================================
 
 printUsage ()
@@ -3178,7 +3181,7 @@ decode ()
 				sourceTagFormat='ape' kfm='-w'
 				getInternalMD5 "$copyFile"
 				if [ $keepWavMetadata = true ]; then kfm='' ; fi
-				nThreads=$( getNumberOfAvailableThreads 12 )
+				nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
 				wvunpack -q $kfm -m --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK ]; then
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
@@ -3732,7 +3735,7 @@ copyOrLinkAllFiles ()
 			destOtherFile="${destPath}/${otherFileBasename}"
 			if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then # FIXME linkDir
 				destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
-				if [ ! -e "$destOtherLinkedFile" ]; then
+				if [ ! -e "$destOtherLinkedFile" ]; then # FIXME linkdir
 					ln "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 				fi
 			else
@@ -3937,7 +3940,7 @@ encode ()
 				# Kohlrabi is a very cool dude
 				if [ $keepWavMetadata = true ]; then kfm='--keep-foreign-metadata' ; fi
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / FLAC $flacVersion / -$compression_FLAC"; fi
-				nThreads=$( getNumberOfAvailableThreads 128 )
+				nThreads=$( getNumberOfAvailableThreads $maxFlacThreads )
 				printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P 4096 $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
 				importArtworkIntoFLAC || ec=$EX_KO
 				;;
@@ -3948,7 +3951,7 @@ encode ()
 					printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$me -c wv: correction files are present. Please delete them and try again." ; ec=$EX_KO
 				else
 					if [ $keepWavMetadata = true ]; then kfm=''; fi
-					nThreads=$( getNumberOfAvailableThreads 12 )
+					nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
 					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack"; fi
 					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
@@ -3961,7 +3964,7 @@ encode ()
 			WavPackHybrid)
 				destExtension='wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt" kfm='-r'
 				if [ $keepWavMetadata = true ]; then kfm=''; fi
-				nThreads=$( getNumberOfAvailableThreads 12 )
+				nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
 				if [ $tagCompressionSetting = true ]; then
 					if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
 						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy bits per sample (ABR)"
@@ -3982,7 +3985,7 @@ encode ()
 					printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$me -c wv: correction files are present. Please delete them and try again." ; ec=$EX_KO
 				else
 					if [ $keepWavMetadata = true ]; then kfm=''; fi
-					nThreads=$( getNumberOfAvailableThreads 12 )
+					nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
 					if [ $tagCompressionSetting = true ]; then
 						if [ -z "$compression_WavPack" ]; then
 							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
@@ -4028,14 +4031,14 @@ encode ()
 			lossyFLAC)
 				destExtension='lossy.flac'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.vc.txt"
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
-				nThreads=$( getNumberOfAvailableThreads 128 )
+				nThreads=$( getNumberOfAvailableThreads $maxFlacThreads )
 				printf -- "--totally-silent`tagline -T`\x00%s" "$lossywavFile" | xargs -0 flac -j $nThreads -P 4096 -5 -b 512 --keep-foreign-metadata -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
 				importArtworkIntoFLAC || ec=$EX_KO
 				;;
 
 			lossyWV)
 				destExtension='lossy.wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt"
-				nThreads=$( getNumberOfAvailableThreads 12 )
+				nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
 				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 				printf -- "-q`tagline -w`\x00%s" "$lossywavFile" | xargs -0 wavpack --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
