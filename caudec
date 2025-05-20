@@ -4100,7 +4100,7 @@ testHashedFile ()
 			;;
 
 		*.wv)
-			APEv2 "$copyFile" > "$sourceTagFile" 2>/dev/null || ec=$EX_KO
+			APEv2 -z "$copyFile" > "$sourceTagFile" 2>/dev/null || ec=$EX_KO
 			if [ $ec -eq $EX_OK ]; then
 				getHashTags ;	ec=$?
 				if [ $ec -eq $EX_OK ]; then
@@ -4125,7 +4125,7 @@ testHashedFile ()
 			;;
 
 		*.ape)
-			APEv2 "$copyFile" > "$sourceTagFile" 2>/dev/null || ec=$EX_KO
+			APEv2 -z "$copyFile" > "$sourceTagFile" 2>/dev/null || ec=$EX_KO
 			if [ $ec -eq $EX_OK ]; then
 				getHashTags ;	getSuitableHash ; ec=$?
 				if [ -n "$testHashType" ]; then
@@ -4161,7 +4161,7 @@ testFile ()
 				testHashedFile ; ec=$?
 				if [ $ec -eq $EX_DATAERR -o $ec -eq $EX_OSFILE ]; then
 					nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
-					wvunpack --nthreads=$nThreads -qmv "$copyFile" >/dev/null 2>&1; ec=$?
+					wvunpack --threads=$nThreads -qmv "$copyFile" >/dev/null 2>&1; ec=$?
 				fi
 				saveDurations
 				;;
