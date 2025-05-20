@@ -3911,7 +3911,7 @@ copyArtworkFiles ()
 
 encode ()
 {
-	local ec=$EX_OK pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses listOfOtherFiles audioFile otherFile otherFileBasename extOtherFile destOtherFile doCopyArtworkFiles
+	local ec=$EX_OK pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses nThreads listOfOtherFiles audioFile otherFile otherFileBasename extOtherFile destOtherFile doCopyArtworkFiles
 
 	compressionTag=''
 
@@ -4535,7 +4535,7 @@ getHashTags ()
 
 testHashedFile ()
 {
-	local ec=$EX_OK
+	local ec=$EX_OK nThreads=1
 
 	case "$copyFile" in
 		*.flac)
@@ -4575,7 +4575,8 @@ testHashedFile ()
 					if [ $ec -eq $EX_OK ]; then
 						getSuitableHash ; ec=$?
 						if [ -n "$testHashType" ]; then
-							wvunpack -q -m -o "$wavFile" "$copyFile" >/dev/null 2>&1 &&
+							nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
+							wvunpack -q -m --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>&1 &&
 							compareHashes || ec=$EX_KO
 						fi
 					fi
@@ -4590,7 +4591,8 @@ testHashedFile ()
 			if [ $ec -eq $EX_OK ]; then
 				getHashTags ;	getSuitableHash ; ec=$?
 				if [ -n "$testHashType" ]; then
-					mac "$copyFile" "$wavFile" -d >/dev/null 2>&1 &&
+					nThreads=$( getNumberOfAvailableThreads )
+					mac "$copyFile" "$wavFile" -d -threads=$nThreads >/dev/null 2>&1 &&
 					compareHashes || ec=$EX_KO
 				fi
 			else
@@ -4619,7 +4621,7 @@ testHashedFile ()
 
 testFile ()
 {
-	local ec=$EX_OK
+	local ec=$EX_OK nThreads=1
 
 	testHashType=''
 	if [ -e "$copyFile" ]; then
@@ -4635,7 +4637,8 @@ testFile ()
 			*.wv)
 				testHashedFile ; ec=$?
 				if [ $ec -eq $EX_DATAERR -o $ec -eq $EX_OSFILE ]; then
-					wvunpack -qmv "$copyFile" >/dev/null 2>&1; ec=$?
+					nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
+					wvunpack --nthreads=$nThreads -qmv "$copyFile" >/dev/null 2>&1; ec=$?
 				fi
 				saveDurations
 				;;
@@ -4644,7 +4647,8 @@ testFile ()
 				testHashedFile ; ec=$?
 				if [ $ec -eq $EX_DATAERR -o $ec -eq $EX_OSFILE ]; then
 					if [ $macHasVerify = true ]; then
-						mac "$copyFile" -v >/dev/null 2>&1; ec=$?
+						nThreads=$( getNumberOfAvailableThreads )
+						mac "$copyFile" -threads=$nThreads -v >/dev/null 2>&1; ec=$?
 					fi
 				fi
 				saveDurations
@@ -4747,7 +4751,7 @@ getInternalMD5 ()
 
 computeHash ()
 {
-	local ec=$EX_OK ereg
+	local ec=$EX_OK ereg nThreads
 
 	if [ -e "$copyFile" ]; then
 		sourceMD5=''
@@ -4764,14 +4768,16 @@ computeHash ()
 				touch "$sourceTagFile"
 				if [ $ec -eq $EX_OK ]; then
 					getInternalMD5 "$copyFile"
-					wvunpack -q -m -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
+					wvunpack -q -m --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				;;
 
 			*.ape)
 				touch "$sourceTagFile"
 				if [ $ec -eq $EX_OK ]; then
-					mac "$copyFile" "$wavFile" -d >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					nThreads=$( getNumberOfAvailableThreads )
+					mac "$copyFile" "$wavFile" -d -threads=$nThreads >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				;;
 
@@ -5077,7 +5083,7 @@ saveGain ()
 
 saveSeconds ()
 {
-	local samples sampleRate seconds=0 duration hours minutes centiseconds ec=$EX_OK line msec milliseconds=0 data file
+	local samples sampleRate seconds=0 duration hours minutes centiseconds ec=$EX_OK line msec milliseconds=0 data file nThreads
 
 	if [ $touchFiles = true ]; then
 		file="$sourceFile"
@@ -5102,7 +5108,8 @@ saveSeconds ()
 			;;
 
 		*.wv)
-			data="$( wvunpack -f "$file" 2>/dev/null )"
+			nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
+			data="$( wvunpack  -f "$file" 2>/dev/null )"
 			if [ -n "$data" ]; then
 				samples="$( echo "$data" | cut -d ';' -f 6 )"
 				sampleRate="$( echo "$data" | cut -d ';' -f 1 )"
@@ -5180,7 +5187,7 @@ runWavegain ()
 
 computeTrackGain ()
 {
-	local ec=$EX_OK line nLines=0 decimals sGain
+	local ec=$EX_OK line nLines=0 decimals sGain nThreads
 
 	if [ -e "$copyFile" ]; then
 		case "$copyFile" in
@@ -5201,7 +5208,8 @@ computeTrackGain ()
 
 			*.wv)
 				APEv2 -z -r 'replaygain_track_gain' -r 'replaygain_album_gain' -r 'replaygain_track_peak' -r 'replaygain_album_peak' "$copyFile" >/dev/null 2>&1
-				wvgain -q "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
+				wvgain -q -t $nThreads "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK ]; then
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -iE '^replaygain_track_' | $sedcmd \
 						-e 's@replaygain_track_gain@Replaygain_Track_Gain@i' \
@@ -5224,7 +5232,8 @@ computeTrackGain ()
 				;;
 
 			*.ape)
-				mac "$copyFile" "$wavFile" -d >/dev/null 2>> "$errorLogFile" ; ec=$?
+				nThreads=$( getNumberOfAvailableThreads )
+				mac "$copyFile" "$wavFile" -d -threads=$nThreads >/dev/null 2>> "$errorLogFile" ; ec=$?
 				if [ $ec -eq $EX_OK ]; then
 					touch "$sourceTagFile"
 					destTagFile="${TDIR}/${i}.ape.txt"
