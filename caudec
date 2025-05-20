@@ -6909,9 +6909,6 @@ if [ $ec -eq $EX_OK ]; then
 		if [ $applyGain = false -o "${applyGainType%_*}" = 'ALBUM' ]; then
 			computeAlbumGain || ec=$EX_KO
 		fi
-		if [ $touchFiles = true ]; then
-			touchAllFiles || ec=$EX_KO
-		fi
 	elif [ $touchFiles = true ]; then
 		touchAllFiles || ec=$EX_KO
 	fi
