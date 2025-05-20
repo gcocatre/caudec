@@ -212,7 +212,7 @@ Global options:
   -T        touch files using metadata to reflect the music's release date
             and duration. Provide all files as arguments, not just audio files,
             although at least one audio file is required for this to work.
-            Use with -l/-L when dealing with a hard linked collection (-c wvh).
+            Use with -l when dealing with a hard linked collection (-c wvh).
             Ex: $me -T ~/Music/Lossless/Artist/Album/*
             Ex: $me -T ~/Music/Lossless/Artist/Album/* -l ~/Music/Lossy
 
