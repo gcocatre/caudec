@@ -1347,16 +1347,16 @@ checkBinaries ()
 			case "$outputCodec" in
 				AIFF|CAF) checkBinary 'sox' ;;
 				FLAC) checkBinary 'flac' ;;
-				WavPack|WavPackHybrid|WavPackLossy) checkBinary 'wavpack' ;;
+				WavPack|WavPackHybrid|WavPackLossy) checkBinary 'wavpack' 'APEv2' ;;
 				MonkeysAudio) checkBinary 'mac' 'APEv2' ;;
 				ALAC) checkBinary 'nohup' 'ffmpeg' 'neroAacTag' ;;
 				lossyWAV) checkBinary 'lossywav' ;;
 				lossyFLAC) checkBinary 'lossywav' 'flac' ;;
-				lossyWV) checkBinary 'lossywav' 'wavpack' ;;
+				lossyWV) checkBinary 'lossywav' 'wavpack' 'APEv2' ;;
 				OggVorbis) checkBinary 'oggenc' ;;
 				LAME) checkBinary 'lame' ;;
 				AAC) checkBinary 'neroAacEnc' 'neroAacTag' ;;
-				Musepack) checkBinary 'mpcenc' ;;
+				Musepack) checkBinary 'mpcenc' 'APEv2' ;;
 				Opus) checkBinary 'opusenc' ;;
 			esac
 		done
