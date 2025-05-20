@@ -14,6 +14,7 @@ caudec is a command-line utility that transcodes (converts) audio files from one
 * Metadata is preserved (as much as possible) from one codec to another. Artwork can be copied too.
 * Multiprocess Replaygain scanner for FLAC, WavPack, Monkey's Audio, MP3, Ogg Vorbis.
 * Ability to hard link lossy files to a different directory when encoding to WavPack Hybrid.
+* Ability to touch files using metadata to reflect the music's release date and duration.
 
 ## Requirements
 
