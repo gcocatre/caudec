@@ -1010,6 +1010,8 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 				printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
 		elif [ ! -w "$f" -a $actionHash = true ]; then
 				printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
+		elif [ ! -w "$f" -a $touchFiles = true ]; then
+				printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'refusing to touch file that is read-only.' ; ec=$EX_CANTCREAT
 		else
 			if [ -z "$refDn" ] ; then refDn="$dn"; fi # for touching mtime files
 			if [ $copyPath = true ]; then
@@ -5609,7 +5611,7 @@ computeTrackDateTimes ()
 
 touchAllFiles ()
 {
-	local ec=$EX_OK trackYear trackMonth trackDay trackDate defaultTrackDate touchString totalSeconds albumHours albumMinutes albumSeconds trackMilliseconds n=0 dir="" inode linkedFile linkPath=""
+	local ec=$EX_OK trackYear trackMonth trackDay trackDate defaultTrackDate touchString totalSeconds albumHours albumMinutes albumSeconds trackMilliseconds n=0 dir="" dirPath inode linkedFile linkPath=""
 
 	trackYear="$( date "+%Y" )"
 	trackMonth="$( date "+%m" )"
@@ -5644,7 +5646,7 @@ touchAllFiles ()
 						linkPath="$( dirname "$linkedFile" )"
 						break
 					fi
-				done < <( find "$linkDir" -inum "$inode" 2>/dev/null)
+				done < <( find "$linkDir" -inum "$inode" )
 			fi
 		else
 			break
@@ -5672,31 +5674,17 @@ touchAllFiles ()
 			*) continue ;;
 		esac
 
-		if [ $n -eq 1 ]; then
-			touchString="$( getTouchString $trackDate $totalSeconds )"
-			touch -t "$touchString" "$sourceFile" || ec=$EX_IOERR
-			if [ -e "${sourceFile}c" ]; then  # WavPack correction file
-				touch -t "$touchString" "${sourceFile}c" || ec=$EX_IOERR
-			fi
-			if [ -e "$millisecondsFile" ]; then
-				read trackMilliseconds < "$millisecondsFile"
-			else
-				trackMilliseconds=0
-			fi
-			totalSeconds="$( echo "scale=3; $totalSeconds + $trackMilliseconds" | bc )"
-		else
-			touchString="$( getTouchString $trackDate $totalSeconds )"
-			touch -t "$touchString" "$sourceFile" || ec=$EX_IOERR
-			if [ -e "${sourceFile}c" ]; then # WavPack correction file
-				touch -t "$touchString" "${sourceFile}c" || ec=$EX_IOERR
-			fi
-			if [ -e "$millisecondsFile" ]; then
-				read trackMilliseconds < "$millisecondsFile"
-			else
-				trackMilliseconds=0
-			fi
-			totalSeconds="$( echo "scale=3; $totalSeconds + $trackMilliseconds" | bc )"
+		touchString="$( getTouchString $trackDate $totalSeconds )"
+		touch -t "$touchString" "$sourceFile" || ec=$EX_IOERR
+		if [ -e "${sourceFile}c" ]; then  # WavPack correction file
+			touch -t "$touchString" "${sourceFile}c" || ec=$EX_IOERR
 		fi
+		if [ -e "$millisecondsFile" ]; then
+			read trackMilliseconds < "$millisecondsFile"
+		else
+			trackMilliseconds=0
+		fi
+		totalSeconds="$( echo "scale=3; $totalSeconds + $trackMilliseconds" | bc )"
 	done
 
 	for ((o=0; o<${#otherFiles[@]}; o++)); do
@@ -5705,12 +5693,21 @@ touchAllFiles ()
 		touch -t "$touchString" "$otherFile" || ec=$EX_IOERR
 	done
 
-	touchString="$( getTouchString $trackDate $totalSeconds )"
-	touch -t "$touchString" "$dir" || ec=$EX_IOERR
+	if [ ! -w "$dir" ]; then
+		dirPath="$( readlink -f "$dir" )"
+		printMessage 'warning' 'usage' 'filesystem' "path:${dirPath}" 'refusing to touch directory that is read-only.'
+	else
+		touchString="$( getTouchString $trackDate $totalSeconds )"
+		touch -t "$touchString" "$dir" || ec=$EX_IOERR
+	fi
 
 	if [ -n "$linkPath" ]; then
-		touchString="$( getTouchString $trackDate $totalSeconds )"
-		touch -t "$touchString" "$linkPath" || ec=$EX_IOERR
+		if [ ! -w "$linkPath" ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${linkPath}" 'refusing to touch directory that is read-only.'
+		else
+			touchString="$( getTouchString $trackDate $totalSeconds )"
+			touch -t "$touchString" "$linkPath" || ec=$EX_IOERR
+		fi
 	fi
 
 	if [ $ec -eq $EX_OK ]; then
@@ -6457,8 +6454,8 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 
 		# from an original idea by Porcus on https://hydrogenaudio.org/index.php/topic,127856.msg1062957.html#msg1062957
 		l)
-			if [ -z "$lastCodec" -o "$lastCodec" != "WavPackHybrid" ]; then
-				printMessage 'error' 'usage' 'command_line' "$me -l: it must be preceded by -c wvh." ; exit $EX_USAGE
+			if [ "$lastCodec" != "WavPackHybrid" -a $touchFiles = false ]; then
+				printMessage 'error' 'usage' 'command_line' "$me -l: it must be preceded by -c wvh or -T." ; exit $EX_USAGE
 			fi
 			gotLinkedDir=false
 			linkDir="$OPTARG"
@@ -6478,8 +6475,8 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 
 		# from an original idea by Porcus on https://hydrogenaudio.org/index.php/topic,127856.msg1062957.html#msg1062957
 		L)
-			if [ -z "$lastCodec" -o "$lastCodec" != "WavPackHybrid" ]; then
-				printMessage 'error' 'usage' 'command_line' "$me -L: it must be preceded by -c wvh." ; exit $EX_USAGE
+			if [ "$lastCodec" != "WavPackHybrid" -a $touchFiles = false ]; then
+				printMessage 'error' 'usage' 'command_line' "$me -L: it must be preceded by -c wvh or -T." ; exit $EX_USAGE
 			fi
 			gotLinkedDir=false
 			linkDir="$OPTARG"
