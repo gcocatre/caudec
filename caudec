@@ -183,15 +183,15 @@ Global options:
   -n N      launch N processes concurrently (1-${maxProcesses});
             by default, the number of CPU cores.
 
-  -o DIR    set already existing output directory
+  -o DIR    set existing output directory
   -O DIR    set output directory, create it if it doesn't exist already
   -P DIR    set and create output directory, and mirror the source file's
             path components (e.g. 'a/b/file.flac' => 'DIR/a/b/file.ogg')
 
-  -l DIR    set already existing directory for hard linking lossy.wv files from
-            WavPackHybrid's output direcetory
+  -l DIR    set existing directory for hard linking lossy .wv files from
+            WavPackHybrid's output directory
   -L DIR    set and create a directory for hard linking lossy .wv files from
-            WavPackHybrid's output direcetory
+            WavPackHybrid's output directory
 
   -a        copy all cover art files to the output directory
   -f ARG    copy certain files to the output directory. ARG may be a 'all',
@@ -210,8 +210,8 @@ Global options:
             and duration. Provide all files as arguments, not just audio files,
             although at least one audio file is required for this to work.
             Use with -l/-L when dealing with a hard linked collection (-c wvh).
-            Ex: $me -T ~/Music/Artist/Album/*
-            Ex: $me -l ~/Music/WV -T ~/Music/WavPackHybrid/Artist/Album/*
+            Ex: $me -T ~/Music/Lossless/Artist/Album/*
+            Ex: $me -T ~/Music/Lossless/Artist/Album/* -l ~/Music/Lossy
 
   -z        produce machine-parsable output; must be the first parameter on the
             command line to take effect. Run 'caudec -z' on its own to print
