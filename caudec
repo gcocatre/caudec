@@ -1649,12 +1649,19 @@ getNumberOfCaudecProcesses ()
 
 getNumberOfAvailableThreads ()
 {
-	local nRunningProcesses nThreads
+	local maxThreads="$1" nRunningProcesses nThreads
+
+	if [ -z "$maxThreads" ]; then
+		maxThreads=999999
+	fi
 
 	nRunningProcesses="$( getNumberOfCaudecProcesses )"
 	nThreads=$(( maxProcessesSetByUser - nRunningProcesses ))
 	if [ $nThreads -lt 1 ]; then
 		nThreads=1
+	fi
+	if [ $nThreads -gt $maxThreads ]; then
+		nThreads=$maxThreads
 	fi
 	echo $nThreads
 }
@@ -3171,7 +3178,8 @@ decode ()
 				sourceTagFormat='ape' kfm='-w'
 				getInternalMD5 "$copyFile"
 				if [ $keepWavMetadata = true ]; then kfm='' ; fi
-				wvunpack -q $kfm -m -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				nThreads=$( getNumberOfAvailableThreads 12 )
+				wvunpack -q $kfm -m --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK ]; then
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
 					extractAPEv2Binaries
@@ -3181,7 +3189,8 @@ decode ()
 
 			ape)
 				sourceTagFormat='ape'
-				mac "$copyFile" "$wavFile" -d >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				nThreads=$( getNumberOfAvailableThreads )
+				mac "$copyFile" "$wavFile" -d -threads=$nThreads >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK ]; then
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
 					extractAPEv2Binaries
@@ -3928,7 +3937,7 @@ encode ()
 				# Kohlrabi is a very cool dude
 				if [ $keepWavMetadata = true ]; then kfm='--keep-foreign-metadata' ; fi
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / FLAC $flacVersion / -$compression_FLAC"; fi
-				nThreads=$( getNumberOfAvailableThreads )
+				nThreads=$( getNumberOfAvailableThreads 128 )
 				printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P 4096 $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
 				importArtworkIntoFLAC || ec=$EX_KO
 				;;
@@ -3939,7 +3948,7 @@ encode ()
 					printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$me -c wv: correction files are present. Please delete them and try again." ; ec=$EX_KO
 				else
 					if [ $keepWavMetadata = true ]; then kfm=''; fi
-					nThreads=$( getNumberOfAvailableThreads )
+					nThreads=$( getNumberOfAvailableThreads 12 )
 					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack"; fi
 					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
@@ -3952,7 +3961,7 @@ encode ()
 			WavPackHybrid)
 				destExtension='wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt" kfm='-r'
 				if [ $keepWavMetadata = true ]; then kfm=''; fi
-				nThreads=$( getNumberOfAvailableThreads )
+				nThreads=$( getNumberOfAvailableThreads 12 )
 				if [ $tagCompressionSetting = true ]; then
 					if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
 						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy bits per sample (ABR)"
@@ -3973,7 +3982,7 @@ encode ()
 					printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$me -c wv: correction files are present. Please delete them and try again." ; ec=$EX_KO
 				else
 					if [ $keepWavMetadata = true ]; then kfm=''; fi
-					nThreads=$( getNumberOfAvailableThreads )
+					nThreads=$( getNumberOfAvailableThreads 12 )
 					if [ $tagCompressionSetting = true ]; then
 						if [ -z "$compression_WavPack" ]; then
 							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
@@ -3991,7 +4000,8 @@ encode ()
 
 			MonkeysAudio)
 				destExtension='ape'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt"
-				mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				nThreads=$( getNumberOfAvailableThreads )
+				mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 -threads=${nThreads} >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
 					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
@@ -4018,14 +4028,14 @@ encode ()
 			lossyFLAC)
 				destExtension='lossy.flac'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.vc.txt"
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
-				nThreads=$( getNumberOfAvailableThreads )
+				nThreads=$( getNumberOfAvailableThreads 128 )
 				printf -- "--totally-silent`tagline -T`\x00%s" "$lossywavFile" | xargs -0 flac -j $nThreads -P 4096 -5 -b 512 --keep-foreign-metadata -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
 				importArtworkIntoFLAC || ec=$EX_KO
 				;;
 
 			lossyWV)
 				destExtension='lossy.wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt"
-				nThreads=$( getNumberOfAvailableThreads )
+				nThreads=$( getNumberOfAvailableThreads 12 )
 				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 				printf -- "-q`tagline -w`\x00%s" "$lossywavFile" | xargs -0 wavpack --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
