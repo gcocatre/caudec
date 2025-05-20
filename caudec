@@ -3719,7 +3719,7 @@ copyOrLinkAllFiles ()
 		if [ -f "$f" ]; then
 			otherFileBasename="${f##*/}"
 			destOtherFile="${destPath}/${otherFileBasename}"
-			if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
+			if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then # FIXME linkDir
 				destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
 				if [ ! -e "$destOtherLinkedFile" ]; then
 					ln "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
@@ -3751,7 +3751,7 @@ copyOrLinkCommaSeparatedFiles ()
 					if [ -f "$extOtherFile" ]; then
 						otherFileBasename="${extOtherFile##*/}"
 						destOtherFile="${destPath}/${otherFileBasename}"
-						if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
+						if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then # FIXME linkDir
 							destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
 							if [ ! -e "$destOtherLinkedFile" ]; then
 								ln "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
@@ -3773,7 +3773,7 @@ copyOrLinkCommaSeparatedFiles ()
 			*)
 				if [ -f "${sourceDirname}/${otherFile}" ]; then
 					destOtherFile="${destPath}/${otherFile}"
-					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
+					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then # FIXME linkDir
 						destOtherLinkedFile="${destLinkPath}/${destOtherFile}"
 						if [ ! -e "$destOtherLinkedFile" ]; then
 							ln "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
@@ -3800,13 +3800,13 @@ copyOrLinkFile ()
 				if [ -f "$extOtherFile" ]; then
 					otherFileBasename="${extOtherFile##*/}"
 					destOtherFile="${destPath}/${otherFileBasename}"
-					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
+					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then # FIXME linkDir
 						destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
 						if [ ! -e "$destOtherLinkedFile" ]; then
 							ln "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 						fi
 					else
-						if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
+						if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then # FIXME linkDir
 							destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
 							if [ ! -e "$destOtherLinkedFile" ]; then
 								ln "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
@@ -3827,7 +3827,7 @@ copyOrLinkFile ()
 		*)
 			if [ -f "${sourceDirname}/${otherFile}" ]; then
 				destOtherFile="${destPath}/${otherFile}"
-				if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
+				if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then # FIXME linkDir
 					destOtherLinkedFile="${destLinkPath}/${otherFile}"
 					if [ ! -e "$destOtherLinkedFile" ]; then
 						ln "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
@@ -6367,22 +6367,6 @@ if which 'mac' >/dev/null 2>&1; then
 	fi
 fi
 
-if [ -n "$linkDir_WavPackLossy" ]; then
-	linkDir="$linkDir_WavPackLossy"
-	if [ "$linkDir" != '/' -a "${linkDir%/}" != "$linkDir" ]; then
-		linkDir="${linkDir%/}"
-	fi
-	if [ ! -e "$linkDir" ]; then
-		printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: directory doesn't exist. Either create it manually, or try again with -L." ; exit $EX_CANTCREAT
-	elif [ ! -d "$linkDir" ]; then
-		printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: not a directory." ; exit $EX_CANTCREAT
-	elif [ ! -w "$linkDir" ]; then
-		printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
-	else
-		copyPath=true
-	fi
-fi
-
 if [ $copyArtworkFilesByDefault = true ]; then
 	setCodecArtworkFiles "all" true
 	copyArtworkFiles=true
@@ -6473,6 +6457,9 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 
 		# from an original idea by Porcus on https://hydrogenaudio.org/index.php/topic,127856.msg1062957.html#msg1062957
 		l)
+			if [ -z "$lastCodec" -o "$lastCodec" != "WavPackHybrid" ]; then
+				printMessage 'error' 'usage' 'command_line' "$me -l: it must be preceded by -c wvh." ; exit $EX_USAGE
+			fi
 			gotLinkedDir=false
 			linkDir="$OPTARG"
 			if [ "$linkDir" != '/' -a "${linkDir%/}" != "$linkDir" ]; then
@@ -6484,6 +6471,29 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: not a directory." ; exit $EX_CANTCREAT
 			elif [ ! -w "$linkDir" ]; then
 				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
+			fi
+			gotLinkedDir=true
+			copyPath=true # FIXME: can't remember what this does
+			;;
+
+		# from an original idea by Porcus on https://hydrogenaudio.org/index.php/topic,127856.msg1062957.html#msg1062957
+		L)
+			if [ -z "$lastCodec" -o "$lastCodec" != "WavPackHybrid" ]; then
+				printMessage 'error' 'usage' 'command_line' "$me -L: it must be preceded by -c wvh." ; exit $EX_USAGE
+			fi
+			gotLinkedDir=false
+			linkDir="$OPTARG"
+			if [ "$linkDir" != '/' -a "${linkDir%/}" != "$linkDir" ]; then
+				linkDir="${linkDir%/}"
+			fi
+			if [ ! -e "$linkDir" ]; then
+				if ! mkdir -p "$linkDir" >/dev/null 2>&1 ; then
+					printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -L: failed to create directory (do you have write permissions?)." ; exit $EX_CANTCREAT
+				fi
+			elif [ ! -d "$linkDir" ]; then
+				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -L: not a directory." ; exit $EX_CANTCREAT
+			elif [ ! -w "$linkDir" ]; then
+				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -L: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
 			fi
 			gotLinkedDir=true
 			copyPath=true # FIXME: can't remember what this does
@@ -6505,29 +6515,6 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			fi
 			if [ "$o" = 'P' ]; then copyPath=true; fi
 			setDestDir "$lastCodec" "$lastCodecDestDir"
-			;;
-
-		# from an original idea by Porcus on https://hydrogenaudio.org/index.php/topic,127856.msg1062957.html#msg1062957
-		L)
-			if [ -z "$lastCodec" ]; then
-				printMessage 'error' 'usage' 'command_line' "$me -L: it must be preceded by -c wvh." ; exit $EX_USAGE
-			fi
-			gotLinkedDir=false
-			linkDir="$OPTARG"
-			if [ "$linkDir" != '/' -a "${linkDir%/}" != "$linkDir" ]; then
-				linkDir="${linkDir%/}"
-			fi
-			if [ ! -e "$linkDir" ]; then
-				if ! mkdir -p "$linkDir" >/dev/null 2>&1 ; then
-					printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -L: failed to create directory (do you have write permissions?)." ; exit $EX_CANTCREAT
-				fi
-			elif [ ! -d "$linkDir" ]; then
-				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -L: not a directory." ; exit $EX_CANTCREAT
-			elif [ ! -w "$linkDir" ]; then
-				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -L: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
-			fi
-			gotLinkedDir=true
-			copyPath=true # FIXME: can't remember what this does
 			;;
 
 		k)
