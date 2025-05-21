@@ -4544,7 +4544,7 @@ saveGain ()
 
 saveSeconds ()
 {
-	local samples sampleRate seconds=0 duration hours minutes centiseconds ec=$EX_OK line msec milliseconds=0 data file nThreads
+	local samples sampleRate seconds=0 duration hours minutes centiseconds ec=$EX_OK line msec milliseconds=0 data file nThreads infoExe
 
 	if [ $touchFiles = true ]; then
 		file="$sourceFile"
@@ -4583,9 +4583,10 @@ saveSeconds ()
 
 		*.ogg|*.opus)
 			case "$file" in
-				*.ogg) line="$( ogginfo "$file" 2>> "$errorLogFile" | grep -F 'Playback length:' | tr -d '\t ' | cut -d ':' -f 2-3 )" ;;
-				*.opus) line="$( opusinfo "$file" 2>> "$errorLogFile" | tr -d '\t' | grep -F "Playback length:" | cut -d ' ' -f 3 )" ;;
+				*.ogg) infoExe="ogginfo" ;;
+				*.opus) infoExe="opusinfo" ;;
 			esac
+			line="$( $infoExe "$file" 2>> "$errorLogFile" | grep -F 'Playback length:' | tr -d '\t ' | cut -d ':' -f 2-3 )"
 			if [ -n "$line" ]; then
 				minutes="${line%:*}" ; minutes="${minutes%m}"
 				seconds="${line#*:}" ; seconds="${seconds%s}"; seconds="${seconds%\.*}"
