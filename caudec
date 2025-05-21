@@ -1232,6 +1232,7 @@ checkBinaries ()
 				case "$f" in
 					*.flac) checkBinary 'metaflac' ;;
 					*.ogg) checkBinary 'ogginfo' 'vorbiscomment' ;;
+					*.opus) checkBinary 'opusinfo' ;;
 					*.wv) checkBinary 'wvtag' 'wvunpack' ;;
 					*.ape) checkBinary 'mac' 'APEv2' 'ffprobe' ;;
 				esac
