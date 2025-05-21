@@ -251,8 +251,8 @@ Processing / resampling options:
 Encoding options:
   -c CODEC  use specified CODEC: wav, aiff, caf,
             flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
-            ape, lossyWAV, lossyFLAC, lossyWV, mp3 / lame,
-            ogg / vorbis, mpc / musepack, opus.
+            lossyWAV, lossyFLAC, lossyWV, ape (Monkey's Audio), mp3 / lame,
+            ogg / vorbis, opus, mpc / musepack.
             Note that artwork preservation in MP3s requires eyeD3.
 
   -C CODEC  use specified CODEC, but discard existing metadata
@@ -1092,7 +1092,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 						cleanExit $ec
 					fi
 					case "$f" in
-						*.flac|*.ogg|*.wv|*.ape) gotAudioFile=true ;;
+						*.flac|*.ogg|*.wv|*.ape|*.opus) gotAudioFile=true ;;
 					esac
 					sourceFiles[$isf]="$f"
 					((isf++))
@@ -4581,8 +4581,11 @@ saveSeconds ()
 			fi
 			;;
 
-		*.ogg)
-			line="$( ogginfo "$file" 2>> "$errorLogFile" | grep -F 'Playback length:' | tr -d '\t ' | cut -d ':' -f 2-3 )"
+		*.ogg|*.opus)
+			case "$file" in
+				*.ogg) line="$( ogginfo "$file" 2>> "$errorLogFile" | grep -F 'Playback length:' | tr -d '\t ' | cut -d ':' -f 2-3 )" ;;
+				*.opus) line="$( opusinfo "$file" 2>> "$errorLogFile" | tr -d '\t' | grep -F "Playback length:" | cut -d ' ' -f 3 )" ;;
+			esac
 			if [ -n "$line" ]; then
 				minutes="${line%:*}" ; minutes="${minutes%m}"
 				seconds="${line#*:}" ; seconds="${seconds%s}"; seconds="${seconds%\.*}"
@@ -4933,12 +4936,13 @@ computeTrackDateTime ()
 	local ec=0 trackYear trackMonth trackDay
 
 	case "$sourceFile" in
-		*.flac|*ogg|*.wv|*.ape)
+		*.flac|*ogg|*.wv|*.ape|*.opus)
 			case "$sourceFile" in
 				*.flac) date=$( metaflac --no-filename --show-tag=date "$sourceFile" | tr -cd "[:digit:]-" ) ;;
 				*.ogg) date=$( vorbiscomment "$sourceFile" | grep -iF "date=" | tr -cd "[:digit:]-" ) ;;
 				*.wv) date=$( wvtag -x Year "$sourceFile" 2>/dev/null | tr -cd "[:digit:]-" ) ;;
 				*.ape) date=$( APEv2 -z "$sourceFile" 2>/dev/null | grep -iF year= | tr -cd "[:digit:]-" ) ;;
+				*.opus) date=$( opusinfo "$sourceFile" | grep -iF "date=" | tr -cd "[:digit:]-" ) ;;
 			esac
 			if [ ${#date} -eq 4 ]; then
 				trackYear="$date"
@@ -5019,15 +5023,15 @@ touchAllFiles ()
 	for ((i=0, a=0, o=0; i<${#sourceFiles[@]}; i++)); do
 		sourceFile="${sourceFiles[$i]}"
 		case "$sourceFile" in
-    	*.flac|*ogg|*.wv|*.ape) audioFiles[$a]="$sourceFile" ; a=$(( a + 1 )) ;;
+    	*.flac|*ogg|*.wv|*.ape|*.opus) audioFiles[$a]="$sourceFile" ; a=$(( a + 1 )) ;;
 			*.wvc) continue ;; # will be touched when the matching .wv file is touched
-			*.aiff|*.caf|*.mp3|*.mpc|*.opus) continue ;; # unsupported audio files
+			*.aiff|*.caf|*.mp3|*.mpc) continue ;; # unsupported audio files
 			*) otherFiles[$o]="$sourceFile" ; o=$(( o + 1 )) ;; # all non-audio files
 		esac
 	done
 
 	for ((a=0; a<${#audioFiles[@]}; a++)); do
-		if [ -z "$linkPath" ]; then
+		if [ $gotLinkedDir = true -a -z "$linkPath" ]; then
 			inode="$( ls -i "${sourceFiles[0]}" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
 			if [ -n "$inode" ]; then
 				while read linkedFile; do
@@ -5049,7 +5053,7 @@ touchAllFiles ()
 		millisecondsFile="${TDIR}/${i}.milliseconds"
 
 	  case "$sourceFile" in
-    	*.flac|*ogg|*.wv|*.ape)
+    	*.flac|*ogg|*.wv|*.ape|*.opus)
 				n=$(( n + 1 ))
 				read trackDate < "$sourceTagFile"
 				if [ -z "$trackDate" ]; then trackDate="$defaultTrackDate"; fi
