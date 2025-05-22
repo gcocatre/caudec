@@ -3764,6 +3764,12 @@ encode ()
 			AAC)
 				destExtension='m4a'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.m4a.txt"
 				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				if [ $ec -eq $EX_KO ]; then # try a different encoder
+					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a libfdk_aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				fi
+				if [ $ec -eq $EX_KO ]; then # try a different encoder
+					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a aac_at -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				fi
 				;;
 
 			Musepack)
