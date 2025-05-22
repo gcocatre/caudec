@@ -1244,7 +1244,7 @@ checkBinaries ()
 				case "$f" in
 					*.flac) checkBinary 'metaflac' ;;
 					*.ogg) checkBinary 'ogginfo' 'vorbiscomment' ;;
-					*.m4a) checkBinary 'ffprobe' ;;
+					*.m4a) checkBinary 'ffmpeg' 'ffprobe' ;;
 					*.opus) checkBinary 'opusinfo' ;;
 					*.wv) checkBinary 'wvtag' 'wvunpack' ;;
 					*.ape) checkBinary 'mac' 'APEv2' 'ffprobe' ;;
