@@ -252,7 +252,7 @@ Encoding options:
   -c CODEC  use specified CODEC: wav, aiff, caf,
             flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
             lossyWAV, lossyFLAC, lossyWV, ape (Monkey's Audio), mp3 / lame,
-            ogg / vorbis, opus, mpc / musepack.
+            aac (m4a), ogg / vorbis, opus, mpc / musepack.
             Note that artwork preservation in MP3s requires eyeD3.
 
   -C CODEC  use specified CODEC, but discard existing metadata
@@ -265,21 +265,21 @@ Encoding options:
             ogg/vorbis)
 
   -B ARG    average bitrate in kilobits per second (for -c mp3/lame,
-            ogg/vorbis, opus)
+            aac (m4a), ogg/vorbis, opus)
 
-  -G ARG    apply Replaygain (album or track) if found in source file metadata,
-            after decoding and BEFORE encoding (irreversible). Note: it is
-            possible to specify a preamp value with an additional -G parameter,
-            for instance '-G album -G -3' or '-G track -G +2'. Only use
-            positive preamp values if you know what you're doing.
+  -G ARG    MP3: apply Replaygain (album or track) if found in source file
+            metadata, after decoding and BEFORE encoding (irreversible).
+            Note: it is possible to specify a preamp value with an additional
+            -G parameter, for instance '-G album -G -3' or '-G track -G +2'.
+            Only use positive preamp values if you know what you're doing.
 
-  -G ARG    apply peak normalization (albumpeak or trackpeak); this makes the
-            tracks as loud as possible without clipping; requires Replaygain
-            metadata to be available in the source files. Note: it is possible
-            to specify an arbitrary peak reference lower than 0dBFS with an
-            additional -G parameter: '-G albumpeak -G -4'.
+  -G ARG    MP3: apply peak normalization (albumpeak or trackpeak); this makes
+            the tracks as loud as possible without clipping; requires
+            Replaygain metadata to be available in the source files.
+            Note: it is possible to specify an arbitrary peak reference lower
+            than 0dBFS with an additional -G parameter: '-G albumpeak -G -4'.
 
-  -G GAIN   apply arbitrary GAIN (signed number from -99.99 to +99.99)
+  -G GAIN   MP3: apply arbitrary GAIN (signed number from -99.99 to +99.99)
 
   -H HASH   compute hash of raw PCM (CRC32, MD5, SHA1, SHA256 or SHA512,
             lossless codecs and lossyFLAC, lossyWV only)
@@ -782,6 +782,17 @@ getAverageBitrate ()
 			fi
 			;;
 
+		AAC)
+			if [ -z "$v" ]; then
+				average_bitrate_AAC=256
+			else
+				case "$v" in
+					[0-9]|[1-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) average_bitrate_AAC="$v" ;;
+					*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $c must be an integer between 0 and 320 in kilobits per second" ; exit $EX_USAGE ;;
+				esac
+			fi
+			;;
+
 		OggVorbis)
 			if [ -z "$v" ]; then
 				average_bitrate_OggVorbis=256
@@ -823,6 +834,7 @@ getBitrateMode ()
 
 	case "$c" in
 		LAME) LAME_MODE="$mode" ;;
+		AAC) AAC_MODE="ABR" ;;
 		OggVorbis) OggVorbis_MODE="$mode" ;;
 		Opus) Opus_MODE="$mode" ;;
 	esac
@@ -907,14 +919,14 @@ getInputFiles ()
 							inputFiles[$nTracks]="$file"
 							((nTracks++))
 						fi
-					done < <(find "$a" -type f -regex '.*\.\(wav\|aiff\|caf\|flac\|wv\|ape\|mp3\|ogg\|mpc\|opus\)$' -print0 2>/dev/null)
+					done < <(find "$a" -type f -regex '.*\.\(wav\|aiff\|caf\|flac\|wv\|ape\|mp3\|m4a\|ogg\|mpc\|opus\)$' -print0 2>/dev/null)
 				else
 					while IFS= read -d $'\0' -r file ; do
 						if [ -f "$file" -a -r "$file" ]; then
 							inputFiles[$nTracks]="$file"
 							((nTracks++))
 						fi
-					done < <(find -E "$a" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|ogg|mpc|opus)$' -print0 2>/dev/null)
+					done < <(find -E "$a" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|mpc|opus)$' -print0 2>/dev/null)
 				fi
 			else
 				printMessage 'warning' 'usage' 'filesystem' "path:${a}" 'directory is not readable (permission denied).' ; ec=$EX_NOINPUT
@@ -1092,7 +1104,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 						cleanExit $ec
 					fi
 					case "$f" in
-						*.flac|*.ogg|*.wv|*.ape|*.opus) gotAudioFile=true ;;
+						*.flac|*.ogg|*.m4a|*.wv|*.ape|*.opus) gotAudioFile=true ;;
 					esac
 					sourceFiles[$isf]="$f"
 					((isf++))
@@ -1232,6 +1244,7 @@ checkBinaries ()
 				case "$f" in
 					*.flac) checkBinary 'metaflac' ;;
 					*.ogg) checkBinary 'ogginfo' 'vorbiscomment' ;;
+					*.m4a) checkBinary 'ffprobe' ;;
 					*.opus) checkBinary 'opusinfo' ;;
 					*.wv) checkBinary 'wvtag' 'wvunpack' ;;
 					*.ape) checkBinary 'mac' 'APEv2' 'ffprobe' ;;
@@ -1263,6 +1276,7 @@ checkBinaries ()
 				lossyWV) checkBinary 'lossywav' 'wavpack' 'APEv2' ;;
 				OggVorbis) checkBinary 'oggenc' ;;
 				LAME) checkBinary 'lame' ;;
+				AAC) checkBinary 'ffmpeg' ;;
 				Musepack) checkBinary 'mpcenc' 'APEv2' ;;
 				Opus) checkBinary 'opusenc' ;;
 			esac
@@ -1601,7 +1615,7 @@ tagline ()
 		fi
 
 		case "$outputCodec" in
-			WavPackLossy|LAME|OggVorbis|Musepack|Opus)
+			WavPackLossy|LAME|AAC|OggVorbis|Musepack|Opus)
 				if [ "$outputCodec" = 'WavPackLossy' ]; then
 					grep -viE "MD5=|CRC32=|SHA1=|SHA256=|SHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 				else
@@ -1828,6 +1842,55 @@ vorbisCommentsToLAME ()
 	done < "$sourceTagFile"
 }
 
+vorbisCommentsToM4A ()
+{
+	local line field value totalTracks='' totalDiscs=''
+
+	getTotalDiscsAndTracks
+
+	while read line; do
+		field="${line%%=*}" ; value="${line#*=}"
+		if [ "$value" = '' ]; then continue; fi
+		case "$field" in
+			ALBUM)                 echo "-metadata album=$value" ;;
+			ALBUMARTIST|"ALBUM ARTIST")
+				echo "-metadata album_artist=$value"
+				if [ "$value" = 'Various Artists' -o $setCompilationFlagWithAlbumArtist = true ]; then
+					echo "-metadata compilation=1" # iTunes 'compilation' frame
+				fi
+				;;
+			ARTIST)                echo "-metadata artist=$value" ;;
+			COMPOSER)              echo "-metadata composer=$value" ;;
+			COPYRIGHT)             echo "-metadata copyright=$value" ;;
+			DATE)                  printf -- '-metadata date=%.4s\n' "$value" ;;
+			DESCRIPTION)           echo "-metadata comment=$value" ;;
+			DISCNUMBER)
+				if [ -n "$totalDiscs" ]; then
+					printf -- '-metatadata disc=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
+				else
+					printf -- '-metatadata disc=%g\n' "$( getTrackOrDiscNumber "$value" )"
+				fi
+				;;
+			DISCTOTAL|TOTALDISCS)  continue ;;
+			ENCODER|ENCODING)      continue ;;
+			GENRE)                 echo "-metadata genre=$value" ;;
+			ISRC)                  echo "-metadata isrc=$value" ;;
+			ORGANIZATION)          echo "-metadata label=$value" ;;
+			TITLE)                 echo "-metadata title=$value" ;;
+			TRACKNUMBER)
+				if [ -n "$totalTracks" ]; then
+					printf -- '-metadata track=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalTracks"
+				else
+					printf -- '-metadata track=%g\n' "$( getTrackOrDiscNumber "$value" )"
+				fi
+				;;
+			TRACKTOTAL|TOTALTRACKS) continue ;;
+			cdec|encoding*|itunnorm|itunsmpb|tool) continue ;;
+			# *)                     echo "-meta-user:${field}=${value}" ;;
+		esac
+	done < "$sourceTagFile"
+}
+
 APEv2ToVorbisComments ()
 {
 	local line field value totalTracks='' totalDiscs=''
@@ -1932,6 +1995,56 @@ APEv2ToLAME ()
 				;;
 			Year)                  printf -- '--ty %.4s\n' "$value" ;;
 			*)                     echo "--tv TXXX=${field}=${value}" ;;
+		esac
+	done < "$sourceTagFile"
+}
+
+APEv2ToM4A ()
+{
+	local line field value totalTracks='' totalDiscs=''
+
+	getTotalDiscsAndTracks
+
+	while read line; do
+		field="${line%%=*}" ; value="${line#*=}"
+		if [ "$value" = '' ]; then continue; fi
+		case "$field" in
+			Album)                 echo "-metadata album=$value" ;;
+			Albumartist|"Album Artist")
+				echo "-metadata album_artist=$value"
+				if [ "$value" = 'Various Artists' -o $setCompilationFlagWithAlbumArtist = true ]; then
+					echo "-metadata compilation=1" # iTunes 'compilation' frame
+				fi
+				;;
+			Artist)                echo "-metadata artist=$value" ;;
+			Comment)               echo "-metadata comment=$value" ;;
+			Composer)              echo "-metadata composer=$value" ;;
+			Copyright)             echo "-metadata copyright=$value" ;;
+			Encoder|Encoding)      continue ;;
+			Genre)                 echo "-metadata genre=$value" ;;
+			ISRC)                  echo "-metadata isrc=$value" ;;
+			Media|Disc)
+				case "$value" in
+					[0-9]*)
+						if [ -n "$totalDiscs" ]; then
+							printf -- '-metadata disc=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
+						else
+							printf -- '-metadata disc=%g\n' "$( getTrackOrDiscNumber "$value" )"
+						fi
+						;;
+				esac
+				;;
+			Title)                 echo "-metadata title=$value" ;;
+			Track)
+				if [ -n "$totalTracks" ]; then
+					printf -- '-metadata track=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalTracks"
+				else
+					printf '-metadata track=%g\n' "$( getTrackOrDiscNumber "$value" )"
+				fi
+				;;
+			Year)                  printf -- '-metadata date=%.4s\n' "$value" ;;
+			cdec|encoding*|itunnorm|itunsmpb|tool) continue ;;
+			# *)                     echo "-meta-user:${field}=${value}" ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -2134,6 +2247,7 @@ convertTags ()
 
 				ape)  vorbisCommentsToAPEv2 > "$destTagFile" ;;
 				lame) vorbisCommentsToLAME > "$destTagFile" ;;
+				m4a) vorbisCommentsToM4A > "$destTagFile" ;;
 			esac ;;
 
 		ape)
@@ -2148,6 +2262,8 @@ convertTags ()
 
 				vc)   APEv2ToVorbisComments > "$destTagFile" ;;
 				lame) APEv2ToLAME > "$destTagFile" ;;
+				m4a) APEv2ToM4A > "$destTagFile" ;;
+
 			esac
 			case $2 in
 				vc|lame) $sedcmd -i'' -e 's@\x02@ / @g' -e 's@^ro:@@' "$destTagFile" ;;
@@ -2593,7 +2709,7 @@ saveDurations ()
 			fi
 			;;
 
-		*.ape)
+		*.ape|*.m4a)
 			duration="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$copyFile" 2>/dev/null | grep -F 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '0-9.' )"
 			if [ -n "$duration" ]; then
 				echo -n " + $duration" >> "${TDIR}/durations"
@@ -2881,7 +2997,7 @@ decode ()
 		fi
 		for outputCodec in $outputCodecs; do
 			case "$outputCodec" in
-				lossy*|*Vorbis|Opus|WavPackLossy|Musepack|LAME) hasLossy=true ;;
+				lossy*|*Vorbis|Opus|WavPackLossy|Musepack|LAME|AAC) hasLossy=true ;;
 				FLAC|WavPack|WavPackHybrid|MonkeysAudio) hasLossless=true ;;
 			esac
 		done
@@ -3090,6 +3206,7 @@ decode ()
 			FLAC|lossyFLAC|OggVorbis|Opus) convertTags $sourceTagFormat 'vc' ;;
 			WavPack*|MonkeysAudio|lossyWV|Musepack) convertTags $sourceTagFormat 'ape' ;;
 			LAME) convertTags $sourceTagFormat 'lame' ;;
+			AAC) convertTags $sourceTagFormat 'm4a' ;;
 		esac
 	done
 
@@ -3222,6 +3339,7 @@ getEncoderVersions ()
 			FLAC) flacVersion="$( flac --version | head -n 1 )"; flacVersion="${flacVersion##* }" ;;
 			MonkeysAudio) apeVersion="$( mac 2>&1 | grep -F '(c)' | tr -d ' ' | cut -d '(' -f 2 | cut -d ')' -f 1 )"; apeVersion="${apeVersion#v}" ;;
 			LAME) lameVersion="$( lame --version 2>/dev/null | grep -E 'LAME.*version' | cut -d 'v' -f 2 | cut -d '(' -f 1 | cut -d ' ' -f 2- )" ; lameVersion="${lameVersion% *}" ;;
+			AAC) aacVersion="$( ffmpeg -version 2>/dev/null | grep -E '^ffmpeg version' | cut -d ' ' -f 3 )" ;;
 			Musepack) mpcVersion="$( mpcenc 2>&1 | grep -F 'MPC Encoder' | cut -d ' ' -f 3 )" ;;
 			Opus) opusVersion="$( opusenc --version 2>/dev/null | grep -F 'opusenc' )" ;;
 
@@ -3300,8 +3418,8 @@ copyOrLinkAllFiles ()
 	local codec="$1" f otherFileBasename destOtherFile destOtherLinkedFile
 	for f in "$sourceDirname"/*; do
 		case "$f" in
-			*.WAV|*.CAF|*.AIFF|*.FLAC|*.WV|*.WVC|*.APE|*.OGG|*.MP3|*.MPC|*.OPUS) continue ;;
-			*.wav|*.caf|*.aiff|*.flac|*.wv|*.wvc|*.ape|*.ogg|*.mp3|*.mpc|*.opus) continue ;;
+			*.WAV|*.CAF|*.AIFF|*.FLAC|*.WV|*.WVC|*.APE|*.OGG|*.MP3|*.M4A|*.MPC|*.OPUS) continue ;;
+			*.wav|*.caf|*.aiff|*.flac|*.wv|*.wvc|*.ape|*.ogg|*.mp3|*.m4a|*.mpc|*.opus) continue ;;
 		esac
 		if [ -f "$f" ]; then
 			otherFileBasename="${f##*/}"
@@ -3641,6 +3759,11 @@ encode ()
 				if [ $ec -eq $EX_OK ]; then
 					importArtworkIntoMP3 || ec=$EX_KO
 				fi
+				;;
+
+			AAC)
+				destExtension='m4a'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.m4a.txt"
+				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				;;
 
 			Musepack)
@@ -4601,7 +4724,7 @@ saveSeconds ()
 			fi
 			;;
 
-		*.ape)
+		*.ape|*.m4a)
 			line="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | grep -F 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '0-9.' )"
 			if [ -n "$line" ]; then
 				seconds="${line%.*}" milliseconds="${line#*.}"
@@ -4937,11 +5060,13 @@ computeTrackDateTime ()
 {
 	local ec=0 trackYear trackMonth trackDay
 
+
 	case "$sourceFile" in
-		*.flac|*ogg|*.wv|*.ape|*.opus)
+		*.flac|*ogg|*.m4a|*.wv|*.ape|*.opus)
 			case "$sourceFile" in
 				*.flac) date=$( metaflac --no-filename --show-tag=date "$sourceFile" | tr -cd "[:digit:]-" ) ;;
 				*.ogg) date=$( vorbiscomment "$sourceFile" | grep -iF "date=" | tr -cd "[:digit:]-" ) ;;
+				*.m4a) date=$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | grep -iE '^format.tags.date' | cut -d '.' -f 3- | tr -cd "[:digit:]-" ) ;;
 				*.wv) date=$( wvtag -x Year "$sourceFile" 2>/dev/null | tr -cd "[:digit:]-" ) ;;
 				*.ape) date=$( APEv2 -z "$sourceFile" 2>/dev/null | grep -iF year= | tr -cd "[:digit:]-" ) ;;
 				*.opus) date=$( opusinfo "$sourceFile" | grep -iF "date=" | tr -cd "[:digit:]-" ) ;;
@@ -5025,7 +5150,7 @@ touchAllFiles ()
 	for ((i=0, a=0, o=0; i<${#sourceFiles[@]}; i++)); do
 		sourceFile="${sourceFiles[$i]}"
 		case "$sourceFile" in
-    	*.flac|*ogg|*.wv|*.ape|*.opus) audioFiles[$a]="$sourceFile" ; a=$(( a + 1 )) ;;
+    	*.flac|*ogg|*.m4a|*.wv|*.ape|*.opus) audioFiles[$a]="$sourceFile" ; a=$(( a + 1 )) ;;
 			*.wvc) continue ;; # will be touched when the matching .wv file is touched
 			*.aiff|*.caf|*.mp3|*.mpc) continue ;; # unsupported audio files
 			*) otherFiles[$o]="$sourceFile" ; o=$(( o + 1 )) ;; # all non-audio files
@@ -5055,7 +5180,7 @@ touchAllFiles ()
 		millisecondsFile="${TDIR}/${i}.milliseconds"
 
 	  case "$sourceFile" in
-    	*.flac|*ogg|*.wv|*.ape|*.opus)
+    	*.flac|*ogg|*m4a|*.wv|*.ape|*.opus)
 				n=$(( n + 1 ))
 				read trackDate < "$sourceTagFile"
 				if [ -z "$trackDate" ]; then trackDate="$defaultTrackDate"; fi
@@ -5136,6 +5261,7 @@ getCodecExtension ()
 		lossyWV)       ext='lossy.wv' ;;
 		OggVorbis)     ext='ogg' ;;
 		LAME)          ext='mp3' ;;
+		AAC)           ext='m4a' ;;
 		Musepack)      ext='mpc' ;;
 		Opus)          ext='opus' ;;
 	esac
@@ -5161,6 +5287,7 @@ getCodecFullName ()
 		lossyWV)       codecFullName='lossyWV' ;;
 		OggVorbis)     codecFullName='Ogg Vorbis' ;;
 		LAME)          codecFullName='LAME' ;;
+		AAC)           codecFullName='AAC' ;;
 		Musepack)      codecFullName='Musepack' ;;
 		Opus)          codecFullName='Opus' ;;
 	esac
@@ -5424,6 +5551,7 @@ setDestDir ()
 		lossyFLAC) dir_lossyFLAC="$codecDestDir" ;;
 		lossyWV) dir_lossyWV="$codecDestDir" ;;
 		LAME) dir_LAME="$codecDestDir" ;;
+		AAC) dir_AAC="$codecDestDir" ;;
 		OggVorbis) dir_OggVorbis="$codecDestDir" ;;
 		Musepack) dir_Musepack="$codecDestDir" ;;
 		Opus) dir_Opus="$codecDestDir" ;;
@@ -5448,6 +5576,7 @@ getDestDir ()
 		lossyFLAC) codecDestDir="$dir_lossyFLAC" ;;
 		lossyWV) codecDestDir="$dir_lossyWV" ;;
 		LAME) codecDestDir="$dir_LAME" ;;
+		AAC) codecDestDir="$dir_AAC" ;;
 		OggVorbis) codecDestDir="$dir_OggVorbis" ;;
 		Musepack) codecDestDir="$dir_Musepack" ;;
 		Opus) codecDestDir="$dir_Opus" ;;
@@ -5480,6 +5609,7 @@ setCodecOtherFiles ()
 		copyOtherFiles_lossyFLAC="$pattern"
 		copyOtherFiles_lossyWV="$pattern"
 		copyOtherFiles_LAME="$pattern"
+		copyOtherFiles_AAC="$pattern"
 		copyOtherFiles_OggVorbis="$pattern"
 		copyOtherFiles_Musepack="$pattern"
 		copyOtherFiles_Opus="$pattern"
@@ -5497,6 +5627,7 @@ setCodecOtherFiles ()
 		copyOtherFiles_lossyFLAC="$pattern"
 		copyOtherFiles_lossyWV="$pattern"
 		copyOtherFiles_LAME="$pattern"
+		copyOtherFiles_AAC="$pattern"
 		copyOtherFiles_OggVorbis="$pattern"
 		copyOtherFiles_Musepack="$pattern"
 		copyOtherFiles_Opus="$pattern"
@@ -5515,6 +5646,7 @@ setCodecOtherFiles ()
 			lossyFLAC) copyOtherFiles_lossyFLAC="$pattern" ;;
 			lossyWV) copyOtherFiles_lossyWV="$pattern" ;;
 			LAME) copyOtherFiles_LAME="$pattern" ;;
+			AAC) copyOtherFiles_AAC="$pattern" ;;
 			OggVorbis) copyOtherFiles_OggVorbis="$pattern" ;;
 			Musepack) copyOtherFiles_Musepack="$pattern" ;;
 			Opus) copyOtherFiles_Opus="$pattern" ;;
@@ -5540,6 +5672,7 @@ getCodecOtherFiles ()
 		lossyFLAC) otherFilesPattern="$copyOtherFiles_lossyFLAC" ;;
 		lossyWV) otherFilesPattern="$copyOtherFiles_lossyWV" ;;
 		LAME) otherFilesPattern="$copyOtherFiles_LAME" ;;
+		AAC) otherFilesPattern="$copyOtherFiles_AAC" ;;
 		OggVorbis) otherFilesPattern="$copyOtherFiles_OggVorbis" ;;
 		Musepack) otherFilesPattern="$copyOtherFiles_Musepack" ;;
 		Opus) otherFilesPattern="$copyOtherFiles_Opus" ;;
@@ -5567,6 +5700,7 @@ setCodecArtworkFiles ()
 		copyArtworkFiles_lossyFLAC=$copyArtwork
 		copyArtworkFiles_lossyWV=$copyArtwork
 		copyArtworkFiles_LAME=$copyArtwork
+		copyArtworkFiles_AAC=$copyArtwork
 		copyArtworkFiles_OggVorbis=$copyArtwork
 		copyArtworkFiles_Musepack=$copyArtwork
 		copyArtworkFiles_Opus=$copyArtwork
@@ -5585,6 +5719,7 @@ setCodecArtworkFiles ()
 			lossyFLAC) copyArtworkFiles_lossyFLAC=$copyArtwork ;;
 			lossyWV) copyArtworkFiles_lossyWV=$copyArtwork ;;
 			LAME) copyArtworkFiles_LAME=$copyArtwork ;;
+			AAC) copyArtworkFiles_AAC=$copyArtwork ;;
 			OggVorbis) copyArtworkFiles_OggVorbis=$copyArtwork ;;
 			Musepack) copyArtworkFiles_Musepack=$copyArtwork ;;
 			Opus) copyArtworkFiles_Opus=$copyArtwork ;;
@@ -5611,6 +5746,7 @@ getCodecArtworkFiles ()
 		lossyFLAC) doCopyArtworkFiles=$copyArtworkFiles_lossyFLAC ;;
 		lossyWV) doCopyArtworkFiles=$copyArtworkFiles_lossyWV ;;
 		LAME) doCopyArtworkFiles=$copyArtworkFiles_LAME ;;
+		AAC) doCopyArtworkFiles=$copyArtworkFiles_AAC ;;
 		OggVorbis) doCopyArtworkFiles=$copyArtworkFiles_OggVorbis ;;
 		Musepack) doCopyArtworkFiles=$copyArtworkFiles_Musepack ;;
 		Opus) doCopyArtworkFiles=$copyArtworkFiles_Opus ;;
@@ -5720,10 +5856,12 @@ getConstantBitrate 'OggVorbis' "$bitrate_OggVorbis" 'caudecrc'
 getConstantBitrate 'Opus' "$bitrate_Opus" 'caudecrc'
 
 getAverageBitrate 'LAME' "$average_bitrate_LAME" 'caudecrc'
+getAverageBitrate 'AAC' "$average_bitrate_AAC" 'caudecrc'
 getAverageBitrate 'OggVorbis' "$average_bitrate_OggVorbis" 'caudecrc'
 getAverageBitrate 'Opus' "$average_bitrate_Opus" 'caudecrc'
 
 getBitrateMode 'LAME' "$LAME_MODE" 'caudecrc'
+getBitrateMode 'AAC' "$AAC_MODE" 'caudecrc'
 getBitrateMode 'OggVorbis' "$OggVorbis_MODE" 'caudecrc'
 getBitrateMode 'Opus' "$Opus_MODE" 'caudecrc'
 
@@ -5924,6 +6062,7 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				lossyFLAC|lossyflac) lastCodec='lossyFLAC'; ((nLossyWAV++)) ;;
 				lossyWV|lossywv)     lastCodec='lossyWV'; ((nLossyWAV++)) ;;
 				mp3|lame)            lastCodec='LAME' ;;
+				aac)                 lastCodec='AAC' ;;
 				ogg|vorbis)          lastCodec='OggVorbis' ;;
 				mpc|musepack)        lastCodec='Musepack' ;;
 				opus)                lastCodec='Opus' ;;
@@ -5996,6 +6135,7 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			fi
 			case "$lastCodec" in
 				LAME) getAverageBitrate 'LAME' "$OPTARG" ; LAME_MODE='ABR' ;;
+				AAC) getAverageBitrate 'AAC' "$OPTARG" ; AAC_MODE='ABR' ;;
 				OggVorbis) getAverageBitrate 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='ABR' ;;
 				Opus) getAverageBitrate 'Opus' "$OPTARG" ; Opus_MODE='ABR' ;;
 				*) printMessage 'error' 'usage' 'command_line' "$me -B: parameter not available with the selected codec" ; exit $EX_USAGE ;;
