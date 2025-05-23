@@ -3787,7 +3787,16 @@ encode ()
 				destExtension='m4a'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.m4a.txt" aaclib="" aaclibs="aac libfdk_aac aac_at"
 				for ((l=0; l<${#aaclibs[@]}; l++)); do
 					aaclib="${aaclibs[$l]}"
-					if [ -n "$sourceCoverArtFile" ]; then
+					if [ -z "$sourceCoverArtFile" ]; then
+						for f in "${SWAPDIR}/picture-${i}-"*_*; do
+							if [ ! -e "$f" ]; then continue; fi
+							picType="${f#*_}"; picType="${picType%.*}"
+							case $picType in
+								3) sourceCoverArtFile="$f" ; break ;;
+							esac
+						done
+					fi
+					if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
 						printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					else
 						printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
