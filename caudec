@@ -92,7 +92,6 @@ esac
 if [ "$preventClipping" = "false" ]; then preventClipping=false; else preventClipping=true; fi
 
 # false by default
-if [ "$copyArtworkFilesByDefault" = "true" ]; then copyArtworkFilesByDefault=true; else copyArtworkFilesByDefault=false; fi
 if [ "$tagCompressionSetting" = "true" ]; then tagCompressionSetting=true; else tagCompressionSetting=false; fi
 if [ "$setCompilationFlagWithAlbumArtist" = "true" ]; then setCompilationFlagWithAlbumArtist=true; else setCompilationFlagWithAlbumArtist=false; fi
 if [ "$keepWavMetadata" = "true" ]; then keepWavMetadata=true; else keepWavMetadata=false; fi
@@ -196,10 +195,16 @@ Global options:
   -L DIR    set and create a directory for hard linking lossy .wv files from
             WavPackHybrid's output directory
 
-  -a        copy all cover art files to the output directory
+  -a FILE   embed cover art FILE into supported files. Specify -a first
+            to embed the same file for all supported codecs specified by -c,
+            or specify -a after -c to embed cover art only for that codec,
+            if supported. FILE must be a filename and that file must be
+            located in the source directory.
+
   -f ARG    copy certain files to the output directory. ARG may be a 'all',
             a comma separated list of files, and / or file extensions preceded
-            by a dot
+            by a dot. If ARG is a list of files, they must be filenames and
+            those files must be located in the source directory.
 
   -k        keep existing destination files (don't overwrite them)
   -K        keep existing destination files if they're newer than their source
@@ -972,11 +977,11 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 		elif [ ! -r "$f" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for reading (permission denied).' ; ec=$EX_NOINPUT
 		elif [ ! -w "$f" -a $computeReplaygain = true ]; then
-				printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
+			printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
 		elif [ ! -w "$f" -a $actionHash = true ]; then
-				printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
+			printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
 		elif [ ! -w "$f" -a $touchFiles = true ]; then
-				printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'refusing to touch file that is read-only.' ; ec=$EX_CANTCREAT
+			printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'refusing to touch file that is read-only.' ; ec=$EX_CANTCREAT
 		else
 			if [ -z "$refDn" ] ; then refDn="$dn"; fi # for touching mtime files
 			if [ $copyPath = true ]; then
@@ -1013,6 +1018,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 							fi
 						fi
 					done
+
 					if [ $keepInputFile = false ]; then
 						gotExistingFiles=true
 						continue
@@ -1118,6 +1124,12 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 		fi
 	done
 
+	# FIXME
+	# DELETE
+	# if [ -n "$outputCodecs" -a $setDefaultCoverArtwork = true ]; then # transcode and copy cover art
+	# 	checkDefaultCoverArtwork
+	# fi
+
 	if [ $touchFiles = true -a $gotAudioFile = false ]; then
 		printMessage 'warning' 'processing' 'unsupported' 'at least one supported audio file is required.'; ec=$EX_DATAERR
 		printMessage 'abort' 'verbose'
@@ -1146,6 +1158,79 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 		return $EX_OK
 	fi
 }
+
+checkDefaultCoverArtwork ()
+{
+	local f ec=$EX_OK dn="" lastdn="" sourceArtworkPath
+
+	for f in "${inputFiles[@]}" ; do
+		dn="$( dirname "$f" )"
+		if [ "$lastdn" = "$dn" ]; then continue; fi
+		if [ -n "$setCoverArtworkFileByDefault" ]; then
+			sourceArtworkPath="${dn}/${setCoverArtworkFileByDefault}"
+			if [ ! -e "$sourceArtworkPath" ]; then
+				printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'no such file.'
+			elif [ ! -r "$sourceArtworkPath" ]; then
+				printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'cannot open file for reading (permission denied).'
+			fi
+		fi
+		if [ -n "$setCoverArtworkFileForLosslessByDefault" ]; then
+			sourceArtworkPath="${dn}/${setCoverArtworkFileForLosslessByDefault}"
+			if [ ! -e "$sourceArtworkPath" ]; then
+				printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'no such file.'
+			elif [ ! -r "$sourceArtworkPath" ]; then
+				printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'cannot open file for reading (permission denied).'
+			fi
+		fi
+		if [ -n "$setCoverArtworkFileForLossyByDefault" ]; then
+			sourceArtworkPath="${dn}/${setCoverArtworkFileForLossyByDefault}"
+			if [ ! -e "$sourceArtworkPath" ]; then
+				printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'no such file.'
+			elif [ ! -r "$sourceArtworkPath" ]; then
+				printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'cannot open file for reading (permission denied).'
+			fi
+		fi
+		lastdn="$dn"
+	done
+}
+
+# COPY ARTWORK
+# checkCoverArtwork ()
+# {
+# 	local f ec=$EX_OK dn="" lastdn="" sourceArtworkPath
+
+# 	for f in "${inputFiles[@]}" ; do
+# 		dn="$( dirname "$f" )"
+# 		if [ "$lastdn" = "$dn" ]; then continue; fi
+# 		if [ $setCoverArtwork = true ]; then
+# 			if [ -n "$setCoverArtworkFileByDefault" ]; then
+# 				sourceArtworkPath="${dn}/${setCoverArtworkFileByDefault}"
+# 				if [ ! -e "$sourceArtworkPath" ]; then
+# 					printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'no such file.'
+# 				elif [ ! -r "$sourceArtworkPath" ]; then
+# 					printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'cannot open file for reading (permission denied).'
+# 				fi
+# 			fi
+# 			if [ -n "$setCoverArtworkFileForLosslessByDefault" ]; then
+# 				sourceArtworkPath="${dn}/${setCoverArtworkFileForLosslessByDefault}"
+# 				if [ ! -e "$sourceArtworkPath" ]; then
+# 					printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'no such file.'
+# 				elif [ ! -r "$sourceArtworkPath" ]; then
+# 					printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'cannot open file for reading (permission denied).'
+# 				fi
+# 			fi
+# 			if [ -n "$setCoverArtworkFileForLossyByDefault" ]; then
+# 				sourceArtworkPath="${dn}/${setCoverArtworkFileForLossyByDefault}"
+# 				if [ ! -e "$sourceArtworkPath" ]; then
+# 					printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'no such file.'
+# 				elif [ ! -r "$sourceArtworkPath" ]; then
+# 					printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'cannot open file for reading (permission denied).'
+# 				fi
+# 			fi
+# 		fi
+# 		lastdn="$dn"
+# 	done
+# }
 
 checkOutputDirectories ()
 {
@@ -3562,47 +3647,9 @@ copyOrLinkOtherFiles ()
 	fi
 }
 
-# COPY ARTWORK
-copyArtworkFiles ()
-{
-	local codec="$1"
-
-	doCopyArtworkFiles=$( getCodecArtworkFiles "$codec" )
-	if [ $doCopyArtworkFiles = true ]; then
-		for f in "$sourceDirname"/*.{HEIC,JPEG,JPG,JXL,PNG,heic,jpeg,jpg,jxl,png}; do
-			if [ -f "$f" ]; then
-				artFileBasename="${f##*/}"
-				destArtFile="${destPath}/${artFileBasename}"
-				if [ ! -e "$destArtFile" ]; then
-					cp "$f" "$destArtFile" >/dev/null 2>> "$errorLogFile"
-					if [ "$codec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
-						destLinkArtFile="${destLinkPath}/${artFileBasename}"
-						rm -f "$destLinkArtFile" >/dev/null 2>> "$errorLogFile" # for consistency
-					fi
-				fi
-			fi
-		done
-	fi
-	if [ "$codec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
-		doCopyArtworkFiles=$( getCodecArtworkFiles "WavPackLossy" )
-		if [ $doCopyArtworkFiles = true ]; then
-			for f in "$destPath"/*.{HEIC,JPEG,JPG,JXL,PNG,heic,jpeg,jpg,jxl,png}; do
-				if [ -f "$f" ]; then
-					artFileBasename="${f##*/}"
-					destArtFile="${destPath}/${artFileBasename}"
-					destLinkArtFile="${destLinkPath}/${artFileBasename}"
-					if [ ! -e "$destLinkArtFile" ]; then
-						ln "$destArtFile" "$destLinkArtFile" >/dev/null 2>> "$errorLogFile"
-					fi
-				fi
-			done
-		fi
-	fi
-}
-
 encode ()
 {
-	local ec=$EX_OK pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses nThreads listOfOtherFiles audioFile otherFile otherFileBasename extOtherFile destOtherFile doCopyArtworkFiles
+	local ec=$EX_OK pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses nThreads listOfOtherFiles audioFile otherFile otherFileBasename extOtherFile destOtherFile
 
 	compressionTag=''
 
@@ -3762,14 +3809,16 @@ encode ()
 				;;
 
 			AAC)
-				destExtension='m4a'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.m4a.txt"
-				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				if [ $ec -eq $EX_KO ]; then # try a different encoder
-					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a libfdk_aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				fi
-				if [ $ec -eq $EX_KO ]; then # try a different encoder
-					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a aac_at -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				fi
+				destExtension='m4a'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.m4a.txt" aaclib="" aaclibs="aac libfdk_aac aac_at"
+				for ((l=0; l<${#aaclibs[@]}; l++)); do
+					aaclib="${aaclibs[$l]}"
+					if [ -n "$sourceCoverArtFile" ]; then
+						printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					else
+						printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					fi
+					if [ $ec -eq $EX_OK ]; then break; fi
+				done
 				;;
 
 			Musepack)
@@ -3844,7 +3893,6 @@ encode ()
 					fi
 				fi
 
-				copyArtworkFiles "$outputCodec"
 				copyOrLinkOtherFiles "$outputCodec"
 				if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
 					copyOrLinkOtherFiles "WavPackLossy"
@@ -5325,6 +5373,19 @@ getFileProps ()
 			destExtension='lossy.wav'
 		fi
 		destFilename="${sourceBasename}.${destExtension}"
+
+		coverArtFilename="$( getCodecCoverArtFile "$outputCodec" )"
+		if [ -n "$coverArtFilename" ]; then
+			sourceCoverArtFile="${sourceDirname}/${coverArtFilename}"
+			if [ ! -e "$sourceCoverArtFile" ]; then
+				sourceCoverArtFile=""
+				# printMessage 'warning' 'usage' 'filesystem' "path:${coverArtFilename}" 'no such file.'
+			elif [ ! -r "$sourceCoverArtFile" ]; then
+				sourceCoverArtFile=""
+				# printMessage 'warning' 'usage' 'filesystem' "path:${coverArtFilename}" 'cannot open file for reading (permission denied).'
+			fi
+		fi
+
 		if [ $copyPath = true ]; then
 			destPath="${destDir}/${sourceDirname#/}"
 			destFile="${destPath}/${destFilename}"
@@ -5688,77 +5749,95 @@ getCodecOtherFiles ()
 }
 
 # COPY ARTWORK
-setCodecArtworkFiles ()
+setCodecCoverArtFile ()
 {
-	local outputCodec="$1" copyArtwork=$2
+	local outputCodec="$1" coverArtFile="$2"
 
-	if [ "$outputCodec" = "all" ]; then
-		copyArtworkFiles_WAV=$copyArtwork
-		copyArtworkFiles_AIFF=$copyArtwork
-		copyArtworkFiles_CAF=$copyArtwork
-		copyArtworkFiles_FLAC=$copyArtwork
-		copyArtworkFiles_WavPack=$copyArtwork
-		copyArtworkFiles_WavPackHybrid=$copyArtwork
-		copyArtworkFiles_MonkeysAudio=$copyArtwork
+	if [ "$outputCodec" = "default" ]; then
+		coverArtFile_WAV="$coverArtFile"
+		coverArtFile_AIFF="$coverArtFile"
+		coverArtFile_CAF="$coverArtFile"
+		coverArtFile_FLAC="$coverArtFile"
+		coverArtFile_WavPack="$coverArtFile"
+		coverArtFile_WavPackHybrid="$coverArtFile"
+		coverArtFile_MonkeysAudio="$coverArtFile"
 
-		copyArtworkFiles_WavPackLossy=$copyArtwork
-		copyArtworkFiles_lossyWAV=$copyArtwork
-		copyArtworkFiles_lossyFLAC=$copyArtwork
-		copyArtworkFiles_lossyWV=$copyArtwork
-		copyArtworkFiles_LAME=$copyArtwork
-		copyArtworkFiles_AAC=$copyArtwork
-		copyArtworkFiles_OggVorbis=$copyArtwork
-		copyArtworkFiles_Musepack=$copyArtwork
-		copyArtworkFiles_Opus=$copyArtwork
+		coverArtFile_WavPackLossy="$coverArtFile"
+		coverArtFile_lossyWAV="$coverArtFile"
+		coverArtFile_lossyFLAC="$coverArtFile"
+		coverArtFile_lossyWV="$coverArtFile"
+		coverArtFile_LAME="$coverArtFile"
+		coverArtFile_AAC="$coverArtFile"
+		coverArtFile_OggVorbis="$coverArtFile"
+		coverArtFile_Musepack="$coverArtFile"
+		coverArtFile_Opus="$coverArtFile"
+	elif [ "$outputCodec" = "lossless" ]; then
+		coverArtFile_WAV="$coverArtFile"
+		coverArtFile_AIFF="$coverArtFile"
+		coverArtFile_CAF="$coverArtFile"
+		coverArtFile_FLAC="$coverArtFile"
+		coverArtFile_WavPack="$coverArtFile"
+		coverArtFile_WavPackHybrid="$coverArtFile"
+		coverArtFile_MonkeysAudio="$coverArtFile"
+	elif [ "$outputCodec" = "lossy" ]; then
+		coverArtFile_WavPackLossy="$coverArtFile"
+		coverArtFile_lossyWAV="$coverArtFile"
+		coverArtFile_lossyFLAC="$coverArtFile"
+		coverArtFile_lossyWV="$coverArtFile"
+		coverArtFile_LAME="$coverArtFile"
+		coverArtFile_AAC="$coverArtFile"
+		coverArtFile_OggVorbis="$coverArtFile"
+		coverArtFile_Musepack="$coverArtFile"
+		coverArtFile_Opus="$coverArtFile"
 	else
 		case "$outputCodec" in
-			WAV) copyArtworkFiles_WAV=$copyArtwork ;;
-			AIFF) copyArtworkFiles_AIFF=$copyArtwork ;;
-			CAF) copyArtworkFiles_CAF=$copyArtwork ;;
-			FLAC) copyArtworkFiles_FLAC=$copyArtwork ;;
-			WavPack) copyArtworkFiles_WavPack=$copyArtwork ;;
-			WavPackHybrid) copyArtworkFiles_WavPackHybrid=$copyArtwork ;;
-			MonkeysAudio) copyArtworkFiles_MonkeysAudio=$copyArtwork ;;
+			WAV) coverArtFile_WAV="$coverArtFile" ;;
+			AIFF) coverArtFile_AIFF="$coverArtFile" ;;
+			CAF) coverArtFile_CAF="$coverArtFile" ;;
+			FLAC) coverArtFile_FLAC="$coverArtFile" ;;
+			WavPack) coverArtFile_WavPack="$coverArtFile" ;;
+			WavPackHybrid) coverArtFile_WavPackHybrid="$coverArtFile" ;;
+			MonkeysAudio) coverArtFile_MonkeysAudio="$coverArtFile" ;;
 
-			WavPackLossy) copyArtworkFiles_WavPackLossy=$copyArtwork ;;
-			lossyWAV) copyArtworkFiles_lossyWAV=$copyArtwork ;;
-			lossyFLAC) copyArtworkFiles_lossyFLAC=$copyArtwork ;;
-			lossyWV) copyArtworkFiles_lossyWV=$copyArtwork ;;
-			LAME) copyArtworkFiles_LAME=$copyArtwork ;;
-			AAC) copyArtworkFiles_AAC=$copyArtwork ;;
-			OggVorbis) copyArtworkFiles_OggVorbis=$copyArtwork ;;
-			Musepack) copyArtworkFiles_Musepack=$copyArtwork ;;
-			Opus) copyArtworkFiles_Opus=$copyArtwork ;;
+			WavPackLossy) coverArtFile_WavPackLossy="$coverArtFile" ;;
+			lossyWAV) coverArtFile_lossyWAV="$coverArtFile" ;;
+			lossyFLAC) coverArtFile_lossyFLAC="$coverArtFile" ;;
+			lossyWV) coverArtFile_lossyWV="$coverArtFile" ;;
+			LAME) coverArtFile_LAME="$coverArtFile" ;;
+			AAC) coverArtFile_AAC="$coverArtFile" ;;
+			OggVorbis) coverArtFile_OggVorbis="$coverArtFile" ;;
+			Musepack) coverArtFile_Musepack="$coverArtFile" ;;
+			Opus) coverArtFile_Opus="$coverArtFile" ;;
 		esac
 	fi
 }
 
 # COPY ARTWORK
-getCodecArtworkFiles ()
+getCodecCoverArtFile ()
 {
-	local outputCodec="$1" doCopyArtworkFiles=false
+	local outputCodec="$1" coverArtFile=""
 
 	case "$outputCodec" in
-		WAV) doCopyArtworkFiles=$copyArtworkFiles_WAV ;;
-		AIFF) doCopyArtworkFiles=$copyArtworkFiles_AIFF ;;
-		CAF) doCopyArtworkFiles=$copyArtworkFiles_CAF ;;
-		FLAC) doCopyArtworkFiles=$copyArtworkFiles_FLAC ;;
-		WavPack) doCopyArtworkFiles=$copyArtworkFiles_WavPack ;;
-		WavPackHybrid) doCopyArtworkFiles=$copyArtworkFiles_WavPackHybrid ;;
-		MonkeysAudio) doCopyArtworkFiles=$copyArtworkFiles_MonkeysAudio ;;
+		WAV) coverArtFile="$coverArtFile_WAV" ;;
+		AIFF) coverArtFile="$coverArtFile_AIFF" ;;
+		CAF) coverArtFile="$coverArtFile_CAF" ;;
+		FLAC) coverArtFile="$coverArtFile_FLAC" ;;
+		WavPack) coverArtFile="$coverArtFile_WavPack" ;;
+		WavPackHybrid) coverArtFile="$coverArtFile_WavPackHybrid" ;;
+		MonkeysAudio) coverArtFile="$coverArtFile_MonkeysAudio" ;;
 
-		WavPackLossy) doCopyArtworkFiles=$copyArtworkFiles_WavPackLossy ;;
-		lossyWAV) doCopyArtworkFiles=$copyArtworkFiles_lossyWAV ;;
-		lossyFLAC) doCopyArtworkFiles=$copyArtworkFiles_lossyFLAC ;;
-		lossyWV) doCopyArtworkFiles=$copyArtworkFiles_lossyWV ;;
-		LAME) doCopyArtworkFiles=$copyArtworkFiles_LAME ;;
-		AAC) doCopyArtworkFiles=$copyArtworkFiles_AAC ;;
-		OggVorbis) doCopyArtworkFiles=$copyArtworkFiles_OggVorbis ;;
-		Musepack) doCopyArtworkFiles=$copyArtworkFiles_Musepack ;;
-		Opus) doCopyArtworkFiles=$copyArtworkFiles_Opus ;;
+		WavPackLossy) coverArtFile="$coverArtFile_WavPackLossy" ;;
+		lossyWAV) coverArtFile="$coverArtFile_lossyWAV" ;;
+		lossyFLAC) coverArtFile="$coverArtFile_lossyFLAC" ;;
+		lossyWV) coverArtFile="$coverArtFile_lossyWV" ;;
+		LAME) coverArtFile="$coverArtFile_LAME" ;;
+		AAC) coverArtFile="$coverArtFile_AAC" ;;
+		OggVorbis) coverArtFile="$coverArtFile_OggVorbis" ;;
+		Musepack) coverArtFile="$coverArtFile_Musepack" ;;
+		Opus) coverArtFile="$coverArtFile_Opus" ;;
 	esac
 
-	echo $doCopyArtworkFiles
+	echo "$coverArtFile"
 }
 
 getNumberOfCpuCores ()
@@ -5834,7 +5913,7 @@ bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false
 applyGain=false applyGainType='' computeSoundcheck=false soundcheckMode='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human' deleteSourceFiles=false
 checkFiles=false actionHash=false touchFiles=false peakReference=0
-copyArtworkFiles=false
+setCoverArtworkFile=false
 
 if [ "$calledAs" = 'decaude' ]; then
 	lastCodec='WAV'
@@ -5877,12 +5956,19 @@ if which 'mac' >/dev/null 2>&1; then
 	fi
 fi
 
-if [ $copyArtworkFilesByDefault = true ]; then
-	setCodecArtworkFiles "all" true
-	copyArtworkFiles=true
-else
-	setCodecArtworkFiles "all" false
-	copyArtworkFiles=false
+# COPY ARTWORK
+setDefaultCoverArtwork=false
+if [ -n "$setCoverArtworkFileByDefault" ]; then
+	setCodecCoverArtFile "default" "$setCoverArtworkFileByDefault"
+	setDefaultCoverArtwork=true
+fi
+if [ -n "$setCoverArtworkFileForLosslessByDefault" ]; then
+	setCodecCoverArtFile "lossless" "$setCoverArtworkFileForLosslessByDefault"
+	setDefaultCoverArtwork=true
+fi
+if [ -n "$setCoverArtworkFileForLossyByDefault" ]; then
+	setCodecCoverArtFile "lossy" "$setCoverArtworkFileForLossyByDefault"
+	setDefaultCoverArtwork=true
 fi
 
 if [ -n "$copyOtherFilesByDefault" ]; then
@@ -5901,7 +5987,7 @@ else
 	copyOtherFiles=false
 fi
 
-while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
+while getopts 'zsn:o:O:P:l:L:a:f:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 	case $o in
 		s) verbose=false ;;
 
@@ -5922,15 +6008,19 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 
 		a)
 			# COPY ARTWORK
-			copyArtworkFiles=true
-			if [ -z "$lastCodec" ]; then
-				setCodecArtworkFiles "all" true
-			elif [ -n "$lastCodec" ]; then
-				setCodecArtworkFiles "$lastCodec" true
-			fi
-			if [ $gotLinkedDir = true ]; then
-				setCodecArtworkFiles "WavPackLossy" true
-			fi
+			setArtworkFilename="$OPTARG"
+			case "$OPTARG" in
+				*.jpg|*.JPG|*.png|*.PNG)
+					if [ -z "$lastCodec" ]; then
+					 	setDefaultCoverArtwork=false
+						setCodecCoverArtFile "default" "$OPTARG"
+					elif [ -n "$lastCodec" ]; then
+						setCodecCoverArtFile "$lastCodec" "$OPTARG"
+					fi
+				;;
+
+				*) printMessage 'error' 'usage' 'bad_value' "$me -a: the argument must be a JPEG or PNG file" ; exit $EX_USAGE ;;
+			esac
 			;;
 
 		f)
@@ -6296,7 +6386,7 @@ elif [ -n "$outputCodecs" -a $checkFiles = true ]; then
 elif [ -n "$outputCodecs" -a $touchFiles = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -T are mutually exclusive. Try again with either one alone."
 	exit $EX_USAGE
-elif [ -z "$outputCodecs" -a $copyArtworkFiles = true ]; then
+elif [ -z "$outputCodecs" -a $setCoverArtworkFile = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -a is only available when transcoding (-c)."
 	exit $EX_USAGE
 elif [ -z "$outputCodecs" -a $copyOtherFiles = true ]; then
