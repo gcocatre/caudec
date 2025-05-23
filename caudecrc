@@ -10,7 +10,6 @@ compression_WavPack=g # [f|g|h|hh][x[1-6]]
 bitrate_WavPackLossy=320 # 2.9-23.9 or 24-9600
 compression_MonkeysAudio=2 # 1-5
 compression_lossyWAV=S # X, P, C, S, H, E, I
-compression_Musepack=5 # 0-10
 
 compression_MP3=2 # 0-9, used with MP3_MODE='VBR'
 bitrate_MP3=320 # 16-320, used with MP3_MODE='CBR'
