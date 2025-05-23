@@ -3687,7 +3687,7 @@ encode ()
 						printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S -b $bitrate_MP3 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					fi
 				fi
-				if [ $ec -eq $EX_OK ]; then
+				if [ $ec -eq $EX_OK ]; then # FIXME ARTWORK
 					importArtworkIntoMP3 || ec=$EX_KO
 				fi
 				;;
@@ -5419,11 +5419,10 @@ printHumanStats ()
 				if [ -e "$sourceCoverArtFile" ]; then
 					if [ "$OS" = 'Linux' ]; then
 						sourceCoverArtBytes="$( stat -L --printf '%s' "$sourceCoverArtFile" 2>/dev/null )"
-						embeddedArtworkSize=$(( embeddedArtworkSize + sourceCoverArtBytes ))
 					else
 						sourceCoverArtBytes="$( stat -L -n -f '%z' "$sourceCoverArtFile" 2>/dev/null )"
-						embeddedArtworkSize=$(( embeddedArtworkSize + sourceCoverArtBytes ))
 					fi
+					embeddedArtworkSize=$(( embeddedArtworkSize + sourceCoverArtBytes ))
 				fi
 			fi
 		done
@@ -5433,10 +5432,9 @@ printHumanStats ()
 		else
 			bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 stat -L -n -f; echo; } | bc )"
 		fi
-		audio_bytes_compressed=$(( audio_bytes_compressed + embeddedArtworkSize ))
 
 		if [ $duration -gt 0 ]; then
-			bitrate_compressed="$( echo "scale=0; ((${bytes_compressed} - ${audio_bytes_compressed}) * 8) / ${duration} / 1000" | bc )"
+			bitrate_compressed="$( echo "scale=0; ((${bytes_compressed} - ${embeddedArtworkSize}) * 8) / ${duration} / 1000" | bc )"
 		else
 			bitrate_compressed='?'
 		fi
@@ -5598,39 +5596,39 @@ setCodecCoverArtFile ()
 	local outputCodec="$1" coverArtFile="$2"
 
 	if [ "$outputCodec" = "default" ]; then
-		coverArtFile_WAV="$coverArtFile"
-		coverArtFile_AIFF="$coverArtFile"
-		coverArtFile_CAF="$coverArtFile"
-		coverArtFile_FLAC="$coverArtFile"
-		coverArtFile_WavPack="$coverArtFile"
-		coverArtFile_WavPackHybrid="$coverArtFile"
-		coverArtFile_MonkeysAudio="$coverArtFile"
+		coverArtFile_WAV=""
+		coverArtFile_AIFF=""
+		coverArtFile_CAF=""
+		coverArtFile_FLAC="" # FIXME ARTWORK
+		coverArtFile_WavPack="" # FIXME ARTWORK
+		coverArtFile_WavPackHybrid="" # FIXME ARTWORK
+		coverArtFile_MonkeysAudio="" # FIXME ARTWORK
 
-		coverArtFile_WavPackLossy="$coverArtFile"
-		coverArtFile_lossyWAV="$coverArtFile"
-		coverArtFile_lossyFLAC="$coverArtFile"
-		coverArtFile_lossyWV="$coverArtFile"
-		coverArtFile_MP3="$coverArtFile"
+		coverArtFile_WavPackLossy="" # FIXME ARTWORK
+		coverArtFile_lossyWAV="" # FIXME ARTWORK
+		coverArtFile_lossyFLAC="" # FIXME ARTWORK
+		coverArtFile_lossyWV="" # FIXME ARTWORK
+		coverArtFile_MP3="" # FIXME ARTWORK
 		coverArtFile_AAC="$coverArtFile"
-		coverArtFile_OggVorbis="$coverArtFile"
-		coverArtFile_Opus="$coverArtFile"
+		coverArtFile_OggVorbis="" # FIXME ARTWORK
+		coverArtFile_Opus="" # FIXME ARTWORK
 	elif [ "$outputCodec" = "lossless" ]; then
-		coverArtFile_WAV="$coverArtFile"
-		coverArtFile_AIFF="$coverArtFile"
-		coverArtFile_CAF="$coverArtFile"
-		coverArtFile_FLAC="$coverArtFile"
-		coverArtFile_WavPack="$coverArtFile"
-		coverArtFile_WavPackHybrid="$coverArtFile"
-		coverArtFile_MonkeysAudio="$coverArtFile"
+		coverArtFile_WAV=""
+		coverArtFile_AIFF=""
+		coverArtFile_CAF=""
+		coverArtFile_FLAC="" # FIXME ARTWORK
+		coverArtFile_WavPack="" # FIXME ARTWORK
+		coverArtFile_WavPackHybrid="" # FIXME ARTWORK
+		coverArtFile_MonkeysAudio="" # FIXME ARTWORK
 	elif [ "$outputCodec" = "lossy" ]; then
-		coverArtFile_WavPackLossy="$coverArtFile"
-		coverArtFile_lossyWAV="$coverArtFile"
-		coverArtFile_lossyFLAC="$coverArtFile"
-		coverArtFile_lossyWV="$coverArtFile"
-		coverArtFile_MP3="$coverArtFile"
+		coverArtFile_WavPackLossy="" # FIXME ARTWORK
+		coverArtFile_lossyWAV="" # FIXME ARTWORK
+		coverArtFile_lossyFLAC="" # FIXME ARTWORK
+		coverArtFile_lossyWV="" # FIXME ARTWORK
+		coverArtFile_MP3="" # FIXME ARTWORK
 		coverArtFile_AAC="$coverArtFile"
-		coverArtFile_OggVorbis="$coverArtFile"
-		coverArtFile_Opus="$coverArtFile"
+		coverArtFile_OggVorbis="" # FIXME ARTWORK
+		coverArtFile_Opus="" # FIXME ARTWORK
 	else
 		case "$outputCodec" in
 			WAV) coverArtFile_WAV="$coverArtFile" ;;
