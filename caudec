@@ -3932,12 +3932,12 @@ prepareSource ()
 			sourcePath="${PWD}/${sourceFile}"
 		fi
 		if [ -n "$copyFile" ]; then
-			if [ ! -h "$copyFile" ]; then # FIXME
+			if [ ! -h "$copyFile" ]; then
 				ln -s "$sourcePath" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			fi
 
 			if [ -e "${sourcePath}c" ]; then # WavPack correction file
-				if [ ! -h "${copyFile}c" ]; then # FIXME
+				if [ ! -h "${copyFile}c" ]; then
 					ln -s "${sourcePath}c" "${copyFile}c" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 			fi
@@ -5983,7 +5983,7 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
 			fi
 			gotLinkedDir=true
-			copyPath=true # FIXME: can't remember what this does
+			copyPath=true # for obtaining the same behavior as -P
 			;;
 
 		# from an original idea by Porcus on https://hydrogenaudio.org/index.php/topic,127856.msg1062957.html#msg1062957
@@ -6006,7 +6006,7 @@ while getopts 'zsn:o:O:P:l:L:af:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -L: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
 			fi
 			gotLinkedDir=true
-			copyPath=true # FIXME: can't remember what this does
+			copyPath=true # for the same behavior as -P
 			;;
 
 		O|P)
