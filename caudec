@@ -1124,12 +1124,6 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 		fi
 	done
 
-	# FIXME
-	# DELETE
-	# if [ -n "$outputCodecs" -a $setDefaultCoverArtwork = true ]; then # transcode and copy cover art
-	# 	checkDefaultCoverArtwork
-	# fi
-
 	if [ $touchFiles = true -a $gotAudioFile = false ]; then
 		printMessage 'warning' 'processing' 'unsupported' 'at least one supported audio file is required.'; ec=$EX_DATAERR
 		printMessage 'abort' 'verbose'
@@ -2991,7 +2985,6 @@ decode ()
 			*) ec=$EX_KO ;;
 		esac
 
-		# FIXME: can't remember why this is needed
 		if [ $sourceIsLossyWAV = true ]; then
 			if [ ! -h "$lossywavFile" ]; then
 				ln -s "${i}.wav" "$lossywavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
@@ -3509,19 +3502,16 @@ copyOrLinkAllFiles ()
 		if [ -f "$f" ]; then
 			otherFileBasename="${f##*/}"
 			destOtherFile="${destPath}/${otherFileBasename}"
-			if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then # FIXME linkDir
+			if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 				destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
-				if [ ! -e "$destOtherLinkedFile" ]; then # FIXME linkdir
-					ln "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
-				fi
+				ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 			else
 				if [ ! -e "$destOtherFile" ]; then
+					if [ -d "$destLinkPath" ]; then
+						destLinkOtherFile="${destLinkPath}/${otherFileBasename}"
+						rm -f "$destLinkOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
+					fi
 					cp "$f" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
-					# FIXME
-					# if [ -d "$destLinkPath" ]; then
-					# 	destLinkOtherFile="${destLinkPath}/${otherFileBasename}"
-					# 	rm -f "$destLinkOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
-					# fi
 				fi
 			fi
 		fi
@@ -3541,20 +3531,19 @@ copyOrLinkCommaSeparatedFiles ()
 					if [ -f "$extOtherFile" ]; then
 						otherFileBasename="${extOtherFile##*/}"
 						destOtherFile="${destPath}/${otherFileBasename}"
-						if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then # FIXME linkDir
+						if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 							destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
 							if [ ! -e "$destOtherLinkedFile" ]; then
-								ln "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
+								ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 							fi
 						else
+							if [ -d "$destLinkPath" ]; then
+								destLinkOtherFile="${destLinkPath}/${otherFileBasename}"
+								rm -f "$destLinkOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
+							fi
 							if [ ! -e "${destOtherFile}" ]; then
 								cp "$extOtherFile" "${destOtherFile}" >/dev/null 2>> "$errorLogFile"
 							fi
-							# FIXME
-							# if [ -d "$destLinkPath" ]; then
-							# 	destLinkOtherFile="${destLinkPath}/${otherFileBasename}"
-							# 	rm -f "$destLinkOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
-							# fi
 						fi
 					fi
 				done
@@ -3563,11 +3552,9 @@ copyOrLinkCommaSeparatedFiles ()
 			*)
 				if [ -f "${sourceDirname}/${otherFile}" ]; then
 					destOtherFile="${destPath}/${otherFile}"
-					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then # FIXME linkDir
+					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 						destOtherLinkedFile="${destLinkPath}/${destOtherFile}"
-						if [ ! -e "$destOtherLinkedFile" ]; then
-							ln "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
-						fi
+						ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 					else
 						if [ ! -e "$destOtherFile" ]; then
 							cp "${sourceDirname}/${otherFile}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
@@ -3590,25 +3577,15 @@ copyOrLinkFile ()
 				if [ -f "$extOtherFile" ]; then
 					otherFileBasename="${extOtherFile##*/}"
 					destOtherFile="${destPath}/${otherFileBasename}"
-					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then # FIXME linkDir
+					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 						destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
-						if [ ! -e "$destOtherLinkedFile" ]; then
-							ln "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
+						ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
+					elif [ ! -e "${destOtherFile}" ]; then
+						if [ -d "$destLinkPath" ]; then
+							destLinkOtherFile="${destLinkPath}/${otherFileBasename}"
+							rm -f "$destLinkOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
 						fi
-					else
-						if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then # FIXME linkDir
-							destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
-							if [ ! -e "$destOtherLinkedFile" ]; then
-								ln "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
-							fi
-						elif [ ! -e "${destOtherFile}" ]; then
-							cp "$extOtherFile" "${destOtherFile}" >/dev/null 2>> "$errorLogFile"
-						fi
-						# FIXME
-						# if [ -d "$destLinkPath" ]; then
-						# 	destLinkOtherFile="${destLinkPath}/${otherFileBasename}"
-						# 	rm -f "$destLinkOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
-						# fi
+						cp "$extOtherFile" "${destOtherFile}" >/dev/null 2>> "$errorLogFile"
 					fi
 				fi
 			done
@@ -3617,11 +3594,9 @@ copyOrLinkFile ()
 		*)
 			if [ -f "${sourceDirname}/${otherFile}" ]; then
 				destOtherFile="${destPath}/${otherFile}"
-				if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then # FIXME linkDir
+				if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 					destOtherLinkedFile="${destLinkPath}/${otherFile}"
-					if [ ! -e "$destOtherLinkedFile" ]; then
-						ln "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
-					fi
+					ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 				else
 					if [ ! -e "$destOtherFile" ]; then
 						cp "${sourceDirname}/${otherFile}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
@@ -3889,7 +3864,7 @@ encode ()
 						rm -f "$destLinkFile" >/dev/null 2>> "$errorLogFile"
 					fi
 					if [ -f "$destFile" ]; then
-						ln "$destFile" "$destLinkPath" >/dev/null 2>> "$errorLogFile"
+						ln -f "$destFile" "$destLinkPath" >/dev/null 2>> "$errorLogFile"
 					fi
 				fi
 
