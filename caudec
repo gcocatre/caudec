@@ -253,7 +253,7 @@ Processing / resampling options:
 Encoding options:
   -c CODEC  use specified CODEC: wav, aiff, caf,
             flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
-            lossyWAV, lossyFLAC, lossyWV, ape (Monkey's Audio), mp3 / lame,
+            lossyWAV, lossyFLAC, lossyWV, ape (Monkey's Audio), mp3,
             aac (m4a), ogg / vorbis, opus, mpc / musepack.
             Note that artwork preservation in MP3s requires eyeD3.
 
@@ -263,11 +263,10 @@ Encoding options:
             a list of valid values)
 
   -b ARG    constant or target bitrate in bits per sample (for -c wvh/wvl)
-            or in kilobits per second (for -c wvh/wvl, opus, mp3/lame,
-            ogg/vorbis)
+            or in kilobits per second (for -c wvh/wvl, opus, mp3, ogg/vorbis)
 
-  -B ARG    average bitrate in kilobits per second (for -c mp3/lame,
-            aac (m4a), ogg/vorbis, opus)
+  -B ARG    average bitrate in kilobits per second (for -c mp3, aac (m4a),
+            ogg/vorbis, opus)
 
   -G ARG    MP3: apply Replaygain (album or track) if found in source file
             metadata, after decoding and BEFORE encoding (irreversible).
@@ -646,14 +645,14 @@ getCompressionSetting ()
 			esac
 			;;
 
-		LAME)
+		MP3)
 			case "$v" in
-				[0-9]) compression_LAME="$v" ;;
-				medium) compression_LAME=4 ;;
-				standard) compression_LAME=2 ;;
-				extreme) compression_LAME=0 ;;
-				insane|320) compression_LAME=320 ;;
-				'') compression_LAME=2 ;;
+				[0-9]) compression_MP3="$v" ;;
+				medium) compression_MP3=4 ;;
+				standard) compression_MP3=2 ;;
+				extreme) compression_MP3=0 ;;
+				insane|320) compression_MP3=320 ;;
+				'') compression_MP3=2 ;;
 				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be an integer between 0 and 9 or one of medium, standard, extreme, insane or 320" ; exit $EX_USAGE ;;
 			esac
 			;;
@@ -723,12 +722,12 @@ getConstantBitrate ()
 			fi
 			;;
 
-		LAME)
+		MP3)
 			if [ -z "$v" ]; then
-				bitrate_LAME=320
+				bitrate_MP3=320
 			else
 				case "$v" in
-					1[6-9]|[2-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) bitrate_LAME="$v" ;;
+					1[6-9]|[2-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) bitrate_MP3="$v" ;;
 					*) printMessage 'error' 'usage' 'bad_value' "$errormsg constant bitrate for $c must be an integer between 16 and 320 in kilobits per second" ; exit $EX_USAGE ;;
 				esac
 			fi
@@ -771,12 +770,12 @@ getAverageBitrate ()
 	fi
 
 	case "$c" in
-		LAME)
+		MP3)
 			if [ -z "$v" ]; then
-				average_bitrate_LAME=256
+				average_bitrate_MP3=256
 			else
 				case "$v" in
-					[8-9]|[1-9][0-9]|[1-2][0-9][0-9]|30[0-9]|310) average_bitrate_LAME="$v" ;;
+					[8-9]|[1-9][0-9]|[1-2][0-9][0-9]|30[0-9]|310) average_bitrate_MP3="$v" ;;
 					*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $c must be an integer between 8 and 310 in kilobits per second" ; exit $EX_USAGE ;;
 				esac
 			fi
@@ -833,7 +832,7 @@ getBitrateMode ()
 	esac
 
 	case "$c" in
-		LAME) LAME_MODE="$mode" ;;
+		MP3) MP3_MODE="$mode" ;;
 		AAC) AAC_MODE="ABR" ;;
 		OggVorbis) OggVorbis_MODE="$mode" ;;
 		Opus) Opus_MODE="$mode" ;;
@@ -1333,7 +1332,7 @@ checkBinaries ()
 				lossyFLAC) checkBinary 'lossywav' 'flac' ;;
 				lossyWV) checkBinary 'lossywav' 'wavpack' 'APEv2' ;;
 				OggVorbis) checkBinary 'oggenc' ;;
-				LAME) checkBinary 'lame' ;;
+				MP3) checkBinary 'lame' ;;
 				AAC) checkBinary 'ffmpeg' ;;
 				Musepack) checkBinary 'mpcenc' 'APEv2' ;;
 				Opus) checkBinary 'opusenc' ;;
@@ -1673,7 +1672,7 @@ tagline ()
 		fi
 
 		case "$outputCodec" in
-			WavPackLossy|LAME|AAC|OggVorbis|Musepack|Opus)
+			WavPackLossy|MP3|AAC|OggVorbis|Musepack|Opus)
 				if [ "$outputCodec" = 'WavPackLossy' ]; then
 					grep -viE "MD5=|CRC32=|SHA1=|SHA256=|SHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 				else
@@ -3032,7 +3031,7 @@ decode ()
 		fi
 		for outputCodec in $outputCodecs; do
 			case "$outputCodec" in
-				lossy*|*Vorbis|Opus|WavPackLossy|Musepack|LAME|AAC) hasLossy=true ;;
+				lossy*|*Vorbis|Opus|WavPackLossy|Musepack|MP3|AAC) hasLossy=true ;;
 				FLAC|WavPack|WavPackHybrid|MonkeysAudio) hasLossless=true ;;
 			esac
 		done
@@ -3240,7 +3239,7 @@ decode ()
 		case "$outputCodec" in
 			FLAC|lossyFLAC|OggVorbis|Opus) convertTags $sourceTagFormat 'vc' ;;
 			WavPack*|MonkeysAudio|lossyWV|Musepack) convertTags $sourceTagFormat 'ape' ;;
-			LAME) convertTags $sourceTagFormat 'lame' ;;
+			MP3) convertTags $sourceTagFormat 'lame' ;;
 			AAC) convertTags $sourceTagFormat 'm4a' ;;
 		esac
 	done
@@ -3344,7 +3343,7 @@ getEncoderVersions ()
 		case "$outputCodec" in
 			FLAC) flacVersion="$( flac --version | head -n 1 )"; flacVersion="${flacVersion##* }" ;;
 			MonkeysAudio) apeVersion="$( mac 2>&1 | grep -F '(c)' | tr -d ' ' | cut -d '(' -f 2 | cut -d ')' -f 1 )"; apeVersion="${apeVersion#v}" ;;
-			LAME) lameVersion="$( lame --version 2>/dev/null | grep -E 'LAME.*version' | cut -d 'v' -f 2 | cut -d '(' -f 1 | cut -d ' ' -f 2- )" ; lameVersion="${lameVersion% *}" ;;
+			MP3) lameVersion="$( lame --version 2>/dev/null | grep -E 'LAME.*version' | cut -d 'v' -f 2 | cut -d '(' -f 1 | cut -d ' ' -f 2- )" ; lameVersion="${lameVersion% *}" ;;
 			AAC) aacVersion="$( ffmpeg -version 2>/dev/null | grep -E '^ffmpeg version' | cut -d ' ' -f 3 )" ;;
 			Musepack) mpcVersion="$( mpcenc 2>&1 | grep -F 'MPC Encoder' | cut -d ' ' -f 3 )" ;;
 			Opus) opusVersion="$( opusenc --version 2>/dev/null | grep -F 'opusenc' )" ;;
@@ -3687,23 +3686,23 @@ encode ()
 				fi
 				;;
 
-			LAME)
+			MP3)
 				destExtension='mp3'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.lame.txt"
-				if [ "$compression_LAME" = 'insane' -o "$compression_LAME" = '320' ]; then
-					LAME_MODE='CBR' bitrate_LAME=320
+				if [ "$compression_MP3" = 'insane' -o "$compression_MP3" = '320' ]; then
+					MP3_MODE='CBR' bitrate_MP3=320
 				fi
-				if [ "$LAME_MODE" = 'VBR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $lameVersion / -V $compression_LAME"; fi
-					printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S -V $compression_LAME --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				elif [ "$LAME_MODE" = 'ABR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $lameVersion / $average_bitrate_LAME kbps (ABR)"; fi
-					printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S --abr $average_bitrate_LAME --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				if [ "$MP3_MODE" = 'VBR' ]; then
+					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $lameVersion / -V $compression_MP3"; fi
+					printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S -V $compression_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				elif [ "$MP3_MODE" = 'ABR' ]; then
+					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $lameVersion / $average_bitrate_MP3 kbps (ABR)"; fi
+					printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S --abr $average_bitrate_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $lameVersion / $bitrate_LAME kbps (CBR)"; fi
-					if [ $bitrate_LAME -eq 320 ]; then
+					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $lameVersion / $bitrate_MP3 kbps (CBR)"; fi
+					if [ $bitrate_MP3 -eq 320 ]; then
 						printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					else
-						printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S -b $bitrate_LAME --cbr --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+						printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S -b $bitrate_MP3 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					fi
 				fi
 				if [ $ec -eq $EX_OK ]; then
@@ -5175,7 +5174,7 @@ getCodecExtension ()
 		lossyFLAC)     ext='lossy.flac' ;;
 		lossyWV)       ext='lossy.wv' ;;
 		OggVorbis)     ext='ogg' ;;
-		LAME)          ext='mp3' ;;
+		MP3)           ext='mp3' ;;
 		AAC)           ext='m4a' ;;
 		Musepack)      ext='mpc' ;;
 		Opus)          ext='opus' ;;
@@ -5201,7 +5200,7 @@ getCodecFullName ()
 		lossyFLAC)     codecFullName='lossyFLAC' ;;
 		lossyWV)       codecFullName='lossyWV' ;;
 		OggVorbis)     codecFullName='Ogg Vorbis' ;;
-		LAME)          codecFullName='LAME' ;;
+		MP3)           codecFullName='MP3' ;;
 		AAC)           codecFullName='AAC' ;;
 		Musepack)      codecFullName='Musepack' ;;
 		Opus)          codecFullName='Opus' ;;
@@ -5478,7 +5477,7 @@ setDestDir ()
 		lossyWAV) dir_lossyWAV="$codecDestDir" ;;
 		lossyFLAC) dir_lossyFLAC="$codecDestDir" ;;
 		lossyWV) dir_lossyWV="$codecDestDir" ;;
-		LAME) dir_LAME="$codecDestDir" ;;
+		MP3) dir_MP3="$codecDestDir" ;;
 		AAC) dir_AAC="$codecDestDir" ;;
 		OggVorbis) dir_OggVorbis="$codecDestDir" ;;
 		Musepack) dir_Musepack="$codecDestDir" ;;
@@ -5503,7 +5502,7 @@ getDestDir ()
 		lossyWAV) codecDestDir="$dir_lossyWAV" ;;
 		lossyFLAC) codecDestDir="$dir_lossyFLAC" ;;
 		lossyWV) codecDestDir="$dir_lossyWV" ;;
-		LAME) codecDestDir="$dir_LAME" ;;
+		MP3) codecDestDir="$dir_MP3" ;;
 		AAC) codecDestDir="$dir_AAC" ;;
 		OggVorbis) codecDestDir="$dir_OggVorbis" ;;
 		Musepack) codecDestDir="$dir_Musepack" ;;
@@ -5536,7 +5535,7 @@ setCodecOtherFiles ()
 		copyOtherFiles_lossyWAV="$pattern"
 		copyOtherFiles_lossyFLAC="$pattern"
 		copyOtherFiles_lossyWV="$pattern"
-		copyOtherFiles_LAME="$pattern"
+		copyOtherFiles_MP3="$pattern"
 		copyOtherFiles_AAC="$pattern"
 		copyOtherFiles_OggVorbis="$pattern"
 		copyOtherFiles_Musepack="$pattern"
@@ -5554,7 +5553,7 @@ setCodecOtherFiles ()
 		copyOtherFiles_lossyWAV="$pattern"
 		copyOtherFiles_lossyFLAC="$pattern"
 		copyOtherFiles_lossyWV="$pattern"
-		copyOtherFiles_LAME="$pattern"
+		copyOtherFiles_MP3="$pattern"
 		copyOtherFiles_AAC="$pattern"
 		copyOtherFiles_OggVorbis="$pattern"
 		copyOtherFiles_Musepack="$pattern"
@@ -5573,7 +5572,7 @@ setCodecOtherFiles ()
 			lossyWAV) copyOtherFiles_lossyWAV="$pattern" ;;
 			lossyFLAC) copyOtherFiles_lossyFLAC="$pattern" ;;
 			lossyWV) copyOtherFiles_lossyWV="$pattern" ;;
-			LAME) copyOtherFiles_LAME="$pattern" ;;
+			MP3) copyOtherFiles_MP3="$pattern" ;;
 			AAC) copyOtherFiles_AAC="$pattern" ;;
 			OggVorbis) copyOtherFiles_OggVorbis="$pattern" ;;
 			Musepack) copyOtherFiles_Musepack="$pattern" ;;
@@ -5599,7 +5598,7 @@ getCodecOtherFiles ()
 		lossyWAV) otherFilesPattern="$copyOtherFiles_lossyWAV" ;;
 		lossyFLAC) otherFilesPattern="$copyOtherFiles_lossyFLAC" ;;
 		lossyWV) otherFilesPattern="$copyOtherFiles_lossyWV" ;;
-		LAME) otherFilesPattern="$copyOtherFiles_LAME" ;;
+		MP3) otherFilesPattern="$copyOtherFiles_MP3" ;;
 		AAC) otherFilesPattern="$copyOtherFiles_AAC" ;;
 		OggVorbis) otherFilesPattern="$copyOtherFiles_OggVorbis" ;;
 		Musepack) otherFilesPattern="$copyOtherFiles_Musepack" ;;
@@ -5627,7 +5626,7 @@ setCodecCoverArtFile ()
 		coverArtFile_lossyWAV="$coverArtFile"
 		coverArtFile_lossyFLAC="$coverArtFile"
 		coverArtFile_lossyWV="$coverArtFile"
-		coverArtFile_LAME="$coverArtFile"
+		coverArtFile_MP3="$coverArtFile"
 		coverArtFile_AAC="$coverArtFile"
 		coverArtFile_OggVorbis="$coverArtFile"
 		coverArtFile_Musepack="$coverArtFile"
@@ -5645,7 +5644,7 @@ setCodecCoverArtFile ()
 		coverArtFile_lossyWAV="$coverArtFile"
 		coverArtFile_lossyFLAC="$coverArtFile"
 		coverArtFile_lossyWV="$coverArtFile"
-		coverArtFile_LAME="$coverArtFile"
+		coverArtFile_MP3="$coverArtFile"
 		coverArtFile_AAC="$coverArtFile"
 		coverArtFile_OggVorbis="$coverArtFile"
 		coverArtFile_Musepack="$coverArtFile"
@@ -5664,7 +5663,7 @@ setCodecCoverArtFile ()
 			lossyWAV) coverArtFile_lossyWAV="$coverArtFile" ;;
 			lossyFLAC) coverArtFile_lossyFLAC="$coverArtFile" ;;
 			lossyWV) coverArtFile_lossyWV="$coverArtFile" ;;
-			LAME) coverArtFile_LAME="$coverArtFile" ;;
+			MP3) coverArtFile_MP3="$coverArtFile" ;;
 			AAC) coverArtFile_AAC="$coverArtFile" ;;
 			OggVorbis) coverArtFile_OggVorbis="$coverArtFile" ;;
 			Musepack) coverArtFile_Musepack="$coverArtFile" ;;
@@ -5691,7 +5690,7 @@ getCodecCoverArtFile ()
 		lossyWAV) coverArtFile="$coverArtFile_lossyWAV" ;;
 		lossyFLAC) coverArtFile="$coverArtFile_lossyFLAC" ;;
 		lossyWV) coverArtFile="$coverArtFile_lossyWV" ;;
-		LAME) coverArtFile="$coverArtFile_LAME" ;;
+		MP3) coverArtFile="$coverArtFile_MP3" ;;
 		AAC) coverArtFile="$coverArtFile_AAC" ;;
 		OggVorbis) coverArtFile="$coverArtFile_OggVorbis" ;;
 		Musepack) coverArtFile="$coverArtFile_Musepack" ;;
@@ -5791,22 +5790,22 @@ getCompressionSetting 'FLAC' "$compression_FLAC" 'caudecrc'
 getCompressionSetting 'WavPack' "$compression_WavPack" 'caudecrc'
 getCompressionSetting 'MonkeysAudio' "$compression_MonkeysAudio" 'caudecrc'
 getCompressionSetting 'lossyWAV' "$compression_lossyWAV" 'caudecrc'
-getCompressionSetting 'LAME' "$compression_LAME" 'caudecrc'
+getCompressionSetting 'MP3' "$compression_MP3" 'caudecrc'
 getCompressionSetting 'OggVorbis' "$compression_OggVorbis" 'caudecrc'
 getCompressionSetting 'Musepack' "$compression_Musepack" 'caudecrc'
 getCompressionSetting 'Opus' "$compression_Opus" 'caudecrc'
 
 getConstantBitrate 'WavPackLossy' "$bitrate_WavPackLossy" 'caudecrc'
-getConstantBitrate 'LAME' "$bitrate_LAME" 'caudecrc'
+getConstantBitrate 'MP3' "$bitrate_MP3" 'caudecrc'
 getConstantBitrate 'OggVorbis' "$bitrate_OggVorbis" 'caudecrc'
 getConstantBitrate 'Opus' "$bitrate_Opus" 'caudecrc'
 
-getAverageBitrate 'LAME' "$average_bitrate_LAME" 'caudecrc'
+getAverageBitrate 'MP3' "$average_bitrate_MP3" 'caudecrc'
 getAverageBitrate 'AAC' "$average_bitrate_AAC" 'caudecrc'
 getAverageBitrate 'OggVorbis' "$average_bitrate_OggVorbis" 'caudecrc'
 getAverageBitrate 'Opus' "$average_bitrate_Opus" 'caudecrc'
 
-getBitrateMode 'LAME' "$LAME_MODE" 'caudecrc'
+getBitrateMode 'MP3' "$MP3_MODE" 'caudecrc'
 getBitrateMode 'AAC' "$AAC_MODE" 'caudecrc'
 getBitrateMode 'OggVorbis' "$OggVorbis_MODE" 'caudecrc'
 getBitrateMode 'Opus' "$Opus_MODE" 'caudecrc'
@@ -6018,7 +6017,7 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				lossyWAV|lossywav)   lastCodec='lossyWAV'; ((nLossyWAV++)) ; copyLossyWAV=true ;;
 				lossyFLAC|lossyflac) lastCodec='lossyFLAC'; ((nLossyWAV++)) ;;
 				lossyWV|lossywv)     lastCodec='lossyWV'; ((nLossyWAV++)) ;;
-				mp3|lame)            lastCodec='LAME' ;;
+				mp3)                 lastCodec='MP3' ;;
 				aac)                 lastCodec='AAC' ;;
 				ogg|vorbis)          lastCodec='OggVorbis' ;;
 				mpc|musepack)        lastCodec='Musepack' ;;
@@ -6062,7 +6061,7 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				WavPackLossy) getCompressionSetting 'WavPackLossy' "$OPTARG" ;;
 				MonkeysAudio) getCompressionSetting 'MonkeysAudio' "$OPTARG" ;;
 				lossyWAV|lossyFLAC|lossyWV) getCompressionSetting 'lossyWAV' "$OPTARG" ;;
-				LAME) getCompressionSetting 'LAME' "$OPTARG" ; LAME_MODE='VBR' ;;
+				MP3) getCompressionSetting 'MP3' "$OPTARG" ; MP3_MODE='VBR' ;;
 				OggVorbis) getCompressionSetting 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='VBR' ;;
 				Musepack) getCompressionSetting 'Musepack' "$OPTARG" ;;
 				Opus) getCompressionSetting 'Opus' "$OPTARG" ; Opus_MODE='VBR' ;;
@@ -6079,7 +6078,7 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				case "$lastCodec" in
 					WavPackHybrid|WavPackLossy) getConstantBitrate 'WavPackLossy' "$OPTARG" ;;
 					Opus) getConstantBitrate 'Opus' "$OPTARG" ; Opus_MODE='CBR' ;;
-					LAME) getConstantBitrate 'LAME' "$OPTARG" ; LAME_MODE='CBR' ;;
+					MP3) getConstantBitrate 'MP3' "$OPTARG" ; MP3_MODE='CBR' ;;
 					OggVorbis) getConstantBitrate 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='CBR' ;;
 					*) printMessage 'error' 'usage' 'command_line' "$me -b: parameter not available with the selected codec" ; exit $EX_USAGE ;;
 				esac
@@ -6091,7 +6090,7 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				printMessage 'error' 'usage' 'command_line' "$me -B: you must select a codec first (-c)" ; exit $EX_USAGE
 			fi
 			case "$lastCodec" in
-				LAME) getAverageBitrate 'LAME' "$OPTARG" ; LAME_MODE='ABR' ;;
+				MP3) getAverageBitrate 'MP3' "$OPTARG" ; MP3_MODE='ABR' ;;
 				AAC) getAverageBitrate 'AAC' "$OPTARG" ; AAC_MODE='ABR' ;;
 				OggVorbis) getAverageBitrate 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='ABR' ;;
 				Opus) getAverageBitrate 'Opus' "$OPTARG" ; Opus_MODE='ABR' ;;

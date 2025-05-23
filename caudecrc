@@ -12,10 +12,10 @@ compression_MonkeysAudio=2 # 1-5
 compression_lossyWAV=S # X, P, C, S, H, E, I
 compression_Musepack=5 # 0-10
 
-compression_LAME=2 # 0-9, used with LAME_MODE='VBR'
-bitrate_LAME=320 # 16-320, used with LAME_MODE='CBR'
-average_bitrate_LAME=256 # 8-310, used with LAME_MODE='ABR'
-LAME_MODE='VBR' # 'VBR' (variable bitrate), 'CBR' (constant bitrate) or 'ABR' (average bitrate)
+compression_MP3=2 # 0-9, used with MP3_MODE='VBR'
+bitrate_MP3=320 # 16-320, used with MP3_MODE='CBR'
+average_bitrate_MP3=256 # 8-310, used with MP3_MODE='ABR'
+MP3_MODE='VBR' # 'VBR' (variable bitrate), 'CBR' (constant bitrate) or 'ABR' (average bitrate)
 ID3Padding=512 # size in bytes of padding to add to ID3v2 tags
 
 compression_OggVorbis=5 # 0-10, used with OggVorbis_MODE='VBR'
