@@ -2574,7 +2574,7 @@ importBinariesIntoAPEv2 ()
 
 importArtworkIntoMP3 ()
 {
-	local ec=$EX_OK picBasename="" picType picTypeText pattern descFile description='' frontCoverFile='' n=0
+	local ec=$EX_OK picBasename="" picType picTypeText pattern descFile description='' n=0
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -2591,7 +2591,7 @@ importArtworkIntoMP3 ()
 			0) picTypeText='OTHER' ;;
 			1) picTypeText='ICON' ;;
 			2) picTypeText='OTHER_ICON' ;;
-			3) picTypeText='FRONT_COVER' ; frontCoverFile="$f" ;;
+			3) picTypeText='FRONT_COVER' ;;
 			4) picTypeText='BACK_COVER' ;;
 			5) picTypeText='LEAFLET' ;;
 			6) picTypeText='MEDIA' ;;
@@ -2615,33 +2615,11 @@ importArtworkIntoMP3 ()
 		if [ -f "$descFile" ]; then
 			description="$( cat "$descFile" 2>> "$errorLogFile" )"; description="${description//|//}" # replace | with /
 		fi
-		if [ "$eyeD3Version" = '0.7+' ]; then
-			if [ -z "$description" ]; then
-				description="${picTypeText}_${n}" # add a number to make it unique
-			fi
-			# eyeD3 0.7.1 requires a description, but it's broken (the command fails)
-			# https://bitbucket.org/nicfit/eyed3/issue/23/unicode-typeerror-adding-image-with-apic
-			if ! eyeD3 --add-image="${f}:${picTypeText}:${description}" "$encodedFile" >/dev/null 2>&1; then
-				ec=$EX_KO
-				eyeD3 --add-image="${f}:${picTypeText}" "$encodedFile" >/dev/null 2>&1
-			fi
-		else
-			if [ -n "$description" ]; then
-				eyeD3 --no-tagging-time-frame --itunes --add-image="${f}:${picTypeText}:${description}" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-			else
-				eyeD3 --no-tagging-time-frame --itunes --add-image="${f}:${picTypeText}" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-			fi
+		if [ -z "$description" ]; then
+			description="${picTypeText}_${n}" # add a number to make it unique
 		fi
+		eyeD3 --add-image="${f}:${picTypeText}:${description}" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 	done
-
-	if [ "$eyeD3Version" = '0.7+' ]; then
-		# workaround
-		if [ $ec -ne $EX_OK -a -n "$frontCoverFile" ]; then
-			# since eyeD3 is broken and will only add one cover art if there's no description, use the front cover if available
-			ec=$EX_OK
-			eyeD3 --add-image="${frontCoverFile}:FRONT_COVER" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-		fi
-	fi
 	return $ec
 }
 
@@ -3377,35 +3355,6 @@ encodeLossyWAV ()
 	fi
 
 	return $ec
-}
-
-getEyeD3Version ()
-{
-	local foo major minor
-
-	if which 'eyeD3' >/dev/null 2>&1; then
-		foo="$( eyeD3 --version 2>&1 | head -n 1 2>/dev/null | tr -cd '0-9.' 2>/dev/null )"
-		foo="${foo:1}" ; foo="${foo%2002*}"
-		major="${foo%%.*}"
-		minor="${foo#*.}"; minor="${minor%%.*}"
-		case "$major" in
-			0[0-9]) major="${major#0}" ;;
-			[1-9]|[1-9][0-9]) true ;;
-			*) major=0 ;;
-		esac
-		case "$minor" in
-			0[0-9]) minor="${minor#0}" ;;
-			[1-9]|[1-9][0-9]) true ;;
-			*) minor=0 ;;
-		esac
-		if [ $major -gt 0 -o $minor -ge 7 ]; then
-			eyeD3Version='0.7+'
-		else
-			eyeD3Version='0.6-'
-		fi
-	else # assume user has the latest version
-		eyeD3Version='0.7+'
-	fi
 }
 
 getEncoderVersions ()
@@ -4592,13 +4541,8 @@ saveReplaygainToMP3 ()
 {
 	local ec=$EX_OK
 
-	if [ "$eyeD3Version" = '0.7+' ]; then
-		eyeD3 -2 --user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
-			--user-text-frame="REPLAYGAIN_${gainType}_PEAK:${peak}" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-	else
-		eyeD3 -2 --no-tagging-time-frame --itunes --set-user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
-			--set-user-text-frame="REPLAYGAIN_${gainType}_PEAK:${peak}" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-	fi
+	eyeD3 -2 --user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
+		--user-text-frame="REPLAYGAIN_${gainType}_PEAK:${peak}" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 
 	return $ec
 }
@@ -4607,11 +4551,7 @@ saveSoundcheckToMP3 ()
 {
 	local ec=$EX_OK
 
-	if [ "$eyeD3Version" = '0.7+' ]; then
-		eyeD3 -2 --comment="eng:iTunNORM:$( getSoundcheck "$uGain" )" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-	else
-		eyeD3 -2 --no-tagging-time-frame --itunes --comment="eng:iTunNORM:$( getSoundcheck "$uGain" )" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-	fi
+	eyeD3 -2 --comment="eng:iTunNORM:$( getSoundcheck "$uGain" )" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 
 	return $ec
 }
@@ -6421,7 +6361,6 @@ done
 if [ -n "$outputCodecs" -a $tagCompressionSetting = true ]; then
 	getEncoderVersions
 fi
-getEyeD3Version
 
 if [ $nCodecs -gt 0 ]; then # action: transcode files
 	if [ "$deleteSourceFiles" != 'false' -a "$deleteSourceFiles" != 'true' ]; then
