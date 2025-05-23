@@ -3406,7 +3406,6 @@ copyOrLinkAllFiles ()
 	local codec="$1" f otherFileBasename destOtherFile destOtherLinkedFile
 	for f in "$sourceDirname"/*; do
 		case "$f" in
-			*.WAV|*.CAF|*.AIFF|*.FLAC|*.WV|*.WVC|*.APE|*.OGG|*.MP3|*.M4A|*.OPUS) continue ;;
 			*.wav|*.caf|*.aiff|*.flac|*.wv|*.wvc|*.ape|*.ogg|*.mp3|*.m4a|*.opus) continue ;;
 		esac
 		if [ -f "$f" ]; then
@@ -5829,7 +5828,7 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			# COPY ARTWORK
 			setArtworkFilename="$OPTARG"
 			case "$OPTARG" in
-				*.jpg|*.JPG|*.png|*.PNG)
+				*.jpg|*.jpeg|*.png)
 					if [ -z "$lastCodec" ]; then
 					 	setDefaultCoverArtwork=false
 						setCodecCoverArtFile "default" "$OPTARG"
