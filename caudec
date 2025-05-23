@@ -16,9 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# SoundCheck code adapted from rg2sc (http://www.vdberg.org/~richard/rg2sc.html)
-# by Richard van den Berg <richard@vdberg.org>, licensed under the GPLv3.
-
 # Global variables =============================================================
 
 me='caudec'
@@ -308,8 +305,6 @@ Replaygain options (mutually exclusive from -c/-d/-t/-T):
             Note: it is possible to specify an arbitrary peak reference lower
             than 0dBFS with an additional -G parameter: '-G albumpeak -G -4'.
   -G GAIN   MP3: apply arbitrary GAIN (signed number from -99.99 to +99.99).
-  -S ARG    MP3: generate Soundcheck metadata (album or track).
-            Note: Replaygain metadata is also generated with this switch.
 
 
 Information:
@@ -1052,19 +1047,6 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 					esac
 				fi
 
-				if [ $computeSoundcheck = true ]; then
-					case "$f" in
-						*.mp3) keepInputFile=true ;;
-						*)
-							if [ $ignoreUnsupportedFiles = true ]; then
-								continue
-							else
-								printMessage 'warning' 'processing' 'unsupported' "file:${f}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
-							fi
-							;;
-					esac
-				fi
-
 				if [ $computeReplaygain = true ]; then
 					case "$f" in
 						*.flac|*.wv|*.mp3|*.ogg)
@@ -1306,9 +1288,6 @@ checkBinaries ()
 					*.mp3) checkBinary 'lame' 'mp3gain' ; if [ $applyGain = false ]; then checkBinary 'eyeD3'; fi ;;
 				esac
 			done
-			if [ $computeSoundcheck = true ]; then
-				checkBinary 'awk'
-			fi
 		elif [ $checkFiles = true ]; then
 			checkBinary 'sox'
 			for f in "${sourceFiles[@]}" ; do
@@ -4514,44 +4493,12 @@ computeHashes ()
 	return $ec
 }
 
-replaygainToSoundcheckGain ()
-{
-	local rg="$1" base="$2" a b c scg
-
-	a="$( echo "scale=5; -0.1 * $rg" | bc )"
-	b="$( awk "BEGIN{print 10^${a}}" )"
-	c="$( echo "scale=5; $base * $b" | bc )"
-	scg="$( printf "%.0f" "$c" )"
-	if [ $scg -gt 65534 ]; then
-		scg=65534
-	fi
-	printf "%08X" "$scg"
-}
-
-getSoundcheck ()
-{
-	local rg="$1"
-	scg1="$( replaygainToSoundcheckGain "$rg" 1000 )"
-	scg2="$( replaygainToSoundcheckGain "$rg" 2500 )"
-
-	echo " $scg1 $scg1 $scg2 $scg2 00024CA8 00024CA8 00007FFF 00007FFF 00024CA8 00024CA8"
-}
-
 saveReplaygainToMP3 ()
 {
 	local ec=$EX_OK
 
 	eyeD3 -2 --user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
 		--user-text-frame="REPLAYGAIN_${gainType}_PEAK:${peak}" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-
-	return $ec
-}
-
-saveSoundcheckToMP3 ()
-{
-	local ec=$EX_OK
-
-	eyeD3 -2 --comment="eng:iTunNORM:$( getSoundcheck "$uGain" )" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 
 	return $ec
 }
@@ -4625,16 +4572,6 @@ saveGain ()
 				fi
 			else
 				saveReplaygainToMP3 || ec=$EX_KO
-				if [ $computeSoundcheck = true ]; then
-					if [ "$soundcheckMode" = 'ALBUM' -o "$soundcheckMode" = 'TRACK' ]; then
-						if [ "$gainType" = "$soundcheckMode" ]; then
-							saveSoundcheckToMP3 || ec=$EX_KO
-						fi
-					elif [ "$gainType" = 'TRACK' ]; then
-						uGain="${soundcheckMode#+}"
-						saveSoundcheckToMP3 || ec=$EX_KO
-					fi
-				fi
 			fi
 			;;
 
@@ -5834,7 +5771,7 @@ outputCodecs='' lastCodec='' nCodecs=0 copyWAV=false verbose=true
 defaultDestDir="$PWD" linkDir='' gotLinkedDir=false copyPath=false
 nLossyWAV=0 copyLossyWAV=false
 bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false
-applyGain=false applyGainType='' computeSoundcheck=false soundcheckMode='' convertToStereo='false'
+applyGain=false applyGainType='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human' deleteSourceFiles=false
 checkFiles=false actionHash=false touchFiles=false peakReference=0
 setCoverArtworkFile=false
@@ -6225,25 +6162,6 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				printMessage 'error' 'usage' 'bad_value' "$me -G: gain value must not be equal to 0" ; exit $EX_USAGE
 			fi
 			unset gainValue
-			;;
-
-		S)
-			copyOtherFiles=false
-			computeReplaygain=true computeSoundcheck=true
-			case "$OPTARG" in
-				album) soundcheckMode='ALBUM' ;;
-				track) soundcheckMode='TRACK' ;;
-				+[0-9]|+[1-9][0-9]) soundcheckMode="${OPTARG}.00" ;; # integer
-				+[0-9].[0-9]|+[1-9][0-9].[0-9]) soundcheckMode="${OPTARG}0" ;; # floating point, 1 decimal
-				+[0-9].[0-9][0-9]|+[1-9][0-9].[0-9][0-9]) soundcheckMode="$OPTARG" ;; # floating point, 2 decimals
-				-[0-9]|-[1-9][0-9]) soundcheckMode="${OPTARG}.00" ;; # integer
-				-[0-9].[0-9]|-[1-9][0-9].[0-9]) soundcheckMode="${OPTARG}0" ;; # floating point, 1 decimal
-				-[0-9].[0-9][0-9]|-[1-9][0-9].[0-9][0-9]) soundcheckMode="$OPTARG" ;; # floating point, 2 decimals
-				*) printMessage 'error' 'usage' 'bad_value' "$me -S: gain type must be either album or track, or a signed number between -99.99 and +99.99" ; exit $EX_USAGE
-			esac
-			if [ "${soundcheckMode:1}" = '0.00' ]; then
-				printMessage 'error' 'usage' 'bad_value' "$me -S: gain value must not be equal to 0" ; exit $EX_USAGE
-			fi
 			;;
 
 		h) printUsage; exit $EX_OK ;;
