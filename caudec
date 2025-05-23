@@ -254,7 +254,7 @@ Encoding options:
   -c CODEC  use specified CODEC: wav, aiff, caf,
             flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
             lossyWAV, lossyFLAC, lossyWV, ape (Monkey's Audio), mp3,
-            aac (m4a), ogg / vorbis, opus, mpc / musepack.
+            aac (m4a), ogg / vorbis, opus.
             Note that artwork preservation in MP3s requires eyeD3.
 
   -C CODEC  use specified CODEC, but discard existing metadata
@@ -665,21 +665,6 @@ getCompressionSetting ()
 			esac
 			;;
 
-		Musepack)
-			case "$v" in
-				[0-9]|10) compression_Musepack="$v" ;;
-				telephone) compression_Musepack=2 ;;
-				thumb) compression_Musepack=3 ;;
-				radio) compression_Musepack=4 ;;
-				standard|normal) compression_Musepack=5 ;;
-				extreme|xtreme) compression_Musepack=6 ;;
-				insane) compression_Musepack=7 ;;
-				braindead) compression_Musepack=8 ;;
-				'') compression_Musepack=5 ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be an integer between 0 and 10, or one of telephone, thumb, radio, standard, normal, extreme, xtreme, insane or braindead" ; exit $EX_USAGE ;;
-			esac
-			;;
-
 		Opus)
 			if [ -z "$v" ]; then
 				compression_Opus=128
@@ -918,14 +903,14 @@ getInputFiles ()
 							inputFiles[$nTracks]="$file"
 							((nTracks++))
 						fi
-					done < <(find "$a" -type f -regex '.*\.\(wav\|aiff\|caf\|flac\|wv\|ape\|mp3\|m4a\|ogg\|mpc\|opus\)$' -print0 2>/dev/null)
+					done < <(find "$a" -type f -regex '.*\.\(wav\|aiff\|caf\|flac\|wv\|ape\|mp3\|m4a\|ogg\|opus\)$' -print0 2>/dev/null)
 				else
 					while IFS= read -d $'\0' -r file ; do
 						if [ -f "$file" -a -r "$file" ]; then
 							inputFiles[$nTracks]="$file"
 							((nTracks++))
 						fi
-					done < <(find -E "$a" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|mpc|opus)$' -print0 2>/dev/null)
+					done < <(find -E "$a" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null)
 				fi
 			else
 				printMessage 'warning' 'usage' 'filesystem' "path:${a}" 'directory is not readable (permission denied).' ; ec=$EX_NOINPUT
@@ -1334,7 +1319,6 @@ checkBinaries ()
 				OggVorbis) checkBinary 'oggenc' ;;
 				MP3) checkBinary 'lame' ;;
 				AAC) checkBinary 'ffmpeg' ;;
-				Musepack) checkBinary 'mpcenc' 'APEv2' ;;
 				Opus) checkBinary 'opusenc' ;;
 			esac
 		done
@@ -1672,7 +1656,7 @@ tagline ()
 		fi
 
 		case "$outputCodec" in
-			WavPackLossy|MP3|AAC|OggVorbis|Musepack|Opus)
+			WavPackLossy|MP3|AAC|OggVorbis|Opus)
 				if [ "$outputCodec" = 'WavPackLossy' ]; then
 					grep -viE "MD5=|CRC32=|SHA1=|SHA256=|SHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 				else
@@ -2407,7 +2391,7 @@ extractAPEv2Binaries ()
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
-			MonkeysAudio|WavPack*|Musepack|lossyWV)
+			MonkeysAudio|WavPack*|lossyWV)
 				pattern="x${outputCodec}Y"
 				if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then continue; fi
 
@@ -3031,7 +3015,7 @@ decode ()
 		fi
 		for outputCodec in $outputCodecs; do
 			case "$outputCodec" in
-				lossy*|*Vorbis|Opus|WavPackLossy|Musepack|MP3|AAC) hasLossy=true ;;
+				lossy*|*Vorbis|Opus|WavPackLossy|MP3|AAC) hasLossy=true ;;
 				FLAC|WavPack|WavPackHybrid|MonkeysAudio) hasLossless=true ;;
 			esac
 		done
@@ -3238,7 +3222,7 @@ decode ()
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
 			FLAC|lossyFLAC|OggVorbis|Opus) convertTags $sourceTagFormat 'vc' ;;
-			WavPack*|MonkeysAudio|lossyWV|Musepack) convertTags $sourceTagFormat 'ape' ;;
+			WavPack*|MonkeysAudio|lossyWV) convertTags $sourceTagFormat 'ape' ;;
 			MP3) convertTags $sourceTagFormat 'lame' ;;
 			AAC) convertTags $sourceTagFormat 'm4a' ;;
 		esac
@@ -3345,7 +3329,6 @@ getEncoderVersions ()
 			MonkeysAudio) apeVersion="$( mac 2>&1 | grep -F '(c)' | tr -d ' ' | cut -d '(' -f 2 | cut -d ')' -f 1 )"; apeVersion="${apeVersion#v}" ;;
 			MP3) lameVersion="$( lame --version 2>/dev/null | grep -E 'LAME.*version' | cut -d 'v' -f 2 | cut -d '(' -f 1 | cut -d ' ' -f 2- )" ; lameVersion="${lameVersion% *}" ;;
 			AAC) aacVersion="$( ffmpeg -version 2>/dev/null | grep -E '^ffmpeg version' | cut -d ' ' -f 3 )" ;;
-			Musepack) mpcVersion="$( mpcenc 2>&1 | grep -F 'MPC Encoder' | cut -d ' ' -f 3 )" ;;
 			Opus) opusVersion="$( opusenc --version 2>/dev/null | grep -F 'opusenc' )" ;;
 
 			WavPack|WavPackHybrid|WavPackLossy)
@@ -3423,8 +3406,8 @@ copyOrLinkAllFiles ()
 	local codec="$1" f otherFileBasename destOtherFile destOtherLinkedFile
 	for f in "$sourceDirname"/*; do
 		case "$f" in
-			*.WAV|*.CAF|*.AIFF|*.FLAC|*.WV|*.WVC|*.APE|*.OGG|*.MP3|*.M4A|*.MPC|*.OPUS) continue ;;
-			*.wav|*.caf|*.aiff|*.flac|*.wv|*.wvc|*.ape|*.ogg|*.mp3|*.m4a|*.mpc|*.opus) continue ;;
+			*.WAV|*.CAF|*.AIFF|*.FLAC|*.WV|*.WVC|*.APE|*.OGG|*.MP3|*.M4A|*.OPUS) continue ;;
+			*.wav|*.caf|*.aiff|*.flac|*.wv|*.wvc|*.ape|*.ogg|*.mp3|*.m4a|*.opus) continue ;;
 		esac
 		if [ -f "$f" ]; then
 			otherFileBasename="${f##*/}"
@@ -3730,17 +3713,6 @@ encode ()
 					fi
 					if [ $ec -eq $EX_OK ]; then break; fi
 				done
-				;;
-
-			Musepack)
-				destExtension='mpc'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt"
-				mpcenc --quality ${compression_Musepack} --silent "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / MPC Encoder $mpcVersion / --quality $compression_Musepack"; fi
-					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					importBinariesIntoAPEv2 || ec=$EX_KO
-					importArtworkIntoAPEv2 || ec=$EX_KO
-				fi
 				;;
 
 			Opus)
@@ -5066,7 +5038,7 @@ touchAllFiles ()
 		case "$sourceFile" in
     	*.flac|*ogg|*.m4a|*.wv|*.ape|*.opus) audioFiles[$a]="$sourceFile" ; a=$(( a + 1 )) ;;
 			*.wvc) continue ;; # will be touched when the matching .wv file is touched
-			*.aiff|*.caf|*.mp3|*.mpc) continue ;; # unsupported audio files
+			*.aiff|*.caf|*.mp3) continue ;; # unsupported audio files
 			*) otherFiles[$o]="$sourceFile" ; o=$(( o + 1 )) ;; # all non-audio files
 		esac
 	done
@@ -5176,7 +5148,6 @@ getCodecExtension ()
 		OggVorbis)     ext='ogg' ;;
 		MP3)           ext='mp3' ;;
 		AAC)           ext='m4a' ;;
-		Musepack)      ext='mpc' ;;
 		Opus)          ext='opus' ;;
 	esac
 
@@ -5202,7 +5173,6 @@ getCodecFullName ()
 		OggVorbis)     codecFullName='Ogg Vorbis' ;;
 		MP3)           codecFullName='MP3' ;;
 		AAC)           codecFullName='AAC' ;;
-		Musepack)      codecFullName='Musepack' ;;
 		Opus)          codecFullName='Opus' ;;
 	esac
 
@@ -5480,7 +5450,6 @@ setDestDir ()
 		MP3) dir_MP3="$codecDestDir" ;;
 		AAC) dir_AAC="$codecDestDir" ;;
 		OggVorbis) dir_OggVorbis="$codecDestDir" ;;
-		Musepack) dir_Musepack="$codecDestDir" ;;
 		Opus) dir_Opus="$codecDestDir" ;;
 	esac
 }
@@ -5505,7 +5474,6 @@ getDestDir ()
 		MP3) codecDestDir="$dir_MP3" ;;
 		AAC) codecDestDir="$dir_AAC" ;;
 		OggVorbis) codecDestDir="$dir_OggVorbis" ;;
-		Musepack) codecDestDir="$dir_Musepack" ;;
 		Opus) codecDestDir="$dir_Opus" ;;
 		*) codecDestDir="$defaultDestDir" ;;
 	esac
@@ -5538,7 +5506,6 @@ setCodecOtherFiles ()
 		copyOtherFiles_MP3="$pattern"
 		copyOtherFiles_AAC="$pattern"
 		copyOtherFiles_OggVorbis="$pattern"
-		copyOtherFiles_Musepack="$pattern"
 		copyOtherFiles_Opus="$pattern"
 	elif [ "$outputCodec" = "lossless" ]; then
 		copyOtherFiles_WAV="$pattern"
@@ -5556,7 +5523,6 @@ setCodecOtherFiles ()
 		copyOtherFiles_MP3="$pattern"
 		copyOtherFiles_AAC="$pattern"
 		copyOtherFiles_OggVorbis="$pattern"
-		copyOtherFiles_Musepack="$pattern"
 		copyOtherFiles_Opus="$pattern"
 	else
 		case "$outputCodec" in
@@ -5575,7 +5541,6 @@ setCodecOtherFiles ()
 			MP3) copyOtherFiles_MP3="$pattern" ;;
 			AAC) copyOtherFiles_AAC="$pattern" ;;
 			OggVorbis) copyOtherFiles_OggVorbis="$pattern" ;;
-			Musepack) copyOtherFiles_Musepack="$pattern" ;;
 			Opus) copyOtherFiles_Opus="$pattern" ;;
 			*) printMessage 'error' 'usage' 'bad_value' "$me -f: valid values are 'all', a filename, or a comma separated list of either files or file extensions WITH leading dots" ; exit $EX_USAGE
 		esac
@@ -5601,7 +5566,6 @@ getCodecOtherFiles ()
 		MP3) otherFilesPattern="$copyOtherFiles_MP3" ;;
 		AAC) otherFilesPattern="$copyOtherFiles_AAC" ;;
 		OggVorbis) otherFilesPattern="$copyOtherFiles_OggVorbis" ;;
-		Musepack) otherFilesPattern="$copyOtherFiles_Musepack" ;;
 		Opus) otherFilesPattern="$copyOtherFiles_Opus" ;;
 	esac
 
@@ -5629,7 +5593,6 @@ setCodecCoverArtFile ()
 		coverArtFile_MP3="$coverArtFile"
 		coverArtFile_AAC="$coverArtFile"
 		coverArtFile_OggVorbis="$coverArtFile"
-		coverArtFile_Musepack="$coverArtFile"
 		coverArtFile_Opus="$coverArtFile"
 	elif [ "$outputCodec" = "lossless" ]; then
 		coverArtFile_WAV="$coverArtFile"
@@ -5647,7 +5610,6 @@ setCodecCoverArtFile ()
 		coverArtFile_MP3="$coverArtFile"
 		coverArtFile_AAC="$coverArtFile"
 		coverArtFile_OggVorbis="$coverArtFile"
-		coverArtFile_Musepack="$coverArtFile"
 		coverArtFile_Opus="$coverArtFile"
 	else
 		case "$outputCodec" in
@@ -5666,7 +5628,6 @@ setCodecCoverArtFile ()
 			MP3) coverArtFile_MP3="$coverArtFile" ;;
 			AAC) coverArtFile_AAC="$coverArtFile" ;;
 			OggVorbis) coverArtFile_OggVorbis="$coverArtFile" ;;
-			Musepack) coverArtFile_Musepack="$coverArtFile" ;;
 			Opus) coverArtFile_Opus="$coverArtFile" ;;
 		esac
 	fi
@@ -5693,7 +5654,6 @@ getCodecCoverArtFile ()
 		MP3) coverArtFile="$coverArtFile_MP3" ;;
 		AAC) coverArtFile="$coverArtFile_AAC" ;;
 		OggVorbis) coverArtFile="$coverArtFile_OggVorbis" ;;
-		Musepack) coverArtFile="$coverArtFile_Musepack" ;;
 		Opus) coverArtFile="$coverArtFile_Opus" ;;
 	esac
 
@@ -5792,7 +5752,6 @@ getCompressionSetting 'MonkeysAudio' "$compression_MonkeysAudio" 'caudecrc'
 getCompressionSetting 'lossyWAV' "$compression_lossyWAV" 'caudecrc'
 getCompressionSetting 'MP3' "$compression_MP3" 'caudecrc'
 getCompressionSetting 'OggVorbis' "$compression_OggVorbis" 'caudecrc'
-getCompressionSetting 'Musepack' "$compression_Musepack" 'caudecrc'
 getCompressionSetting 'Opus' "$compression_Opus" 'caudecrc'
 
 getConstantBitrate 'WavPackLossy' "$bitrate_WavPackLossy" 'caudecrc'
@@ -6020,7 +5979,6 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				mp3)                 lastCodec='MP3' ;;
 				aac)                 lastCodec='AAC' ;;
 				ogg|vorbis)          lastCodec='OggVorbis' ;;
-				mpc|musepack)        lastCodec='Musepack' ;;
 				opus)                lastCodec='Opus' ;;
 				*) printMessage 'error' 'usage' 'bad_value' "$me -c: invalid codec (try $me -h)" ; exit $EX_USAGE ;;
 			esac
@@ -6063,7 +6021,6 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				lossyWAV|lossyFLAC|lossyWV) getCompressionSetting 'lossyWAV' "$OPTARG" ;;
 				MP3) getCompressionSetting 'MP3' "$OPTARG" ; MP3_MODE='VBR' ;;
 				OggVorbis) getCompressionSetting 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='VBR' ;;
-				Musepack) getCompressionSetting 'Musepack' "$OPTARG" ;;
 				Opus) getCompressionSetting 'Opus' "$OPTARG" ; Opus_MODE='VBR' ;;
 				*) printMessage 'error' 'usage' 'command_line' "$me -q: parameter not available with the selected codec" ; exit $EX_USAGE ;;
 			esac ;;
