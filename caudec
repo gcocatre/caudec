@@ -3917,15 +3917,16 @@ transcode ()
 				fi
 			done
 
-			if ! ls "${TDIR}/"*"_${i}_LOSSYWAV_NEEDED" >/dev/null 2>&1 ; then
-				if ! ls "${TDIR}/"*"_${i}_WAV_NEEDED" >/dev/null 2>&1 ; then
-					ls "${SWAPDIR}/picture-${i}"* >/dev/null 2>&1 &&
-					rm -f "${SWAPDIR}/picture-${i}"* >/dev/null 2>&1
-					if [ -e "$apeBinariesDir" ]; then
-						rm -rf "$apeBinariesDir"
-					fi
-				fi
-			fi
+			# FIXME: this mysteriously causes some random picture not to be copied (race condition?)
+			# if ! ls "${TDIR}/"*"_${i}_LOSSYWAV_NEEDED" >/dev/null 2>&1 ; then
+			# 	if ! ls "${TDIR}/"*"_${i}_WAV_NEEDED" >/dev/null 2>&1 ; then
+			# 		ls "${SWAPDIR}/picture-${i}"* >/dev/null 2>&1 &&
+			# 		rm -f "${SWAPDIR}/picture-${i}"* >/dev/null 2>&1
+			# 		if [ -e "$apeBinariesDir" ]; then
+			# 			rm -rf "$apeBinariesDir"
+			# 		fi
+			# 	fi
+			# fi
 		chmod u+rwX "$destPath" "${destPath}"/* 2>> "$errorLogFile"
 		done
 		sleep 0.1 # make sure idling processes don't hog the CPU
