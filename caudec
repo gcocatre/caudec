@@ -1932,7 +1932,6 @@ APEv2ToEyeD3 ()
 						printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )"
 						if [ -n "$totalDiscs" ]; then
 							printf -- '--disc-total %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
-						else
 						fi
 						;;
 				esac
