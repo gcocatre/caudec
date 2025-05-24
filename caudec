@@ -1244,7 +1244,7 @@ checkBinaries ()
 				lossyFLAC) checkBinary 'lossywav' 'flac' ;;
 				lossyWV) checkBinary 'lossywav' 'wavpack' 'APEv2' ;;
 				OggVorbis) checkBinary 'oggenc' ;;
-				MP3) checkBinary 'lame' ;;
+				MP3) checkBinary 'lame' 'eyeD3' ;;
 				AAC) checkBinary 'ffmpeg' ;;
 				Opus) checkBinary 'opusenc' ;;
 			esac
@@ -1759,7 +1759,7 @@ vorbisCommentsToAPEv2 ()
 	done < "$sourceTagFile"
 }
 
-vorbisCommentsToLAME ()
+vorbisCommentsToEyeD3 ()
 {
 	local line field value totalTracks='' totalDiscs=''
 
@@ -1768,44 +1768,32 @@ vorbisCommentsToLAME ()
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
 		case "$field" in
-			ALBUM)                 echo "--tl $value" ;;
+			ALBUM)                 echo "--album $value" ;;
 			ALBUMARTIST|"ALBUM ARTIST")
-				echo "--tv TPE2=$value"
+				echo "--album-artist $value"
 				if [ "$value" = 'Various Artists' -o $setCompilationFlagWithAlbumArtist = true ]; then
-					echo "--tv TCMP=1" # iTunes 'compilation' frame
+					echo "--text-frame TCMP:1" # iTunes 'compilation' frame
 				fi
 				;;
-			ARTIST)                echo "--ta $value" ;;
-			COMPOSER)              echo "--tv TCOM=$value" ;;
-			CONDUCTOR)             echo "--tv TPE3=$value" ;;
-			DATE)                  printf -- '--ty %.4s\n' "$value" ;;
-			DESCRIPTION)           echo "--tc $value" ;;
-			DISCNUMBER)
-				if [ -n "$totalDiscs" ]; then
-					printf -- '--tv TPOS=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
-				else
-					printf -- '--tv TPOS=%g\n' "$( getTrackOrDiscNumber "$value" )"
-				fi
-				;;
-			DISCTOTAL|TOTALDISCS)  continue ;;
+			ARTIST)                echo "--artist $value" ;;
+			COMPOSER)              echo "--composer $value" ;;
+			# CONDUCTOR)             echo "--tv TPE3=$value" ;;
+			DATE)                  printf -- '--release-year %.4s\n' "$value" ; printf -- '--release-date %.4s\n' "$value" ;;
+			# DESCRIPTION)           echo "--tc $value" ;;
+			DISCNUMBER)            printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
+			DISCTOTAL|TOTALDISCS)  printf -- '--disc-total %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs" ;;
 			ENCODER|ENCODING)      continue ;;
-			GENRE)                 echo "--tg $value" ;;
-			ISRC)                  echo "--tv TSRC=$value" ;;
-			LICENSE) if [ "${value:0:7}" = 'http://' ]; then echo "--tv WCOP=$value" ; fi ;;
-			LYRICIST)              echo "--tv TEXT=$value" ;;
-			PERFORMER)             echo "--tv TPE3=$value" ;;
-			PUBLISHER)             echo "--tv TPUB=$value" ;;
-			SUBTITLE)              echo "--tv TIT3=$value" ;;
-			TITLE)                 echo "--tt $value" ;;
-			TRACKNUMBER)
-				if [ -n "$totalTracks" ]; then
-					printf -- '--tn %g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalTracks"
-				else
-					printf -- '--tn %g\n' "$( getTrackOrDiscNumber "$value" )"
-				fi
-				;;
-			TRACKTOTAL|TOTALTRACKS) continue ;;
-			*)                     echo "--tv TXXX=${field}=${value}" ;;
+			GENRE)                 echo "--genre $value" ;;
+			# ISRC)                  echo "--tv TSRC=$value" ;;
+			# LICENSE) if [ "${value:0:7}" = 'http://' ]; then echo "--tv WCOP=$value" ; fi ;;
+			# LYRICIST)              echo "--tv TEXT=$value" ;;
+			# PERFORMER)             echo "--tv TPE3=$value" ;;
+			PUBLISHER)             echo "--publisher $value" ;;
+			# SUBTITLE)              echo "--tv TIT3=$value" ;;
+			TITLE)                 echo "--title $value" ;;
+			TRACKNUMBER)           printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
+			TRACKTOTAL|TOTALTRACKS) printf -- '--track-total %g\n' "$totalTracks" ;;
+			*)                     echo "--user-text-frame ${field}:${value}" ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -1915,7 +1903,7 @@ APEv2ToVorbisComments ()
 	done < "$sourceTagFile"
 }
 
-APEv2ToLAME ()
+APEv2ToEyeD3 ()
 {
 	local line field value totalTracks='' totalDiscs=''
 
@@ -1924,45 +1912,46 @@ APEv2ToLAME ()
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
 		case "$field" in
-			Album)                 echo "--tl $value" ;;
+			Album)                 echo "--album $value" ;;
 			Albumartist|"Album Artist")
-				echo "--tv TPE2=$value"
+				echo "--album artist $value"
 				if [ "$value" = 'Various Artists' -o $setCompilationFlagWithAlbumArtist = true ]; then
-					echo "--tv TCMP=1" # iTunes 'compilation' frame
+					echo "--text-frame TCMP:1" # iTunes 'compilation' frame
 				fi
 				;;
-			Artist)                echo "--ta $value" ;;
-			Comment)               echo "--tc $value" ;;
-			Composer)              echo "--tv TCOM=$value" ;;
-			Conductor)             echo "--tv TPE3=$value" ;;
+			Artist)                echo "--artist $value" ;;
+			Composer)              echo "--composer $value" ;;
+			# Conductor)             echo "--tv TPE3=$value" ;;
 			Encoder|Encoding)      continue ;;
-			Genre)                 echo "--tg $value" ;;
-			ISRC)                  echo "--tv TSRC=$value" ;;
-			License) if [ "${value:0:7}" = 'http://' ]; then echo "--tv WCOP=$value" ; fi ;;
+			Genre)                 echo "--genre $value" ;;
+			# ISRC)                  echo "--tv TSRC=$value" ;;
+			# License) if [ "${value:0:7}" = 'http://' ]; then echo "--tv WCOP=$value" ; fi ;;
 			Media|Disc)
 				case "$value" in
 					[0-9]*)
 						if [ -n "$totalDiscs" ]; then
-							printf -- '--tv TPOS=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
+							printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )"
+							printf -- '--disc-total %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
 						else
-							printf -- '--tv TPOS=%g\n' "$( getTrackOrDiscNumber "$value" )"
+							printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )"
 						fi
 						;;
 				esac
 				;;
-			Performer)             echo "--tv TPE3=$value" ;;
-			Publisher)             echo "--tv TPUB=$value" ;;
-			Subtitle)              echo "--tv TIT3=$value" ;;
-			Title)                 echo "--tt $value" ;;
+			# Performer)             echo "--tv TPE3=$value" ;;
+			Publisher)             echo "--publisher $value" ;;
+			# Subtitle)              echo "--tv TIT3=$value" ;;
+			Title)                 echo "--title $value" ;;
 			Track)
 				if [ -n "$totalTracks" ]; then
-					printf -- '--tn %g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalTracks"
+					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
+					printf -- '--track-total %g\n' "$totalTracks"
 				else
-					printf -- '--tn %g\n' "$( getTrackOrDiscNumber "$value" )"
+					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
-			Year)                  printf -- '--ty %.4s\n' "$value" ;;
-			*)                     echo "--tv TXXX=${field}=${value}" ;;
+			Year)                  printf -- '--release-year %.4s\n' "$value" ; printf -- '--release-date %.4s\n' "$value" ;;
+			*)                     echo "--user-text-frame ${field}:${value}" ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -2214,7 +2203,7 @@ convertTags ()
 					;;
 
 				ape)  vorbisCommentsToAPEv2 > "$destTagFile" ;;
-				lame) vorbisCommentsToLAME > "$destTagFile" ;;
+				mp3) vorbisCommentsToEyeD3 > "$destTagFile" ;;
 				m4a) vorbisCommentsToM4A > "$destTagFile" ;;
 			esac ;;
 
@@ -2229,12 +2218,12 @@ convertTags ()
 					;;
 
 				vc)   APEv2ToVorbisComments > "$destTagFile" ;;
-				lame) APEv2ToLAME > "$destTagFile" ;;
+				mp3) APEv2ToEyeD3 > "$destTagFile" ;;
 				m4a) APEv2ToM4A > "$destTagFile" ;;
 
 			esac
 			case $2 in
-				vc|lame) $sedcmd -i'' -e 's@\x02@ / @g' -e 's@^ro:@@' "$destTagFile" ;;
+				vc|mp3) $sedcmd -i'' -e 's@\x02@ / @g' -e 's@^ro:@@' "$destTagFile" ;;
 			esac ;;
 	esac
 
@@ -3184,7 +3173,7 @@ decode ()
 		case "$outputCodec" in
 			FLAC|lossyFLAC|OggVorbis|Opus) convertTags $sourceTagFormat 'vc' ;;
 			WavPack*|MonkeysAudio|lossyWV) convertTags $sourceTagFormat 'ape' ;;
-			MP3) convertTags $sourceTagFormat 'lame' ;;
+			MP3) convertTags $sourceTagFormat 'mp3' ;;
 			AAC) convertTags $sourceTagFormat 'm4a' ;;
 		esac
 	done
@@ -3630,25 +3619,26 @@ encode ()
 				;;
 
 			MP3)
-				destExtension='mp3'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.lame.txt"
+				destExtension='mp3'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.mp3.txt"
 				if [ "$compression_MP3" = 'insane' -o "$compression_MP3" = '320' ]; then
 					MP3_MODE='CBR' bitrate_MP3=320
 				fi
 				if [ "$MP3_MODE" = 'VBR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $lameVersion / -V $compression_MP3"; fi
-					printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S -V $compression_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					if [ $tagCompressionSetting = true ]; then compressionTag="--text-frame TSSE=$me $VERSION / LAME $lameVersion / -V $compression_MP3"; fi
+						lame -S -V $compression_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				elif [ "$MP3_MODE" = 'ABR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $lameVersion / $average_bitrate_MP3 kbps (ABR)"; fi
-					printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S --abr $average_bitrate_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					if [ $tagCompressionSetting = true ]; then compressionTag="--text-frame TSSE=$me $VERSION / LAME $lameVersion / $average_bitrate_MP3 kbps (ABR)"; fi
+						lame -S --abr $average_bitrate_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
-					if [ $tagCompressionSetting = true ]; then compressionTag="--tv TSSE=$me $VERSION / LAME $lameVersion / $bitrate_MP3 kbps (CBR)"; fi
+					if [ $tagCompressionSetting = true ]; then compressionTag="--text-frame TSSE=$me $VERSION / LAME $lameVersion / $bitrate_MP3 kbps (CBR)"; fi
 					if [ $bitrate_MP3 -eq 320 ]; then
-						printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+						lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					else
-						printf -- "-o`tagline`\x00%s\x00%s" "$wavFile" "$encodedFile" | xargs -0 lame -S -b $bitrate_MP3 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+						lame -S -b $bitrate_MP3 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					fi
 				fi
-				if [ $ec -eq $EX_OK ]; then # FIXME ARTWORK
+				if [ $ec -ne $EX_KO ]; then
+					printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					importArtworkIntoMP3 || ec=$EX_KO
 				fi
 				;;
