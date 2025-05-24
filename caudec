@@ -2341,14 +2341,9 @@ extractAPEv2Binaries ()
 	return $ec
 }
 
-importArtworkIntoFLAC ()
+importCoverArt ()
 {
-	local ec=$EX_OK picBasename="" picType picExt description='' descFile='' swapFilePath pattern userSpecifiedArtwork
-
-	pattern="x${outputCodec}Y"
-	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
-		return $EX_OK
-	fi
+	local userSpecifiedArtwork
 
 	for f in "${SWAPDIR}/picture-3-"*_*; do
 		userSpecifiedArtwork="$( getCodecCoverArtFile "$outputCodec" )"
@@ -2360,12 +2355,24 @@ importArtworkIntoFLAC ()
 				picType=3
 				swapFilePath="${SWAPDIR}/picture-${i}-0_${picType}.${picExt}"
 				if [ ! -e "$swapFilePath" ]; then
-					rm -f "$swapFilePath"
+					rm -f "$swapFilePath" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					cp -f "$userSpecifiedArtwork" "$swapFilePath" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 			fi
 		fi
 	done
+}
+
+importArtworkIntoFLAC ()
+{
+	local ec=$EX_OK picBasename="" picType picExt description='' descFile='' swapFilePath pattern
+
+	pattern="x${outputCodec}Y"
+	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
+		return $EX_OK
+	fi
+
+	importCoverArt
 
 	for f in "${SWAPDIR}/picture-${i}-"*_*; do
 		if [ ! -e "$f" ]; then
@@ -2392,6 +2399,8 @@ genOpusArtworkCommandLine ()
 		return 0
 	fi
 
+	importCoverArt
+
 	for f in "${SWAPDIR}/picture-${i}-"*_*; do
 		if [ ! -e "$f" ]; then continue; fi
 		picBasename="$( basename "$f" )"
@@ -2408,29 +2417,14 @@ genOpusArtworkCommandLine ()
 
 importArtworkIntoAPEv2 ()
 {
-	local ec=$EX_OK picBasename="" picType picTypeText pattern af='' argString='' lastPicType='' userSpecifiedArtwork
+	local ec=$EX_OK picBasename="" picType picTypeText pattern af='' argString='' lastPicType=''
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
 		return $EX_OK
 	fi
 
-	for f in "${SWAPDIR}/picture-3-"*_*; do
-		userSpecifiedArtwork="$( getCodecCoverArtFile "$outputCodec" )"
-		if [ -n $userSpecifiedArtwork ]; then
-			userSpecifiedArtwork="${sourceDirname}/${userSpecifiedArtwork}"
-			if [ -f "$userSpecifiedArtwork" -a -r "$userSpecifiedArtwork" ]; then
-				echo "" > "${SWAPDIR}/picture-${i}-3.txt"
-				picExt="${userSpecifiedArtwork##*.}"
-				picType=3
-				swapFilePath="${SWAPDIR}/picture-${i}-0_${picType}.${picExt}"
-				if [ ! -e "$swapFilePath" ]; then
-					rm -f "$swapFilePath" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					cp -f "$userSpecifiedArtwork" "$swapFilePath" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				fi
-			fi
-		fi
-	done
+	importCoverArt
 
 	for f in "${SWAPDIR}/picture-${i}-"*_*; do
 		if [ ! -e "$f" ]; then continue; fi
@@ -2499,29 +2493,14 @@ importBinariesIntoAPEv2 ()
 
 importArtworkIntoMP3 ()
 {
-	local ec=$EX_OK picBasename="" picType picTypeText pattern descFile description='' n=0 userSpecifiedArtwork
+	local ec=$EX_OK picBasename="" picType picTypeText pattern descFile description='' n=0
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
 		return $EX_OK
 	fi
 
-	for f in "${SWAPDIR}/picture-3-"*_*; do
-		userSpecifiedArtwork="$( getCodecCoverArtFile "$outputCodec" )"
-		if [ -n $userSpecifiedArtwork ]; then
-			userSpecifiedArtwork="${sourceDirname}/${userSpecifiedArtwork}"
-			if [ -f "$userSpecifiedArtwork" -a -r "$userSpecifiedArtwork" ]; then
-				echo "" > "${SWAPDIR}/picture-${i}-3.txt"
-				picExt="${userSpecifiedArtwork##*.}"
-				picType=3
-				swapFilePath="${SWAPDIR}/picture-${i}-0_${picType}.${picExt}"
-				if [ ! -e "$swapFilePath" ]; then
-					rm -f "$swapFilePath" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					cp -f "$userSpecifiedArtwork" "$swapFilePath" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				fi
-			fi
-		fi
-	done
+	importCoverArt
 
 	which 'eyeD3' >/dev/null 2>&1 || return $EX_OK
 	for f in "${SWAPDIR}/picture-${i}-"*_*; do
