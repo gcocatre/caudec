@@ -867,28 +867,6 @@ cleanAbort ()
 	cleanExit $EX_INTERRUPT
 }
 
-startTimer ()
-{
-	if [ $gnudate = true ]; then
-		timer1="$( $datecmd '+%s.%N' )"
-	else
-		timer1="$( date '+%s' ).0"
-	fi
-}
-
-stopTimer ()
-{
-	local seconds timer2
-
-	if [ $gnudate = true ]; then
-		timer2="$( $datecmd '+%s.%N' )"
-	else
-		timer2="$( date '+%s' ).0"
-	fi
-	seconds="$( printf 'scale=6; %.6f - %.6f\n' "$timer2" "$timer1" | bc )"
-	printf '%s: %.2f seconds\n' "$1" $seconds 1>&2
-}
-
 getInputFiles ()
 {
 	local ec=$EX_OK
@@ -6174,10 +6152,6 @@ declare -a inputFiles=()
 declare -a sourceFiles=()
 
 getInputFiles && checkInputFiles && checkBinaries && handleInstance && setupSwapdir
-#startTimer && checkInputFiles && stopTimer 'checkInputFiles()' &&
-#startTimer && checkBinaries && stopTimer 'checkBinaries()' &&
-#startTimer && handleInstance && stopTimer 'handleInstance()' &&
-#startTimer && setupSwapdir && stopTimer 'setupSwapdir()'
 
 for signal in INT TERM ABRT PIPE; do
 	trap "cleanAbort" $signal
