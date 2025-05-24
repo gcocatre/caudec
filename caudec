@@ -1119,41 +1119,6 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 	fi
 }
 
-checkDefaultCoverArtwork ()
-{
-	local f ec=$EX_OK dn="" lastdn="" sourceArtworkPath
-
-	for f in "${inputFiles[@]}" ; do
-		dn="$( dirname "$f" )"
-		if [ "$lastdn" = "$dn" ]; then continue; fi
-		if [ -n "$setCoverArtworkFileByDefault" ]; then
-			sourceArtworkPath="${dn}/${setCoverArtworkFileByDefault}"
-			if [ ! -e "$sourceArtworkPath" ]; then
-				printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'no such file.'
-			elif [ ! -r "$sourceArtworkPath" ]; then
-				printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'cannot open file for reading (permission denied).'
-			fi
-		fi
-		if [ -n "$setCoverArtworkFileForLosslessByDefault" ]; then
-			sourceArtworkPath="${dn}/${setCoverArtworkFileForLosslessByDefault}"
-			if [ ! -e "$sourceArtworkPath" ]; then
-				printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'no such file.'
-			elif [ ! -r "$sourceArtworkPath" ]; then
-				printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'cannot open file for reading (permission denied).'
-			fi
-		fi
-		if [ -n "$setCoverArtworkFileForLossyByDefault" ]; then
-			sourceArtworkPath="${dn}/${setCoverArtworkFileForLossyByDefault}"
-			if [ ! -e "$sourceArtworkPath" ]; then
-				printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'no such file.'
-			elif [ ! -r "$sourceArtworkPath" ]; then
-				printMessage 'warning' 'usage' 'filesystem' "path:${sourceArtworkPath}" 'cannot open file for reading (permission denied).'
-			fi
-		fi
-		lastdn="$dn"
-	done
-}
-
 checkOutputDirectories ()
 {
 	read -a listOfCodecs <<< "$outputCodecs"
