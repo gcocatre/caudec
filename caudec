@@ -2360,7 +2360,8 @@ importArtworkIntoFLAC ()
 				picType=3
 				swapFilePath="${SWAPDIR}/picture-${i}-0_${picType}.${picExt}"
 				if [ ! -e "$swapFilePath" ]; then
-					cp -f "$userSpecifiedArtwork" "${SWAPDIR}/picture-${i}-0_${picType}.${picExt}" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					rm -f "$swapFilePath"
+					cp -f "$userSpecifiedArtwork" "$swapFilePath" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 			fi
 		fi
@@ -2413,6 +2414,23 @@ importArtworkIntoAPEv2 ()
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
 		return $EX_OK
 	fi
+
+	for f in "${SWAPDIR}/picture-3-"*_*; do
+		userSpecifiedArtwork="$( getCodecCoverArtFile "$outputCodec" )"
+		if [ -n $userSpecifiedArtwork ]; then
+			userSpecifiedArtwork="${sourceDirname}/${userSpecifiedArtwork}"
+			if [ -f "$userSpecifiedArtwork" -a -r "$userSpecifiedArtwork" ]; then
+				echo "" > "${SWAPDIR}/picture-${i}-3.txt"
+				picExt="${userSpecifiedArtwork##*.}"
+				picType=3
+				swapFilePath="${SWAPDIR}/picture-${i}-0_${picType}.${picExt}"
+				if [ ! -e "$swapFilePath" ]; then
+					rm -f "$swapFilePath" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					cp -f "$userSpecifiedArtwork" "$swapFilePath" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				fi
+			fi
+		fi
+	done
 
 	for f in "${SWAPDIR}/picture-${i}-"*_*; do
 		if [ ! -e "$f" ]; then continue; fi
@@ -2487,6 +2505,23 @@ importArtworkIntoMP3 ()
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
 		return $EX_OK
 	fi
+
+	for f in "${SWAPDIR}/picture-3-"*_*; do
+		userSpecifiedArtwork="$( getCodecCoverArtFile "$outputCodec" )"
+		if [ -n $userSpecifiedArtwork ]; then
+			userSpecifiedArtwork="${sourceDirname}/${userSpecifiedArtwork}"
+			if [ -f "$userSpecifiedArtwork" -a -r "$userSpecifiedArtwork" ]; then
+				echo "" > "${SWAPDIR}/picture-${i}-3.txt"
+				picExt="${userSpecifiedArtwork##*.}"
+				picType=3
+				swapFilePath="${SWAPDIR}/picture-${i}-0_${picType}.${picExt}"
+				if [ ! -e "$swapFilePath" ]; then
+					rm -f "$swapFilePath" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					cp -f "$userSpecifiedArtwork" "$swapFilePath" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				fi
+			fi
+		fi
+	done
 
 	which 'eyeD3' >/dev/null 2>&1 || return $EX_OK
 	for f in "${SWAPDIR}/picture-${i}-"*_*; do
