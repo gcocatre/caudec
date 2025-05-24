@@ -2343,15 +2343,33 @@ extractAPEv2Binaries ()
 
 importArtworkIntoFLAC ()
 {
-	local ec=$EX_OK picBasename="" picType description='' descFile='' pattern
+	local ec=$EX_OK picBasename="" picType picExt description='' descFile='' swapFilePath pattern userSpecifiedArtwork
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
 		return $EX_OK
 	fi
 
+	for f in "${SWAPDIR}/picture-3-"*_*; do
+		userSpecifiedArtwork="$( getCodecCoverArtFile "$outputCodec" )"
+		if [ -n $userSpecifiedArtwork ]; then
+			userSpecifiedArtwork="${sourceDirname}/${userSpecifiedArtwork}"
+			if [ -f "$userSpecifiedArtwork" -a -r "$userSpecifiedArtwork" ]; then
+				echo "" > "${SWAPDIR}/picture-${i}-3.txt"
+				picExt="${userSpecifiedArtwork##*.}"
+				picType=3
+				swapFilePath="${SWAPDIR}/picture-${i}-0_${picType}.${picExt}"
+				if [ ! -e "$swapFilePath" ]; then
+					cp -f "$userSpecifiedArtwork" "${SWAPDIR}/picture-${i}-0_${picType}.${picExt}" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				fi
+			fi
+		fi
+	done
+
 	for f in "${SWAPDIR}/picture-${i}-"*_*; do
-		if [ ! -e "$f" ]; then continue; fi
+		if [ ! -e "$f" ]; then
+			continue
+		fi
 		picBasename="$( basename "$f" )"
 		picType="${picBasename#*_}"; picType="${picType%.*}"; descFile="${f%_*}.txt"
 		description=''
@@ -5526,14 +5544,14 @@ setCodecCoverArtFile ()
 		coverArtFile_WAV=""
 		coverArtFile_AIFF=""
 		coverArtFile_CAF=""
-		coverArtFile_FLAC="" # FIXME ARTWORK
+		coverArtFile_FLAC="$coverArtFile"
 		coverArtFile_WavPack="" # FIXME ARTWORK
 		coverArtFile_WavPackHybrid="" # FIXME ARTWORK
 		coverArtFile_MonkeysAudio="" # FIXME ARTWORK
 
 		coverArtFile_WavPackLossy="" # FIXME ARTWORK
 		coverArtFile_lossyWAV="" # FIXME ARTWORK
-		coverArtFile_lossyFLAC="" # FIXME ARTWORK
+		coverArtFile_lossyFLAC="$coverArtFile"
 		coverArtFile_lossyWV="" # FIXME ARTWORK
 		coverArtFile_MP3="" # FIXME ARTWORK
 		coverArtFile_AAC="$coverArtFile"
@@ -5543,14 +5561,14 @@ setCodecCoverArtFile ()
 		coverArtFile_WAV=""
 		coverArtFile_AIFF=""
 		coverArtFile_CAF=""
-		coverArtFile_FLAC="" # FIXME ARTWORK
+		coverArtFile_FLAC="$coverArtFile"
 		coverArtFile_WavPack="" # FIXME ARTWORK
 		coverArtFile_WavPackHybrid="" # FIXME ARTWORK
 		coverArtFile_MonkeysAudio="" # FIXME ARTWORK
 	elif [ "$outputCodec" = "lossy" ]; then
 		coverArtFile_WavPackLossy="" # FIXME ARTWORK
 		coverArtFile_lossyWAV="" # FIXME ARTWORK
-		coverArtFile_lossyFLAC="" # FIXME ARTWORK
+		coverArtFile_lossyFLAC="$coverArtFile"
 		coverArtFile_lossyWV="" # FIXME ARTWORK
 		coverArtFile_MP3="" # FIXME ARTWORK
 		coverArtFile_AAC="$coverArtFile"
