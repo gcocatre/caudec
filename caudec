@@ -2355,7 +2355,7 @@ importCoverArt ()
 				picType=3
 				swapFilePath="${SWAPDIR}/picture-${i}-0_${picType}.${picExt}"
 				rm -f "$swapFilePath" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				if [ $ec -ea $EX_OK ]; then
+				if [ $ec -eq $EX_OK ]; then
 					cp -f "$userSpecifiedArtwork" "$swapFilePath" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 			fi
@@ -5545,35 +5545,35 @@ setCodecCoverArtFile ()
 		coverArtFile_AIFF=""
 		coverArtFile_CAF=""
 		coverArtFile_FLAC="$coverArtFile"
-		coverArtFile_WavPack="" # FIXME ARTWORK
-		coverArtFile_WavPackHybrid="" # FIXME ARTWORK
-		coverArtFile_MonkeysAudio="" # FIXME ARTWORK
+		coverArtFile_WavPack="$coverArtFile"
+		coverArtFile_WavPackHybrid="$coverArtFile"
+		coverArtFile_MonkeysAudio="$coverArtFile"
 
-		coverArtFile_WavPackLossy="" # FIXME ARTWORK
-		coverArtFile_lossyWAV="" # FIXME ARTWORK
+		coverArtFile_WavPackLossy="$coverArtFile"
+		coverArtFile_lossyWAV="$coverArtFile"
 		coverArtFile_lossyFLAC="$coverArtFile"
-		coverArtFile_lossyWV="" # FIXME ARTWORK
-		coverArtFile_MP3="" # FIXME ARTWORK
+		coverArtFile_lossyWV="$coverArtFile"
+		coverArtFile_MP3="$coverArtFile"
 		coverArtFile_AAC="$coverArtFile"
-		coverArtFile_OggVorbis="" # FIXME ARTWORK
-		coverArtFile_Opus="" # FIXME ARTWORK
+		coverArtFile_OggVorbis="$coverArtFile"
+		coverArtFile_Opus="$coverArtFile"
 	elif [ "$outputCodec" = "lossless" ]; then
 		coverArtFile_WAV=""
 		coverArtFile_AIFF=""
 		coverArtFile_CAF=""
 		coverArtFile_FLAC="$coverArtFile"
-		coverArtFile_WavPack="" # FIXME ARTWORK
-		coverArtFile_WavPackHybrid="" # FIXME ARTWORK
-		coverArtFile_MonkeysAudio="" # FIXME ARTWORK
+		coverArtFile_WavPack="$coverArtFile"
+		coverArtFile_WavPackHybrid="$coverArtFile"
+		coverArtFile_MonkeysAudio="$coverArtFile"
 	elif [ "$outputCodec" = "lossy" ]; then
-		coverArtFile_WavPackLossy="" # FIXME ARTWORK
-		coverArtFile_lossyWAV="" # FIXME ARTWORK
+		coverArtFile_WavPackLossy="$coverArtFile"
+		coverArtFile_lossyWAV="$coverArtFile"
 		coverArtFile_lossyFLAC="$coverArtFile"
-		coverArtFile_lossyWV="" # FIXME ARTWORK
-		coverArtFile_MP3="" # FIXME ARTWORK
+		coverArtFile_lossyWV="$coverArtFile"
+		coverArtFile_MP3="$coverArtFile"
 		coverArtFile_AAC="$coverArtFile"
-		coverArtFile_OggVorbis="" # FIXME ARTWORK
-		coverArtFile_Opus="" # FIXME ARTWORK
+		coverArtFile_OggVorbis="$coverArtFile"
+		coverArtFile_Opus="$coverArtFile"
 	else
 		case "$outputCodec" in
 			WAV) coverArtFile_WAV="$coverArtFile" ;;
