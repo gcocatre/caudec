@@ -1777,19 +1777,19 @@ vorbisCommentsToEyeD3 ()
 				;;
 			ARTIST)                echo "--artist $value" ;;
 			COMPOSER)              echo "--composer $value" ;;
-			# CONDUCTOR)             echo "--tv TPE3=$value" ;;
+			CONDUCTOR)             echo "--text-frame TPE3=$value" ;;
 			DATE)                  printf -- '--release-year %.4s\n' "$value" ; printf -- '--release-date %.4s\n' "$value" ;;
 			# DESCRIPTION)           echo "--tc $value" ;;
 			DISCNUMBER)            printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
 			DISCTOTAL|TOTALDISCS)  printf -- '--disc-total %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs" ;;
 			ENCODER|ENCODING)      continue ;;
 			GENRE)                 echo "--genre $value" ;;
-			# ISRC)                  echo "--tv TSRC=$value" ;;
-			# LICENSE) if [ "${value:0:7}" = 'http://' ]; then echo "--tv WCOP=$value" ; fi ;;
-			# LYRICIST)              echo "--tv TEXT=$value" ;;
-			# PERFORMER)             echo "--tv TPE3=$value" ;;
+			ISRC)                  echo "--text-frame TSRC=$value" ;;
+			LICENSE) if [ "${value:0:7}" = 'http://' ]; then echo "--text-frame WCOP=$value" ; fi ;;
+			LYRICIST)              echo "--text-frame TEXT=$value" ;;
+			PERFORMER)             echo "--text-frame TPE3=$value" ;;
 			PUBLISHER)             echo "--publisher $value" ;;
-			# SUBTITLE)              echo "--tv TIT3=$value" ;;
+			SUBTITLE)              echo "--text-frame TIT3=$value" ;;
 			TITLE)                 echo "--title $value" ;;
 			TRACKNUMBER)           printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
 			TRACKTOTAL|TOTALTRACKS) printf -- '--track-total %g\n' "$totalTracks" ;;
@@ -1921,11 +1921,11 @@ APEv2ToEyeD3 ()
 				;;
 			Artist)                echo "--artist $value" ;;
 			Composer)              echo "--composer $value" ;;
-			# Conductor)             echo "--tv TPE3=$value" ;;
+			Conductor)             echo "--text-frame TPE3=$value" ;;
 			Encoder|Encoding)      continue ;;
 			Genre)                 echo "--genre $value" ;;
-			# ISRC)                  echo "--tv TSRC=$value" ;;
-			# License) if [ "${value:0:7}" = 'http://' ]; then echo "--tv WCOP=$value" ; fi ;;
+			ISRC)                  echo "--text-frame TSRC=$value" ;;
+			License) if [ "${value:0:7}" = 'http://' ]; then echo "--text-frame WCOP=$value" ; fi ;;
 			Media|Disc)
 				case "$value" in
 					[0-9]*)
@@ -1938,9 +1938,9 @@ APEv2ToEyeD3 ()
 						;;
 				esac
 				;;
-			# Performer)             echo "--tv TPE3=$value" ;;
+			Performer)             echo "--text-frame TPE3=$value" ;;
 			Publisher)             echo "--publisher $value" ;;
-			# Subtitle)              echo "--tv TIT3=$value" ;;
+			Subtitle)              echo "--text-frame TIT3=$value" ;;
 			Title)                 echo "--title $value" ;;
 			Track)
 				if [ -n "$totalTracks" ]; then
