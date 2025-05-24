@@ -5198,7 +5198,7 @@ getFileProps ()
 
 printMachineStats ()
 {
-	local f c sourceCoverArtBytes embeddedArtworkSize=0 audio_bytes_compressed=0 destExtension dest bcmd seconds slist bytes_compressed duration='0' rate=''
+	local f c sourceCoverArtBytes audio_bytes_compressed=0 destExtension dest bcmd seconds slist bytes_compressed duration='0' rate=''
 
 	seconds="$( printf 'scale=6; %.6f - %.6f\n' "$time2" "$time1" | bc )"
 	if [ "$seconds" = '0' ]; then seconds='1'; fi # prevent division by 0 situations
@@ -5251,15 +5251,6 @@ printMachineStats ()
 				if [ -e "${destFile}c" ]; then # WavPack correction file
 					bcmd="${bcmd}\x00${destFile//%/%%}c"
 				fi
-				if [ -e "$sourceCoverArtFile" ]; then
-					if [ "$OS" = 'Linux' ]; then
-						sourceCoverArtBytes="$( stat -L --printf '%s' "$sourceCoverArtFile" 2>/dev/null )"
-						embeddedArtworkSize=$(( embeddedArtworkSize + sourceCoverArtBytes ))
-					else
-						sourceCoverArtBytes="$( stat -L -n -f '%z' "$sourceCoverArtFile" 2>/dev/null )"
-						embeddedArtworkSize=$(( embeddedArtworkSize + sourceCoverArtBytes ))
-					fi
-				fi
 			fi
 		done
 
@@ -5271,7 +5262,7 @@ printMachineStats ()
 
 
 		if [ $duration -gt 0 ]; then
-			bitrate_compressed="$( echo "scale=0; ((${bytes_compressed} - ${embeddedArtworkSize}) * 8) / ${duration}" | bc )"
+			bitrate_compressed="$( echo "scale=0; ($bytes_compressed * 8) / ${duration}" | bc )"
 			printMessage 'info' "bitrate_${outputCodec}" "${bitrate_compressed}bps"
 		fi
 	done
@@ -5281,7 +5272,7 @@ printMachineStats ()
 
 printHumanStats ()
 {
-	local f c sourceCoverArtBytes embeddedArtworkSize=0 audio_bytes_compressed=0 destExtension dest bcmd seconds slist bytes_wav bytes_compressed imbsec ombsec mib_compressed ratio duration='0' rate='' readDuration
+	local f c sourceCoverArtBytes audio_bytes_compressed=0 destExtension dest bcmd seconds slist bytes_wav bytes_compressed imbsec ombsec mib_compressed ratio duration='0' rate='' readDuration
 
 	seconds="$( printf 'scale=6; %.6f - %.6f\n' "$time2" "$time1" | bc )"
 	if [ "$seconds" = '0' ]; then seconds='1'; fi # prevent division by 0 situations
@@ -5378,14 +5369,6 @@ printHumanStats ()
 				if [ -e "${destFile}c" ]; then # WavPack correction file
 					bcmd="${bcmd}\x00${destFile//%/%%}c"
 				fi
-				if [ -e "$sourceCoverArtFile" ]; then
-					if [ "$OS" = 'Linux' ]; then
-						sourceCoverArtBytes="$( stat -L --printf '%s' "$sourceCoverArtFile" 2>/dev/null )"
-					else
-						sourceCoverArtBytes="$( stat -L -n -f '%z' "$sourceCoverArtFile" 2>/dev/null )"
-					fi
-					embeddedArtworkSize=$(( embeddedArtworkSize + sourceCoverArtBytes ))
-				fi
 			fi
 		done
 
@@ -5396,7 +5379,7 @@ printHumanStats ()
 		fi
 
 		if [ $duration -gt 0 ]; then
-			bitrate_compressed="$( echo "scale=0; ((${bytes_compressed} - ${embeddedArtworkSize}) * 8) / ${duration} / 1000" | bc )"
+			bitrate_compressed="$( echo "scale=0; (${bytes_compressed} * 8) / ${duration} / 1000" | bc )"
 		else
 			bitrate_compressed='?'
 		fi
