@@ -1929,11 +1929,10 @@ APEv2ToEyeD3 ()
 			Media|Disc)
 				case "$value" in
 					[0-9]*)
+						printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )"
 						if [ -n "$totalDiscs" ]; then
-							printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )"
 							printf -- '--disc-total %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
 						else
-							printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )"
 						fi
 						;;
 				esac
