@@ -2408,7 +2408,7 @@ genOpusArtworkCommandLine ()
 
 importArtworkIntoAPEv2 ()
 {
-	local ec=$EX_OK picBasename="" picType picTypeText pattern af='' argString='' lastPicType=''
+	local ec=$EX_OK picBasename="" picType picTypeText pattern af='' argString='' lastPicType='' userSpecifiedArtwork
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -2499,7 +2499,7 @@ importBinariesIntoAPEv2 ()
 
 importArtworkIntoMP3 ()
 {
-	local ec=$EX_OK picBasename="" picType picTypeText pattern descFile description='' n=0
+	local ec=$EX_OK picBasename="" picType picTypeText pattern descFile description='' n=0 userSpecifiedArtwork
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
