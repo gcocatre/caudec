@@ -4874,7 +4874,7 @@ computeOpusAlbumGain ()
 		if [ -z "$list" ]; then
 			list="$f"
 		else
-			list="${list}\00$f"
+			list="${list}\x00$f"
 		fi
 	done
 	echo -en "$list" | xargs -0 opusgain -j $nProcesses -a -p rg 1>/dev/null 2>> "$errorLogFile" || ec=$EX_KO
