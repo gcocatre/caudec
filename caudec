@@ -869,7 +869,7 @@ cleanAbort ()
 
 getInputFiles ()
 {
-	local ec=$EX_OK
+	local ec=$EX_OK ext
 
 	nTracks=0
 	for a in "${inputFilesAndDirs[@]}"; do
@@ -896,6 +896,13 @@ getInputFiles ()
 		else
 			inputFiles[$nTracks]="$a"
 			((nTracks++))
+		fi
+	done
+
+	for a in "${inputFiles[@]}"; do
+		ext="${a##*.}"
+		if [ "$ext" != "opus" ]; then
+			allFilesOpus=false
 		fi
 	done
 
@@ -1023,6 +1030,8 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 								fi
 							fi
 							;;
+
+						*.opus) keepInputFile=true ;;
 
 						*)
 							if [ $ignoreUnsupportedFiles = true ]; then
@@ -1173,6 +1182,7 @@ checkBinaries ()
 				case "$f" in
 					*.flac) checkBinary 'metaflac' ;;
 					*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
+					*.opus) checkBinary 'opusinfo' 'opusgain' ;;
 					*.wv) checkBinary 'APEv2' 'wvunpack' 'wvgain' ;;
 					*.mp3) checkBinary 'lame' 'mp3gain' ; if [ $applyGain = false ]; then checkBinary 'eyeD3'; fi ;;
 				esac
@@ -4638,6 +4648,8 @@ computeTrackGain ()
 				fi
 				;;
 
+			*.opus) saveSeconds ;;
+
 			*.mp3)
 				if [ -L "$copyFile" ]; then # make a real copy so that APE metadata doesn't get added to the source
 					rm -f "$copyFile" >/dev/null 2>&1 && cp "$sourceFile" "$copyFile" >/dev/null 2>&1 ; ec=$?
@@ -4691,31 +4703,33 @@ computeTrackGain ()
 		ec=$EX_KO
 	fi
 
-	if [ $ec -eq $EX_OK ]; then
-		saveGain 'TRACK' || ec=$EX_KO
-	fi
-
-	if [ -e "$wavFile" ]; then rm -f "$wavFile" >/dev/null 2>&1; fi
-	if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
-
-	if [ $ec -eq $EX_OK ]; then
-		if [ $verbose = true ]; then
-			if [ -n "$applyGainType" ]; then
-				if [ "$applyGainType" = 'ALBUM' -o "$applyGainType" = 'TRACK' -o "$applyGainType" = 'ALBUM_PEAK' -o "$applyGainType" = 'TRACK_PEAK' ]; then
-					sGain="$trackGain"
-				else
-					sGain="$applyGainType"
-				fi
-			else
-				sGain="$trackGain"
-			fi
-			if [ "${sGain:0:1}" != '-' -a "${sGain:0:1}" != '+' ]; then
-				sGain="+${sGain}"
-			fi
-			printMessage 'success' 'track_gain' $p "$sGain dB" "file:${sourceFile}"
+	if [ "$sourceFileExt" != "opus" ]; then
+		if [ $ec -eq $EX_OK ]; then
+			saveGain 'TRACK' || ec=$EX_KO
 		fi
-	else
-		printMessage 'error' 'track_gain' "file:${sourceFile}" $p
+
+		if [ -e "$wavFile" ]; then rm -f "$wavFile" >/dev/null 2>&1; fi
+		if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
+
+		if [ $ec -eq $EX_OK ]; then
+			if [ $verbose = true ]; then
+				if [ -n "$applyGainType" ]; then
+					if [ "$applyGainType" = 'ALBUM' -o "$applyGainType" = 'TRACK' -o "$applyGainType" = 'ALBUM_PEAK' -o "$applyGainType" = 'TRACK_PEAK' ]; then
+						sGain="$trackGain"
+					else
+						sGain="$applyGainType"
+					fi
+				else
+					sGain="$trackGain"
+				fi
+				if [ "${sGain:0:1}" != '-' -a "${sGain:0:1}" != '+' ]; then
+					sGain="+${sGain}"
+				fi
+				printMessage 'success' 'track_gain' $p "$sGain dB" "file:${sourceFile}"
+			fi
+		else
+			printMessage 'error' 'track_gain' "file:${sourceFile}" $p
+		fi
 	fi
 	return $ec
 }
@@ -4727,6 +4741,7 @@ computeTrackGains ()
 	for ((i=0; i<${#sourceFiles[@]}; i++)); do
 		sourceFile="${sourceFiles[$i]}"
 		sourceFilename="${sourceFile##*/}"
+		sourceFileExt="${sourceFile##*.}"
 		copyFile="${SWAPDIR}/${i}.${sourceFilename}"
 		gainLockFile="${TDIR}/${i}"
 		sourceTagFile="${TDIR}/${i}.txt"
@@ -4838,6 +4853,43 @@ computeAlbumGain ()
 
 	return $ec
 }
+
+computeOpusAlbumGain ()
+ {
+	local list albumPlaybackGain albumGain trackPlaybackGain trackDecibels sGain
+
+	list=""
+	for f in "${sourceFiles[@]}"; do
+		if [ -z "$list" ]; then
+			list="$f"
+		else
+			list="${list}\00$f"
+		fi
+	done
+	echo -en "$list" | xargs -0 opusgain -j $nProcesses -a -p rg 1>/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+	if [ $ec -ne $EX_KO ]; then
+		albumPlaybackGain="$( opusinfo "$f" | grep -F "Playback gain: " | cut -d ':' -f 2 | cut -d ' ' -f 2 )"
+		albumGain="$( echo "scale=2; ($albumPlaybackGain) / 1" | bc )"
+		for f in "${sourceFiles[@]}"; do
+			trackPlaybackGain="$( opusinfo "$f" | grep -F "R128_TRACK_GAIN=" | cut -d '=' -f 2 | cut -d ' ' -f 1 )"
+			trackPlaybackGain="${trackPlaybackGain#+*}"
+			trackDecibels="$( echo "scale=2; ($albumGain + ($trackPlaybackGain / 256) + 5) / 1" | bc )"
+			trackDecibels="$( printf "%.2f" "$trackDecibels" )"
+			sGain="$trackDecibels"
+			if [ "${sGain:0:1}" != '-' -a "${sGain:0:1}" != '+' ]; then
+				sGain="+${sGain}"
+			fi
+			printMessage 'success' 'track_gain' 0 "$sGain dB" "file:${f}"
+		done
+		sGain="$albumGain"
+		if [ "${sGain:0:1}" != '-' -a "${sGain:0:1}" != '+' ]; then
+			sGain="+${sGain}"
+		fi
+		printMessage 'success' 'album_gain' "$sGain dB"
+	else
+		printMessage 'error' 'album_gain' "Album gain"
+	fi
+ }
 
 echoTouchString ()
 {
@@ -5659,7 +5711,7 @@ nLossyWAV=0 copyLossyWAV=false
 bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false
 applyGain=false applyGainType='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human' deleteSourceFiles=false
-checkFiles=false actionHash=false touchFiles=false peakReference=0
+checkFiles=false actionHash=false touchFiles=false peakReference=0 allFilesOpus=true
 setCoverArtworkFile=false
 
 if [ "$calledAs" = 'decaude' ]; then
@@ -6226,8 +6278,12 @@ ec=$EX_OK ; for p in $( jobs -p ); do wait $p || ec=$EX_KO ; done
 
 if [ $ec -eq $EX_OK ]; then
 	if [ $computeReplaygain = true ]; then
-		if [ $applyGain = false -o "${applyGainType%_*}" = 'ALBUM' ]; then
-			computeAlbumGain || ec=$EX_KO
+		if [ $allFilesOpus = true ]; then
+			computeOpusAlbumGain || ec=$EX_KO
+		else
+			if [ $applyGain = false -o "${applyGainType%_*}" = 'ALBUM' ]; then
+				computeAlbumGain || ec=$EX_KO
+			fi
 		fi
 	elif [ $touchFiles = true ]; then
 		touchAllFiles || ec=$EX_KO
