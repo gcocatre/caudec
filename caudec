@@ -902,7 +902,7 @@ getInputFiles ()
 	for a in "${inputFiles[@]}"; do
 		ext="${a##*.}"
 		if [ "$ext" != "opus" ]; then
-			allFilesOpus=false
+			allFilesAreOpus=false
 		fi
 	done
 
@@ -4879,6 +4879,9 @@ computeOpusAlbumGain ()
 	done
 	echo -en "$list" | xargs -0 opusgain -j $nProcesses -a -p rg 1>/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 	if [ $ec -ne $EX_KO ]; then
+		for f in "${sourceFiles[@]}"; do
+			chmod u=rw,go=r "$f" 1>/dev/null 2>> "$errorLogFile"
+		done
 		albumPlaybackGain="$( opusinfo "$f" | grep -F "Playback gain: " | cut -d ':' -f 2 | cut -d ' ' -f 2 )"
 		albumGain="$( echo "scale=2; ($albumPlaybackGain) / 1" | bc )"
 		for f in "${sourceFiles[@]}"; do
@@ -5724,7 +5727,7 @@ nLossyWAV=0 copyLossyWAV=false
 bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false
 applyGain=false applyGainType='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human' deleteSourceFiles=false
-checkFiles=false actionHash=false touchFiles=false peakReference=0 allFilesOpus=true
+checkFiles=false actionHash=false touchFiles=false peakReference=0 allFilesAreOpus=true
 setCoverArtworkFile=false
 
 if [ "$calledAs" = 'decaude' ]; then
@@ -6291,7 +6294,7 @@ ec=$EX_OK ; for p in $( jobs -p ); do wait $p || ec=$EX_KO ; done
 
 if [ $ec -eq $EX_OK ]; then
 	if [ $computeReplaygain = true ]; then
-		if [ $allFilesOpus = true ]; then
+		if [ $allFilesAreOpus = true ]; then
 			computeOpusAlbumGain || ec=$EX_KO
 		else
 			if [ $applyGain = false -o "${applyGainType%_*}" = 'ALBUM' ]; then
