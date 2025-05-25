@@ -1192,7 +1192,7 @@ checkBinaries ()
 				case "$f" in
 					*.flac) checkBinary 'metaflac' ;;
 					*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
-					*.opus) checkBinary 'opusinfo' 'opusgain' ;;
+					*.opus) checkBinary 'opusinfo' 'opusgain' ;; # https://github.com/FrancisRussell/zoog
 					*.wv) checkBinary 'APEv2' 'wvunpack' 'wvgain' ;;
 					*.mp3) checkBinary 'lame' 'mp3gain' ; if [ $applyGain = false ]; then checkBinary 'eyeD3'; fi ;;
 				esac
@@ -4864,6 +4864,7 @@ computeAlbumGain ()
 	return $ec
 }
 
+# https://github.com/FrancisRussell/zoog
 computeOpusAlbumGain ()
  {
 	local ec=$EX_OK list f albumPlaybackGain albumGain trackPlaybackGain trackDecibels sGain
