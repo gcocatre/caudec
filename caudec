@@ -5646,13 +5646,11 @@ elif [ "$OS" = 'Darwin' ]; then # macOS
 	maxProcesses="$( system_profiler -detailLevel full SPHardwareDataType 2>/dev/null | grep -F 'Total Number of Cores:' 2>/dev/null | cut -d ':' -f 2 2>/dev/null | tr -d ' ' | cut -d '(' -f 1 2>/dev/null )"
 fi
 
+nProcesses=1
 case "$maxProcesses" in
 	[1-9]*) nProcesses=$maxProcesses ;;
-
-	*) nProcesses=1 ; nProcesses=$maxProcesses ;;
 esac
-
-maxProcessesSetByUser=$maxProcesses
+maxProcessesSetByUser=$nProcesses
 
 # Set default values
 outputCodecs='' lastCodec='' nCodecs=0 copyWAV=false verbose=true
