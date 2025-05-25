@@ -917,7 +917,7 @@ getInputFiles ()
 
 checkInputFiles ()
 {
-	local f ec=$EX_OK bn dn refDn cdpath pdpath basenames='' isf=0 keepInputFile errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
+	local f ec=$EX_OK bn dn commonFileExtension="" fileExtension="" fileExtensionAreAllTheSame=true refDn cdpath pdpath basenames='' isf=0 keepInputFile errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
 
 	if [ $nTracks -gt $maxInputFiles ]; then
 		printMessage 'warning' 'usage' 'quota' "the number of input files ($nTracks) is greater than maxInputFiles=${maxInputFiles}."
@@ -932,6 +932,12 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 	fi
 
 	for f in "${inputFiles[@]}" ; do
+		fileExtension="${f##*.}"
+		if [ -z "$commonFileExtension" ]; then
+			commonFileExtension="$fileExtension"
+		elif [ "$fileExtension" != "$commonFileExtension" ]; then
+			fileExtensionAreAllTheSame=false
+		fi
 		keepInputFile=false
 		dn="$( dirname "$f" )"
 		if [ ! -e "$f" ]; then
@@ -1017,30 +1023,34 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 				fi
 
 				if [ $computeReplaygain = true ]; then
-					case "$f" in
-						*.flac|*.wv|*.mp3|*.ogg)
-							nChannels="$( getNumberOfChannels "$f" )"
-							if [ $nChannels -le 2 ]; then
-								keepInputFile=true
-							else
+					if [ $fileExtensionAreAllTheSame = false ]; then
+						printMessage 'error' 'usage' 'filesystem' "file:${f}" "all files must have the same file extension" ; ec=$EX_DATAERR
+					else
+						case "$f" in
+							*.flac|*.wv|*.mp3|*.ogg)
+								nChannels="$( getNumberOfChannels "$f" )"
+								if [ $nChannels -le 2 ]; then
+									keepInputFile=true
+								else
+									if [ $ignoreUnsupportedFiles = true ]; then
+										continue
+									else
+										printMessage 'warning' 'processing' 'unsupported' "file:${f}" 'unsupported format (neither mono or stereo).' ; ec=$EX_DATAERR ; continue
+									fi
+								fi
+								;;
+
+							*.opus) keepInputFile=true ;;
+
+							*)
 								if [ $ignoreUnsupportedFiles = true ]; then
 									continue
 								else
-									printMessage 'warning' 'processing' 'unsupported' "file:${f}" 'unsupported format (neither mono or stereo).' ; ec=$EX_DATAERR ; continue
+									printMessage 'warning' 'processing' 'unsupported' "file:${f}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
 								fi
-							fi
-							;;
-
-						*.opus) keepInputFile=true ;;
-
-						*)
-							if [ $ignoreUnsupportedFiles = true ]; then
-								continue
-							else
-								printMessage 'warning' 'processing' 'unsupported' "file:${f}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
-							fi
-							;;
-					esac
+								;;
+						esac
+					fi
 				fi
 
 				if [ $applyGain = true ]; then
