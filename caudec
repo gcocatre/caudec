@@ -4856,7 +4856,7 @@ computeAlbumGain ()
 
 computeOpusAlbumGain ()
  {
-	local list albumPlaybackGain albumGain trackPlaybackGain trackDecibels sGain
+	local ec=$EX_OK list f albumPlaybackGain albumGain trackPlaybackGain trackDecibels sGain
 
 	list=""
 	for f in "${sourceFiles[@]}"; do
@@ -4889,6 +4889,8 @@ computeOpusAlbumGain ()
 	else
 		printMessage 'error' 'album_gain' "Album gain"
 	fi
+
+	return $ec
  }
 
 echoTouchString ()
