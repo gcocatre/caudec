@@ -472,7 +472,13 @@ genHumanReadableString ()
 			elif [ -n "$file" ]; then # transcoding or hashing
 				if [ -n "$p" ]; then
 					if [ -n "$numberOfThreads" ]; then
-						str="$( printf "${GR}%2u ${DG}%2ux ${OK}OK ${CY}%s${NM}\n" $p "$numberOfThreads" "$fileName" )"
+						if [ $numberOfThreads -lt 2 ]; then
+							str="$( printf "${GR}%2u ${GR}%2ux ${OK}OK ${CY}%s${NM}\n" $p "$numberOfThreads" "$fileName" )"
+						elif [ $numberOfThreads -ge 2 -a $numberOfThreads -lt 4 ]; then
+							str="$( printf "${GR}%2u ${DG}%2ux ${OK}OK ${CY}%s${NM}\n" $p "$numberOfThreads" "$fileName" )"
+						elif [ $numberOfThreads -ge 4 ]; then
+							str="$( printf "${GR}%2u ${BB}%2ux ${OK}OK ${CY}%s${NM}\n" $p "$numberOfThreads" "$fileName" )"
+						fi
 					else
 						str="$( printf "${GR}%2u ${OK}OK ${CY}%s${NM}\n" $p "$fileName" )"
 					fi
