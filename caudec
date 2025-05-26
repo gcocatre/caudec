@@ -5726,7 +5726,7 @@ defaultDestDir="$PWD" linkDir='' gotLinkedDir=false copyPath=false
 nLossyWAV=0 copyLossyWAV=false
 bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false
 applyGain=false applyGainType='' convertToStereo='false'
-keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human' deleteSourceFiles=false
+keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human'
 checkFiles=false actionHash=false touchFiles=false peakReference=0 allFilesAreOpus=true
 setCoverArtworkFile=false
 
@@ -5943,15 +5943,6 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			if [ $keepExistingFiles = true ]; then
 				printMessage 'error' 'usage' 'command_line' "$me -K: parameters -k and -K are mutually exclusive. Choose one or the other." ; exit $EX_USAGE
 			fi
-			;;
-
-		D)
-			case "$deleteSourceFiles" in
-				false) deleteSourceFiles='1' ;;
-				1) deleteSourceFiles='2' ;;
-				2) deleteSourceFiles='true' ;;
-				*) deleteSourceFiles='not true' ;;
-			esac
 			;;
 
 		t) checkFiles=true copyOtherFiles=false ;;
@@ -6228,10 +6219,6 @@ if [ -n "$outputCodecs" -a $tagCompressionSetting = true ]; then
 fi
 
 if [ $nCodecs -gt 0 ]; then # action: transcode files
-	if [ "$deleteSourceFiles" != 'false' -a "$deleteSourceFiles" != 'true' ]; then
-		printMessage 'warning' 'usage' 'command_line' "$me -D: deletion parameter was not specified exactly 3 times, ignoring it"
-	fi
-
 	checkOutputDirectories
 
 	nJobs=$(( nTracks * nCodecs ))
@@ -6319,29 +6306,6 @@ if [ $ec -eq $EX_OK -a $verbose = true ]; then
 	else
 		printHumanStats
 	fi
-fi
-
-if [ $nCodecs -gt 0 -a "$deleteSourceFiles" = "true" ]; then
-	for ((i=0; i<${#sourceFiles[@]}; i++)); do
-		sourceFile="${sourceFiles[$i]}"
-		for outputCodec in $outputCodecs; do
-			# make sure the destination file and the source file don't have the exact same path
-			getFileProps "$sourceFile" "$outputCodec"
-			if [ "$sourceFile" -ef "$destFile" ]; then # source and destination files are one and the same
-				continue 2
-			fi
-		done
-
-		while read errorFile; do
-			if [ "$sourceFile" = "$errorFile" ]; then
-				continue 2
-			fi
-		done < "${TDIR}/transcodingErrorFiles"
-
-		if [ -w "$sourceFile" ]; then # don't delete read-only files
-			rm -f "$sourceFile" >/dev/null 2>&1
-		fi
-	done
 fi
 
 cleanExit $ec
