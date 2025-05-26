@@ -5779,18 +5779,14 @@ if which 'mac' >/dev/null 2>&1; then
 fi
 
 # COPY ARTWORK
-setDefaultCoverArtwork=false
 if [ -n "$setCoverArtworkFileByDefault" ]; then
 	setCodecCoverArtFile "default" "$setCoverArtworkFileByDefault"
-	setDefaultCoverArtwork=true
 fi
 if [ -n "$setCoverArtworkFileForLosslessByDefault" ]; then
 	setCodecCoverArtFile "lossless" "$setCoverArtworkFileForLosslessByDefault"
-	setDefaultCoverArtwork=true
 fi
 if [ -n "$setCoverArtworkFileForLossyByDefault" ]; then
 	setCodecCoverArtFile "lossy" "$setCoverArtworkFileForLossyByDefault"
-	setDefaultCoverArtwork=true
 fi
 
 if [ -n "$copyOtherFilesByDefault" ]; then
@@ -5834,7 +5830,6 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			case "$OPTARG" in
 				*.jpg|*.jpeg|*.png)
 					if [ -z "$lastCodec" ]; then
-					 	setDefaultCoverArtwork=false
 						setCodecCoverArtFile "default" "$OPTARG"
 					elif [ -n "$lastCodec" ]; then
 						setCodecCoverArtFile "$lastCodec" "$OPTARG"
