@@ -931,6 +931,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 		cleanExit $EX_USAGE
 	fi
 
+	numberOfInputFiles="${#inputFiles[@]}"
 	for f in "${inputFiles[@]}" ; do
 		fileExtension="${f##*.}"
 		if [ -z "$commonFileExtension" ]; then
@@ -1540,16 +1541,22 @@ getNumberOfCaudecProcesses ()
 	esac
 }
 
+getNumberOfProcessedFiles ()
+{
+	ls -l "${TDIR}/WAS_PROCESSED".* 2>/dev/null | wc -l | tr -cd '[:digit:]'
+}
+
 getNumberOfAvailableThreads ()
 {
-	local maxThreads="$1" nRunningProcesses nThreads
+	local maxThreads="$1" nRunningProcesses nThreads nProcessedFiles=0 nUnprocessedFiles
 
 	if [ -z "$maxThreads" ]; then
 		maxThreads=999999
 	fi
 
-	nRunningProcesses="$( getNumberOfCaudecProcesses )"
-	nThreads=$(( maxProcessesSetByUser - nRunningProcesses ))
+	nProcessedFiles="$( getNumberOfProcessedFiles )"
+	nUnprocessedFiles=$(( numberOfInputFiles - nProcessedFiles ))
+	nThreads=$(( maxProcessesSetByUser - nUnprocessedFiles ))
 	if [ $nThreads -lt 1 ]; then
 		nThreads=1
 	fi
@@ -3849,6 +3856,7 @@ transcode ()
 			copyFile="${SWAPDIR}/${i}.${sourceFilename}"
 
 			transcodingLockFile="${TDIR}/${i}"
+			wasProcessedFile="${TDIR}/WAS_PROCESSED.${i}"
 			decodingLockFile="${TDIR}/DECODING_${i}"
 			wavFile="${SWAPDIR}/${i}.wav"
 			resampledWavFile="${SWAPDIR}/${i}_resampled.wav"
@@ -3922,6 +3930,7 @@ transcode ()
 						rm -f "${encodingLockFile}_LOSSYWAV_NEEDED"
 						ls "${TDIR}/"*"_${i}_LOSSYWAV_NEEDED" >/dev/null 2>&1 || rm -f "$lossywavFile"
 					fi
+					touch "$wasProcessedFile"
 				fi
 			done
 
@@ -3935,7 +3944,7 @@ transcode ()
 			# 		fi
 			# 	fi
 			# fi
-		chmod u+rwX "$destPath" "${destPath}"/* 2>> "$errorLogFile"
+		chmod u+rwX "$destPath" "${destPath}"/* 2>> "$errorLogFile" # FIXME chmod u=rw,go=r
 		done
 		sleep 0.1 # make sure idling processes don't hog the CPU
 	done
@@ -4252,12 +4261,14 @@ testFiles ()
 		wavFile="${SWAPDIR}/${i}.wav"
 		sourceTagFile="${TDIR}/${i}.txt"
 		testingLockFile="${TDIR}/${i}"
+		wasProcessedFile="${TDIR}/WAS_PROCESSED.${i}"
 
 		if getLock "$testingLockFile"; then
 			prepareSource &&
 			testFile || ec=$EX_KO
 			if [ -e "$wavFile" ]; then rm -f "$wavFile" >/dev/null 2>&1; fi
 			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
+			touch "$wasProcessedFile"
 		fi
 	done
 
@@ -4402,6 +4413,7 @@ computeHashes ()
 		copyFile="${SWAPDIR}/${i}.${sourceFilename}"
 		wavFile="${SWAPDIR}/${i}.wav"
 		hashingLockFile="${TDIR}/${i}"
+		wasProcessedFile="${TDIR}/WAS_PROCESSED.${i}"
 
 		if getLock "$hashingLockFile"; then
 			prepareSource || ec=$EX_KO
@@ -4410,6 +4422,7 @@ computeHashes ()
 			fi
 			if [ -e "$wavFile" ]; then rm -f "$wavFile" >/dev/null 2>&1; fi
 			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
+			touch "$wasProcessedFile"
 		fi
 	done
 
@@ -4760,6 +4773,7 @@ computeTrackGains ()
 		sourceFileExt="${sourceFile##*.}"
 		copyFile="${SWAPDIR}/${i}.${sourceFilename}"
 		gainLockFile="${TDIR}/${i}"
+		wasProcessedFile="${TDIR}/WAS_PROCESSED.${i}"
 		sourceTagFile="${TDIR}/${i}.txt"
 		trackGainFile="${TDIR}/${i}.trackgain"
 		trackPeakFile="${TDIR}/${i}.trackpeak"
@@ -4773,6 +4787,7 @@ computeTrackGains ()
 			computeTrackGain || ec=$EX_KO
 			if [ -e "$wavFile" ]; then rm -f "$wavFile" >/dev/null 2>&1; fi
 			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
+			touch "$wasProcessedFile"
 		fi
 	done
 
@@ -5003,12 +5018,14 @@ computeTrackDateTimes ()
 		sourceFilename="${sourceFile##*/}"
 		sourceTagFile="${TDIR}/${i}.txt"
 		touchLockFile="${TDIR}/${i}"
+		wasProcessedFile="${TDIR}/WAS_PROCESSED.${i}"
 		secondsFile="${TDIR}/${i}.seconds"
 		millisecondsFile="${TDIR}/${i}.milliseconds"
 
 		if getLock "$touchLockFile"; then
 			prepareSource &&
 			computeTrackDateTime || ec=$EX_KO
+			touch "$wasProcessedFile"
 		fi
 	done
 
@@ -6160,6 +6177,7 @@ nTracks=$# ec=$EX_OK
 declare -a inputFilesAndDirs=("$@")
 declare -a inputFiles=()
 declare -a sourceFiles=()
+numberOfInputFiles=0
 
 getInputFiles && checkInputFiles && checkBinaries && handleInstance && setupSwapdir
 
