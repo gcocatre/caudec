@@ -462,7 +462,7 @@ genHumanReadableString ()
 					elif [ $numberOfThreads -ge 2 -a $numberOfThreads -lt 4 ]; then
 						str="$( printf "${GR}%2u ${DG}%2ux ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$numberOfThreads" "$hashType" "$fileName" )"
 					elif [ $numberOfThreads -ge 4 ]; then
-						str="$( printf "${GR}%2u ${BB}%2ux ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$numberOfThreads" "$hashType" "$fileName" )"
+						str="$( printf "${GR}%2u ${OK}%2ux ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$numberOfThreads" "$hashType" "$fileName" )"
 					fi
 				else
 					str="$( printf "${GR}%2u ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$hashType" "$fileName" )"
@@ -475,7 +475,7 @@ genHumanReadableString ()
 						elif [ $numberOfThreads -ge 2 -a $numberOfThreads -lt 4 ]; then
 							str="$( printf "${GR}%2u ${DG}%2ux ${OK}OK ${CY}%s${NM}\n" $p "$numberOfThreads" "$fileName" )"
 						elif [ $numberOfThreads -ge 4 ]; then
-							str="$( printf "${GR}%2u ${BB}%2ux ${OK}OK ${CY}%s${NM}\n" $p "$numberOfThreads" "$fileName" )"
+							str="$( printf "${GR}%2u ${OK}%2ux ${OK}OK ${CY}%s${NM}\n" $p "$numberOfThreads" "$fileName" )"
 						fi
 					else
 						str="$( printf "${GR}%2u ${OK}OK ${CY}%s${NM}\n" $p "$fileName" )"
