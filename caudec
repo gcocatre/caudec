@@ -5446,6 +5446,7 @@ setDestDir ()
 			FLAC) dir_FLAC="$codecDestDir" ;;
 			WavPack) dir_WavPack="$codecDestDir" ;;
 			WavPackHybrid) dir_WavPackHybrid="$codecDestDir" ;;
+
 			WavPackLossy) dir_WavPackLossy="$codecDestDir" ;;
 			MonkeysAudio) dir_MonkeysAudio="$codecDestDir" ;;
 			lossyWAV) dir_lossyWAV="$codecDestDir" ;;
@@ -5472,6 +5473,7 @@ getDestDir ()
 		WavPack) codecDestDir="$dir_WavPack" ;;
 		WavPackHybrid) codecDestDir="$dir_WavPackHybrid" ;;
 		MonkeysAudio) codecDestDir="$dir_MonkeysAudio" ;;
+
 		WavPackLossy) codecDestDir="$dir_WavPackLossy" ;;
 		lossyWAV) codecDestDir="$dir_lossyWAV" ;;
 		lossyFLAC) codecDestDir="$dir_lossyFLAC" ;;
@@ -5539,6 +5541,7 @@ getCodecOtherFiles ()
 		WavPack) otherFilesPattern="$copyOtherFiles_WavPack" ;;
 		WavPackHybrid) otherFilesPattern="$copyOtherFiles_WavPackHybrid" ;;
 		MonkeysAudio) otherFilesPattern="$copyOtherFiles_MonkeysAudio" ;;
+
 		WavPackLossy) otherFilesPattern="$copyOtherFiles_WavPackLossy" ;;
 		lossyWAV) otherFilesPattern="$copyOtherFiles_lossyWAV" ;;
 		lossyFLAC) otherFilesPattern="$copyOtherFiles_lossyFLAC" ;;
@@ -5555,44 +5558,20 @@ getCodecOtherFiles ()
 # COPY ARTWORK
 setCodecCoverArtFile ()
 {
-	local outputCodec="$1" coverArtFile="$2"
+	local outputCodec="$1" coverArtFile="$2" losslessCodecs lossyCodecs listOfCodecs codec
 
-	if [ "$outputCodec" = "default" ]; then
-		coverArtFile_WAV=""
-		coverArtFile_AIFF=""
-		coverArtFile_CAF=""
-		coverArtFile_FLAC="$coverArtFile"
-		coverArtFile_WavPack="$coverArtFile"
-		coverArtFile_WavPackHybrid="$coverArtFile"
-		coverArtFile_MonkeysAudio="$coverArtFile"
+	losslessCodecs="WAV AIFF CAF FLAC WavPack WavPackHybrid MonkeysAudio"
+	lossyCodecs="WavPackLossy lossyWAV lossyFLAC lossyWV MP3 AAC OggVorbis Opus"
 
-		coverArtFile_WavPackLossy="$coverArtFile"
-		coverArtFile_lossyWAV="$coverArtFile"
-		coverArtFile_lossyFLAC="$coverArtFile"
-		coverArtFile_lossyWV="$coverArtFile"
-		coverArtFile_MP3="$coverArtFile"
-		coverArtFile_AAC="$coverArtFile"
-		coverArtFile_OggVorbis="$coverArtFile"
-		coverArtFile_Opus="$coverArtFile"
-	elif [ "$outputCodec" = "lossless" ]; then
-		coverArtFile_WAV=""
-		coverArtFile_AIFF=""
-		coverArtFile_CAF=""
-		coverArtFile_FLAC="$coverArtFile"
-		coverArtFile_WavPack="$coverArtFile"
-		coverArtFile_WavPackHybrid="$coverArtFile"
-		coverArtFile_MonkeysAudio="$coverArtFile"
-	elif [ "$outputCodec" = "lossy" ]; then
-		coverArtFile_WavPackLossy="$coverArtFile"
-		coverArtFile_lossyWAV="$coverArtFile"
-		coverArtFile_lossyFLAC="$coverArtFile"
-		coverArtFile_lossyWV="$coverArtFile"
-		coverArtFile_MP3="$coverArtFile"
-		coverArtFile_AAC="$coverArtFile"
-		coverArtFile_OggVorbis="$coverArtFile"
-		coverArtFile_Opus="$coverArtFile"
-	else
-		case "$outputCodec" in
+	case "$outputCodec" in
+		default) read -a listOfCodecs <<< "$losslessCodecs $lossyCodecs" ;;
+		lossless) read -a listOfCodecs <<< "$losslessCodecs" ;;
+		lossy) read -a listOfCodecs <<< "$lossyCodecs" ;;
+		*) read -a listOfCodecs <<< "$outputCodec" ;;
+	esac
+
+	for codec in "${listOfCodecs[@]}"; do
+		case "$codec" in
 			WAV) coverArtFile_WAV="$coverArtFile" ;;
 			AIFF) coverArtFile_AIFF="$coverArtFile" ;;
 			CAF) coverArtFile_CAF="$coverArtFile" ;;
@@ -5610,7 +5589,7 @@ setCodecCoverArtFile ()
 			OggVorbis) coverArtFile_OggVorbis="$coverArtFile" ;;
 			Opus) coverArtFile_Opus="$coverArtFile" ;;
 		esac
-	fi
+	done
 }
 
 # COPY ARTWORK
