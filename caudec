@@ -5433,7 +5433,7 @@ setDestDir ()
 	local outputCodec="$1" codecDestDir="$2" listOfCodecs codec
 
 	if [ -z "$outputCodec" ]; then
-		read -a listOfCodecs <<< "WAV AIFF CAF FLAC WavPack WavPackHybrid WavPackLossy MonkeysAudio lossyWAV lossyFLAC lossyWV MP3 AAC OggVorbis Opus"
+		read -a listOfCodecs <<< "$allCodecsString"
 	else
 		read -a listOfCodecs <<< "$outputCodec"
 	fi
@@ -5495,15 +5495,12 @@ getDestDir ()
 
 setCodecOtherFiles ()
 {
-	local outputCodec="$1" pattern="$2" losslessCodecs lossyCodecs listOfCodecs codec
-
-	losslessCodecs="WAV AIFF CAF FLAC WavPack WavPackHybrid MonkeysAudio"
-	lossyCodecs="WavPackLossy lossyWAV lossyFLAC lossyWV MP3 AAC OggVorbis Opus"
+	local outputCodec="$1" pattern="$2" listOfCodecs codec
 
 	case "$outputCodec" in
-		default) read -a listOfCodecs <<< "$losslessCodecs $lossyCodecs" ;;
-		lossless) read -a listOfCodecs <<< "$losslessCodecs" ;;
-		lossy) read -a listOfCodecs <<< "$lossyCodecs" ;;
+		default) read -a listOfCodecs <<< "$allCodecsString" ;;
+		lossless) read -a listOfCodecs <<< "$losslessCodecsString" ;;
+		lossy) read -a listOfCodecs <<< "$lossyCodecsString" ;;
 		*) read -a listOfCodecs <<< "$outputCodec" ;;
 	esac
 
@@ -5558,15 +5555,12 @@ getCodecOtherFiles ()
 # COPY ARTWORK
 setCodecCoverArtFile ()
 {
-	local outputCodec="$1" coverArtFile="$2" losslessCodecs lossyCodecs listOfCodecs codec
-
-	losslessCodecs="WAV AIFF CAF FLAC WavPack WavPackHybrid MonkeysAudio"
-	lossyCodecs="WavPackLossy lossyWAV lossyFLAC lossyWV MP3 AAC OggVorbis Opus"
+	local outputCodec="$1" coverArtFile="$2" listOfCodecs codec
 
 	case "$outputCodec" in
-		default) read -a listOfCodecs <<< "$losslessCodecs $lossyCodecs" ;;
-		lossless) read -a listOfCodecs <<< "$losslessCodecs" ;;
-		lossy) read -a listOfCodecs <<< "$lossyCodecs" ;;
+		default) read -a listOfCodecs <<< "$allCodecsString" ;;
+		lossless) read -a listOfCodecs <<< "$losslessCodecsString" ;;
+		lossy) read -a listOfCodecs <<< "$lossyCodecsString" ;;
 		*) read -a listOfCodecs <<< "$outputCodec" ;;
 	esac
 
@@ -5681,6 +5675,10 @@ case "$maxProcesses" in
 	[1-9]*) nProcesses=$maxProcesses ;;
 esac
 maxProcessesSetByUser=$nProcesses
+
+losslessCodecsString="WAV AIFF CAF FLAC WavPack WavPackHybrid MonkeysAudio"
+lossyCodecsString="WavPackLossy lossyWAV lossyFLAC lossyWV MP3 AAC OggVorbis Opus"
+allCodecsString="${losslessCodecsString} ${lossyCodecsString}"
 
 # Set default values
 outputCodecs='' lastCodec='' nCodecs=0 copyWAV=false verbose=true
