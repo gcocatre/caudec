@@ -1155,8 +1155,14 @@ checkBinary ()
 				continue
 			else
 				rc=$EX_KO binaryMissing=true
-				printMessage 'warning' 'initialization' 'filesystem' \
-"Binary \"${b}\" not found. Make sure it is in your \$PATH, and that you've upgraded it to the latest available version."
+				if [ "$b" = "opusgain" ]; then
+					printMessage 'warning' 'initialization' 'filesystem' \
+	"Binary \"${b}\" not found. Make sure it is in your \$PATH, and that you've upgraded it to the latest available version. \
+You may find it at https://github.com/FrancisRussell/zoog"
+				else
+					printMessage 'warning' 'initialization' 'filesystem' \
+	"Binary \"${b}\" not found. Make sure it is in your \$PATH, and that you've upgraded it to the latest available version."
+				fi
 			fi
 		elif [ -z "$foundBinaries" -o "$foundBinaries" = "${foundBinaries//$p/@}" ]; then
 			# binary was previously searched, but not found
