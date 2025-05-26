@@ -4879,9 +4879,9 @@ computeOpusAlbumGain ()
 	done
 	echo -en "$list" | xargs -0 opusgain -j $nProcesses -a -p rg 1>/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 	if [ $ec -ne $EX_KO ]; then
-		for f in "${sourceFiles[@]}"; do
-			chmod u=rw,go=r "$f" 1>/dev/null 2>> "$errorLogFile"
-		done
+		# opusgain changes the rights on the files it touches, to u=rw,go=
+		chmod u=rw,go=r "${sourceFiles[@]}" 1>/dev/null 2>> "$errorLogFile"
+
 		albumPlaybackGain="$( opusinfo "$f" | grep -F "Playback gain: " | cut -d ':' -f 2 | cut -d ' ' -f 2 )"
 		albumGain="$( echo "scale=2; ($albumPlaybackGain) / 1" | bc )"
 		for f in "${sourceFiles[@]}"; do
