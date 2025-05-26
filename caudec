@@ -3757,7 +3757,11 @@ encode ()
 					copyOrLinkOtherFiles "WavPackLossy"
 				fi
 
-				printMessage 'success' "$statusInfo" "file:${destFile}" $p "threads:$nThreads"
+				if [ "$outputCodec" = "WAV" ]; then
+					printMessage 'success' "$statusInfo" "file:${destFile}" $p # FIXME DECODE THREADS
+				else
+					printMessage 'success' "$statusInfo" "file:${destFile}" $p "threads:$nThreads" # FIXME DECODE THREADS
+				fi
 			fi
 		else
 			rm -f "$encodedFile" >/dev/null 2>&1 # in case it exists
