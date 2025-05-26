@@ -456,18 +456,16 @@ genHumanReadableString ()
 			elif [ "$statusInfo" = 'touch_files' ]; then
 				str="$( printf "${GR} * ${OK}OK ${NM}%10s ${NM}%s\n" "$albumTime" "Album length" )"
 			elif [ "$statusInfo" = 'testing' ]; then
-				if [ -n "$hashType" ]; then
-					if [ -n "$numberOfThreads" ]; then
+				if [ -n "$numberOfThreads" ]; then
+					if [ $numberOfThreads -lt 2 ]; then
+						str="$( printf "${GR}%2u ${GR}%2ux ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$numberOfThreads" "$hashType" "$fileName" )"
+					elif [ $numberOfThreads -ge 2 -a $numberOfThreads -lt 4 ]; then
 						str="$( printf "${GR}%2u ${DG}%2ux ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$numberOfThreads" "$hashType" "$fileName" )"
-					else
-						str="$( printf "${GR}%2u ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$hashType" "$fileName" )"
+					elif [ $numberOfThreads -ge 4 ]; then
+						str="$( printf "${GR}%2u ${BB}%2ux ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$numberOfThreads" "$hashType" "$fileName" )"
 					fi
 				else
-					if [ -n "$numberOfThreads" ]; then
-						str="$( printf "${GR}%2u ${DG}%2ux ${OK}OK ${CY}%s${NM}\n" $p "$numberOfThreads" "$fileName" )"
-					else
-						str="$( printf "${GR}%2u ${OK}OK ${CY}%s${NM}\n" $p "$fileName" )"
-					fi
+					str="$( printf "${GR}%2u ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$hashType" "$fileName" )"
 				fi
 			elif [ -n "$file" ]; then # transcoding or hashing
 				if [ -n "$p" ]; then
@@ -4198,39 +4196,24 @@ testHashedFile ()
 
 testFile ()
 {
-	local ec=$EX_OK nThreads=1 hashTested=false
+	local ec=$EX_OK nThreads=1
 
-	testHashType=''
 	if [ -e "$copyFile" ]; then
 		case "$copyFile" in
 			*.flac)
-				testHashedFile ; ec=$?
-				if [ $ec -eq $EX_OK ]; then hashTested=true; fi
-				if [ $ec -eq $EX_DATAERR -o $ec -eq $EX_OSFILE ]; then
-					flac -st "$copyFile" >/dev/null 2>&1; ec=$?
-				fi
+				flac -st "$copyFile" >/dev/null 2>&1; ec=$?
 				saveDurations
 				;;
 
 			*.wv)
-				testHashedFile ; ec=$?
-				if [ $ec -eq $EX_OK ]; then hashTested=true; fi
-				if [ $ec -eq $EX_DATAERR -o $ec -eq $EX_OSFILE ]; then
-					nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
-					wvunpack --threads=$nThreads -qmv "$copyFile" >/dev/null 2>&1; ec=$?
-				fi
+				nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
+				wvunpack --threads=$nThreads -qmv "$copyFile" >/dev/null 2>&1; ec=$?
 				saveDurations
 				;;
 
 			*.ape)
-				testHashedFile ; ec=$?
-				if [ $ec -eq $EX_OK ]; then hashTested=true; fi
-				if [ $ec -eq $EX_DATAERR -o $ec -eq $EX_OSFILE ]; then
-					if [ $macHasVerify = true ]; then
-						nThreads=$( getNumberOfAvailableThreads )
-						mac "$copyFile" -threads=$nThreads -v >/dev/null 2>&1; ec=$?
-					fi
-				fi
+				nThreads=$( getNumberOfAvailableThreads )
+				mac "$copyFile" -threads=$nThreads -v >/dev/null 2>&1; ec=$?
 				saveDurations
 				;;
 
@@ -4244,21 +4227,9 @@ testFile ()
 	if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
 
 	if [ $ec -eq $EX_OK ]; then
-		if [ $hashTested = false ]; then
-			printMessage 'success' 'testing' 'no_hash' "file:${sourceFile}" $p "threads:$nThreads"
-		fi
-	elif [ $ec -eq $EX_DATAERR ]; then
-		printMessage 'warning' 'testing' 'no_hash' $p "file:${sourceFile}" 'missing hash metadata'
-	elif [ $ec -eq $EX_OSFILE ]; then
-		printMessage 'warning' 'testing' 'no_hash_tool' $p "file:${sourceFile}" 'unable to find appropriate hashing tools in your $PATH'
-	elif [ $ec -eq $EX_IOERR ]; then
-		printMessage 'error' 'testing' 'bad_internal_hash' $p "file:${sourceFile}" "internal MD5 hash doesn't match MD5 hash in metadata!"
+		printMessage 'success' 'testing' $p "threads:$nThreads" "file:${sourceFile}"
 	else
-		if [ -n "$testHashType" ]; then
-			printMessage 'error' 'testing' "$testHashType" $p "file:${sourceFile}"
-		else
-			printMessage 'error' 'testing' 'no_hash' $p "file:${sourceFile}"
-		fi
+		printMessage 'error' 'testing' $p "file:${sourceFile}"
 	fi
 	return $ec
 }
