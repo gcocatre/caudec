@@ -5430,25 +5430,34 @@ printHumanStats ()
 
 setDestDir ()
 {
-	local outputCodec="$1" codecDestDir="$2"
+	local outputCodec="$1" codecDestDir="$2" listOfCodecs codec
 
-	case "$outputCodec" in
-		WAV) dir_WAV="$codecDestDir" ;;
-		AIFF) dir_AIFF="$codecDestDir" ;;
-		CAF) dir_CAF="$codecDestDir" ;;
-		FLAC) dir_FLAC="$codecDestDir" ;;
-		WavPack) dir_WavPack="$codecDestDir" ;;
-		WavPackHybrid) dir_WavPackHybrid="$codecDestDir" ;;
-		WavPackLossy) dir_WavPackLossy="$codecDestDir" ;;
-		MonkeysAudio) dir_MonkeysAudio="$codecDestDir" ;;
-		lossyWAV) dir_lossyWAV="$codecDestDir" ;;
-		lossyFLAC) dir_lossyFLAC="$codecDestDir" ;;
-		lossyWV) dir_lossyWV="$codecDestDir" ;;
-		MP3) dir_MP3="$codecDestDir" ;;
-		AAC) dir_AAC="$codecDestDir" ;;
-		OggVorbis) dir_OggVorbis="$codecDestDir" ;;
-		Opus) dir_Opus="$codecDestDir" ;;
-	esac
+	if [ -z "$outputCodec" ]; then
+		read -a listOfCodecs <<< "WAV AIFF CAF FLAC WavPack WavPackHybrid WavPackLossy MonkeysAudio lossyWAV lossyFLAC lossyWV MP3 AAC OggVorbis Opus"
+	else
+		read -a listOfCodecs <<< "$outputCodec"
+	fi
+
+	for codec in "${listOfCodecs[@]}"; do
+		case "$codec" in
+			WAV) dir_WAV="$codecDestDir" ;;
+			AIFF) dir_AIFF="$codecDestDir" ;;
+			CAF) dir_CAF="$codecDestDir" ;;
+			FLAC) dir_FLAC="$codecDestDir" ;;
+			WavPack) dir_WavPack="$codecDestDir" ;;
+			WavPackHybrid) dir_WavPackHybrid="$codecDestDir" ;;
+			WavPackLossy) dir_WavPackLossy="$codecDestDir" ;;
+			MonkeysAudio) dir_MonkeysAudio="$codecDestDir" ;;
+			lossyWAV) dir_lossyWAV="$codecDestDir" ;;
+			lossyFLAC) dir_lossyFLAC="$codecDestDir" ;;
+			lossyWV) dir_lossyWV="$codecDestDir" ;;
+			MP3) dir_MP3="$codecDestDir" ;;
+			AAC) dir_AAC="$codecDestDir" ;;
+			OggVorbis) dir_OggVorbis="$codecDestDir" ;;
+			Opus) dir_Opus="$codecDestDir" ;;
+			*) codecDestDir="$defaultDestDir" ;;
+		esac
+	done
 }
 
 getDestDir ()
@@ -5463,7 +5472,6 @@ getDestDir ()
 		WavPack) codecDestDir="$dir_WavPack" ;;
 		WavPackHybrid) codecDestDir="$dir_WavPackHybrid" ;;
 		MonkeysAudio) codecDestDir="$dir_MonkeysAudio" ;;
-
 		WavPackLossy) codecDestDir="$dir_WavPackLossy" ;;
 		lossyWAV) codecDestDir="$dir_lossyWAV" ;;
 		lossyFLAC) codecDestDir="$dir_lossyFLAC" ;;
