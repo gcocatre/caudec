@@ -5552,7 +5552,6 @@ getCodecOtherFiles ()
 	echo "$otherFilesPattern"
 }
 
-# COPY ARTWORK
 setCodecCoverArtFile ()
 {
 	local outputCodec="$1" coverArtFile="$2" listOfCodecs codec
@@ -5586,7 +5585,6 @@ setCodecCoverArtFile ()
 	done
 }
 
-# COPY ARTWORK
 getCodecCoverArtFile ()
 {
 	local outputCodec="$1" coverArtFile=""
@@ -5730,7 +5728,6 @@ if which 'mac' >/dev/null 2>&1; then
 	fi
 fi
 
-# COPY ARTWORK
 if [ -n "$setCoverArtworkFileByDefault" ]; then
 	setCodecCoverArtFile "default" "$setCoverArtworkFileByDefault"
 fi
@@ -5777,7 +5774,6 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			;;
 
 		a)
-			# COPY ARTWORK
 			setArtworkFilename="$OPTARG"
 			case "$OPTARG" in
 				*.jpg|*.jpeg|*.png)
