@@ -206,11 +206,6 @@ Global options:
   -k        keep existing destination files (don't overwrite them)
   -K        keep existing destination files if they're newer than their source
 
-  -DDD      delete source file upon successful transcoding (USE WITH CARE)
-            Note: the triple D is not a typo, but a precaution to avoid
-            accidental deletion; also, read-only source files will NOT be
-            deleted.
-
   -T        touch files using metadata to reflect the music's release date
             and duration. Provide all files as arguments, not just audio files,
             although at least one audio file is required for this to work.
@@ -462,13 +457,25 @@ genHumanReadableString ()
 				str="$( printf "${GR} * ${OK}OK ${NM}%10s ${NM}%s\n" "$albumTime" "Album length" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$hashType" ]; then
-					str="$( printf "${GR}%2u ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$hashType" "$fileName" )"
+					if [ -n "$numberOfThreads" ]; then
+						str="$( printf "${GR}%2u ${DG}%2ux ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$numberOfThreads" "$hashType" "$fileName" )"
+					else
+						str="$( printf "${GR}%2u ${OK}OK ${NM}%s ${CY}%s${NM}\n" $p "$hashType" "$fileName" )"
+					fi
 				else
-					str="$( printf "${GR}%2u ${OK}OK ${CY}%s${NM}\n" $p "$fileName" )"
+					if [ -n "$numberOfThreads" ]; then
+						str="$( printf "${GR}%2u ${DG}%2ux ${OK}OK ${CY}%s${NM}\n" $p "$numberOfThreads" "$fileName" )"
+					else
+						str="$( printf "${GR}%2u ${OK}OK ${CY}%s${NM}\n" $p "$fileName" )"
+					fi
 				fi
-			elif [ -n "$file" ]; then
+			elif [ -n "$file" ]; then # transcoding or hashing
 				if [ -n "$p" ]; then
-					str="$( printf "${GR}%2u ${OK}OK ${CY}%s${NM}\n" $p "$fileName" )"
+					if [ -n "$numberOfThreads" ]; then
+						str="$( printf "${GR}%2u ${DG}%2ux ${OK}OK ${CY}%s${NM}\n" $p "$numberOfThreads" "$fileName" )"
+					else
+						str="$( printf "${GR}%2u ${OK}OK ${CY}%s${NM}\n" $p "$fileName" )"
+					fi
 				else
 					str="$( printf "${GR} * ${OK}OK ${CY}%s${NM}\n" "$fileName" )"
 				fi
@@ -533,7 +540,7 @@ genHumanReadableString ()
 
 printMessage ()
 {
-	local msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo='' statusData='' file='' path='' filePath='' msg='' p='' hashType='' hashError='' gain='' bitrate='' rate='' codec='' str=''
+	local msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo='' statusData='' file='' path='' filePath='' msg='' p='' numberOfThreads='' hashType='' hashError='' gain='' bitrate='' rate='' codec='' str=''
 
 	for a in "$@"; do
 		case "$a" in
@@ -553,6 +560,7 @@ printMessage ()
 			*x) rate="${a%x}" ;;
 			bitrate_*) codec="${a#bitrate_}" ;;
 			[0-9]*) p="$a" ;;
+			threads:[0-9]*) numberOfThreads="${a#threads:}" ;;
 			dateTime:[0-9]*) dateTime="${a#dateTime:}" ;;
 			albumTime:[0-9:]*) albumTime="${a#albumTime:}" ;;
 
@@ -1414,7 +1422,7 @@ handleInstance ()
 
 setupSwapdir ()
 {
-	local i c mktempFS='other' devshmFS='other' mktempSpace devshmSpace ec=1 copyLockFile
+	local i c mktempFS='other' devshmFS='other' mktempSpace devshmSpace ec=1 copyLockFile fileBytes
 
 	if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
 
@@ -1491,6 +1499,12 @@ setupSwapdir ()
 		fi
 
 		touch "${TDIR}/${i}"
+		if [ "$OS" = 'Linux' ]; then
+			fileBytes="$( stat -L --printf "%s" "${sourceFiles[$i]}" 2>> "$errorLogFile" )"
+		else
+			fileBytes="$( stat -L -n -f "%z" "${sourceFiles[$i]}" 2>> "$errorLogFile" )"
+		fi
+		echo "$fileBytes $i" > "${TDIR}/inputBytes_${i}"
 		if [ $nLossyWAV -ge 1 ]; then
 			touch "${TDIR}/lossyWAV_${i}"
 			touch "${TDIR}/lossyWAV_${i}_WAV_NEEDED"
@@ -1505,6 +1519,8 @@ setupSwapdir ()
 			fi
 		done
 	done
+
+	sort -n "${TDIR}/inputBytes_"* > "${TDIR}/totalInputBytes"
 
 	echo -n "0" > "${TDIR}/durations"
 	echo -n "0" > "${TDIR}/readTimes"
@@ -1548,7 +1564,7 @@ getNumberOfProcessedFiles ()
 
 getNumberOfAvailableThreads ()
 {
-	local maxThreads="$1" nRunningProcesses nThreads nProcessedFiles=0 nUnprocessedFiles
+	local maxThreads="$1" nProcessedFiles=0 nUnprocessedFiles nThreads
 
 	if [ -z "$maxThreads" ]; then
 		maxThreads=999999
@@ -3497,6 +3513,7 @@ encode ()
 	compressionTag=''
 
 	if overwriteDestFile "$sourceFile" "$outputCodec"; then
+		nThreads=1
 		case "$outputCodec" in
 			WAV)
 				if [ $sourceIsLossyWAV = true ]; then
@@ -3740,7 +3757,7 @@ encode ()
 					copyOrLinkOtherFiles "WavPackLossy"
 				fi
 
-				printMessage 'success' "$statusInfo" "file:${destFile}" $p
+				printMessage 'success' "$statusInfo" "file:${destFile}" $p "threads:$nThreads"
 			fi
 		else
 			rm -f "$encodedFile" >/dev/null 2>&1 # in case it exists
@@ -3847,11 +3864,11 @@ addTranscodingErrorFile ()
 
 transcode ()
 {
-	local lastCodec="${outputCodecs##* }" allDone=false copyDone=false encodingDone=false ec=$EX_OK lsec=0
+	local lastCodec="${outputCodecs##* }" allDone=false copyDone=false encodingDone=false ec=$EX_OK lsec=0 bytes i
 
 	until test $allDone = true; do
 		allDone=true
-		for ((i=0; i<${#sourceFiles[@]}; i++)); do
+		while read bytes i; do
 			getFileProps "${sourceFiles[$i]}"
 			copyFile="${SWAPDIR}/${i}.${sourceFilename}"
 
@@ -3945,7 +3962,7 @@ transcode ()
 			# 	fi
 			# fi
 		chmod u+rwX "$destPath" "${destPath}"/* 2>> "$errorLogFile" # FIXME chmod u=rw,go=r
-		done
+		done < "${TDIR}/totalInputBytes"
 		sleep 0.1 # make sure idling processes don't hog the CPU
 	done
 
@@ -4162,18 +4179,23 @@ testHashedFile ()
 			;;
 	esac
 
+	if [ $ec -eq $EX_OK ]; then
+		printMessage 'success' 'testing' $p "threads:$nThreads" "$testHashType" "file:${sourceFile}"
+	fi
+
 	return $ec
 }
 
 testFile ()
 {
-	local ec=$EX_OK nThreads=1
+	local ec=$EX_OK nThreads=1 hashTested=false
 
 	testHashType=''
 	if [ -e "$copyFile" ]; then
 		case "$copyFile" in
 			*.flac)
 				testHashedFile ; ec=$?
+				if [ $ec -eq $EX_OK ]; then hashTested=true; fi
 				if [ $ec -eq $EX_DATAERR -o $ec -eq $EX_OSFILE ]; then
 					flac -st "$copyFile" >/dev/null 2>&1; ec=$?
 				fi
@@ -4182,6 +4204,7 @@ testFile ()
 
 			*.wv)
 				testHashedFile ; ec=$?
+				if [ $ec -eq $EX_OK ]; then hashTested=true; fi
 				if [ $ec -eq $EX_DATAERR -o $ec -eq $EX_OSFILE ]; then
 					nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
 					wvunpack --threads=$nThreads -qmv "$copyFile" >/dev/null 2>&1; ec=$?
@@ -4191,6 +4214,7 @@ testFile ()
 
 			*.ape)
 				testHashedFile ; ec=$?
+				if [ $ec -eq $EX_OK ]; then hashTested=true; fi
 				if [ $ec -eq $EX_DATAERR -o $ec -eq $EX_OSFILE ]; then
 					if [ $macHasVerify = true ]; then
 						nThreads=$( getNumberOfAvailableThreads )
@@ -4210,10 +4234,8 @@ testFile ()
 	if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
 
 	if [ $ec -eq $EX_OK ]; then
-		if [ -n "$testHashType" ]; then
-			printMessage 'success' 'testing' "$testHashType" "file:${sourceFile}" $p
-		else
-			printMessage 'success' 'testing' 'no_hash' "file:${sourceFile}" $p
+		if [ $hashTested = false ]; then
+			printMessage 'success' 'testing' 'no_hash' "file:${sourceFile}" $p "threads:$nThreads"
 		fi
 	elif [ $ec -eq $EX_DATAERR ]; then
 		printMessage 'warning' 'testing' 'no_hash' $p "file:${sourceFile}" 'missing hash metadata'
@@ -4253,8 +4275,8 @@ getAndRenameLock ()
 
 testFiles ()
 {
-	local ec=$EX_OK
-	for ((i=0; i<${#sourceFiles[@]}; i++)); do
+	local ec=$EX_OK bytes i
+	while read bytes i; do
 		sourceFile="${sourceFiles[$i]}"
 		sourceFilename="${sourceFile##*/}"
 		copyFile="${SWAPDIR}/${i}.${sourceFilename}"
@@ -4270,7 +4292,7 @@ testFiles ()
 			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
 			touch "$wasProcessedFile"
 		fi
-	done
+	done < "${TDIR}/totalInputBytes"
 
 	rm -f "${instanceDir}/process.${p}"
 	return $ec
@@ -4292,7 +4314,7 @@ getInternalMD5 ()
 
 computeHash ()
 {
-	local ec=$EX_OK ereg nThreads
+	local ec=$EX_OK ereg nThreads=1
 
 	if [ -e "$copyFile" ]; then
 		sourceMD5=''
@@ -4395,7 +4417,7 @@ computeHash ()
 	fi
 
 	if [ $ec -eq $EX_OK ]; then
-		printMessage 'success' 'hashing' $p "file:${sourceFile}"
+		printMessage 'success' 'hashing' $p "threads:$nThreads" "file:${sourceFile}"
 	else
 		printMessage 'error' 'decoding' $p "file:${sourceFile}"
 	fi
@@ -4604,7 +4626,7 @@ saveSeconds ()
 
 computeTrackGain ()
 {
-	local ec=$EX_OK line nLines=0 decimals sGain nThreads
+	local ec=$EX_OK line nLines=0 decimals sGain
 
 	if [ -e "$copyFile" ]; then
 		case "$copyFile" in
@@ -4625,8 +4647,7 @@ computeTrackGain ()
 
 			*.wv)
 				APEv2 -z -r 'replaygain_track_gain' -r 'replaygain_album_gain' -r 'replaygain_track_peak' -r 'replaygain_album_peak' "$copyFile" >/dev/null 2>&1
-				nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
-				wvgain -q -t $nThreads "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				wvgain -q "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK ]; then
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -iE '^replaygain_track_' | $sedcmd \
 						-e 's@replaygain_track_gain@Replaygain_Track_Gain@i' \
@@ -4765,9 +4786,9 @@ computeTrackGain ()
 
 computeTrackGains ()
 {
-	local ec=$EX_OK
+	local ec=$EX_OK bytes i
 
-	for ((i=0; i<${#sourceFiles[@]}; i++)); do
+	while read bytes i; do
 		sourceFile="${sourceFiles[$i]}"
 		sourceFilename="${sourceFile##*/}"
 		sourceFileExt="${sourceFile##*.}"
@@ -4789,7 +4810,7 @@ computeTrackGains ()
 			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
 			touch "$wasProcessedFile"
 		fi
-	done
+	done < "${TDIR}/totalInputBytes"
 
 	rm -f "${instanceDir}/process.${p}"
 	return $ec
@@ -5777,7 +5798,7 @@ else
 	copyOtherFiles=false
 fi
 
-while getopts 'zsn:o:O:P:l:L:a:f:kKDtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
+while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 	case $o in
 		s) verbose=false ;;
 
