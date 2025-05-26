@@ -5493,44 +5493,20 @@ getDestDir ()
 
 setCodecOtherFiles ()
 {
-	local outputCodec="$1" pattern="$2"
+	local outputCodec="$1" pattern="$2" losslessCodecs lossyCodecs listOfCodecs codec
 
-	if [ "$outputCodec" = "default" ]; then
-		copyOtherFiles_WAV="$pattern"
-		copyOtherFiles_AIFF="$pattern"
-		copyOtherFiles_CAF="$pattern"
-		copyOtherFiles_FLAC="$pattern"
-		copyOtherFiles_WavPack="$pattern"
-		copyOtherFiles_WavPackHybrid="$pattern"
-		copyOtherFiles_MonkeysAudio="$pattern"
+	losslessCodecs="WAV AIFF CAF FLAC WavPack WavPackHybrid MonkeysAudio"
+	lossyCodecs="WavPackLossy lossyWAV lossyFLAC lossyWV MP3 AAC OggVorbis Opus"
 
-		copyOtherFiles_WavPackLossy="$pattern"
-		copyOtherFiles_lossyWAV="$pattern"
-		copyOtherFiles_lossyFLAC="$pattern"
-		copyOtherFiles_lossyWV="$pattern"
-		copyOtherFiles_MP3="$pattern"
-		copyOtherFiles_AAC="$pattern"
-		copyOtherFiles_OggVorbis="$pattern"
-		copyOtherFiles_Opus="$pattern"
-	elif [ "$outputCodec" = "lossless" ]; then
-		copyOtherFiles_WAV="$pattern"
-		copyOtherFiles_AIFF="$pattern"
-		copyOtherFiles_CAF="$pattern"
-		copyOtherFiles_FLAC="$pattern"
-		copyOtherFiles_WavPack="$pattern"
-		copyOtherFiles_WavPackHybrid="$pattern"
-		copyOtherFiles_MonkeysAudio="$pattern"
-	elif [ "$outputCodec" = "lossy" ]; then
-		copyOtherFiles_WavPackLossy="$pattern"
-		copyOtherFiles_lossyWAV="$pattern"
-		copyOtherFiles_lossyFLAC="$pattern"
-		copyOtherFiles_lossyWV="$pattern"
-		copyOtherFiles_MP3="$pattern"
-		copyOtherFiles_AAC="$pattern"
-		copyOtherFiles_OggVorbis="$pattern"
-		copyOtherFiles_Opus="$pattern"
-	else
-		case "$outputCodec" in
+	case "$outputCodec" in
+		default) read -a listOfCodecs <<< "$losslessCodecs $lossyCodecs" ;;
+		lossless) read -a listOfCodecs <<< "$losslessCodecs" ;;
+		lossy) read -a listOfCodecs <<< "$lossyCodecs" ;;
+		*) read -a listOfCodecs <<< "$outputCodec" ;;
+	esac
+
+	for codec in "${listOfCodecs[@]}"; do
+		case "$codec" in
 			WAV) copyOtherFiles_WAV="$pattern" ;;
 			AIFF) copyOtherFiles_AIFF="$pattern" ;;
 			CAF) copyOtherFiles_CAF="$pattern" ;;
@@ -5547,9 +5523,8 @@ setCodecOtherFiles ()
 			AAC) copyOtherFiles_AAC="$pattern" ;;
 			OggVorbis) copyOtherFiles_OggVorbis="$pattern" ;;
 			Opus) copyOtherFiles_Opus="$pattern" ;;
-			*) printMessage 'error' 'usage' 'bad_value' "$me -f: valid values are 'all', a filename, or a comma separated list of either files or file extensions WITH leading dots" ; exit $EX_USAGE
 		esac
-	fi
+	done
 }
 
 getCodecOtherFiles ()
