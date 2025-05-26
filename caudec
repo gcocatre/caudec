@@ -1576,7 +1576,7 @@ getNumberOfAvailableThreads ()
 
 	nProcessedFiles="$( getNumberOfProcessedFiles )"
 	nUnprocessedFiles=$(( numberOfInputFiles - nProcessedFiles ))
-	nThreads=$(( maxProcessesSetByUser - nUnprocessedFiles ))
+	nThreads=$(( maxProcessesSetByUser - nUnprocessedFiles + 1 ))
 	if [ $nThreads -lt 1 ]; then
 		nThreads=1
 	fi
@@ -4213,7 +4213,7 @@ testFile ()
 
 			*.ape)
 				nThreads=$( getNumberOfAvailableThreads )
-				mac "$copyFile" -threads=$nThreads -v >/dev/null 2>&1; ec=$?
+				mac "$copyFile" -threads=$nThreads -V >/dev/null 2>&1; ec=$?
 				saveDurations
 				;;
 
