@@ -6207,10 +6207,6 @@ elif [ $computeReplaygain = true -a $actionHash = true ]; then
 	exit $EX_USAGE
 fi
 
-if [ -z "$dir_WAV" ]; then
-	setDestDir "WAV" "$PWD"
-fi
-
 nTracks=$# ec=$EX_OK
 declare -a inputFilesAndDirs=("$@")
 declare -a inputFiles=()
