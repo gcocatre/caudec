@@ -1303,25 +1303,25 @@ checkBinaries ()
 	fi
 }
 
-setNProcesses ()
+setNumberOfProcesses ()
 {
-	local newN=$1 processNumber
+	local newNumberOfProcesses=$1 processNumber
 
-	for (( processNumber=0 ; processNumber < newN; processNumber++ )); do
+	for (( processNumber=0 ; processNumber < newNumberOfProcesses; processNumber++ )); do
 		touch "${instanceDir}/process.$processNumber" >/dev/null 2>&1
 	done
 
-	if [ $newN -lt $nProcesses ]; then
-		for (( processNumber=newN ; processNumber < nProcesses; processNumber++ )); do
+	if [ $newNumberOfProcesses -lt $nProcesses ]; then
+		for (( processNumber=newNumberOfProcesses ; processNumber < nProcesses; processNumber++ )); do
 			rm -f "${instanceDir}/process.$processNumber"
 		done
-	elif [ $newN -gt $nProcesses ]; then
-		for (( processNumber=nProcesses ; processNumber < newN; processNumber++ )); do
+	elif [ $newNumberOfProcesses -gt $nProcesses ]; then
+		for (( processNumber=nProcesses ; processNumber < newNumberOfProcesses; processNumber++ )); do
 			touch "${instanceDir}/process.$processNumber" >/dev/null 2>&1
 		done
 	fi
 
-	nProcesses=$newN
+	nProcesses=$newNumberOfProcesses
 }
 
 isProcessRunning ()
@@ -1407,9 +1407,9 @@ handleInstance ()
 			cleanExit $EX_TEMPFAIL
 		elif [ $nProcesses -gt $nAvailableProcesses ]; then
 			printMessage 'warning' 'usage' 'quota' 'verbose' "Number of processes reduced to $nAvailableProcesses in order to stay within limits."
-			setNProcesses $nAvailableProcesses
+			setNumberOfProcesses $nAvailableProcesses
 		else
-			setNProcesses $nProcesses
+			setNumberOfProcesses $nProcesses
 		fi
 		return 0
 	else
@@ -6137,7 +6137,7 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 	checkOutputDirectories
 
 	nJobs=$(( nTracks * nCodecs ))
-	if [ $nProcesses -gt $nJobs ]; then setNProcesses $nJobs ; fi
+	if [ $nProcesses -gt $nJobs ]; then setNumberOfProcesses $nJobs ; fi
 	oProcesses=$nProcesses
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
@@ -6148,7 +6148,7 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 		transcode &
 	done
 elif [ $checkFiles = true ]; then
-	if [ $nProcesses -gt $nTracks ]; then setNProcesses $nTracks ; fi
+	if [ $nProcesses -gt $nTracks ]; then setNumberOfProcesses $nTracks ; fi
 	oProcesses=$nProcesses
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
@@ -6159,7 +6159,7 @@ elif [ $checkFiles = true ]; then
 		testFiles &
 	done
 elif [ $computeReplaygain = true ]; then
-	if [ $nProcesses -gt $nTracks ]; then setNProcesses $nTracks ; fi
+	if [ $nProcesses -gt $nTracks ]; then setNumberOfProcesses $nTracks ; fi
 	oProcesses=$nProcesses
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
@@ -6170,7 +6170,7 @@ elif [ $computeReplaygain = true ]; then
 		computeTrackGains &
 	done
 elif [ $touchFiles = true ]; then
-	if [ $nProcesses -gt $nTracks ]; then setNProcesses $nTracks ; fi
+	if [ $nProcesses -gt $nTracks ]; then setNumberOfProcesses $nTracks ; fi
 	oProcesses=$nProcesses
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
@@ -6181,7 +6181,7 @@ elif [ $touchFiles = true ]; then
 		computeTrackDateTimes &
 	done
 elif [ $actionHash = true ]; then
-	if [ $nProcesses -gt $nTracks ]; then setNProcesses $nTracks ; fi
+	if [ $nProcesses -gt $nTracks ]; then setNumberOfProcesses $nTracks ; fi
 	oProcesses=$nProcesses
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
