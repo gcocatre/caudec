@@ -3316,7 +3316,7 @@ encodeLossyWAV ()
 
 getEncoderVersions ()
 {
-	local oggencPath vorbisPrefix libvorbisVersion
+	local outputCodec oggencPath vorbisPrefix libvorbisVersion
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
