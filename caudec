@@ -881,24 +881,23 @@ cleanAbort ()
 
 getInputFiles ()
 {
-	local fileOrDir ec=$EX_OK ext
+	local fileIndex=0 fileOrDir ec=$EX_OK ext
 
-	nTracks=0
 	for fileOrDir in "${inputFilesAndDirs[@]}"; do
 		if [ -d "$fileOrDir" ]; then
 			if [ -r "$fileOrDir" ]; then
 				if [ "$OS" = 'Linux' ]; then
 					while IFS= read -d $'\0' -r file ; do
 						if [ -f "$file" -a -r "$file" ]; then
-							inputFiles[$nTracks]="$file"
-							((nTracks++))
+							inputFiles[$fileIndex]="$file"
+							((fileIndex++))
 						fi
 					done < <(find "$fileOrDir" -type f -regex '.*\.\(wav\|aiff\|caf\|flac\|wv\|ape\|mp3\|m4a\|ogg\|opus\)$' -print0 2>/dev/null)
 				else
 					while IFS= read -d $'\0' -r file ; do
 						if [ -f "$file" -a -r "$file" ]; then
-							inputFiles[$nTracks]="$file"
-							((nTracks++))
+							inputFiles[$fileIndex]="$file"
+							((fileIndex++))
 						fi
 					done < <(find -E "$fileOrDir" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null)
 				fi
@@ -906,8 +905,8 @@ getInputFiles ()
 				printMessage 'warning' 'usage' 'filesystem' "path:${fileOrDir}" 'directory is not readable (permission denied).' ; ec=$EX_NOINPUT
 			fi
 		else
-			inputFiles[$nTracks]="$fileOrDir"
-			((nTracks++))
+			inputFiles[$fileIndex]="$fileOrDir"
+			((fileIndex++))
 		fi
 	done
 
@@ -931,8 +930,10 @@ checkInputFiles ()
 {
 	local file ec=$EX_OK bn dn commonFileExtension="" fileExtension="" fileExtensionAreAllTheSame=true refDn cdpath pdpath basenames='' isf=0 keepInputFile errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
 
-	if [ $nTracks -gt $maxInputFiles ]; then
-		printMessage 'warning' 'usage' 'quota' "the number of input files ($nTracks) is greater than maxInputFiles=${maxInputFiles}."
+	numberOfInputFiles="${#inputFiles[@]}"
+
+	if [ $numberOfInputFiles -gt $maxInputFiles ]; then
+		printMessage 'warning' 'usage' 'quota' "the number of input files ($numberOfInputFiles) is greater than maxInputFiles=${maxInputFiles}."
 		printMessage 'abort'
 		if [ "$outputMode" != 'machine' ]; then
 			echo 1>&2
@@ -943,7 +944,6 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 		cleanExit $EX_USAGE
 	fi
 
-	numberOfInputFiles="${#inputFiles[@]}"
 	for file in "${inputFiles[@]}" ; do
 		fileExtension="${file##*.}"
 		if [ -z "$commonFileExtension" ]; then
