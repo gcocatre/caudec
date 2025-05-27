@@ -6138,7 +6138,6 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 
 	nJobs=$(( nTracks * nCodecs ))
 	if [ $nProcesses -gt $nJobs ]; then setNumberOfProcesses $nJobs ; fi
-	oProcesses=$nProcesses
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
@@ -6149,7 +6148,6 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 	done
 elif [ $checkFiles = true ]; then
 	if [ $nProcesses -gt $nTracks ]; then setNumberOfProcesses $nTracks ; fi
-	oProcesses=$nProcesses
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
@@ -6160,7 +6158,6 @@ elif [ $checkFiles = true ]; then
 	done
 elif [ $computeReplaygain = true ]; then
 	if [ $nProcesses -gt $nTracks ]; then setNumberOfProcesses $nTracks ; fi
-	oProcesses=$nProcesses
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
@@ -6171,7 +6168,6 @@ elif [ $computeReplaygain = true ]; then
 	done
 elif [ $touchFiles = true ]; then
 	if [ $nProcesses -gt $nTracks ]; then setNumberOfProcesses $nTracks ; fi
-	oProcesses=$nProcesses
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
@@ -6182,7 +6178,6 @@ elif [ $touchFiles = true ]; then
 	done
 elif [ $actionHash = true ]; then
 	if [ $nProcesses -gt $nTracks ]; then setNumberOfProcesses $nTracks ; fi
-	oProcesses=$nProcesses
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
