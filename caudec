@@ -4745,7 +4745,8 @@ computeAlbumGain ()
 	# This is a very fast way of computing the album gain, but it is also less precise than the official implementation.
 	# A comparison between gains on 754 albums revealed max differences ranging from -2.06 dB to +1.50 dB.
 	# PINK_REF="64.82" is from flac/src/share/replaygain_analysis/replaygain_analysis.c
-	local ec=$EX_OK PINK_REF_COMPLEMENT="35.18" rank trackGain trackSeconds=1 N=0
+	local ec=$EX_OK PINK_REF_COMPLEMENT="35.18" i j s rank trackGain trackSeconds=1 increment=0
+	local trackGainFile trackPeakFile trackSecondsFile trackMillisecondsFile albumPeak albumGain
 
 	for ((i=0; i < ${#sourceFiles[@]}; i++)); do
 		trackGainFile="${TDIR}/${i}.trackgain"
@@ -4760,7 +4761,7 @@ computeAlbumGain ()
 			fi
 			for (( s=0; s < trackSeconds; s++ )); do
 				echo "$trackGain" >> "${TDIR}/trackgains"
-				((N++))
+				((increment++))
 			done
 			cat "$trackPeakFile" >> "${TDIR}/trackpeaks" 2>/dev/null
 		else
@@ -4775,11 +4776,11 @@ computeAlbumGain ()
 	fi
 
 	if [ $applyGain = true -a "$applyGainType" = 'ALBUM_PEAK' ]; then
-		albumGain="$( printf "%.2f" "$( echo  "20 * (l(${albumPeak}) / l(10))" | bc -l )" )"
+		albumGain="$( printf "%.2f" "$( echo "scale=3; (20 * (l(${albumPeak}) / l(10))) / 1" | bc -l 2>> "$errorLogFile" )" )"
 		if [ "${albumGain:0:1}" = '-' ]; then
 			albumGain="${albumGain:1}"
 			if [ "${peakReference:0:1}" = '-' ]; then
-				albumGain="$( printf "%.2f" "$( echo "$albumGain + ($peakReference)" | bc -l )" )"
+				albumGain="$( printf "%.2f" "$( echo "scale=3; ($albumGain + ($peakReference)) / 1" | bc -l 2>> "$errorLogFile" )" )"
 			fi
 		elif [ "${peakReference:0:1}" = '-' ]; then
 			albumGain="$peakReference"
@@ -4792,8 +4793,7 @@ computeAlbumGain ()
 
 		# By using PINK_REF_COMPLEMENT instead of PINK_REF, running 'head' MIGHT be slightly faster than
 		# running 'tail' with PINK_REF because 'head' will output fewer lines than 'tail'.
-		rank="$( echo "scale=5; (${PINK_REF_COMPLEMENT} / 100) * $N + (1 / 2)" | bc )"
-		rank="$( printf "%.0f" "$rank" )"
+		rank="$( printf "%.0f" "$( echo "scale=5; (${PINK_REF_COMPLEMENT} / 100) * $increment + (1 / 2)" | bc )" )"
 		albumGain="$( head -n $rank "${TDIR}/trackgains" 2>/dev/null | tail -n 1 )"
 		if [ -z "$albumGain" ]; then
 			printMessage 'error' 'album_gain' "Album gain"
@@ -4820,11 +4820,10 @@ computeAlbumGain ()
 	done
 	wait
 
-	gain="$albumGain"
-	if [ "${gain:0:1}" != '-' ]; then
-		gain="+${gain}"
+	if [ "${albumGain:0:1}" != '-' ]; then
+		albumGain="+${albumGain}"
 	fi
-	printMessage 'success' 'album_gain' "${gain} dB" "Album gain: $gain dB"
+	printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB"
 
 	return $ec
 }
