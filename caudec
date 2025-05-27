@@ -4980,9 +4980,9 @@ computeTrackDateTimes ()
 # FIXME handle multiple directories
 touchAllFiles ()
 {
-	local ec=$EX_OK trackYear trackMonth trackDay trackDate defaultTrackDate touchString totalSeconds albumHours
-	local albumMinutes albumSeconds trackMilliseconds n=0 dir dirPath inode linkedFile linkPath
-	local audioFiles otherFiles audioFile sourceFile otherFile
+	local ec=$EX_OK i a o trackYear trackMonth trackDay trackDate totalSeconds trackMilliseconds albumHours
+	local albumMinutes albumSeconds defaultTrackDate dir dirPath inode linkedFile linkPath touchString
+	local audioFiles otherFiles audioFile sourceFile otherFile sourceTagFile secondsFile millisecondsFile
 
 	trackYear="$( date "+%Y" )"
 	trackMonth="$( date "+%m" )"
@@ -5008,8 +5008,7 @@ touchAllFiles ()
 		esac
 	done
 
-	for ((a=0; a < ${#audioFiles[@]}; a++)); do
-		audioFile="${audioFile[$a]}"
+	for audioFile in "${audioFiles[@]}"; do
 		if [ $gotLinkedDir = true -a -z "$linkPath" ]; then
 			inode="$( ls -i "$audioFile" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
 			if [ -n "$inode" ]; then
@@ -5033,7 +5032,6 @@ touchAllFiles ()
 
 	  case "$sourceFile" in
     	*.flac|*ogg|*m4a|*.wv|*.ape|*.opus)
-				n=$(( n + 1 ))
 				read trackDate < "$sourceTagFile"
 				if [ -z "$trackDate" ]; then trackDate="$defaultTrackDate"; fi
 				read trackMilliseconds < "$millisecondsFile"
@@ -5059,10 +5057,9 @@ touchAllFiles ()
 		totalSeconds="$( echo "scale=3; $totalSeconds + $trackMilliseconds" | bc )"
 	done
 
-	for ((o=0; o < ${#otherFiles[@]}; o++)); do
-		otherFile="${otherFiles[$o]}"
+	for otherFile in "${otherFiles[@]}"; do
 		touchString="$( getTouchString $trackDate $totalSeconds )"
-		touch -t "$touchString" "$otherFile" || ec=$EX_IOERR
+		touch -t "$touchString" "$otherFile" 2>> "$errorLogFile" || ec=$EX_IOERR
 	done
 
 	if [ ! -w "$dir" ]; then
