@@ -1524,7 +1524,7 @@ setupSwapdir ()
 		done
 	done
 
-	sort -n "${TDIR}/inputBytes_"* > "${TDIR}/totalInputBytes"
+	sort -n "${TDIR}/inputBytes_"* > "${TDIR}/bytesAndFileNumbers"
 
 	echo -n "0" > "${TDIR}/durations"
 	echo -n "0" > "${TDIR}/readTimes"
@@ -1563,12 +1563,12 @@ getNumberOfCaudecProcesses ()
 
 getNumberOfProcessedFiles ()
 {
-	ls -l "${TDIR}/WAS_PROCESSED".* 2>/dev/null | wc -l | tr -cd '[:digit:]'
+	stat "${TDIR}/WAS_PROCESSED".* 2>/dev/null | wc -l | tr -cd '[:digit:]'
 }
 
 getNumberOfAvailableThreads ()
 {
-	local maxThreads="$1" nProcessedFiles=0 nUnprocessedFiles nThreads
+	local n=$1 maxThreads="$2" nProcessedFiles=0 nUnprocessedFiles nBytesLeft=0 nThreads foo
 
 	if [ -z "$maxThreads" ]; then
 		maxThreads=999999
@@ -1576,7 +1576,24 @@ getNumberOfAvailableThreads ()
 
 	nProcessedFiles="$( getNumberOfProcessedFiles )"
 	nUnprocessedFiles=$(( numberOfInputFiles - nProcessedFiles ))
-	nThreads=$(( maxProcessesSetByUser - nUnprocessedFiles + 1 ))
+	if [ $nUnprocessedFiles -ge $maxProcessesSetByUser ]; then
+		echo 1
+		return
+	fi
+
+	while read bytes number; do
+		test -e "${TDIR}/WAS_PROCESSED.${number}" &>/dev/null && continue
+		nBytesLeft=$(( nBytesLeft + bytes ))
+	done < "${TDIR}/bytesAndFileNumbers"
+
+	while read bytes number; do
+		test -e "${TDIR}/WAS_PROCESSED.${number}" &>/dev/null && continue
+		if [ "$number" = "$i" ]; then
+			nThreads="$( printf "%.0f" "$( echo "scale=3; $maxProcessesSetByUser * ($bytes / $nBytesLeft)" | bc )" )"
+			break
+		fi
+	done < "${TDIR}/bytesAndFileNumbers"
+
 	if [ $nThreads -lt 1 ]; then
 		nThreads=1
 	fi
@@ -2881,7 +2898,7 @@ decode ()
 				sourceTagFormat='ape' kfm='-w'
 				getInternalMD5 "$copyFile"
 				if [ $keepWavMetadata = true ]; then kfm='' ; fi
-				nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
+				nThreads=$( getNumberOfAvailableThreads $i $maxWavPackThreads )
 				wvunpack -q $kfm -m --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK ]; then
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
@@ -2892,7 +2909,7 @@ decode ()
 
 			ape)
 				sourceTagFormat='ape'
-				nThreads=$( getNumberOfAvailableThreads )
+				nThreads=$( getNumberOfAvailableThreads $i )
 				mac "$copyFile" "$wavFile" -d -threads=$nThreads >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK ]; then
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
@@ -3542,7 +3559,7 @@ encode ()
 				# Kohlrabi is a very cool dude
 				if [ $keepWavMetadata = true ]; then kfm='--keep-foreign-metadata' ; fi
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / FLAC $flacVersion / -$compression_FLAC"; fi
-				nThreads=$( getNumberOfAvailableThreads $maxFlacThreads )
+				nThreads=$( getNumberOfAvailableThreads $i $maxFlacThreads )
 				printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P 4096 $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
 				importArtworkIntoFLAC || ec=$EX_KO
 				;;
@@ -3553,7 +3570,7 @@ encode ()
 					printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$me -c wv: correction files are present. Please delete them and try again." ; ec=$EX_KO
 				else
 					if [ $keepWavMetadata = true ]; then kfm=''; fi
-					nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
+					nThreads=$( getNumberOfAvailableThreads $i $maxWavPackThreads )
 					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack"; fi
 					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 					if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
@@ -3566,7 +3583,7 @@ encode ()
 			WavPackHybrid)
 				destExtension='wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt" kfm='-r'
 				if [ $keepWavMetadata = true ]; then kfm=''; fi
-				nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
+				nThreads=$( getNumberOfAvailableThreads $i $maxWavPackThreads )
 				if [ $tagCompressionSetting = true ]; then
 					if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
 						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy bits per sample (ABR)"
@@ -3587,7 +3604,7 @@ encode ()
 					printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$me -c wv: correction files are present. Please delete them and try again." ; ec=$EX_KO
 				else
 					if [ $keepWavMetadata = true ]; then kfm=''; fi
-					nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
+					nThreads=$( getNumberOfAvailableThreads $i $maxWavPackThreads )
 					if [ $tagCompressionSetting = true ]; then
 						if [ -z "$compression_WavPack" ]; then
 							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
@@ -3605,7 +3622,7 @@ encode ()
 
 			MonkeysAudio)
 				destExtension='ape'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt"
-				nThreads=$( getNumberOfAvailableThreads )
+				nThreads=$( getNumberOfAvailableThreads $i )
 				mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 -threads=${nThreads} >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
@@ -3618,14 +3635,14 @@ encode ()
 			lossyFLAC)
 				destExtension='lossy.flac'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.vc.txt"
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
-				nThreads=$( getNumberOfAvailableThreads $maxFlacThreads )
+				nThreads=$( getNumberOfAvailableThreads $i $maxFlacThreads )
 				printf -- "--totally-silent`tagline -T`\x00%s" "$lossywavFile" | xargs -0 flac -j $nThreads -P 4096 -5 -b 512 --keep-foreign-metadata -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
 				importArtworkIntoFLAC || ec=$EX_KO
 				;;
 
 			lossyWV)
 				destExtension='lossy.wv'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.ape.txt"
-				nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
+				nThreads=$( getNumberOfAvailableThreads $i $maxWavPackThreads )
 				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 				printf -- "-q`tagline -w`\x00%s" "$lossywavFile" | xargs -0 wavpack --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
@@ -3970,7 +3987,7 @@ transcode ()
 			# 	fi
 			# fi
 		chmod u+rwX "$destPath" "${destPath}"/* 2>> "$errorLogFile" # FIXME chmod u=rw,go=r
-		done < "${TDIR}/totalInputBytes"
+		done < "${TDIR}/bytesAndFileNumbers"
 		sleep 0.1 # make sure idling processes don't hog the CPU
 	done
 
@@ -4119,81 +4136,6 @@ getHashTags ()
 	return $EX_OK
 }
 
-testHashedFile ()
-{
-	local ec=$EX_OK nThreads=1
-
-	case "$copyFile" in
-		*.flac)
-			if metaflac --no-utf8-convert --export-tags-to="$sourceTagFile" "$copyFile" >/dev/null 2>&1; then
-				getHashTags ; ec=$?
-				if [ $ec -eq $EX_OK ]; then
-					if [ -n "$hashMD5" ]; then
-						getInternalMD5 "$copyFile"
-						if [ -n "$sourceMD5" -a "$sourceMD5" != "$hashMD5" ]; then
-							ec=$EX_IOERR
-						fi
-					fi
-					if [ $ec -eq $EX_OK ]; then
-						getSuitableHash ; ec=$?
-						if [ -n "$testHashType" ]; then
-							flac -s -d -o "$wavFile" "$copyFile" >/dev/null 2>&1 &&
-							compareHashes || ec=$EX_KO
-						fi
-					fi
-				fi
-			else
-				ec=$EX_DATAERR
-			fi
-			;;
-
-		*.wv)
-			APEv2 -z "$copyFile" > "$sourceTagFile" 2>/dev/null || ec=$EX_KO
-			if [ $ec -eq $EX_OK ]; then
-				getHashTags ;	ec=$?
-				if [ $ec -eq $EX_OK ]; then
-					if [ -n "$hashMD5" ]; then
-						getInternalMD5 "$copyFile"
-						if [ -n "$sourceMD5" -a "$sourceMD5" != "$hashMD5" ]; then
-							ec=$EX_IOERR
-						fi
-					fi
-					if [ $ec -eq $EX_OK ]; then
-						getSuitableHash ; ec=$?
-						if [ -n "$testHashType" ]; then
-							nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
-							wvunpack -q -m --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>&1 &&
-							compareHashes || ec=$EX_KO
-						fi
-					fi
-				fi
-			else
-				ec=$EX_DATAERR
-			fi
-			;;
-
-		*.ape)
-			APEv2 -z "$copyFile" > "$sourceTagFile" 2>/dev/null || ec=$EX_KO
-			if [ $ec -eq $EX_OK ]; then
-				getHashTags ;	getSuitableHash ; ec=$?
-				if [ -n "$testHashType" ]; then
-					nThreads=$( getNumberOfAvailableThreads )
-					mac "$copyFile" "$wavFile" -d -threads=$nThreads >/dev/null 2>&1 &&
-					compareHashes || ec=$EX_KO
-				fi
-			else
-				ec=$EX_DATAERR
-			fi
-			;;
-	esac
-
-	if [ $ec -eq $EX_OK ]; then
-		printMessage 'success' 'testing' $p "threads:$nThreads" "$testHashType" "file:${sourceFile}"
-	fi
-
-	return $ec
-}
-
 testFile ()
 {
 	local ec=$EX_OK nThreads=1
@@ -4206,13 +4148,13 @@ testFile ()
 				;;
 
 			*.wv)
-				nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
+				nThreads=$( getNumberOfAvailableThreads $i $maxWavPackThreads )
 				wvunpack --threads=$nThreads -qmv "$copyFile" >/dev/null 2>&1; ec=$?
 				saveDurations
 				;;
 
 			*.ape)
-				nThreads=$( getNumberOfAvailableThreads )
+				nThreads=$( getNumberOfAvailableThreads $i )
 				mac "$copyFile" -threads=$nThreads -V >/dev/null 2>&1; ec=$?
 				saveDurations
 				;;
@@ -4273,7 +4215,7 @@ testFiles ()
 			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
 			touch "$wasProcessedFile"
 		fi
-	done < "${TDIR}/totalInputBytes"
+	done < "${TDIR}/bytesAndFileNumbers"
 
 	rm -f "${instanceDir}/process.${p}"
 	return $ec
@@ -4312,7 +4254,7 @@ computeHash ()
 				touch "$sourceTagFile"
 				if [ $ec -eq $EX_OK ]; then
 					getInternalMD5 "$copyFile"
-					nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
+					nThreads=$( getNumberOfAvailableThreads $i $maxWavPackThreads )
 					wvunpack -q -m --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				;;
@@ -4320,7 +4262,7 @@ computeHash ()
 			*.ape)
 				touch "$sourceTagFile"
 				if [ $ec -eq $EX_OK ]; then
-					nThreads=$( getNumberOfAvailableThreads )
+					nThreads=$( getNumberOfAvailableThreads $i )
 					mac "$copyFile" "$wavFile" -d -threads=$nThreads >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				;;
@@ -4548,7 +4490,7 @@ saveSeconds ()
 			;;
 
 		*.wv)
-			nThreads=$( getNumberOfAvailableThreads $maxWavPackThreads )
+			nThreads=$( getNumberOfAvailableThreads $i $maxWavPackThreads )
 			data="$( wvunpack  -f "$file" 2>/dev/null )"
 			if [ -n "$data" ]; then
 				samples="$( echo "$data" | cut -d ';' -f 6 )"
@@ -4791,7 +4733,7 @@ computeTrackGains ()
 			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
 			touch "$wasProcessedFile"
 		fi
-	done < "${TDIR}/totalInputBytes"
+	done < "${TDIR}/bytesAndFileNumbers"
 
 	rm -f "${instanceDir}/process.${p}"
 	return $ec
