@@ -4832,14 +4832,13 @@ computeAlbumGain ()
 # https://github.com/FrancisRussell/zoog
 computeOpusAlbumGain ()
  {
-	local ec=$EX_OK list f albumPlaybackGain albumGain trackPlaybackGain trackDecibels sGain
+	local ec=$EX_OK list sourceFile albumPlaybackGain trackPlaybackGain trackDecibels signedTrackGain signedAlbumGain
 
-	list=""
-	for f in "${sourceFiles[@]}"; do
+	for sourceFile in "${sourceFiles[@]}"; do
 		if [ -z "$list" ]; then
-			list="$f"
+			list="$sourceFile"
 		else
-			list="${list}\x00$f"
+			list="${list}\x00${sourceFile}"
 		fi
 	done
 	echo -en "$list" | xargs -0 opusgain -j $nProcesses -a -p rg 1>/dev/null 2>> "$errorLogFile" || ec=$EX_KO
@@ -4847,24 +4846,24 @@ computeOpusAlbumGain ()
 		# opusgain changes the rights on the files it touches, to u=rw,go=
 		chmod u=rw,go=r "${sourceFiles[@]}" 1>/dev/null 2>> "$errorLogFile"
 
-		albumPlaybackGain="$( opusinfo "$f" | grep -F "Playback gain: " | cut -d ':' -f 2 | cut -d ' ' -f 2 )"
-		albumGain="$( echo "scale=2; ($albumPlaybackGain) / 1" | bc )"
-		for f in "${sourceFiles[@]}"; do
-			trackPlaybackGain="$( opusinfo "$f" | grep -F "R128_TRACK_GAIN=" | cut -d '=' -f 2 | cut -d ' ' -f 1 )"
+		albumPlaybackGain="$( opusinfo "$sourceFile" 2>> "$errorLogFile" | grep -F "Playback gain: " | cut -d ':' -f 2 | cut -d ' ' -f 2 )"
+		albumPlaybackGain="$( printf "%.2f" "$albumPlaybackGain" )"
+		for sourceFile in "${sourceFiles[@]}"; do
+			trackPlaybackGain="$( opusinfo "$sourceFile" | grep -F "R128_TRACK_GAIN=" | cut -d '=' -f 2 | cut -d ' ' -f 1 )"
 			trackPlaybackGain="${trackPlaybackGain#+*}"
-			trackDecibels="$( echo "scale=2; ($albumGain + ($trackPlaybackGain / 256) + 5) / 1" | bc )"
+			trackDecibels="$( echo "scale=3; ($albumPlaybackGain + ($trackPlaybackGain / 256) + 5) / 1" | bc 2>> "$errorLogFile" )"
 			trackDecibels="$( printf "%.2f" "$trackDecibels" )"
-			sGain="$trackDecibels"
-			if [ "${sGain:0:1}" != '-' -a "${sGain:0:1}" != '+' ]; then
-				sGain="+${sGain}"
+			signedTrackGain="$trackDecibels"
+			if [ "${signedTrackGain:0:1}" != '-' -a "${signedTrackGain:0:1}" != '+' ]; then
+				signedTrackGain="+${signedTrackGain}"
 			fi
-			printMessage 'success' 'track_gain' 0 "$sGain dB" "file:${f}"
+			printMessage 'success' 'track_gain' 0 "$signedTrackGain dB" "file:${sourceFile}"
 		done
-		sGain="$albumGain"
-		if [ "${sGain:0:1}" != '-' -a "${sGain:0:1}" != '+' ]; then
-			sGain="+${sGain}"
+		signedAlbumGain="$albumPlaybackGain"
+		if [ "${signedAlbumGain:0:1}" != '-' -a "${signedAlbumGain:0:1}" != '+' ]; then
+			signedAlbumGain="+${signedAlbumGain}"
 		fi
-		printMessage 'success' 'album_gain' "$sGain dB"
+		printMessage 'success' 'album_gain' "$signedAlbumGain dB"
 	else
 		printMessage 'error' 'album_gain' "Album gain"
 	fi
