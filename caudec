@@ -881,38 +881,38 @@ cleanAbort ()
 
 getInputFiles ()
 {
-	local ec=$EX_OK ext
+	local fileOrDir ec=$EX_OK ext
 
 	nTracks=0
-	for a in "${inputFilesAndDirs[@]}"; do
-		if [ -d "$a" ]; then
-			if [ -r "$a" ]; then
+	for fileOrDir in "${inputFilesAndDirs[@]}"; do
+		if [ -d "$fileOrDir" ]; then
+			if [ -r "$fileOrDir" ]; then
 				if [ "$OS" = 'Linux' ]; then
 					while IFS= read -d $'\0' -r file ; do
 						if [ -f "$file" -a -r "$file" ]; then
 							inputFiles[$nTracks]="$file"
 							((nTracks++))
 						fi
-					done < <(find "$a" -type f -regex '.*\.\(wav\|aiff\|caf\|flac\|wv\|ape\|mp3\|m4a\|ogg\|opus\)$' -print0 2>/dev/null)
+					done < <(find "$fileOrDir" -type f -regex '.*\.\(wav\|aiff\|caf\|flac\|wv\|ape\|mp3\|m4a\|ogg\|opus\)$' -print0 2>/dev/null)
 				else
 					while IFS= read -d $'\0' -r file ; do
 						if [ -f "$file" -a -r "$file" ]; then
 							inputFiles[$nTracks]="$file"
 							((nTracks++))
 						fi
-					done < <(find -E "$a" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null)
+					done < <(find -E "$fileOrDir" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null)
 				fi
 			else
-				printMessage 'warning' 'usage' 'filesystem' "path:${a}" 'directory is not readable (permission denied).' ; ec=$EX_NOINPUT
+				printMessage 'warning' 'usage' 'filesystem' "path:${fileOrDir}" 'directory is not readable (permission denied).' ; ec=$EX_NOINPUT
 			fi
 		else
-			inputFiles[$nTracks]="$a"
+			inputFiles[$nTracks]="$fileOrDir"
 			((nTracks++))
 		fi
 	done
 
-	for a in "${inputFiles[@]}"; do
-		ext="${a##*.}"
+	for fileOrDir in "${inputFiles[@]}"; do
+		ext="${fileOrDir##*.}"
 		if [ "$ext" != "opus" ]; then
 			allFilesAreOpus=false
 		fi
@@ -929,7 +929,7 @@ getInputFiles ()
 
 checkInputFiles ()
 {
-	local f ec=$EX_OK bn dn commonFileExtension="" fileExtension="" fileExtensionAreAllTheSame=true refDn cdpath pdpath basenames='' isf=0 keepInputFile errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
+	local file ec=$EX_OK bn dn commonFileExtension="" fileExtension="" fileExtensionAreAllTheSame=true refDn cdpath pdpath basenames='' isf=0 keepInputFile errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
 
 	if [ $nTracks -gt $maxInputFiles ]; then
 		printMessage 'warning' 'usage' 'quota' "the number of input files ($nTracks) is greater than maxInputFiles=${maxInputFiles}."
@@ -944,39 +944,39 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 	fi
 
 	numberOfInputFiles="${#inputFiles[@]}"
-	for f in "${inputFiles[@]}" ; do
-		fileExtension="${f##*.}"
+	for file in "${inputFiles[@]}" ; do
+		fileExtension="${file##*.}"
 		if [ -z "$commonFileExtension" ]; then
 			commonFileExtension="$fileExtension"
 		elif [ "$fileExtension" != "$commonFileExtension" ]; then
 			fileExtensionAreAllTheSame=false
 		fi
 		keepInputFile=false
-		dn="$( dirname "$f" )"
-		if [ ! -e "$f" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'no such file.' ; ec=$EX_NOINPUT
-		elif [ ! -f "$f" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'not a regular file.' ; ec=$EX_DATAERR
-		elif [ ! -r "$f" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for reading (permission denied).' ; ec=$EX_NOINPUT
-		elif [ ! -w "$f" -a $computeReplaygain = true ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
-		elif [ ! -w "$f" -a $actionHash = true ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
-		elif [ ! -w "$f" -a $touchFiles = true ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${f}" 'refusing to touch file that is read-only.' ; ec=$EX_CANTCREAT
+		dn="$( dirname "$file" )"
+		if [ ! -e "$file" ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${file}" 'no such file.' ; ec=$EX_NOINPUT
+		elif [ ! -f "$file" ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${file}" 'not a regular file.' ; ec=$EX_DATAERR
+		elif [ ! -r "$file" ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${file}" 'cannot open file for reading (permission denied).' ; ec=$EX_NOINPUT
+		elif [ ! -w "$file" -a $computeReplaygain = true ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${file}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
+		elif [ ! -w "$file" -a $actionHash = true ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${file}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
+		elif [ ! -w "$file" -a $touchFiles = true ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${file}" 'refusing to touch file that is read-only.' ; ec=$EX_CANTCREAT
 		else
 			if [ -z "$refDn" ] ; then refDn="$dn"; fi # for touching mtime files
 			if [ $copyPath = true ]; then
 				cdpath='/./' pdpath='/../'
-				if [ "${f:0:2}" = './' -o "${f:0:3}" = '../' -o "$dn" != "${dn//$cdpath/@}" -o "$dn" != "${dn//$pdpath/@}" ]; then
+				if [ "${file:0:2}" = './' -o "${f:0:3}" = '../' -o "$dn" != "${dn//$cdpath/@}" -o "$dn" != "${dn//$pdpath/@}" ]; then
 					printMessage 'warning' 'usage' 'filesystem' "path:${f}" "can't use paths containing ./ or ../ with caudec -P." ; ec=$EX_USAGE
 					continue
 				fi
 			fi
 
 			if [ -n "$outputCodecs" ]; then # transcode
-				bn="$( basename "$f" )"
+				bn="$( basename "$file" )"
 				bn="${bn%.*}"
 				if [ $copyPath = true ]; then
 					bn="x${dn#/}/${bn%.lossy}Y";
@@ -984,13 +984,13 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 					bn="x${bn%.lossy}Y";
 				fi
 				if [ "$basenames" != "${basenames//$bn/@}" ]; then
-					printMessage 'warning' 'usage' 'filesystem' "file:${f}" "there's already an input file with the same basename." ; ec=$EX_DATAERR
+					printMessage 'warning' 'usage' 'filesystem' "file:${file}" "there's already an input file with the same basename." ; ec=$EX_DATAERR
 					continue
 				fi
 				basenames="${basenames}${bn}"
 
 				if [ $keepExistingFiles = true -o $keepNewerFiles = true ]; then
-					sourceFile="$f"
+					sourceFile="$file"
 					for outputCodec in $outputCodecs; do
 						getFileProps "$sourceFile" "$outputCodec"
 						if [ ! -e "$destFile" ]; then
@@ -1011,25 +1011,25 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 			fi
 
 			if [ -n "$outputCodecs" ]; then # transcode
-				case "$f" in
+				case "$file" in
 					*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape) keepInputFile=true ;;
 					*)
 						if [ $ignoreUnsupportedFiles = true ]; then
 							continue
 						else
-							printMessage 'warning' 'processing' 'unsupported' "file:${f}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
+							printMessage 'warning' 'processing' 'unsupported' "file:${file}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
 						fi
 						;;
 				esac
 			else # actions other than transcoding
 				if [ $checkFiles = true -o $actionHash = true ]; then
-					case "$f" in
+					case "$file" in
 						*.flac|*.wv|*.ape) keepInputFile=true ;;
 						*)
 							if [ $ignoreUnsupportedFiles = true ]; then
 								continue
 							else
-								printMessage 'warning' 'processing' 'unsupported' "file:${f}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
+								printMessage 'warning' 'processing' 'unsupported' "file:${file}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
 							fi
 							;;
 					esac
@@ -1037,18 +1037,18 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 
 				if [ $computeReplaygain = true ]; then
 					if [ $fileExtensionAreAllTheSame = false ]; then
-						printMessage 'error' 'usage' 'filesystem' "file:${f}" "all files must have the same file extension" ; ec=$EX_DATAERR
+						printMessage 'error' 'usage' 'filesystem' "file:${file}" "all files must have the same file extension" ; ec=$EX_DATAERR
 					else
-						case "$f" in
+						case "$file" in
 							*.flac|*.wv|*.mp3|*.ogg)
-								nChannels="$( getNumberOfChannels "$f" )"
+								nChannels="$( getNumberOfChannels "$file" )"
 								if [ $nChannels -le 2 ]; then
 									keepInputFile=true
 								else
 									if [ $ignoreUnsupportedFiles = true ]; then
 										continue
 									else
-										printMessage 'warning' 'processing' 'unsupported' "file:${f}" 'unsupported format (neither mono or stereo).' ; ec=$EX_DATAERR ; continue
+										printMessage 'warning' 'processing' 'unsupported' "file:${file}" 'unsupported format (neither mono or stereo).' ; ec=$EX_DATAERR ; continue
 									fi
 								fi
 								;;
@@ -1059,7 +1059,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 								if [ $ignoreUnsupportedFiles = true ]; then
 									continue
 								else
-									printMessage 'warning' 'processing' 'unsupported' "file:${f}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
+									printMessage 'warning' 'processing' 'unsupported' "file:${file}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
 								fi
 								;;
 						esac
@@ -1067,13 +1067,13 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 				fi
 
 				if [ $applyGain = true ]; then
-					case "$f" in
+					case "$file" in
 						*.mp3) keepInputFile=true ;;
 						*)
 							if [ $ignoreUnsupportedFiles = true ]; then
 								continue
 							else
-								printMessage 'warning' 'processing' 'unsupported' "file:${f}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
+								printMessage 'warning' 'processing' 'unsupported' "file:${file}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
 							fi
 							;;
 					esac
@@ -1085,17 +1085,17 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 						printMessage 'abort' 'verbose'
 						cleanExit $ec
 					fi
-					case "$f" in
+					case "$file" in
 						*.flac|*.ogg|*.m4a|*.wv|*.ape|*.opus) gotAudioFile=true ;;
 					esac
-					sourceFiles[$isf]="$f"
+					sourceFiles[$isf]="$file"
 					((isf++))
 				fi
 			fi
 		fi
 
 		if [ $keepInputFile = true ]; then
-			sourceFiles[$isf]="$f"
+			sourceFiles[$isf]="$file"
 			((isf++))
 		fi
 	done
@@ -1305,19 +1305,19 @@ checkBinaries ()
 
 setNProcesses ()
 {
-	local newN=$1
+	local newN=$1 processNumber
 
-	for (( i=0 ; i<newN; i++ )); do
-		touch "${instanceDir}/process.$i" >/dev/null 2>&1
+	for (( processNumber=0 ; processNumber < newN; processNumber++ )); do
+		touch "${instanceDir}/process.$processNumber" >/dev/null 2>&1
 	done
 
 	if [ $newN -lt $nProcesses ]; then
-		for (( i=newN ; i<nProcesses; i++ )); do
-			rm -f "${instanceDir}/process.$i"
+		for (( processNumber=newN ; processNumber < nProcesses; processNumber++ )); do
+			rm -f "${instanceDir}/process.$processNumber"
 		done
 	elif [ $newN -gt $nProcesses ]; then
-		for (( i=nProcesses ; i<newN; i++ )); do
-			touch "${instanceDir}/process.$i" >/dev/null 2>&1
+		for (( processNumber=nProcesses ; processNumber < newN; processNumber++ )); do
+			touch "${instanceDir}/process.$processNumber" >/dev/null 2>&1
 		done
 	fi
 
@@ -1426,7 +1426,7 @@ handleInstance ()
 
 setupSwapdir ()
 {
-	local i c mktempFS='other' devshmFS='other' mktempSpace devshmSpace ec=1 copyLockFile fileBytes
+	local sourceFileNumber c mktempFS='other' devshmFS='other' mktempSpace devshmSpace ec=1 copyLockFile fileBytes
 
 	if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
 
@@ -1492,34 +1492,34 @@ setupSwapdir ()
 
 	SWAPDIR="$TDIR"
 
-	for ((i=0; i<${#sourceFiles[@]}; i++)); do
+	for ((sourceFileNumber=0; sourceFileNumber < ${#sourceFiles[@]}; sourceFileNumber++)); do
 		if [ "$OS" = 'Linux' ]; then
-			copyLockFile="${iodir}/$( stat -c '%d' "${sourceFiles[$i]}" 2>> "$errorLogFile" )"
+			copyLockFile="${iodir}/$( stat -c '%d' "${sourceFiles[$sourceFileNumber]}" 2>> "$errorLogFile" )"
 		else
-			copyLockFile="${iodir}/$( stat -f '%d' "${sourceFiles[$i]}" 2>> "$errorLogFile" )"
+			copyLockFile="${iodir}/$( stat -f '%d' "${sourceFiles[$sourceFileNumber]}" 2>> "$errorLogFile" )"
 		fi
 		if [ ! -e "${copyLockFile}.lock" ]; then
 			touch "$copyLockFile"
 		fi
 
-		touch "${TDIR}/${i}"
+		touch "${TDIR}/${sourceFileNumber}"
 		if [ "$OS" = 'Linux' ]; then
-			fileBytes="$( stat -L --printf "%s" "${sourceFiles[$i]}" 2>> "$errorLogFile" )"
+			fileBytes="$( stat -L --printf "%s" "${sourceFiles[$sourceFileNumber]}" 2>> "$errorLogFile" )"
 		else
-			fileBytes="$( stat -L -n -f "%z" "${sourceFiles[$i]}" 2>> "$errorLogFile" )"
+			fileBytes="$( stat -L -n -f "%z" "${sourceFiles[$sourceFileNumber]}" 2>> "$errorLogFile" )"
 		fi
-		echo "$fileBytes $i" > "${TDIR}/inputBytes_${i}"
+		echo "$fileBytes $sourceFileNumber" > "${TDIR}/inputBytes_${sourceFileNumber}"
 		if [ $nLossyWAV -ge 1 ]; then
-			touch "${TDIR}/lossyWAV_${i}"
-			touch "${TDIR}/lossyWAV_${i}_WAV_NEEDED"
+			touch "${TDIR}/lossyWAV_${sourceFileNumber}"
+			touch "${TDIR}/lossyWAV_${sourceFileNumber}_WAV_NEEDED"
 		fi
 		for outputCodec in $outputCodecs; do
-			touch "${TDIR}/${outputCodec}_${i}"
+			touch "${TDIR}/${outputCodec}_${sourceFileNumber}"
 			if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' ]; then
-				touch "${TDIR}/${outputCodec}_${i}_LOSSYWAV_NEEDED"
-				touch "${TDIR}/lossyWAV_${i}_WAV_NEEDED"
+				touch "${TDIR}/${outputCodec}_${sourceFileNumber}_LOSSYWAV_NEEDED"
+				touch "${TDIR}/lossyWAV_${sourceFileNumber}_WAV_NEEDED"
 			else
-				touch "${TDIR}/${outputCodec}_${i}_WAV_NEEDED"
+				touch "${TDIR}/${outputCodec}_${sourceFileNumber}_WAV_NEEDED"
 			fi
 		done
 	done
@@ -3692,7 +3692,7 @@ encode ()
 
 			AAC)
 				destExtension='m4a'; encodedFile="${SWAPDIR}/${i}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${i}.m4a.txt" aaclib="" aaclibs="aac libfdk_aac aac_at"
-				for ((l=0; l<${#aaclibs[@]}; l++)); do
+				for ((l=0; l < ${#aaclibs[@]}; l++)); do
 					aaclib="${aaclibs[$l]}"
 					if [ -z "$sourceCoverArtFile" ]; then
 						for f in "${SWAPDIR}/picture-${i}-"*_*; do
@@ -4350,7 +4350,7 @@ computeHash ()
 computeHashes ()
 {
 	local ec=$EX_OK
-	for ((i=0; i<${#sourceFiles[@]}; i++)); do
+	for ((i=0; i < ${#sourceFiles[@]}; i++)); do
 		sourceFile="${sourceFiles[$i]}"
 		sourceFilename="${sourceFile##*/}"
 		sourceTagFile="${TDIR}/${i}.txt"
@@ -4747,7 +4747,7 @@ computeAlbumGain ()
 	# PINK_REF="64.82" is from flac/src/share/replaygain_analysis/replaygain_analysis.c
 	local ec=$EX_OK PINK_REF_COMPLEMENT="35.18" rank trackGain trackSeconds=1 N=0
 
-	for ((i=0; i<${#sourceFiles[@]}; i++)); do
+	for ((i=0; i < ${#sourceFiles[@]}; i++)); do
 		trackGainFile="${TDIR}/${i}.trackgain"
 		trackPeakFile="${TDIR}/${i}.trackpeak"
 		trackSecondsFile="${TDIR}/${i}.seconds"
@@ -4758,7 +4758,7 @@ computeAlbumGain ()
 			if [ -z "$trackSeconds" ]; then
 				trackSeconds=1
 			fi
-			for (( s=0; s<trackSeconds; s++ )); do
+			for (( s=0; s < trackSeconds; s++ )); do
 				echo "$trackGain" >> "${TDIR}/trackgains"
 				((N++))
 			done
@@ -4807,7 +4807,7 @@ computeAlbumGain ()
 		fi
 	fi
 
-	for ((i=0, j=0; i<${#sourceFiles[@]}; i++, j++)); do
+	for ((i=0, j=0; i < ${#sourceFiles[@]}; i++, j++)); do
 		if [ $j -lt $nProcesses ]; then
 			destFile="${sourceFiles[$i]}"
 			saveGain 'ALBUM' &
@@ -4957,7 +4957,7 @@ computeTrackDateTimes ()
 	local ec=$EX_OK
 
 
-	for ((i=0; i<${#sourceFiles[@]}; i++)); do
+	for ((i=0; i < ${#sourceFiles[@]}; i++)); do
 		sourceFile="${sourceFiles[$i]}"
 		sourceFilename="${sourceFile##*/}"
 		sourceTagFile="${TDIR}/${i}.txt"
@@ -4995,7 +4995,7 @@ touchAllFiles ()
 	audioFiles=()
 	otherFiles=()
 
-	for ((i=0, a=0, o=0; i<${#sourceFiles[@]}; i++)); do
+	for ((i=0, a=0, o=0; i < ${#sourceFiles[@]}; i++)); do
 		sourceFile="${sourceFiles[$i]}"
 		case "$sourceFile" in
     	*.flac|*ogg|*.m4a|*.wv|*.ape|*.opus) audioFiles[$a]="$sourceFile" ; a=$(( a + 1 )) ;;
@@ -5005,7 +5005,7 @@ touchAllFiles ()
 		esac
 	done
 
-	for ((a=0; a<${#audioFiles[@]}; a++)); do
+	for ((a=0; a < ${#audioFiles[@]}; a++)); do
 		if [ $gotLinkedDir = true -a -z "$linkPath" ]; then
 			inode="$( ls -i "${sourceFiles[0]}" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
 			if [ -n "$inode" ]; then
@@ -5021,7 +5021,7 @@ touchAllFiles ()
 		fi
 	done
 
-	for ((i=0; i<${#sourceFiles[@]}; i++)); do
+	for ((i=0; i < ${#sourceFiles[@]}; i++)); do
 		sourceFile="${sourceFiles[$i]}"
 		sourceTagFile="${TDIR}/${i}.txt"
 		secondsFile="${TDIR}/${i}.seconds"
@@ -5055,7 +5055,7 @@ touchAllFiles ()
 		totalSeconds="$( echo "scale=3; $totalSeconds + $trackMilliseconds" | bc )"
 	done
 
-	for ((o=0; o<${#otherFiles[@]}; o++)); do
+	for ((o=0; o < ${#otherFiles[@]}; o++)); do
 		otherFile="${otherFiles[$o]}"
 		touchString="$( getTouchString $trackDate $totalSeconds )"
 		touch -t "$touchString" "$otherFile" || ec=$EX_IOERR
@@ -6144,7 +6144,7 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 	else
 		time1="$( date '+%s' ).0"
 	fi
-	for ((p=0; p<nProcesses; p++)); do
+	for ((p=0; p < nProcesses; p++)); do
 		transcode &
 	done
 elif [ $checkFiles = true ]; then
@@ -6155,7 +6155,7 @@ elif [ $checkFiles = true ]; then
 	else
 		time1="$( date '+%s' ).0"
 	fi
-	for ((p=0; p<nProcesses; p++)); do
+	for ((p=0; p < nProcesses; p++)); do
 		testFiles &
 	done
 elif [ $computeReplaygain = true ]; then
@@ -6166,7 +6166,7 @@ elif [ $computeReplaygain = true ]; then
 	else
 		time1="$( date '+%s' ).0"
 	fi
-	for ((p=0; p<nProcesses; p++)); do
+	for ((p=0; p < nProcesses; p++)); do
 		computeTrackGains &
 	done
 elif [ $touchFiles = true ]; then
@@ -6177,7 +6177,7 @@ elif [ $touchFiles = true ]; then
 	else
 		time1="$( date '+%s' ).0"
 	fi
-	for ((p=0; p<nProcesses; p++)); do
+	for ((p=0; p < nProcesses; p++)); do
 		computeTrackDateTimes &
 	done
 elif [ $actionHash = true ]; then
@@ -6188,7 +6188,7 @@ elif [ $actionHash = true ]; then
 	else
 		time1="$( date '+%s' ).0"
 	fi
-	for ((p=0; p<nProcesses; p++)); do
+	for ((p=0; p < nProcesses; p++)); do
 		computeHashes &
 	done
 fi
