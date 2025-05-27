@@ -1131,10 +1131,11 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 
 checkOutputDirectories ()
 {
-	read -a listOfCodecs <<< "$outputCodecs"
-	for codec in "${listOfCodecs[@]}"; do
-		codecFullName="$( getCodecFullName "$codec" )"
-		codecDestDir="$( getDestDir "$codec")"
+	local outputCodec codecFullName codecDestDir
+
+	for outputCodec in $outputCodecs; do
+		codecFullName="$( getCodecFullName "$outputCodec" )"
+		codecDestDir="$( getDestDir "$outputCodec")"
 		if [ ! -e "$codecDestDir" ]; then
 			if ! mkdir -p "$codecDestDir" >/dev/null 2>&1 ; then
 				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$me -O/P: failed to create directory, do you have write permissions? ($codecFullName)" ; exit $EX_CANTCREAT
