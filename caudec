@@ -1358,7 +1358,7 @@ cleanUpInstances ()
 
 handleInstance ()
 {
-	local nRunningProcesses=0 nAvail=$nProcesses pid
+	local nRunningProcesses=0 nAvailableProcesses=$nProcesses pid
 
 	if [ -e "$piddir" ]; then
 		cleanUpInstances
@@ -1399,14 +1399,14 @@ handleInstance ()
 	nInstances=$( find "$piddir" -type d -name 'instance.*' 2>/dev/null | wc -l | tr -cd '0-9' )
 	if [ $nInstances -le $maxInstances ]; then
 		nRunningProcesses="$( getNumberOfCaudecProcesses )"
-		nAvail=$(( maxProcesses - nRunningProcesses ))
-		if [ $nAvail -eq 0 ]; then
+		nAvailableProcesses=$(( maxProcesses - nRunningProcesses ))
+		if [ $nAvailableProcesses -eq 0 ]; then
 			printMessage 'warning' 'usage' 'quota' "There are too many caudec processes already running."
 			printMessage 'abort'
 			cleanExit $EX_TEMPFAIL
-		elif [ $nProcesses -gt $nAvail ]; then
-			printMessage 'warning' 'usage' 'quota' 'verbose' "Number of processes reduced to $nAvail in order to stay within limits."
-			setNProcesses $nAvail
+		elif [ $nProcesses -gt $nAvailableProcesses ]; then
+			printMessage 'warning' 'usage' 'quota' 'verbose' "Number of processes reduced to $nAvailableProcesses in order to stay within limits."
+			setNProcesses $nAvailableProcesses
 		else
 			setNProcesses $nProcesses
 		fi
