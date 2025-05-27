@@ -4980,7 +4980,8 @@ computeTrackDateTimes ()
 # FIXME handle multiple directories
 touchAllFiles ()
 {
-	local ec=$EX_OK i a o trackYear trackMonth trackDay trackDate totalSeconds trackMilliseconds albumHours
+	local ec=$EX_OK i a o
+	local trackYear trackMonth trackDay trackDate totalSeconds trackMilliseconds albumHours
 	local albumMinutes albumSeconds defaultTrackDate dir dirPath inode linkedFile linkPath touchString
 	local audioFiles otherFiles audioFile sourceFile otherFile sourceTagFile secondsFile millisecondsFile
 
