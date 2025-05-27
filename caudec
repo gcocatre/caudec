@@ -1209,7 +1209,7 @@ checkBinaries ()
 		if [ $computeReplaygain = true ]; then
 			for sourceFile in "${sourceFiles[@]}" ; do
 				case "$sourceFile" in
-					*.flac) checkBinary 'metaflacs' ;;
+					*.flac) checkBinary 'metaflac' ;;
 					*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
 					*.opus) checkBinary 'opusinfo' 'opusgain' ;; # https://github.com/FrancisRussell/zoog
 					*.wv) checkBinary 'APEv2' 'wvunpack' 'wvgain' ;;
