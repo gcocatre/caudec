@@ -1188,8 +1188,7 @@ You may find it at https://github.com/FrancisRussell/zoog"
 
 checkBinaries ()
 {
-	searchedBinaries=''
-	binaryMissing=false
+	local sourceFile searchedBinaries='' binaryMissing=false hash outputCodec
 
 	if ! which 'which' >/dev/null 2>&1 ; then
 		printMessage 'warning' 'initialization' 'filesystem' "Binary \"which\" not found. Make sure it is in your \$PATH."
@@ -1200,15 +1199,15 @@ checkBinaries ()
 	if [ -z "$nTracks" ]; then
 		checkBinary 'uname' 'bc' 'grep' "$sedcmd" 'tr' 'cut' 'wc' 'df' 'stat' 'mktemp' 'xargs' 'soxi' 'head' 'tail' 'sort' 'ps' 'find'
 	else
-		for f in "${sourceFiles[@]}" ; do
-			case "$f" in
+		for sourceFile in "${sourceFiles[@]}" ; do
+			case "$sourceFile" in
 				*.ape) checkBinary 'ffprobe' ; break ;;
 			esac
 		done
 
 		if [ $computeReplaygain = true ]; then
-			for f in "${sourceFiles[@]}" ; do
-				case "$f" in
+			for sourceFile in "${sourceFiles[@]}" ; do
+				case "$sourceFile" in
 					*.flac) checkBinary 'metaflac' ;;
 					*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
 					*.opus) checkBinary 'opusinfo' 'opusgain' ;; # https://github.com/FrancisRussell/zoog
@@ -1218,16 +1217,16 @@ checkBinaries ()
 			done
 		elif [ $checkFiles = true ]; then
 			checkBinary 'sox'
-			for f in "${sourceFiles[@]}" ; do
-				case "$f" in
+			for sourceFile in "${sourceFiles[@]}" ; do
+				case "$sourceFile" in
 					*.flac) checkBinary 'flac' 'metaflac' ;;
 					*.wv) checkBinary 'wvunpack' 'APEv2' ;;
 					*.ape) checkBinary 'mac' 'APEv2' ;;
 				esac
 			done
 		elif [ $touchFiles = true ]; then
-			for f in "${sourceFiles[@]}" ; do
-				case "$f" in
+			for sourceFile in "${sourceFiles[@]}" ; do
+				case "$sourceFile" in
 					*.flac) checkBinary 'metaflac' ;;
 					*.ogg) checkBinary 'ogginfo' 'vorbiscomment' ;;
 					*.m4a) checkBinary 'ffmpeg' 'ffprobe' ;;
@@ -1237,8 +1236,8 @@ checkBinaries ()
 				esac
 			done
 		else # transcode
-			for f in "${sourceFiles[@]}" ; do
-				case "$f" in
+			for sourceFile in "${sourceFiles[@]}" ; do
+				case "$sourceFile" in
 					*.aiff|*.caf) checkBinary 'sox' ;;
 					*.flac) checkBinary 'flac' 'metaflac' ;;
 					*.wv) checkBinary 'wvunpack' 'APEv2' ;;
@@ -1270,8 +1269,8 @@ checkBinaries ()
 		if [ -n "$hashes" ]; then
 			checkBinary 'sox'
 			if [ "$OS" = 'Linux' ]; then
-				for h in $hashes; do
-					case $h in
+				for hash in $hashes; do
+					case $hash in
 						CRC32) checkBinary 'cksfv' 'mkfifo' ;;
 						MD5) checkBinary 'md5sum' ;;
 						SHA1) checkBinary 'sha1sum' ;;
@@ -1280,8 +1279,8 @@ checkBinaries ()
 					esac
 				done
 			else
-				for h in $hashes; do
-					case $h in
+				for hash in $hashes; do
+					case $hash in
 						CRC32) checkBinary 'cksfv' 'mkfifo' ;;
 						MD5) checkBinary 'md5' ;;
 						SHA1|SHA256|SHA512) checkBinary 'shasum' ;;
