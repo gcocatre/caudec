@@ -3810,7 +3810,7 @@ cleanUpCopyLockFile ()
 
 prepareSource ()
 {
-	local sourcePath copyDone=false ec=$EX_OK cptimer1='' cptimer2='' cpseconds copyLockFile n=0
+	local sourcePath ec=$EX_OK copyLockFile copyDone=false cptimer1 cptimer2 cpseconds attemptNumber=0
 
 	if [ $preloadSources = true -a $touchFiles = false ]; then
 		if [ "$OS" = 'Linux' ]; then
@@ -3848,7 +3848,7 @@ prepareSource ()
 					fi
 				fi
 			else
-				if [ $n -ge 100 ]; then
+				if [ $attemptNumber -ge 100 ]; then
 					cleanUpCopyLockFile "$copyLockFile"
 					n=0
 				else
@@ -4709,22 +4709,22 @@ computeTrackGain ()
 
 computeTrackGains ()
 {
-	local ec=$EX_OK bytes i
+	local ec=$EX_OK bytes index
 
-	while read bytes i; do
-		sourceFile="${sourceFiles[$i]}"
+	while read bytes index; do
+		sourceFile="${sourceFiles[$index]}"
 		sourceFilename="${sourceFile##*/}"
 		sourceFileExt="${sourceFile##*.}"
-		copyFile="${SWAPDIR}/${i}.${sourceFilename}"
-		gainLockFile="${TDIR}/${i}"
-		wasProcessedFile="${TDIR}/WAS_PROCESSED.${i}"
-		sourceTagFile="${TDIR}/${i}.txt"
-		trackGainFile="${TDIR}/${i}.trackgain"
-		trackPeakFile="${TDIR}/${i}.trackpeak"
-		secondsFile="${TDIR}/${i}.seconds"
-		millisecondsFile="${TDIR}/${i}.milliseconds"
+		copyFile="${SWAPDIR}/${index}.${sourceFilename}"
+		gainLockFile="${TDIR}/${index}"
+		wasProcessedFile="${TDIR}/WAS_PROCESSED.${index}"
+		sourceTagFile="${TDIR}/${index}.txt"
+		trackGainFile="${TDIR}/${index}.trackgain"
+		trackPeakFile="${TDIR}/${index}.trackpeak"
+		secondsFile="${TDIR}/${index}.seconds"
+		millisecondsFile="${TDIR}/${index}.milliseconds"
 		destFile="$sourceFile"
-		wavFile="${SWAPDIR}/${i}.wav"
+		wavFile="${SWAPDIR}/${index}.wav"
 
 		if getLock "$gainLockFile"; then
 			prepareSource &&
