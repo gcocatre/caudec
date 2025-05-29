@@ -1570,7 +1570,7 @@ getNumberOfProcessedFiles ()
 
 getNumberOfAvailableThreads ()
 {
-	local n=$1 maxThreads="$2" nProcessedFiles=0 nUnprocessedFiles nBytesLeft=0 nThreads foo
+	local n=$1 maxThreads="$2" nProcessedFiles=0 nUnprocessedFiles nBytesLeft=0 nThreads=1 foo
 
 	if [ -z "$maxThreads" ]; then
 		maxThreads=999999
