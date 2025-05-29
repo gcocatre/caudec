@@ -929,7 +929,7 @@ getInputFiles ()
 checkInputFiles ()
 {
 	local file ec=$EX_OK bn dn commonFileExtension="" fileExtension="" fileExtensionAreAllTheSame=true refDn cdpath pdpath
-	local basenames='' index=0 keepInputFile errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
+	local basenames='' index=0 addToSourceFiles errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
 
 	numberOfInputFiles="${#inputFiles[@]}"
 
@@ -952,7 +952,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 		elif [ "$fileExtension" != "$commonFileExtension" ]; then
 			fileExtensionAreAllTheSame=false
 		fi
-		keepInputFile=false
+		addToSourceFiles=false
 		dn="$( dirname "$file" )"
 		if [ ! -e "$file" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${file}" 'no such file.' ; ec=$EX_NOINPUT
@@ -989,31 +989,36 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 					continue
 				fi
 				basenames="${basenames}${bn}"
-
-				if [ $keepExistingFiles = true -o $keepNewerFiles = true ]; then
-					sourceFile="$file"
-					for outputCodec in $outputCodecs; do
-						getFileProps "$sourceFile" "$outputCodec"
-						if [ ! -e "$destFile" ]; then
-							keepInputFile=true; break
-						elif [ $keepNewerFiles = true ]; then
-							if ! isFileNewer "$destFile" "$sourceFile"; then
-								keepInputFile=true; break
-							fi
-						fi
-					done
-
-					if [ $keepInputFile = false ]; then
-						gotExistingFiles=true
-						continue
-					fi
-				fi
-				keepInputFile=false
 			fi
 
 			if [ -n "$outputCodecs" ]; then # transcode
 				case "$file" in
-					*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape) keepInputFile=true ;;
+					*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape)
+						if [ $keepExistingFiles = false -a $keepNewerFiles = false ]; then
+							addToSourceFiles=true
+						else
+							if [ $keepExistingFiles = true -o $keepNewerFiles = true ]; then
+								getFileProps "$file" "$outputCodec"
+							fi
+							if [ $keepExistingFiles = true ]; then
+								if [ -e "$destFile" ]; then
+									addToSourceFiles=false
+								else
+									addToSourceFiles=true
+								fi
+							fi
+							if [ $keepNewerFiles = true ]; then
+								if [ -e "$destFile" ]; then
+									if isFileNewer "$destFile" "$sourceFile"; then
+										addToSourceFiles=false
+									else
+										addToSourceFiles=true
+									fi
+								fi
+							fi
+						fi
+						;;
+
 					*)
 						if [ $ignoreUnsupportedFiles = true ]; then
 							continue
@@ -1022,10 +1027,11 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 						fi
 						;;
 				esac
+
 			else # actions other than transcoding
 				if [ $checkFiles = true -o $actionHash = true ]; then
 					case "$file" in
-						*.flac|*.wv|*.ape) keepInputFile=true ;;
+						*.flac|*.wv|*.ape) addToSourceFiles=true ;;
 						*)
 							if [ $ignoreUnsupportedFiles = true ]; then
 								continue
@@ -1041,10 +1047,10 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 						printMessage 'error' 'usage' 'filesystem' "file:${file}" "all files must have the same file extension" ; ec=$EX_DATAERR
 					else
 						case "$file" in
-							*.flac|*.wv|*.mp3|*.ogg)
+							*.flac|*.wv|*.ogg|*.opus|*.mp3)
 								nChannels="$( getNumberOfChannels "$file" )"
 								if [ $nChannels -le 2 ]; then
-									keepInputFile=true
+									addToSourceFiles=true
 								else
 									if [ $ignoreUnsupportedFiles = true ]; then
 										continue
@@ -1053,8 +1059,6 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 									fi
 								fi
 								;;
-
-							*.opus) keepInputFile=true ;;
 
 							*)
 								if [ $ignoreUnsupportedFiles = true ]; then
@@ -1069,7 +1073,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 
 				if [ $applyGain = true ]; then
 					case "$file" in
-						*.mp3) keepInputFile=true ;;
+						*.mp3) addToSourceFiles=true ;;
 						*)
 							if [ $ignoreUnsupportedFiles = true ]; then
 								continue
@@ -1089,13 +1093,14 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 					case "$file" in
 						*.flac|*.ogg|*.m4a|*.wv|*.ape|*.opus) gotAudioFile=true ;;
 					esac
+					addToSourceFiles=false
 					sourceFiles[$index]="$file"
 					((index++))
 				fi
 			fi
 		fi
 
-		if [ $keepInputFile = true ]; then
+		if [ $addToSourceFiles = true ]; then
 			sourceFiles[$index]="$file"
 			((index++))
 		fi
@@ -1113,19 +1118,16 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 		printMessage 'abort'
 		cleanExit $ec
 	elif [ $index -eq 0 ]; then
-		if [ $gotExistingFiles = true ]; then
-			if [ $keepExistingFiles = true ]; then
-				printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: all destination files exist already, nothing to do."
-			elif [ $keepNewerFiles = true ]; then
-				printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: all destination files are newer than their source, nothing to do."
-			fi
-		else
-			printMessage 'warning' 'usage' 'filesystem' 'verbose' "no files to work with, nothing to do."
+		if [ $keepExistingFiles = true ]; then
+			printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: all or some destination files exist already, nothing to do."
+		elif [ $keepNewerFiles = true ]; then
+			printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: all or some destination files are newer than their source, nothing to do."
 		fi
+		printMessage 'warning' 'usage' 'filesystem' 'verbose' "no files to work with, nothing to do."
 		printMessage 'abort' 'verbose'
 		cleanExit $ec
 	else
-		nTracks="${#sourceFiles[@]}"
+		nTracks=$index
 		return $EX_OK
 	fi
 }
@@ -1211,10 +1213,10 @@ checkBinaries ()
 			for sourceFile in "${sourceFiles[@]}" ; do
 				case "$sourceFile" in
 					*.flac) checkBinary 'metaflac' ;;
+					*.wv) checkBinary 'APEv2' 'wvunpack' 'wvgain' ;;
 					*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
 					*.opus) checkBinary 'opusinfo' 'opusgain' ;; # https://github.com/FrancisRussell/zoog
-					*.wv) checkBinary 'APEv2' 'wvunpack' 'wvgain' ;;
-					*.mp3) checkBinary 'lame' 'mp3gain' ; if [ $applyGain = false ]; then checkBinary 'eyeD3'; fi ;;
+					*.mp3) checkBinary 'ffprobe' 'lame' 'mp3gain' ; if [ $applyGain = false ]; then checkBinary 'eyeD3' 'mp3gain'; fi ;;
 				esac
 			done
 		elif [ $checkFiles = true ]; then
@@ -1535,20 +1537,18 @@ setupSwapdir ()
 
 getNumberOfChannels ()
 {
-	local f="$1" c=0 bn='' dn=''
+	local file="$1" numberOfChannels=0
 
-	case "$f" in
-		*.flac) c="$( metaflac --show-channels "$f" 2>/dev/null )" ;;
-
-		*.wv)
-			c="$( wvunpack -f "$f" 2>/dev/null | cut -d ';' -f 4 )"
-			;;
-
-		*) c="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$f" 2>/dev/null | grep -F 'channels=' | tr -cd '0-9' )" ;;
+	case "$file" in
+		*.flac) numberOfChannels="$( metaflac --show-channels "$file" 2>/dev/null )" ;;
+		*.wv) numberOfChannels="$( wvunpack -f "$file" 2>/dev/null | cut -d ";" -f 4 )" ;;
+		*.ogg) numberOfChannels="$( ogginfo "$file" 2>/dev/null | grep -E "^Channels:" | tr -cd "0-9" )" ;;
+		*.opus) numberOfChannels="$( opusinfo "$file" | grep -F "Channels: " | tr -cd "0-9" )" ;;
+		*) numberOfChannels="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | grep -F "channels=" | tr -cd "0-9" )" ;;
 	esac
 
-	if [ -z "$c" ]; then c=0; fi
-	echo "$c"
+	if [ -z "$numberOfChannels" ]; then numberOfChannels=0; fi
+	echo "$numberOfChannels"
 }
 
 getNumberOfCaudecProcesses ()
@@ -3302,7 +3302,8 @@ encodeLossyWAV ()
 			fi
 			if [ $overwriteLossyWAV = true ]; then
 				chmod 0644 "$encodedFile"
-				cp "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
+				rm -f "$destFile" >/dev/null 2>> "$errorLogFile"
+				cp -a "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
 				printMessage 'success' 'encoding' $p "file:${destFile}"
 			fi
 		fi
@@ -3357,45 +3358,23 @@ getEncoderVersions ()
 
 isFileNewer ()
 {
-	local a="$1" b="$2" mtimeA mtimeB
+	local destFile="$1" sourceFile="$2" mtimeSource mtimeDest
 
-	if [ "$a" -nt "$b" ]; then
+	if [ "$destFile" -nt "$sourceFile" ]; then
 		return $EX_OK
 	else
 		if [ "$OS" = 'Linux' ]; then
-			mtimeA="$( stat -c '%Y' "$a" )"
-			mtimeB="$( stat -c '%Y' "$b" )"
+			mtimeDest="$( stat -c '%Y' "$sourceFile" )"
+			mtimeSource="$( stat -c '%Y' "$destFile" )"
 		else
-			mtimeA="$( stat -f '%m' "$a" )"
-			mtimeB="$( stat -f '%m' "$b" )"
+			mtimeDest="$( stat -f '%m' "$sourceFile" )"
+			mtimeSource="$( stat -f '%m' "$destFile" )"
 		fi
-		if [ "$mtimeA" = "$mtimeB" ]; then
-			return $EX_OK
-		else
+		if [ "$mtimeDest" = "$mtimeSource" ]; then # how could this happen?
 			return $EX_KO
+		else
+			return $EX_OK
 		fi
-	fi
-}
-
-overwriteDestFile ()
-{
-	local overwrite=true
-
-	getFileProps "$1" "$2"
-	if [ -e "$destFile" ]; then
-		if [ $keepExistingFiles = true ]; then
-			overwrite=false
-		elif [ $keepNewerFiles = true ]; then
-			if isFileNewer "$destFile" "$sourceFile"; then
-				overwrite=false
-			fi
-		fi
-	fi
-
-	if [ $overwrite = true ]; then
-		return $EX_OK
-	else
-		return $EX_KO
 	fi
 }
 
@@ -3411,15 +3390,11 @@ copyOrLinkAllFiles ()
 			destOtherFile="${destPath}/${otherFileBasename}"
 			if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 				destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
+				rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" # for consistency
 				ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 			else
-				if [ ! -e "$destOtherFile" ]; then
-					if [ -d "$destLinkPath" ]; then
-						destLinkOtherFile="${destLinkPath}/${otherFileBasename}"
-						rm -f "$destLinkOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
-					fi
-					cp "$f" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
-				fi
+				rm -f "$destOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
+				cp "$sourceDirFile" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
 			fi
 		fi
 	done
@@ -3440,17 +3415,11 @@ copyOrLinkCommaSeparatedFiles ()
 						destOtherFile="${destPath}/${otherFileBasename}"
 						if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 							destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
-							if [ ! -e "$destOtherLinkedFile" ]; then
-								ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
-							fi
+							rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" # for consistency
+							ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 						else
-							if [ -d "$destLinkPath" ]; then
-								destLinkOtherFile="${destLinkPath}/${otherFileBasename}"
-								rm -f "$destLinkOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
-							fi
-							if [ ! -e "${destOtherFile}" ]; then
-								cp "$extOtherFile" "${destOtherFile}" >/dev/null 2>> "$errorLogFile"
-							fi
+							rm -f "$destOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
+							cp "$extOtherFile" "${destOtherFile}" >/dev/null 2>> "$errorLogFile"
 						fi
 					fi
 				done
@@ -3461,11 +3430,11 @@ copyOrLinkCommaSeparatedFiles ()
 					destOtherFile="${destPath}/${otherFile}"
 					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 						destOtherLinkedFile="${destLinkPath}/${destOtherFile}"
+						rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" # for consistency
 						ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 					else
-						if [ ! -e "$destOtherFile" ]; then
-							cp "${sourceDirname}/${otherFile}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
-						fi
+						rm -f "$destOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
+						cp "${sourceDirname}/${otherFile}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
 					fi
 				fi
 			;;
@@ -3486,12 +3455,10 @@ copyOrLinkFile ()
 					destOtherFile="${destPath}/${otherFileBasename}"
 					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 						destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
+						rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" # for consistency
 						ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
-					elif [ ! -e "${destOtherFile}" ]; then
-						if [ -d "$destLinkPath" ]; then
-							destLinkOtherFile="${destLinkPath}/${otherFileBasename}"
-							rm -f "$destLinkOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
-						fi
+					else
+						rm -f "$destOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
 						cp "$extOtherFile" "${destOtherFile}" >/dev/null 2>> "$errorLogFile"
 					fi
 				fi
@@ -3503,11 +3470,11 @@ copyOrLinkFile ()
 				destOtherFile="${destPath}/${otherFile}"
 				if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 					destOtherLinkedFile="${destLinkPath}/${otherFile}"
+					rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" # for consistency
 					ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 				else
-					if [ ! -e "$destOtherFile" ]; then
-						cp "${sourceDirname}/${otherFile}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
-					fi
+					rm -f "$destOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
+					cp "${sourceDirname}/${otherFile}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
 				fi
 			fi
 		;;
@@ -3531,266 +3498,262 @@ copyOrLinkOtherFiles ()
 
 encode ()
 {
-	local ec=$EX_OK pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses nThreads listOfOtherFiles
-	local audioFile otherFile otherFileBasename extOtherFile destOtherFile
+	local ec=$EX_OK pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses nThreads=1 listOfOtherFiles
+	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag=''
 
-	compressionTag=''
+	getFileProps "$sourceFile" "$outputCodec"
+	case "$outputCodec" in
+		WAV)
+			if [ $sourceIsLossyWAV = true ]; then
+				destExtension='lossy.wav'; encodedFile="$lossywavFile"
+			else
+				destExtension='wav'; encodedFile="$wavFile"
+			fi
+			;;
 
-	if overwriteDestFile "$sourceFile" "$outputCodec"; then
-		nThreads=1
-		case "$outputCodec" in
-			WAV)
-				if [ $sourceIsLossyWAV = true ]; then
-					destExtension='lossy.wav'; encodedFile="$lossywavFile"
-				else
-					destExtension='wav'; encodedFile="$wavFile"
+		AIFF)
+			destExtension='aiff'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}"
+			sox "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			;;
+
+		CAF)
+			destExtension='caf'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}"
+			sox "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			;;
+
+		FLAC)
+			destExtension='flac'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt" kfm=''
+			# Kohlrabi is a very cool dude
+			if [ $keepWavMetadata = true ]; then kfm='--keep-foreign-metadata' ; fi
+			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / FLAC $flacVersion / -$compression_FLAC"; fi
+			nThreads=$( getNumberOfAvailableThreads $index $maxFlacThreads )
+			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P 4096 $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
+			importArtworkIntoFLAC || ec=$EX_KO
+			;;
+
+		WavPack)
+			destExtension='wv'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt" kfm='-r'
+			if [ -e "${destFile}c" ]; then
+				printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$me -c wv: correction files are present. Please delete them and try again." ; ec=$EX_KO
+			else
+				if [ $keepWavMetadata = true ]; then kfm=''; fi
+				nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
+				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack"; fi
+				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
+					importBinariesIntoAPEv2 || ec=$EX_KO
+					importArtworkIntoAPEv2 || ec=$EX_KO
 				fi
-				;;
+			fi
+			;;
 
-			AIFF)
-				destExtension='aiff'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}"
-				sox "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				;;
-
-			CAF)
-				destExtension='caf'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}"
-				sox "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				;;
-
-			FLAC)
-				destExtension='flac'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt" kfm=''
-				# Kohlrabi is a very cool dude
-				if [ $keepWavMetadata = true ]; then kfm='--keep-foreign-metadata' ; fi
-				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / FLAC $flacVersion / -$compression_FLAC"; fi
-				nThreads=$( getNumberOfAvailableThreads $index $maxFlacThreads )
-				printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P 4096 $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
-				importArtworkIntoFLAC || ec=$EX_KO
-				;;
-
-			WavPack)
-				destExtension='wv'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt" kfm='-r'
-				if [ -e "${destFile}c" ]; then
-					printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$me -c wv: correction files are present. Please delete them and try again." ; ec=$EX_KO
+		WavPackHybrid)
+			destExtension='wv'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt" kfm='-r'
+			if [ $keepWavMetadata = true ]; then kfm=''; fi
+			nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
+			if [ $tagCompressionSetting = true ]; then
+				if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
+					compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy bits per sample (ABR)"
 				else
-					if [ $keepWavMetadata = true ]; then kfm=''; fi
-					nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
-					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack"; fi
-					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-						importBinariesIntoAPEv2 || ec=$EX_KO
-						importArtworkIntoAPEv2 || ec=$EX_KO
-					fi
+					compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
 				fi
-				;;
+			fi
+			printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -c${compression_WavPack} -b${bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
+				importBinariesIntoAPEv2 || ec=$EX_KO
+				importArtworkIntoAPEv2 || ec=$EX_KO
+			fi
+			;;
 
-			WavPackHybrid)
-				destExtension='wv'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt" kfm='-r'
+		WavPackLossy)
+			destExtension='wv'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt" kfm='-r'
+			if [ -e "${destFile}c" ]; then
+				printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$me -c wv: correction files are present. Please delete them and try again." ; ec=$EX_KO
+			else
 				if [ $keepWavMetadata = true ]; then kfm=''; fi
 				nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
 				if [ $tagCompressionSetting = true ]; then
-					if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
-						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy bits per sample (ABR)"
+					if [ -z "$compression_WavPack" ]; then
+						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
 					else
 						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
 					fi
 				fi
-				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -c${compression_WavPack} -b${bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -$compression_WavPack -b${bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
 				fi
-				;;
+			fi
+			;;
 
-			WavPackLossy)
-				destExtension='wv'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt" kfm='-r'
-				if [ -e "${destFile}c" ]; then
-					printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$me -c wv: correction files are present. Please delete them and try again." ; ec=$EX_KO
+		MonkeysAudio)
+			destExtension='ape'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt"
+			nThreads=$( getNumberOfAvailableThreads $index )
+			mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 -threads=${nThreads} >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
+				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
+				printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				importBinariesIntoAPEv2 || ec=$EX_KO
+				importArtworkIntoAPEv2 || ec=$EX_KO
+			fi
+			;;
+
+		lossyFLAC)
+			destExtension='lossy.flac'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt"
+			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
+			nThreads=$( getNumberOfAvailableThreads $index $maxFlacThreads )
+			printf -- "--totally-silent`tagline -T`\x00%s" "$lossywavFile" | xargs -0 flac -j $nThreads -P 4096 -5 -b 512 --keep-foreign-metadata -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
+			importArtworkIntoFLAC || ec=$EX_KO
+			;;
+
+		lossyWV)
+			destExtension='lossy.wv'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt"
+			nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
+			if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
+			printf -- "-q`tagline -w`\x00%s" "$lossywavFile" | xargs -0 wavpack --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
+				importBinariesIntoAPEv2 || ec=$EX_KO
+				importArtworkIntoAPEv2 || ec=$EX_KO
+			fi
+			;;
+
+		OggVorbis)
+			destExtension='ogg'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt"
+			if [ "$OggVorbis_MODE" = 'VBR' ]; then
+				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / -q $compression_OggVorbis"; fi
+				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc -q $compression_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			elif [ "$OggVorbis_MODE" = 'ABR' ]; then
+				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / $average_bitrate_OggVorbis kbps (ABR)"; fi
+				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $average_bitrate_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			else
+				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / $bitrate_OggVorbis kbps (CBR)"; fi
+				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $bitrate_OggVorbis -m $bitrate_OggVorbis -M $bitrate_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			fi
+			;;
+
+		MP3)
+			destExtension='mp3'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.mp3.txt"
+			if [ "$compression_MP3" = 'insane' -o "$compression_MP3" = '320' ]; then
+				MP3_MODE='CBR' bitrate_MP3=320
+			fi
+			if [ "$MP3_MODE" = 'VBR' ]; then
+				if [ $tagCompressionSetting = true ]; then compressionTag="--text-frame TSSE=$me $VERSION / LAME $lameVersion / -V $compression_MP3"; fi
+					lame -S -V $compression_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			elif [ "$MP3_MODE" = 'ABR' ]; then
+				if [ $tagCompressionSetting = true ]; then compressionTag="--text-frame TSSE=$me $VERSION / LAME $lameVersion / $average_bitrate_MP3 kbps (ABR)"; fi
+					lame -S --abr $average_bitrate_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			else
+				if [ $tagCompressionSetting = true ]; then compressionTag="--text-frame TSSE=$me $VERSION / LAME $lameVersion / $bitrate_MP3 kbps (CBR)"; fi
+				if [ $bitrate_MP3 -eq 320 ]; then
+					lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
-					if [ $keepWavMetadata = true ]; then kfm=''; fi
-					nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
-					if [ $tagCompressionSetting = true ]; then
-						if [ -z "$compression_WavPack" ]; then
-							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
-						else
-							compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
-						fi
-					fi
-					printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -$compression_WavPack -b${bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-						importBinariesIntoAPEv2 || ec=$EX_KO
-						importArtworkIntoAPEv2 || ec=$EX_KO
-					fi
+					lame -S -b $bitrate_MP3 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
-				;;
+			fi
+			if [ $ec -ne $EX_KO ]; then
+				printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				importArtworkIntoMP3 || ec=$EX_KO
+			fi
+			;;
 
-			MonkeysAudio)
-				destExtension='ape'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt"
-				nThreads=$( getNumberOfAvailableThreads $index )
-				mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 -threads=${nThreads} >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
-					printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					importBinariesIntoAPEv2 || ec=$EX_KO
-					importArtworkIntoAPEv2 || ec=$EX_KO
+		AAC)
+			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt" aaclib="" aaclibs="aac libfdk_aac aac_at"
+			for ((l=0; l < ${#aaclibs[@]}; l++)); do
+				aaclib="${aaclibs[$l]}"
+				if [ -z "$sourceCoverArtFile" ]; then
+					for f in "${SWAPDIR}/picture-${index}-"*_*; do
+						if [ ! -e "$f" ]; then continue; fi
+						picType="${f#*_}"; picType="${picType%.*}"
+						case $picType in
+							3) sourceCoverArtFile="$f" ; break ;;
+						esac
+					done
 				fi
-				;;
-
-			lossyFLAC)
-				destExtension='lossy.flac'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt"
-				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
-				nThreads=$( getNumberOfAvailableThreads $index $maxFlacThreads )
-				printf -- "--totally-silent`tagline -T`\x00%s" "$lossywavFile" | xargs -0 flac -j $nThreads -P 4096 -5 -b 512 --keep-foreign-metadata -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
-				importArtworkIntoFLAC || ec=$EX_KO
-				;;
-
-			lossyWV)
-				destExtension='lossy.wv'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt"
-				nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
-				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
-				printf -- "-q`tagline -w`\x00%s" "$lossywavFile" | xargs -0 wavpack --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-					importBinariesIntoAPEv2 || ec=$EX_KO
-					importArtworkIntoAPEv2 || ec=$EX_KO
-				fi
-				;;
-
-			OggVorbis)
-				destExtension='ogg'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt"
-				if [ "$OggVorbis_MODE" = 'VBR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / -q $compression_OggVorbis"; fi
-					printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc -q $compression_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				elif [ "$OggVorbis_MODE" = 'ABR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / $average_bitrate_OggVorbis kbps (ABR)"; fi
-					printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $average_bitrate_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
+					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / $bitrate_OggVorbis kbps (CBR)"; fi
-					printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $bitrate_OggVorbis -m $bitrate_OggVorbis -M $bitrate_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
-				;;
+				if [ $ec -eq $EX_OK ]; then break; fi
+			done
+			;;
 
-			MP3)
-				destExtension='mp3'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.mp3.txt"
-				if [ "$compression_MP3" = 'insane' -o "$compression_MP3" = '320' ]; then
-					MP3_MODE='CBR' bitrate_MP3=320
-				fi
-				if [ "$MP3_MODE" = 'VBR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="--text-frame TSSE=$me $VERSION / LAME $lameVersion / -V $compression_MP3"; fi
-						lame -S -V $compression_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				elif [ "$MP3_MODE" = 'ABR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="--text-frame TSSE=$me $VERSION / LAME $lameVersion / $average_bitrate_MP3 kbps (ABR)"; fi
-						lame -S --abr $average_bitrate_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				else
-					if [ $tagCompressionSetting = true ]; then compressionTag="--text-frame TSSE=$me $VERSION / LAME $lameVersion / $bitrate_MP3 kbps (CBR)"; fi
-					if [ $bitrate_MP3 -eq 320 ]; then
-						lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					else
-						lame -S -b $bitrate_MP3 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					fi
-				fi
-				if [ $ec -ne $EX_KO ]; then
-					printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					importArtworkIntoMP3 || ec=$EX_KO
-				fi
-				;;
+		Opus)
+			destExtension='opus'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt"
+			if [ "$Opus_MODE" = 'VBR' ]; then
+				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $opusVersion / $compression_Opus kbps (VBR)"; fi
+				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --vbr --bitrate $compression_Opus >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			elif [ "$Opus_MODE" = 'ABR' ]; then
+				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $opusVersion / $average_bitrate_Opus kbps (CVBR)"; fi
+				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --cvbr --bitrate $average_bitrate_Opus >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			else
+				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $opusVersion / $bitrate_Opus kbps (CBR)"; fi
+				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --hard-cbr --bitrate $bitrate_Opus >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			fi
+			;;
+	esac
 
-			AAC)
-				destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt" aaclib="" aaclibs="aac libfdk_aac aac_at"
-				for ((l=0; l < ${#aaclibs[@]}; l++)); do
-					aaclib="${aaclibs[$l]}"
-					if [ -z "$sourceCoverArtFile" ]; then
-						for f in "${SWAPDIR}/picture-${index}-"*_*; do
-							if [ ! -e "$f" ]; then continue; fi
-							picType="${f#*_}"; picType="${picType%.*}"
-							case $picType in
-								3) sourceCoverArtFile="$f" ; break ;;
-							esac
-						done
-					fi
-					if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-						printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					else
-						printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-					fi
-					if [ $ec -eq $EX_OK ]; then break; fi
-				done
-				;;
-
-			Opus)
-				destExtension='opus'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt"
-				if [ "$Opus_MODE" = 'VBR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $opusVersion / $compression_Opus kbps (VBR)"; fi
-					printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --vbr --bitrate $compression_Opus >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				elif [ "$Opus_MODE" = 'ABR' ]; then
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $opusVersion / $average_bitrate_Opus kbps (CVBR)"; fi
-					printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --cvbr --bitrate $average_bitrate_Opus >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				else
-					if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $opusVersion / $bitrate_Opus kbps (CBR)"; fi
-					printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --hard-cbr --bitrate $bitrate_Opus >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				fi
-				;;
-		esac
-
-		if [ $copyPath = true ]; then
-			if ! mkdir -p "$destPath" >/dev/null 2>&1 ; then
+	if [ $copyPath = true ]; then
+		if ! mkdir -p "$destPath" >/dev/null 2>&1 ; then
+			ec=$EX_KO
+		fi
+		if [ -n "$destLinkPath" ]; then
+			if ! mkdir -p "$destLinkPath" >/dev/null 2>&1 ; then
 				ec=$EX_KO
 			fi
-			if [ -n "$destLinkPath" ]; then
-				if ! mkdir -p "$destLinkPath" >/dev/null 2>&1 ; then
-					ec=$EX_KO
+		fi
+	fi
+
+	if [ "$outputCodec" = 'WAV' ]; then
+		statusInfo='decoding'
+	else
+		statusInfo='encoding'
+	fi
+
+	if [ $ec -eq $EX_OK ]; then
+		if [ -e "$encodedFile" ]; then
+			chmod 0644 "$encodedFile"
+			if [ -e "${encodedFile}c" ]; then # WavPack Hybrid correction files
+				chmod 0644 "${encodedFile}c"
+			fi
+			if [ "$outputCodecs" = 'WAV' ]; then
+				mv "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
+			elif [ -L "$encodedFile" -o "$outputCodec" = 'WAV' ]; then
+				cp "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
+				if [ -e "${encodedFile}c" ]; then
+					cp "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile"
+				fi
+			else
+				mv "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
+				if [ -e "${encodedFile}c" ]; then  # WavPack Hybrid correction files
+					mv "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile"
 				fi
 			fi
-		fi
 
-		if [ "$outputCodec" = 'WAV' ]; then
-			statusInfo='decoding'
-		else
-			statusInfo='encoding'
-		fi
-
-		if [ $ec -eq $EX_OK ]; then
-			if [ -e "$encodedFile" ]; then
-				chmod 0644 "$encodedFile"
-				if [ -e "${encodedFile}c" ]; then # WavPack Hybrid correction files
-					chmod 0644 "${encodedFile}c"
+			if [ "$outputCodec" = "WavPackHybrid" -a -n "$destLinkPath" ]; then
+				if [ -e "$destLinkFile" ]; then # delete old link for consistency``
+					rm -f "$destLinkFile" >/dev/null 2>> "$errorLogFile"
 				fi
-				if [ "$outputCodecs" = 'WAV' ]; then
-					mv "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
-				elif [ -L "$encodedFile" -o "$outputCodec" = 'WAV' ]; then
-					cp "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
-					if [ -e "${encodedFile}c" ]; then
-						cp "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile"
-					fi
-				else
-					mv "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
-					if [ -e "${encodedFile}c" ]; then  # WavPack Hybrid correction files
-						mv "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile"
-					fi
-				fi
-
-				if [ "$outputCodec" = "WavPackHybrid" -a -n "$destLinkPath" ]; then
-					if [ -e "$destLinkFile" ]; then # delete old link for consistency``
-						rm -f "$destLinkFile" >/dev/null 2>> "$errorLogFile"
-					fi
-					if [ -f "$destFile" ]; then
-						ln -f "$destFile" "$destLinkPath" >/dev/null 2>> "$errorLogFile"
-					fi
-				fi
-
-				copyOrLinkOtherFiles "$outputCodec"
-				if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
-					copyOrLinkOtherFiles "WavPackLossy"
-				fi
-
-				if [ "$outputCodec" = "WAV" ]; then
-					printMessage 'success' "$statusInfo" "file:${destFile}" $p # FIXME DECODE THREADS
-				else
-					printMessage 'success' "$statusInfo" "file:${destFile}" $p "threads:$nThreads" # FIXME DECODE THREADS
+				if [ -f "$destFile" ]; then
+					ln -f "$destFile" "$destLinkPath" >/dev/null 2>> "$errorLogFile"
 				fi
 			fi
-		else
-			rm -f "$encodedFile" >/dev/null 2>&1 # in case it exists
-			printMessage 'error' "$statusInfo" "file:${sourceFile}" $p
+
+			copyOrLinkOtherFiles "$outputCodec"
+			if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
+				copyOrLinkOtherFiles "WavPackLossy"
+			fi
+
+			if [ "$outputCodec" = "WAV" ]; then
+				printMessage 'success' "$statusInfo" "file:${destFile}" $p # FIXME DECODE THREADS
+			else
+				printMessage 'success' "$statusInfo" "file:${destFile}" $p "threads:$nThreads" # FIXME DECODE THREADS
+			fi
 		fi
+	else
+		rm -f "$encodedFile" >/dev/null 2>&1 # in case it exists
+		printMessage 'error' "$statusInfo" "file:${sourceFile}" $p
 	fi
 
 	return $ec
@@ -6086,17 +6049,23 @@ if [ -z "$hashes" ]; then actionHash=false; fi
 if [ -z "$outputCodecs" -a $checkFiles = false -a $computeReplaygain = false -a $actionHash = false -a $touchFiles = false ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: no action specified"
 	exit $EX_USAGE
-elif [ -n "$outputCodecs" -a $checkFiles = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -t are mutually exclusive. Try again with either one alone."
+elif [ -z "$outputCodecs" -a $keepExistingFiles = true ]; then
+	printMessage 'error' 'usage' 'command_line' "$me: -k is only available when -c has been provided."
 	exit $EX_USAGE
-elif [ -n "$outputCodecs" -a $touchFiles = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -T are mutually exclusive. Try again with either one alone."
+elif [ -z "$outputCodecs" -a $keepNewerFiles = true ]; then
+	printMessage 'error' 'usage' 'command_line' "$me: -K is only available when -c has been provided."
 	exit $EX_USAGE
 elif [ -z "$outputCodecs" -a $setCoverArtworkFile = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -a is only available when transcoding (-c)."
 	exit $EX_USAGE
 elif [ -z "$outputCodecs" -a $copyOtherFiles = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -f is only available when transcoding (-c)."
+	exit $EX_USAGE
+elif [ -n "$outputCodecs" -a $checkFiles = true ]; then
+	printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -t are mutually exclusive. Try again with either one alone."
+	exit $EX_USAGE
+elif [ -n "$outputCodecs" -a $touchFiles = true ]; then
+	printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -T are mutually exclusive. Try again with either one alone."
 	exit $EX_USAGE
 elif [ $computeReplaygain = true -a $touchFiles = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -g/-G/-S and -T are mutually exclusive. Try again with either one alone."
