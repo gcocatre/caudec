@@ -1009,10 +1009,10 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 							fi
 							if [ $keepNewerFiles = true ]; then
 								if [ -e "$destFile" ]; then
-									if isFileNewer "$destFile" "$sourceFile"; then
-										addToSourceFiles=false
-									else
+									if isFileNewer "$sourceFile" "$destFile"; then
 										addToSourceFiles=true
+									else
+										addToSourceFiles=false
 									fi
 								fi
 							fi
@@ -1427,7 +1427,7 @@ handleInstance ()
 	fi
 }
 
-setupSwapdir ()
+setupSwapDir ()
 {
 	local index mktempFS='other' devshmFS='other' mktempSpace devshmSpace ec=1 copyLockFile fileBytes
 
@@ -1518,6 +1518,7 @@ setupSwapdir ()
 		fi
 		for outputCodec in $outputCodecs; do
 			touch "${TDIR}/${outputCodec}_${index}"
+			touch "${TDIR}/${outputCodec}_copyFiles"
 			if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' ]; then
 				touch "${TDIR}/${outputCodec}_${index}_LOSSYWAV_NEEDED"
 				touch "${TDIR}/lossyWAV_${index}_WAV_NEEDED"
@@ -3358,20 +3359,22 @@ getEncoderVersions ()
 
 isFileNewer ()
 {
-	local destFile="$1" sourceFile="$2" mtimeSource mtimeDest
+	local fileA="$1" fileB="$2" mtimeA mtimeB
 
-	if [ "$destFile" -nt "$sourceFile" ]; then
+	if [ "$fileA" -nt "$fileB" ]; then
 		return $EX_OK
+	elif [ "$fileB" -nt "$fileA" ]; then
+		return $EX_KO
 	else
 		if [ "$OS" = 'Linux' ]; then
-			mtimeDest="$( stat -c '%Y' "$sourceFile" )"
-			mtimeSource="$( stat -c '%Y' "$destFile" )"
+			mtimeA="$( stat -c '%Y' "$fileA" )"
+			mtimeB="$( stat -c '%Y' "$fileB" )"
 		else
-			mtimeDest="$( stat -f '%m' "$sourceFile" )"
-			mtimeSource="$( stat -f '%m' "$destFile" )"
+			mtimeA="$( stat -f '%m' "$fileA" )"
+			mtimeB="$( stat -f '%m' "$fileB" )"
 		fi
-		if [ "$mtimeDest" = "$mtimeSource" ]; then # how could this happen?
-			return $EX_KO
+		if [ $mtimeA -gt $mtimeB ]; then
+			return $EX_OK
 		else
 			return $EX_OK
 		fi
@@ -3483,7 +3486,7 @@ copyOrLinkFile ()
 
 copyOrLinkOtherFiles ()
 {
-	local codec="$1" pattern="$2"
+	local codec="$1"
 
 	pattern="$( getCodecOtherFiles "$codec" )"
 
@@ -3740,11 +3743,6 @@ encode ()
 				fi
 			fi
 
-			copyOrLinkOtherFiles "$outputCodec"
-			if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
-				copyOrLinkOtherFiles "WavPackLossy"
-			fi
-
 			if [ "$outputCodec" = "WAV" ]; then
 				printMessage 'success' "$statusInfo" "file:${destFile}" $p # FIXME DECODE THREADS
 			else
@@ -3939,6 +3937,14 @@ transcode ()
 						ls "${TDIR}/"*"_${index}_LOSSYWAV_NEEDED" >/dev/null 2>&1 || rm -f "$lossywavFile"
 					fi
 					touch "$wasProcessedFile"
+
+					copyFilesLockFile="${TDIR}/${outputCodec}_copyFiles"
+					if test -e "$copyFilesLockFile" && getLock "$copyFilesLockFile"; then
+						copyOrLinkOtherFiles "$outputCodec"
+						if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
+							copyOrLinkOtherFiles "WavPackLossy"
+						fi
+					fi
 				fi
 			done
 
@@ -6096,7 +6102,7 @@ declare -a inputFiles=()
 declare -a sourceFiles=()
 numberOfInputFiles=0
 
-getInputFiles && checkInputFiles && checkBinaries && handleInstance && setupSwapdir
+getInputFiles && checkInputFiles && checkBinaries && handleInstance && setupSwapDir
 
 for signal in INT TERM ABRT PIPE; do
 	trap "cleanAbort" $signal
