@@ -1529,7 +1529,6 @@ setupSwapDir ()
 		fi
 		for outputCodec in $outputCodecs; do
 			touch "${TDIR}/${outputCodec}_${index}"
-			touch "${TDIR}/${outputCodec}_copyFiles"
 			if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' ]; then
 				touch "${TDIR}/${outputCodec}_${index}_LOSSYWAV_NEEDED"
 				touch "${TDIR}/lossyWAV_${index}_WAV_NEEDED"
@@ -3392,6 +3391,19 @@ isFileNewer ()
 	fi
 }
 
+areInodesDifferent ()
+{
+	local fileA="$1" fileB="$2" inodeA inodeB
+
+	inodeA="$( ls -i "$fileA" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
+	inodeB="$( ls -i "$fileB" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
+	if [ "$inodeA" != "$inodeB" ]; then
+		return $EX_OK
+	else
+		return $EX_OK
+	fi
+}
+
 copyOrLinkAllFiles ()
 {
 	local codec="$1" sourceDirFile otherFileBasename destOtherFile destOtherLinkedFile
@@ -3404,11 +3416,13 @@ copyOrLinkAllFiles ()
 			destOtherFile="${destPath}/${otherFileBasename}"
 			if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 				destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
-				rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" # for consistency
-				ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
+				if isFileNewer "$sourceDirFile" "$destOtherLinkedFile"; then
+					ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
+				fi
 			else
-				rm -f "$destOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
-				cp "$sourceDirFile" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
+				if isFileNewer "$sourceDirFile" "$destOtherFile"; then
+					cp "$sourceDirFile" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
+				fi
 			fi
 		fi
 	done
@@ -3429,11 +3443,13 @@ copyOrLinkCommaSeparatedFiles ()
 						destOtherFile="${destPath}/${otherFileBasename}"
 						if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 							destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
-							rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" # for consistency
-							ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
+							if isFileNewer "$extOtherFile" "$destOtherLinkedFile"; then
+								ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
+							fi
 						else
-							rm -f "$destOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
-							cp "$extOtherFile" "${destOtherFile}" >/dev/null 2>> "$errorLogFile"
+							if isFileNewer "$extOtherFile" "$destOtherFile"; then
+								cp "$extOtherFile" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
+							fi
 						fi
 					fi
 				done
@@ -3444,11 +3460,13 @@ copyOrLinkCommaSeparatedFiles ()
 					destOtherFile="${destPath}/${otherFile}"
 					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 						destOtherLinkedFile="${destLinkPath}/${destOtherFile}"
-						rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" # for consistency
-						ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
+						if isFileNewer "$extOtherFile" "$destOtherLinkedFile"; then
+							ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
+						fi
 					else
-						rm -f "$destOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
-						cp "${sourceDirname}/${otherFile}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
+						if isFileNewer "$extOtherFile" "$destOtherFile"; then
+							cp "${sourceDirname}/${otherFile}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
+						fi
 					fi
 				fi
 			;;
@@ -3469,11 +3487,13 @@ copyOrLinkFile ()
 					destOtherFile="${destPath}/${otherFileBasename}"
 					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 						destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
-						rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" # for consistency
-						ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
+						if isFileNewer "$extOtherFile" "$destOtherLinkedFile"; then
+							ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
+						fi
 					else
-						rm -f "$destOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
-						cp "$extOtherFile" "${destOtherFile}" >/dev/null 2>> "$errorLogFile"
+						if isFileNewer "$extOtherFile" "$destOtherFile"; then
+							cp "$extOtherFile" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
+						fi
 					fi
 				fi
 			done
@@ -3484,11 +3504,15 @@ copyOrLinkFile ()
 				destOtherFile="${destPath}/${otherFile}"
 				if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 					destOtherLinkedFile="${destLinkPath}/${otherFile}"
-					rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" # for consistency
-					ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
+					if isFileNewer "${sourceDirname}/${otherFile}" "$destOtherLinkedFile"; then
+						ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
+					fi
 				else
-					rm -f "$destOtherFile" >/dev/null 2>> "$errorLogFile" # for consistency
-					cp "${sourceDirname}/${otherFile}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
+					if isFileNewer "${sourceDirname}/${otherFile}" "$destOtherFile"; then
+						cp "${sourceDirname}/${otherFile}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
+					else
+						echo "[${sourceDirname}/${otherFile}] is older than [$destOtherFile]" 1>&2
+					fi
 				fi
 			fi
 		;;
@@ -3947,15 +3971,13 @@ transcode ()
 						rm -f "${encodingLockFile}_LOSSYWAV_NEEDED"
 						ls "${TDIR}/"*"_${index}_LOSSYWAV_NEEDED" >/dev/null 2>&1 || rm -f "$lossywavFile"
 					fi
-					touch "$wasProcessedFile"
 
-					copyFilesLockFile="${TDIR}/${outputCodec}_copyFiles"
-					if test -e "$copyFilesLockFile" && getLock "$copyFilesLockFile"; then
-						copyOrLinkOtherFiles "$outputCodec"
-						if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
-							copyOrLinkOtherFiles "WavPackLossy"
-						fi
+					copyOrLinkOtherFiles "$outputCodec"
+					if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
+						copyOrLinkOtherFiles "WavPackLossy"
 					fi
+
+					touch "$wasProcessedFile"
 				fi
 			done
 
