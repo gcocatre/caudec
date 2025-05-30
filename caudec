@@ -941,6 +941,7 @@ checkInputFiles ()
 {
 	local file ec=$EX_OK bn dn commonFileExtension="" fileExtension="" fileExtensionAreAllTheSame=true refDn cdpath pdpath
 	local basenames='' index=0 addToSourceFiles errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
+	local dateSourceFile dateSourceFile
 
 	numberOfInputFiles="${#inputFiles[@]}"
 
@@ -1025,7 +1026,9 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 										addToSourceFiles=true
 									else
 										addToSourceFiles=false
-										printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: \"$destFile\" is newer that the source."
+										dateSourceFile="$( date -r "$( stat -f '%c' "$sourceFile" )" "+%Y-%m-%d %H:%M:%S" )"
+										dateDestFile="$( date -r "$( stat -f '%c' "$destFile" )" "+%Y-%m-%d %H:%M:%S" )"
+										printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: '$dateDestFile' vs. '$dateSourceFile': \"$destFile\" is newer that the source."
 									fi
 								else
 									addToSourceFiles=true
