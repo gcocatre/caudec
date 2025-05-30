@@ -3386,7 +3386,7 @@ isFileNewer ()
 		if [ $mtimeA -gt $mtimeB ]; then
 			return $EX_OK
 		else
-			return $EX_OK
+			return $EX_KO
 		fi
 	fi
 }
@@ -3400,7 +3400,7 @@ areInodesDifferent ()
 	if [ "$inodeA" != "$inodeB" ]; then
 		return $EX_OK
 	else
-		return $EX_OK
+		return $EX_KO
 	fi
 }
 
@@ -3504,7 +3504,8 @@ copyOrLinkFile ()
 				destOtherFile="${destPath}/${otherFile}"
 				if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 					destOtherLinkedFile="${destLinkPath}/${otherFile}"
-					if isFileNewer "${sourceDirname}/${otherFile}" "$destOtherLinkedFile"; then
+					if areInodesDifferent "$destOtherFile" "$destOtherLinkedFile"; then
+						rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" &&
 						ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 					fi
 				else
