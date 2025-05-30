@@ -1014,6 +1014,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 							if [ $keepExistingFiles = true ]; then
 								if [ -e "$destFile" ]; then
 									addToSourceFiles=false
+									printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: \"$destFile\" exists already."
 								else
 									addToSourceFiles=true
 								fi
@@ -1024,7 +1025,10 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 										addToSourceFiles=true
 									else
 										addToSourceFiles=false
+										printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: \"$destFile\" is newer that the source."
 									fi
+								else
+									addToSourceFiles=true
 								fi
 							fi
 						fi
@@ -3377,8 +3381,8 @@ isFileNewer ()
 			mtimeA="$( stat -c '%Y' "$fileA" )"
 			mtimeB="$( stat -c '%Y' "$fileB" )"
 		else
-			mtimeA="$( stat -f '%m' "$fileA" )"
-			mtimeB="$( stat -f '%m' "$fileB" )"
+			mtimeA="$( stat -f '%c' "$fileA" )"
+			mtimeB="$( stat -f '%c' "$fileB" )"
 		fi
 		if [ $mtimeA -gt $mtimeB ]; then
 			return $EX_OK
