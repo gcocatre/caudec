@@ -3416,7 +3416,8 @@ copyOrLinkAllFiles ()
 			destOtherFile="${destPath}/${otherFileBasename}"
 			if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 				destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
-				if isFileNewer "$sourceDirFile" "$destOtherLinkedFile"; then
+				if areInodesDifferent "$destOtherFile" "$destOtherLinkedFile"; then
+					rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" &&
 					ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 				fi
 			else
@@ -3443,7 +3444,8 @@ copyOrLinkCommaSeparatedFiles ()
 						destOtherFile="${destPath}/${otherFileBasename}"
 						if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 							destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
-							if isFileNewer "$extOtherFile" "$destOtherLinkedFile"; then
+							if areInodesDifferent "$destOtherFile" "$destOtherLinkedFile"; then
+								rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" &&
 								ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 							fi
 						else
@@ -3460,7 +3462,8 @@ copyOrLinkCommaSeparatedFiles ()
 					destOtherFile="${destPath}/${otherFile}"
 					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 						destOtherLinkedFile="${destLinkPath}/${destOtherFile}"
-						if isFileNewer "$extOtherFile" "$destOtherLinkedFile"; then
+						if areInodesDifferent "$destOtherFile" "$destOtherLinkedFile"; then
+							rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" &&
 							ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 						fi
 					else
@@ -3487,7 +3490,8 @@ copyOrLinkFile ()
 					destOtherFile="${destPath}/${otherFileBasename}"
 					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 						destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
-						if isFileNewer "$extOtherFile" "$destOtherLinkedFile"; then
+						if areInodesDifferent "$destOtherFile" "$destOtherLinkedFile"; then
+							rm -f "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile" &&
 							ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$errorLogFile"
 						fi
 					else
