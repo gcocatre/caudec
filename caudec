@@ -3371,23 +3371,27 @@ isFileNewer ()
 {
 	local fileA="$1" fileB="$2" mtimeA mtimeB
 
-	if [ "$fileA" -nt "$fileB" ]; then
-		return $EX_OK
-	elif [ "$fileB" -nt "$fileA" ]; then
-		return $EX_KO
-	else
-		if [ "$OS" = 'Linux' ]; then
-			mtimeA="$( stat -c '%Y' "$fileA" )"
-			mtimeB="$( stat -c '%Y' "$fileB" )"
-		else
-			mtimeA="$( stat -f '%m' "$fileA" )"
-			mtimeB="$( stat -f '%m' "$fileB" )"
-		fi
-		if [ $mtimeA -gt $mtimeB ]; then
+	if [ -e "$fileA" -a -e "$fileB" ]; then
+		if [ "$fileA" -nt "$fileB" ]; then
 			return $EX_OK
-		else
+		elif [ "$fileB" -nt "$fileA" ]; then
 			return $EX_KO
+		else
+			if [ "$OS" = 'Linux' ]; then
+				mtimeA="$( stat -c '%Y' "$fileA" )"
+				mtimeB="$( stat -c '%Y' "$fileB" )"
+			else
+				mtimeA="$( stat -f '%m' "$fileA" )"
+				mtimeB="$( stat -f '%m' "$fileB" )"
+			fi
+			if [ $mtimeA -gt $mtimeB ]; then
+				return $EX_OK
+			else
+				return $EX_KO
+			fi
 		fi
+	else
+		return $EX_OK
 	fi
 }
 
@@ -3395,12 +3399,16 @@ areInodesDifferent ()
 {
 	local fileA="$1" fileB="$2" inodeA inodeB
 
-	inodeA="$( ls -i "$fileA" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
-	inodeB="$( ls -i "$fileB" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
-	if [ "$inodeA" != "$inodeB" ]; then
-		return $EX_OK
+	if [ -e "$fileA" -a -e "$fileB" ]; then
+		inodeA="$( ls -i "$fileA" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
+		inodeB="$( ls -i "$fileB" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
+		if [ "$inodeA" != "$inodeB" ]; then
+			return $EX_OK
+		else
+			return $EX_KO
+		fi
 	else
-		return $EX_KO
+		return $EX_OK
 	fi
 }
 
