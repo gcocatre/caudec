@@ -3371,24 +3371,19 @@ isFileNewer ()
 {
 	local fileA="$1" fileB="$2" mtimeA mtimeB
 
+	# Don't use 'test -nt' because it doesn't work on files touched by 'caudec -T '
 	if [ -e "$fileA" -a -e "$fileB" ]; then
-		if [ "$fileA" -nt "$fileB" ]; then
-			return $EX_OK
-		elif [ "$fileB" -nt "$fileA" ]; then
-			return $EX_KO
+		if [ "$OS" = 'Linux' ]; then
+			mtimeA="$( stat -c '%Y' "$fileA" )"
+			mtimeB="$( stat -c '%Y' "$fileB" )"
 		else
-			if [ "$OS" = 'Linux' ]; then
-				mtimeA="$( stat -c '%Y' "$fileA" )"
-				mtimeB="$( stat -c '%Y' "$fileB" )"
-			else
-				mtimeA="$( stat -f '%m' "$fileA" )"
-				mtimeB="$( stat -f '%m' "$fileB" )"
-			fi
-			if [ $mtimeA -gt $mtimeB ]; then
-				return $EX_OK
-			else
-				return $EX_KO
-			fi
+			mtimeA="$( stat -f '%m' "$fileA" )"
+			mtimeB="$( stat -f '%m' "$fileB" )"
+		fi
+		if [ $mtimeA -gt $mtimeB ]; then
+			return $EX_OK
+		else
+			return $EX_KO
 		fi
 	else
 		return $EX_OK
