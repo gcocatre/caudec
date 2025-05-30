@@ -881,7 +881,18 @@ cleanAbort ()
 
 getInputFiles ()
 {
-	local index=0 fileOrDir ec=$EX_OK ext
+	local index=0 fileOrDir ec=$EX_OK ext line inputDir
+
+	if [ ${#inputFilesAndDirs[@]} -eq 1 -a -d "${inputFilesAndDirs[0]}" ]; then
+		inputDir="${inputFilesAndDirs[0]}"
+		unset inputFilesAndDirs
+		declare -a inputFilesAndDirs=()
+		while read line; do
+			inputFilesAndDirs[index]="$line"
+			index=$(( index + 1 ))
+		done < <( find "$inputDir" -type f 2>/dev/null | sort -u 2>/dev/null )
+		index=0
+	fi
 
 	for fileOrDir in "${inputFilesAndDirs[@]}"; do
 		if [ -d "$fileOrDir" ]; then
@@ -1085,11 +1096,11 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 				fi
 
 				if [ $touchFiles = true ]; then
-					if [ "$dn" != "$refDn" ]; then
-						printMessage 'error' 'usage' 'filesystem' "all files must be in the same directory" ; ec=$EX_DATAERR
-						printMessage 'abort' 'verbose'
-						cleanExit $ec
-					fi
+					# if [ "$dn" != "$refDn" ]; then
+					# 	printMessage 'error' 'usage' 'filesystem' "all files must be in the same directory" ; ec=$EX_DATAERR
+					# 	printMessage 'abort' 'verbose'
+					# 	cleanExit $ec
+					# fi
 					case "$file" in
 						*.flac|*.ogg|*.m4a|*.wv|*.ape|*.opus) gotAudioFile=true ;;
 					esac
@@ -4946,115 +4957,164 @@ computeTrackDateTimes ()
 	return $ec
 }
 
-# FIXME handle multiple directories
 touchAllFiles ()
 {
-	local ec=$EX_OK index audioFileIndex otherFileIndex
-	local trackYear trackMonth trackDay trackDate totalSeconds trackMilliseconds albumHours
-	local albumMinutes albumSeconds defaultTrackDate dir dirPath inode linkedFile linkPath touchString
-	local audioFiles otherFiles audioFile sourceFile otherFile sourceTagFile secondsFile millisecondsFile
+	local ec=$EX_OK index audioFileIndex otherFileIndex dirIndex
+	local trackDate albumSeconds discSeconds trackMilliseconds discHours discMinutes discSeconds
+	local defaultTrackDate lastDir="" curDir artistDir albumDir albumLinkDir albumPath dirPath inode linkedFile linkPath
+	local touchString discDirs linkedDiscDirs audioFiles otherFiles otherFile audioFile sourceFile sourceTagFile secondsFile millisecondsFile
 
-	trackYear="$( date "+%Y" )"
-	trackMonth="$( date "+%m" )"
-	trackDay="$( date "+%d" )"
-	trackDate="${trackYear}${trackMonth}${trackDay}"
+	trackDate="$( date "+%Ymd" )"
 	defaultTrackDate="$trackDate"
-	trackMilliseconds=0
-	touchString="${trackDate}0000.00"
-	totalSeconds=0
+	albumSeconds=0
 
-	dir="$( dirname "${sourceFiles[0]}" )"
-
+	discDirs=()
+	linkedDiscDirs=()
 	audioFiles=()
 	otherFiles=()
 
-	for ((index=0, audioFileIndex=0, otherFileIndex=0; index < ${#sourceFiles[@]}; index++)); do
+	for ((index=0, dirIndex=0; index < ${#sourceFiles[@]}; index++)); do
 		sourceFile="${sourceFiles[$index]}"
-		case "$sourceFile" in
-    	*.flac|*ogg|*.m4a|*.wv|*.ape|*.opus) audioFiles[$audioFileIndex]="$sourceFile" ; audioFileIndex=$(( audioFileIndex + 1 )) ;;
-			*.wvc) continue ;; # will be touched when the matching .wv file is touched
-			*.aiff|*.caf|*.mp3) continue ;; # unsupported audio files
-			*) otherFiles[$otherFileIndex]="$sourceFile" ; otherFileIndex=$(( otherFileIndex + 1 )) ;; # all non-audio files
-		esac
+		sourceDirname="$( dirname "$sourceFile" )"
+		curDir="$( readlink -f "$sourceDirname" )"
+		if [ "$curDir" != "$lastDir" ]; then
+			discDirs[$dirIndex]="$curDir"
+			dirIndex=$(( dirIndex + 1 ))
+			lastDir="$curDir"
+		fi
 	done
 
-	for audioFile in "${audioFiles[@]}"; do
-		if [ $gotLinkedDir = true -a -z "$linkPath" ]; then
-			inode="$( ls -i "$audioFile" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
-			if [ -n "$inode" ]; then
-				while read linkedFile; do
-					if [ -z "$linkPath" ]; then
-						linkPath="$( dirname "$linkedFile" )"
-						break
-					fi
-				done < <( find "$linkDir" -inum "$inode" )
+	for ((dirIndex=0; dirIndex < ${#discDirs[@]}; dirIndex++)); do
+		curDir="${discDirs[$dirIndex]}"
+		trackMilliseconds=0
+		touchString="${trackDate}0000.00"
+		discSeconds=0
+		linkPath=""
+
+		for ((index=0, audioFileIndex=0, otherFileIndex=0; index < ${#sourceFiles[@]}; index++)); do
+			sourceFile="${sourceFiles[$index]}"
+			sourceDirname="$( dirname "$sourceFile" )"
+			dirPath="$( readlink -f "$sourceDirname" )"
+			if [ "$dirPath" != "$curDir" ]; then continue; fi
+			case "$sourceFile" in
+				*.flac|*ogg|*.m4a|*.wv|*.ape|*.opus) audioFiles[$audioFileIndex]="$sourceFile" ; audioFileIndex=$(( audioFileIndex + 1 )) ;;
+				*.wvc) continue ;; # will be touched when the matching .wv file is touched
+				*.aiff|*.caf|*.mp3) continue ;; # unsupported audio files
+				*) otherFiles[$otherFileIndex]="$sourceFile" ; otherFileIndex=$(( otherFileIndex + 1 )) ;; # all non-audio files
+			esac
+		done
+
+		for audioFile in "${audioFiles[@]}"; do
+			audioFileDirname="$( dirname "$audioFile" )"
+			dirPath="$( readlink -f "$audioFileDirname" )"
+			if [ "$dirPath" != "$curDir" ]; then continue; fi
+			if [ $gotLinkedDir = true -a -z "$linkPath" ]; then
+				linkedDiscDirs[$dirIndex]=""
+				inode="$( ls -i "$audioFile" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
+				if [ -n "$inode" ]; then
+					while read linkedFile; do
+						if [ -z "$linkPath" ]; then
+							linkPath="$( dirname "$linkedFile" )"
+							linkedDiscDirs[$dirIndex]="$linkPath"
+							break
+						fi
+					done < <( find "$linkDir" -inum "$inode" )
+				fi
+			else
+				break
 			fi
-		else
-			break
-		fi
-	done
+		done
 
-	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
-		sourceFile="${sourceFiles[$index]}"
-		sourceTagFile="${TDIR}/${index}.txt"
-		secondsFile="${TDIR}/${index}.seconds"
-		millisecondsFile="${TDIR}/${index}.milliseconds"
+		for ((index=0; index < ${#sourceFiles[@]}; index++)); do
+			sourceFile="${sourceFiles[$index]}"
+			sourceDirname="$( dirname "$sourceFile" )"
+			dirPath="$( readlink -f "$sourceDirname" )"
+			if [ "$dirPath" != "$curDir" ]; then continue; fi
+			sourceTagFile="${TDIR}/${index}.txt"
+			secondsFile="${TDIR}/${index}.seconds"
+			millisecondsFile="${TDIR}/${index}.milliseconds"
 
-	  case "$sourceFile" in
-    	*.flac|*ogg|*m4a|*.wv|*.ape|*.opus)
-				read trackDate < "$sourceTagFile"
-				if [ -z "$trackDate" ]; then trackDate="$defaultTrackDate"; fi
+			case "$sourceFile" in
+				*.flac|*ogg|*m4a|*.wv|*.ape|*.opus)
+					read trackDate < "$sourceTagFile"
+					if [ -z "$trackDate" ]; then trackDate="$defaultTrackDate"; fi
+					read trackMilliseconds < "$millisecondsFile"
+					if [ -z "$trackMilliseconds" ]; then trackMilliseconds=0; fi
+					trackMilliseconds="$( printf "%.3f" "$trackMilliseconds" )"
+					;;
+
+				*.wvc) continue ;;
+
+				*) continue ;;
+			esac
+
+			touchString="$( getTouchString $trackDate $discSeconds )"
+			touch -t "$touchString" "$sourceFile" || ec=$EX_IOERR
+			if [ -e "${sourceFile}c" ]; then  # WavPack correction file
+				touch -t "$touchString" "${sourceFile}c" || ec=$EX_IOERR
+			fi
+			if [ -e "$millisecondsFile" ]; then
 				read trackMilliseconds < "$millisecondsFile"
-				if [ -z "$trackMilliseconds" ]; then trackMilliseconds=0; fi
-				trackMilliseconds="$( printf "%.3f" "$trackMilliseconds" )"
-				;;
+			else
+				trackMilliseconds=0
+			fi
+			discSeconds="$( echo "scale=3; $discSeconds + $trackMilliseconds" | bc )"
+			albumSeconds="$( echo "scale=3; $albumSeconds + $trackMilliseconds" | bc )"
+		done
 
-			*.wvc) continue ;;
+		for otherFile in "${otherFiles[@]}"; do
+			touchString="$( getTouchString $trackDate $discSeconds )"
+			touch -t "$touchString" "$otherFile" 2>> "$errorLogFile" || ec=$EX_IOERR
+		done
 
-			*) continue ;;
-		esac
-
-		touchString="$( getTouchString $trackDate $totalSeconds )"
-		touch -t "$touchString" "$sourceFile" || ec=$EX_IOERR
-		if [ -e "${sourceFile}c" ]; then  # WavPack correction file
-			touch -t "$touchString" "${sourceFile}c" || ec=$EX_IOERR
-		fi
-		if [ -e "$millisecondsFile" ]; then
-			read trackMilliseconds < "$millisecondsFile"
+		if [ ! -w "$curDir" ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${curDir}" 'refusing to touch directory that is read-only.'
 		else
-			trackMilliseconds=0
+			touchString="$( getTouchString $trackDate $discSeconds )"
+			touch -t "$touchString" "$curDir" || ec=$EX_IOERR
 		fi
-		totalSeconds="$( echo "scale=3; $totalSeconds + $trackMilliseconds" | bc )"
+
+		if [ -n "$linkPath" ]; then
+			if [ ! -w "$linkPath" ]; then
+				printMessage 'warning' 'usage' 'filesystem' "path:${linkPath}" 'refusing to touch directory that is read-only.'
+			else
+				touchString="$( getTouchString $trackDate $discSeconds )"
+				touch -t "$touchString" "$linkPath" || ec=$EX_IOERR
+			fi
+		fi
 	done
 
-	for otherFile in "${otherFiles[@]}"; do
-		touchString="$( getTouchString $trackDate $totalSeconds )"
-		touch -t "$touchString" "$otherFile" 2>> "$errorLogFile" || ec=$EX_IOERR
-	done
+	if [ ${#discDirs[@]} -gt 1 ]; then
+		for ((dirIndex=0; dirIndex < ${#discDirs[@]}; dirIndex++)); do
+			curDir="${discDirs[$dirIndex]}"
+			curLinkedDir="${linkedDiscDirs[$dirIndex]}"
+			albumDir="$( dirname "$curDir" )"
 
-	if [ ! -w "$dir" ]; then
-		dirPath="$( readlink -f "$dir" )"
-		printMessage 'warning' 'usage' 'filesystem' "path:${dirPath}" 'refusing to touch directory that is read-only.'
-	else
-		touchString="$( getTouchString $trackDate $totalSeconds )"
-		touch -t "$touchString" "$dir" || ec=$EX_IOERR
-	fi
+			if [ ! -w "$albumDir" ]; then
+				printMessage 'warning' 'usage' 'filesystem' "path:${albumDir}" 'refusing to touch directory that is read-only.'
+			else
+				touchString="$( getTouchString $trackDate $albumSeconds )"
+				touch -t "$touchString" "$albumDir" || ec=$EX_IOERR
+			fi
 
-	if [ -n "$linkPath" ]; then
-		if [ ! -w "$linkPath" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${linkPath}" 'refusing to touch directory that is read-only.'
-		else
-			touchString="$( getTouchString $trackDate $totalSeconds )"
-			touch -t "$touchString" "$linkPath" || ec=$EX_IOERR
-		fi
+			if [ -n "$curLinkedDir" ]; then
+				albumLinkDir="$( dirname "$curLinkedDir" )"
+				if [ ! -w "$albumLinkDir" ]; then
+					printMessage 'warning' 'usage' 'filesystem' "path:${albumLinkDir}" 'refusing to touch directory that is read-only.'
+				else
+					touchString="$( getTouchString $trackDate $albumSeconds )"
+					touch -t "$touchString" "$albumLinkDir" || ec=$EX_IOERR
+				fi
+			fi
+		done
 	fi
 
 	if [ $ec -eq $EX_OK ]; then
-		touchString="$( getTouchString $trackDate $totalSeconds )"
-		albumHours="${touchString:8:2}"
-		albumMinutes="${touchString:10:2}"
+		touchString="$( getTouchString $trackDate $albumSeconds )"
+		discHours="${touchString:8:2}"
+		discMinutes="${touchString:10:2}"
 		albumSeconds="${touchString:13:2}"
-		printMessage 'success' 'touch_files' "albumTime:${albumHours}:${albumMinutes}:${albumSeconds}"
+		printMessage 'success' 'touch_files' "albumTime:${discHours}:${discMinutes}:${albumSeconds}"
 	else
 		printMessage 'error' 'touch_files' "Album length"
 	fi
