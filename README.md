@@ -8,11 +8,11 @@ caudec is a command-line utility that transcodes (converts) audio files from one
 
 ## Features
 
-* Supported input formats / codecs: WAV, AIFF, CAF, FLAC, WavPack, Monkey's Audio, Apple Lossless.
-* Supported output formats / codecs: all of the above, as well as lossyWAV / lossyFLAC / lossyWV, MP3, Ogg Vorbis, Opus, Musepack.
+* Supported input formats / codecs: WAV, AIFF, CAF, FLAC, WavPack, Monkey's Audio.
+* Supported output formats / codecs: all of the above, as well as lossyWAV / lossyFLAC / lossyWV, MP3, Ogg Vorbis, Opus.
 * Transcoding to several different codecs at once is possible. In that case, decoding of input files is done only once.
 * Metadata is preserved (as much as possible) from one codec to another. Artwork can be copied too.
-* Multiprocess Replaygain scanner for FLAC, WavPack, Monkey's Audio, MP3, Ogg Vorbis.
+* Multiprocess Replaygain scanner for FLAC, WavPack, MP3, Ogg Vorbis, Opus.
 * Ability to hard link lossy files to a different directory when encoding to WavPack Hybrid.
 * Ability to touch files using metadata to reflect the music's release date and duration.
 
@@ -36,9 +36,9 @@ caudec uses common UNIX tools (which, uname, grep, stat, sed/gsed, date/gdate, t
 
 #### Replaygain
 
-* wavegain: http://freecode.com/projects/wavegain
-* vorbisgain: http://sjeng.org/vorbisgain.html
 * mp3gain: http://mp3gain.sourceforge.net/
+* opusgain: https://github.com/FrancisRussell/zoog
+* vorbisgain: http://sjeng.org/vorbisgain.html
 
 #### Miscellaneous
 * APEv2 (for files with APEv2 metadata): https://github.com/gcocatre/APEv2
