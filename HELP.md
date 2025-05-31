@@ -116,7 +116,7 @@ Encoding options:
   -B ARG    average bitrate in kilobits per second (for -c mp3, aac (m4a),
             ogg/vorbis, opus)
 
-  -G ARG    MP3: apply Replaygain (album or track) if found in source file
+  -G ARG    MP3: apply ReplayGain (album or track) if found in source file
             metadata, after decoding and BEFORE encoding (irreversible).
             Note: it is possible to specify a preamp value with an additional
             -G parameter, for instance '-G album -G -3' or '-G track -G +2'.
@@ -124,7 +124,7 @@ Encoding options:
 
   -G ARG    MP3: apply peak normalization (albumpeak or trackpeak); this makes
             the tracks as loud as possible without clipping; requires
-            Replaygain metadata to be available in the source files.
+            ReplayGain metadata to be available in the source files.
             Note: it is possible to specify an arbitrary peak reference lower
             than 0dBFS with an additional -G parameter: '-G albumpeak -G -4'.
 
@@ -146,9 +146,9 @@ Decoding options:
 
 -------------------------------------------------------------------------------
 
-Replaygain options (mutually exclusive from -c/-d/-t/-T):
+ReplayGain options (mutually exclusive from -c/-d/-t/-T):
 
-  -g        generate Replaygain metadata
+  -g        generate ReplayGain metadata
   -G ARG    MP3: compute and apply gain of type ARG (album or track)
             (no tags, works everywhere)
   -G ARG    MP3: apply peak normalization (albumpeak or trackpeak);

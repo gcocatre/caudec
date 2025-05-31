@@ -18,7 +18,7 @@ It leverages multi-core CPUs and runs multiple processes concurrently (one per f
 * Artwork can be embedded into each file, and or copied to the output directory. It can be done selectively (e.g. embed and / or copy one image for lossless files, and another image for lossy files).
 * Hashes can be computed and stored as metadata, for convenience when comparing different versions of the same song.
 * Audio can be resampled (e.g. 48kHz to 44.1kHz) and downmixed (e.g. 6 channels to stereo).
-* **Multiprocess Replaygain scanner** for FLAC, WavPack, MP3, Ogg Vorbis, Opus.
+* **Multiprocess ReplayGain scanner** for FLAC, WavPack, MP3, Ogg Vorbis, Opus.
 * Ability to hard link lossy files to a different directory when encoding to WavPack Hybrid. The point is to have two libraries that takes the storage of just one, with a lossy collection that has its own root directory and that's easy to drag and drop to a device such as a smartphone or a Digital Audio Player (DAP).
 * Ability to touch files and album directories using metadata to reflect the music's release date and duration. See example below:
 
@@ -58,7 +58,7 @@ caudec uses common UNIX tools (bc, cut, date/gdate, find, grep, head, mktemp, ps
 * Ogg Vorbis: https://xiph.org/vorbis/
 * Opus: https://www.opus-codec.org/
 
-#### Replaygain
+#### ReplayGain
 
 * mp3gain: https://mp3gain.sourceforge.net/
 * vorbisgain: http://sjeng.org/vorbisgain.html
