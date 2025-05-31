@@ -1026,12 +1026,12 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 										addToSourceFiles=true
 									else
 										addToSourceFiles=false
-										if [ "$OS" = 'Linux' ]; then
-											dateSourceFile="$( date --date="@"$( stat -c '%Y' "$sourceFile" )"" "+%Y-%m-%d %H:%M:%S" )"
-											dateDestFile="$( date --date="@"$( stat -c '%Y' "$destFile" )"" "+%Y-%m-%d %H:%M:%S" )"
+										if [ $gnudate = true ]; then
+											dateSourceFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$sourceFile" )"" "+%Y-%m-%d %H:%M:%S" )"
+											dateDestFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$destFile" )"" "+%Y-%m-%d %H:%M:%S" )"
 										else
-											dateSourceFile="$( date -r $( stat -f '%c' "$sourceFile" ) "+%Y-%m-%d %H:%M:%S" )"
-											dateDestFile="$( date -r $( stat -f '%c' "$destFile" ) "+%Y-%m-%d %H:%M:%S" )"
+											dateSourceFile="$( $datecmd -r $( $statcmd -f '%c' "$sourceFile" ) "+%Y-%m-%d %H:%M:%S" )"
+											dateDestFile="$( $datecmd -r $( $statcmd -f '%c' "$destFile" ) "+%Y-%m-%d %H:%M:%S" )"
 										fi
 										printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: '$dateDestFile' vs. '$dateSourceFile': \"$destFile\" is newer that the source."
 									fi
@@ -1224,7 +1224,7 @@ checkBinaries ()
 	fi
 
 	if [ -z "$nTracks" ]; then
-		checkBinary 'uname' 'bc' 'grep' "$sedcmd" 'tr' 'cut' 'wc' 'df' 'stat' 'mktemp' 'xargs' 'soxi' 'head' 'tail' 'sort' 'ps' 'find'
+		checkBinary 'uname' 'bc' 'cut' "$datecmd" 'df' 'find' 'grep' 'head' 'mktemp' 'ps' "$sedcmd" 'sort' 'soxi' 'stat' 'tail' 'tr' 'wc' 'xargs'
 	else
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
@@ -1508,6 +1508,13 @@ setupSwapDir ()
 
 	chmod 0775 "$TDIR"
 
+	# FIXME STAT: for some reason, gstat -c doesn't work here on macOS
+	# if [ $gnustat = true ]; then
+	# 	TDEV="$( $statcmd -c '%d' "$TDIR" )"
+	# else
+	# 	TDEV="$( $statcmd -f '%d' "$TDIR" )"
+	# fi
+
 	if [ "$OS" = 'Linux' ]; then
 		TDEV="$( stat -c '%d' "$TDIR" )"
 	else
@@ -1587,7 +1594,7 @@ getNumberOfCaudecProcesses ()
 
 getNumberOfProcessedFiles ()
 {
-	stat "${TDIR}/WAS_PROCESSED".* 2>/dev/null | wc -l | tr -cd '[:digit:]'
+	$statcmd "${TDIR}/WAS_PROCESSED".* 2>/dev/null | wc -l | tr -cd '[:digit:]'
 }
 
 getNumberOfAvailableThreads ()
@@ -1676,7 +1683,11 @@ tagline ()
 						grep -viE "SOURCE${h}=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 						mv "${destTagFile}.${outputCodec}.tmp" "${destTagFile}.${outputCodec}"
 					done
-					$sedcmd -i'' -e 's@µµµCRC32=@SOURCECRC32=@i' -e 's@µµµMD5=@SOURCEMD5=@i' -e 's@µµµSHA1=@SOURCESHA1=@i' -e 's@µµµSHA256=@SOURCESHA256=@i' -e 's@µµµSHA512=@SOURCESHA512=@i' "${destTagFile}.${outputCodec}"
+					if [ $gnused = true ]; then
+						$sedcmd -i'' -e 's@µµµCRC32=@SOURCECRC32=@i' -e 's@µµµMD5=@SOURCEMD5=@i' -e 's@µµµSHA1=@SOURCESHA1=@i' -e 's@µµµSHA256=@SOURCESHA256=@i' -e 's@µµµSHA512=@SOURCESHA512=@i' "${destTagFile}.${outputCodec}"
+					else
+						$sedcmd -i '' -e 's@µµµCRC32=@SOURCECRC32=@i' -e 's@µµµMD5=@SOURCEMD5=@i' -e 's@µµµSHA1=@SOURCESHA1=@i' -e 's@µµµSHA256=@SOURCESHA256=@i' -e 's@µµµSHA512=@SOURCESHA512=@i' "${destTagFile}.${outputCodec}"
+					fi
 				fi
 				;;
 
@@ -2127,7 +2138,11 @@ processSourceTagFile ()
 	mv "${sourceTagFile}.tmp" "$sourceTagFile"
 	nChars="$( cat "$sourceTagFile" | wc -m | tr -d ' ' )"
 	if [ $nChars -gt 0 ]; then
-		$sedcmd -i'' -e 's@crc=@CRC32=@i' "$sourceTagFile" >/dev/null 2>&1
+		if [ $gnused = true ]; then
+			$sedcmd -i'' -e 's@crc=@CRC32=@i' "$sourceTagFile" >/dev/null 2>&1
+		else
+			$sedcmd -i '' -e 's@crc=@CRC32=@i' "$sourceTagFile" >/dev/null 2>&1
+		fi
 		echo >> "$sourceTagFile"
 	fi
 
@@ -2242,7 +2257,7 @@ sanitizeApeTags ()
 		fi
 	done < <( sort -u "$destTagFile" 2>/dev/null ) > "${destTagFile}.tmp"
 	if [ -f "${destTagFile}.tmp" ]; then
-		if [ "$OS" = 'Linux' ]; then
+		if [ $gnustat = true ]; then
 			destTagFileSize=$(stat -f %s "${destTagFile}.tmp")
 		else
 			destTagFileSize=$(stat -f %z "${destTagFile}.tmp")
@@ -2293,7 +2308,13 @@ convertTags ()
 
 			esac
 			case $2 in
-				vc|mp3) $sedcmd -i'' -e 's@\x02@ / @g' -e 's@^ro:@@' "$destTagFile" ;;
+				vc|mp3)
+					if [ $gnused = true ]; then
+						$sedcmd -i'' -e 's@\x02@ / @g' -e 's@^ro:@@' "$destTagFile"
+					else
+						$sedcmd -i '' -e 's@\x02@ / @g' -e 's@^ro:@@' "$destTagFile"
+					fi
+					;;
 			esac ;;
 	esac
 
@@ -2314,7 +2335,11 @@ extractFlacArtwork ()
 		pattern="x${outputCodec}Y"
 		if [ "$preserveMetadata" != "${preserveMetadata//$pattern/@}" ]; then
 			metaflac --list "$copyFile" 2>> "$errorLogFile" | grep -vE '[0-9A-F]{8}:' > "${TDIR}/${index}.flist" 2>/dev/null
-			$sedcmd -i'' -e 's@METADATA block #@\nMETADATA block #@' "${TDIR}/${index}.flist" # binary data can screw up the 'METADATA block #' line
+			if [ $gnused = true ]; then
+				$sedcmd -i'' -e 's@METADATA block #@\nMETADATA block #@' "${TDIR}/${index}.flist" # binary data can screw up the 'METADATA block #' line
+			else
+				$sedcmd -i '' -e 's@METADATA block #@\nMETADATA block #@' "${TDIR}/${index}.flist" # binary data can screw up the 'METADATA block #' line
+			fi
 			while read line; do
 				if [ "${line:0:16}" = 'METADATA block #' ]; then
 					blockNumber="${line#*#}"
@@ -2962,7 +2987,11 @@ decode ()
 		fi
 
 		if [ -f "$sourceTagFile" ]; then
-			$sedcmd -i'' -e 's@SOURCEMD5=@µµµMD5=@i' -e 's@SOURCECRC32=@µµµCRC32=@i' -e 's@SOURCESHA1=@µµµSHA1=@i' -e 's@SOURCESHA256=@µµµSHA256=@i' -e 's@SOURCESHA512=@µµµSHA512=@i' "$sourceTagFile"
+			if [ $gnused = true ]; then
+				$sedcmd -i'' -e 's@SOURCEMD5=@µµµMD5=@i' -e 's@SOURCECRC32=@µµµCRC32=@i' -e 's@SOURCESHA1=@µµµSHA1=@i' -e 's@SOURCESHA256=@µµµSHA256=@i' -e 's@SOURCESHA512=@µµµSHA512=@i' "$sourceTagFile"
+			else
+				$sedcmd -i '' -e 's@SOURCEMD5=@µµµMD5=@i' -e 's@SOURCECRC32=@µµµCRC32=@i' -e 's@SOURCESHA1=@µµµSHA1=@i' -e 's@SOURCESHA256=@µµµSHA256=@i' -e 's@SOURCESHA512=@µµµSHA512=@i' "$sourceTagFile"
+			fi
 		fi
 
 		gainValue='' gaincmd=''
@@ -3149,10 +3178,10 @@ decode ()
 		return $EX_KO
 	fi
 
-	if [ "$OS" = 'Linux' ]; then
-		stat -L --printf ' + %s' "$wavFile" >> "${TDIR}/bytes" 2>> "$errorLogFile"
+	if [ $gnustat = true ]; then
+		$statcmd -L --printf ' + %s' "$wavFile" >> "${TDIR}/bytes" 2>> "$errorLogFile"
 	else
-		stat -L -n -f ' + %z' "$wavFile" >> "${TDIR}/bytes" 2>> "$errorLogFile"
+		$statcmd -L -n -f ' + %z' "$wavFile" >> "${TDIR}/bytes" 2>> "$errorLogFile"
 	fi
 
 	if [ $hasLossless = true ]; then
@@ -3385,12 +3414,12 @@ isFileNewer ()
 
 	# Don't use 'test -nt' because it doesn't work on files touched by 'caudec -T '
 	if [ -e "$fileA" -a -e "$fileB" ]; then
-		if [ "$OS" = 'Linux' ]; then
-			mtimeA="$( stat -c '%Y' "$fileA" )"
-			mtimeB="$( stat -c '%Y' "$fileB" )"
+		if [ $gnustat = true ]; then
+			mtimeA="$( $statcmd -c '%Y' "$fileA" )"
+			mtimeB="$( $statcmd -c '%Y' "$fileB" )"
 		else
-			mtimeA="$( stat -f '%c' "$fileA" )"
-			mtimeB="$( stat -f '%c' "$fileB" )"
+			mtimeA="$( $statcmd -f '%c' "$fileA" )"
+			mtimeB="$( $statcmd -f '%c' "$fileB" )"
 		fi
 		if [ $mtimeA -gt $mtimeB ]; then
 			return $EX_OK
@@ -4144,7 +4173,11 @@ getHashTags ()
 	hashtags='' hashSHA512='' hashSHA256='' hashSHA1='' hashMD5='' hashCRC32=''
 	if [ ! -e "$sourceTagFile" ]; then return $EX_DATAERR; fi
 
-	$sedcmd -i'' -e 's@crc=@CRC32=@i' "$sourceTagFile" >/dev/null 2>&1
+	if [ $gnused = true ]; then
+		$sedcmd -i'' -e 's@crc=@CRC32=@i' "$sourceTagFile" >/dev/null 2>&1
+	else
+		$sedcmd -i '' -e 's@crc=@CRC32=@i' "$sourceTagFile" >/dev/null 2>&1
+	fi
 	hashtags="$( grep -iE '^SHA512=|^SHA256=|^SHA1=|^MD5=|^CRC32=' "$sourceTagFile" 2>/dev/null | sort -u 2>/dev/null )"
 	if [ -z "$hashtags" ]; then
 		return $EX_DATAERR
@@ -4205,7 +4238,7 @@ getLock ()
 	if [ "$OS" = 'Darwin' ]; then
 		lockf -s -n -t 1 "$lockFile" test -e "$lockFile" &>/dev/null
 	else
-		unlink "$lockFile" 2>/dev/null
+		unlink "$lockFile" 2>/dev/null # FIXME LOCKING
 	fi
 }
 
@@ -4215,7 +4248,7 @@ getAndRenameLock ()
 	if [ "$OS" = 'Darwin' ]; then
 		lockf -k -s -n -t 1 "$lockFileOne" mv "$lockFileOne" "$lockFileTwo" &>/dev/null
 	else
-		test -e "$lockFileOne" && mv "$lockFileTwo" 2>/dev/null
+		test -e "$lockFileOne" && mv "$lockFileTwo" 2>/dev/null  # FIXME LOCKING
 	fi
 }
 
@@ -4951,9 +4984,9 @@ computeTrackDateTime ()
 				trackMonth=$( echo "$date" | cut -d "-" -f 2 )
 				trackDay=$( echo "$date" | cut -d "-" -f 3 )
 			else
-				trackYear="$( date "+%Y" )"
-				trackMonth="$( date "+%m" )"
-				trackDay="$( date "+%d" )"
+				trackYear="$( $datecmd "+%Y" )"
+				trackMonth="$( $datecmd "+%m" )"
+				trackDay="$( $datecmd "+%d" )"
 			fi
 
 			echo "${trackYear}${trackMonth}${trackDay}" > "$sourceTagFile"
@@ -5004,7 +5037,7 @@ touchAllFiles ()
 	local defaultTrackDate lastDir="" curDir artistDir albumDir albumLinkDir albumPath dirPath inode linkedFile linkPath
 	local touchString discDirs linkedDiscDirs audioFiles otherFiles otherFile audioFile sourceFile sourceTagFile secondsFile millisecondsFile
 
-	trackDate="$( date "+%Ymd" )"
+	trackDate="$( $datecmd "+%Ymd" )"
 	defaultTrackDate="$trackDate"
 	albumSeconds=0
 
@@ -5309,10 +5342,10 @@ printMachineStats ()
 		done
 	done
 
-	if [ "$OS" = 'Linux' ]; then
-		bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 stat -L --printf; echo; } | bc )"
+	if [ $gnustat = true ]; then
+		bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 	else
-		bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 stat -L -n -f; echo; } | bc )"
+		bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
 	fi
 
 	for outputCodec in $outputCodecs; do
@@ -5327,10 +5360,10 @@ printMachineStats ()
 			fi
 		done
 
-		if [ "$OS" = 'Linux' ]; then
-			bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 stat -L --printf; echo; } | bc )"
+		if [ $gnustat = true ]; then
+			bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 		else
-			bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 stat -L -n -f; echo; } | bc )"
+			bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
 		fi
 
 
@@ -5375,10 +5408,10 @@ printHumanStats ()
 		fi
 	done
 
-	if [ "$OS" = 'Linux' ]; then
-		bytes_source="$( { echo -n 'scale=0; 0'; printf "%s${slist}" ' + %s' | xargs -0 stat -L --printf; echo; } | bc )"
+	if [ $gnustat = true ]; then
+		bytes_source="$( { echo -n 'scale=0; 0'; printf "%s${slist}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 	else
-		bytes_source="$( { echo -n 'scale=0; 0'; printf "%s${slist}" ' + %z' | xargs -0 stat -L -n -f; echo; } | bc )"
+		bytes_source="$( { echo -n 'scale=0; 0'; printf "%s${slist}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
 	fi
 	imbsec="$( echo "scale=3; $bytes_source / ($readDuration * 1000000)" | bc )"
 
@@ -5404,10 +5437,10 @@ printHumanStats ()
 		done
 	done
 
-	if [ "$OS" = 'Linux' ]; then
-		bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 stat -L --printf; echo; } | bc )"
+	if [ $gnustat = true ]; then
+		bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 	else
-		bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 stat -L -n -f; echo; } | bc )"
+		bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
 	fi
 	ombsec="$( echo "scale=3; $bytes_compressed / ($seconds * 1000000)" | bc )"
 
@@ -5446,10 +5479,10 @@ printHumanStats ()
 			fi
 		done
 
-		if [ "$OS" = 'Linux' ]; then
-			bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 stat -L --printf; echo; } | bc )"
+		if [ $gnustat = true ]; then
+			bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 		else
-			bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 stat -L -n -f; echo; } | bc )"
+			bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
 		fi
 
 		if [ $duration -gt 0 ]; then
@@ -5685,13 +5718,21 @@ export LANG='en_US.UTF-8'
 export LC_NUMERIC='C'
 
 
-sedcmd='gsed' datecmd='date' gnudate=false
+datecmd='date' gnudate=false sedcmd='sed' gnused=false statcmd='stat' gnustat=false
 if which 'uname' >/dev/null 2>&1 ; then
 	OS="$( uname -s )"
 	if [ "$OS" = 'Linux' ]; then
-		sedcmd='sed' gnudate=true
-	elif which 'gdate' >/dev/null 2>&1; then
-		datecmd='gdate' gnudate=true
+		gnudate=true gnused=true gnustat=true
+	else
+		if which 'gdate' >/dev/null 2>&1; then
+			datecmd='gdate' gnudate=true
+		fi
+		if which 'gsed' >/dev/null 2>&1; then
+			sedcmd='gsed' gnused=true
+		fi
+		if which 'gstat' >/dev/null 2>&1; then
+			statcmd='gstat' gnustat=true # FIXME: gstat doesn't always work as expected on macOS
+		fi
 	fi
 fi
 
@@ -6318,7 +6359,7 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
-		time1="$( date '+%s' ).0"
+		time1="$( $datecmd '+%s' ).0"
 	fi
 	for ((p=0; p < nProcesses; p++)); do
 		transcode &
@@ -6328,7 +6369,7 @@ elif [ $checkFiles = true ]; then
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
-		time1="$( date '+%s' ).0"
+		time1="$( $datecmd '+%s' ).0"
 	fi
 	for ((p=0; p < nProcesses; p++)); do
 		testFiles &
@@ -6338,7 +6379,7 @@ elif [ $computeReplaygain = true ]; then
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
-		time1="$( date '+%s' ).0"
+		time1="$( $datecmd '+%s' ).0"
 	fi
 	for ((p=0; p < nProcesses; p++)); do
 		computeTrackGains &
@@ -6348,7 +6389,7 @@ elif [ $touchFiles = true ]; then
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
-		time1="$( date '+%s' ).0"
+		time1="$( $datecmd '+%s' ).0"
 	fi
 	for ((p=0; p < nProcesses; p++)); do
 		computeTrackDateTimes &
@@ -6358,7 +6399,7 @@ elif [ $actionHash = true ]; then
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
-		time1="$( date '+%s' ).0"
+		time1="$( $datecmd '+%s' ).0"
 	fi
 	for ((p=0; p < nProcesses; p++)); do
 		computeHashes &
@@ -6383,7 +6424,7 @@ fi
 if [ $gnudate = true ]; then
 	time2="$( $datecmd '+%s.%N' )"
 else
-	time2="$( date '+%s' ).0"
+	time2="$( $datecmd '+%s' ).0"
 fi
 
 # print transcoding stats if applicable
