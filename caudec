@@ -1215,7 +1215,7 @@ checkBinaries ()
 	fi
 
 	if [ -z "$nTracks" ]; then
-		checkBinary 'uname' 'bc' 'cut' "$datecmd" 'df' 'find' 'grep' 'head' 'mktemp' 'ps' "$sedcmd" 'sort' 'soxi' 'stat' 'tail' 'tr' 'wc' 'xargs'
+		checkBinary 'bc' 'cut' "$datecmd" 'find' 'grep' 'head' 'mktemp' 'ps' "$sedcmd" 'sort' 'soxi' 'stat' 'tail' 'tr' 'uname' 'wc' 'xargs'
 	else
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
