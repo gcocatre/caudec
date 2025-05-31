@@ -27,6 +27,24 @@ bitrate_Opus=96 # 6-320, used with Opus_MODE='CBR'
 average_bitrate_Opus=96 # 6-320, used with Opus_Mode='ABR'
 Opus_MODE='VBR' # 'VBR' (variable bitrate), 'CBR' (constant bitrate) or 'ABR' (average bitrate)
 
+# output to this directory by default; will be overridden by -P
+# example: defaultDestination="${HOME}/Music"
+defaultDestination=""
+
+# output to this directory by default for lossless codecs; will be overridden by -P
+# example: defaultLosslessDestination="${HOME}/Music/FLAC"
+defaultLosslessDestination=""
+
+# output to this directory by default for lossy codecs; will be overridden by -P
+# example: defaultLossyDestination="${HOME}/Music/MP3"
+defaultLossyDestination=""
+
+# put linked WavPack Hybrid files there by default; will be overridden by -l
+# example: defaultLosslessDestination="${HOME}/Music/WavPack/lossless"
+# example: defaultLinkedDestination="${HOME}/Music/WavPack/lossy"
+# !!! set defaultDestination sensibly (or leave it empty) if your lossless and lossy collection is just WavPackHybrid
+defaultLinkedDestination=""
+
 setCoverArtworkFileByDefault="" # embed this file in all supported files as cover art
 setCoverArtworkFileForLosslessByDefault="" # embed this file in all supported lossless files as cover art
 setCoverArtworkFileForLossyByDefault="" # embed this file in all supported lossy files as cover art

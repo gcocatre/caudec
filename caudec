@@ -1161,7 +1161,7 @@ checkOutputDirectories ()
 
 	for outputCodec in $outputCodecs; do
 		codecFullName="$( getCodecFullName "$outputCodec" )"
-		codecDestDir="$( getDestDir "$outputCodec")"
+		codecDestDir="$( getDestDir "$outputCodec" )"
 		if [ ! -e "$codecDestDir" ]; then
 			if ! mkdir -p "$codecDestDir" >/dev/null 2>&1 ; then
 				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$me -O/P: failed to create directory, do you have write permissions? ($codecFullName)" ; exit $EX_CANTCREAT
@@ -3530,8 +3530,6 @@ copyOrLinkFile ()
 				else
 					if isFileNewer "${sourceDirname}/${otherFile}" "$destOtherFile"; then
 						cp "${sourceDirname}/${otherFile}" "$destOtherFile" >/dev/null 2>> "$errorLogFile"
-					else
-						echo "[${sourceDirname}/${otherFile}] is older than [$destOtherFile]" 1>&2
 					fi
 				fi
 			fi
@@ -5501,6 +5499,7 @@ setDestDir ()
 			*) codecDestDir="$defaultDestDir" ;;
 		esac
 	done
+
 }
 
 getDestDir ()
@@ -5770,6 +5769,97 @@ if which 'mac' >/dev/null 2>&1; then
 	fi
 fi
 
+if [ -n "$defaultDestination" ]; then
+	if [ ! -e "$defaultDestination" ]; then
+		if ! mkdir -p "$defaultDestination" >/dev/null 2>&1 ; then
+			printMessage 'error' 'usage' 'filesystem' "path:${defaultDestination}" "$me: failed to create '\$defaultDestination' (do you have write permissions?)." ; exit $EX_CANTCREAT
+		fi
+	fi
+
+	if [ -n "$defaultDestination" ]; then
+		if [ ! -d "$defaultDestination" ]; then
+			printMessage 'error' 'usage' 'filesystem' "path:${defaultDestination}" "$me: '\$defaultDestination' not a directory." ; exit $EX_CANTCREAT
+		elif [ ! -w "$defaultDestination" ]; then
+			printMessage 'error' 'usage' 'filesystem' "path:${defaultDestination}" "$me: '\$defaultDestination' is not writable (permission denied)." ; exit $EX_CANTCREAT
+		else
+			if [ "$defaultDestination" != '/' -a "${defaultDestination%/}" != "$defaultDestination" ]; then
+				defaultDestination="${defaultDestination%/}"
+			fi
+			setDestDir "$allCodecString" "$defaultDestination"
+			defaultDestDir="$defaultDestination"
+			copyPath=true
+		fi
+	fi
+fi
+
+if [ -n "$defaultLosslessDestination" ]; then
+	if [ ! -e "$defaultLosslessDestination" ]; then
+		if ! mkdir -p "$defaultLosslessDestination" >/dev/null 2>&1 ; then
+			printMessage 'error' 'usage' 'filesystem' "path:${defaultLosslessDestination}" "$me: failed to create '\$defaultLosslessDestination' (do you have write permissions?)." ; exit $EX_CANTCREAT
+		fi
+	fi
+
+	if [ -n "$defaultLosslessDestination" ]; then
+		if [ ! -d "$defaultLosslessDestination" ]; then
+			printMessage 'error' 'usage' 'filesystem' "path:${defaultLosslessDestination}" "$me: '\$defaultLosslessDestination' not a directory." ; exit $EX_CANTCREAT
+		elif [ ! -w "$defaultLosslessDestination" ]; then
+			printMessage 'error' 'usage' 'filesystem' "path:${defaultLosslessDestination}" "$me: '\$defaultLosslessDestination' is not writable (permission denied)." ; exit $EX_CANTCREAT
+		else
+			if [ "$defaultLosslessDestination" != '/' -a "${defaultLosslessDestination%/}" != "$defaultLosslessDestination" ]; then
+				defaultLosslessDestination="${defaultLosslessDestination%/}"
+			fi
+			setDestDir "$losslessCodecsString" "$defaultLosslessDestination"
+			copyPath=true
+		fi
+	fi
+fi
+
+if [ -n "$defaultLossyDestination" ]; then
+	if [ ! -e "$defaultLossyDestination" ]; then
+		if ! mkdir -p "$defaultLossyDestination" >/dev/null 2>&1 ; then
+			printMessage 'error' 'usage' 'filesystem' "path:${defaultLossyDestination}" "$me: failed to create '\$defaultLossyDestination' (do you have write permissions?)." ; exit $EX_CANTCREAT
+		fi
+	fi
+
+	if [ -n "$defaultLossyDestination" ]; then
+		if [ ! -d "$defaultLossyDestination" ]; then
+			printMessage 'error' 'usage' 'filesystem' "path:${defaultLossyDestination}" "$me: '\$defaultLossyDestination' not a directory." ; exit $EX_CANTCREAT
+		elif [ ! -w "$defaultLossyDestination" ]; then
+			printMessage 'error' 'usage' 'filesystem' "path:${defaultLossyDestination}" "$me: '\$defaultLossyDestination' is not writable (permission denied)." ; exit $EX_CANTCREAT
+		else
+			if [ "$defaultLossyDestination" != '/' -a "${defaultLossyDestination%/}" != "$defaultLossyDestination" ]; then
+				defaultLossyDestination="${defaultLossyDestination%/}"
+			fi
+			setDestDir "$lossyCodecsString" "$defaultLossyDestination"
+			copyPath=true
+		fi
+	fi
+fi
+
+# defaultLinkedDestination
+if [ -n "$defaultLinkedDestination" ]; then
+	if [ ! -e "$defaultLinkedDestination" ]; then
+		if ! mkdir -p "$defaultLinkedDestination" >/dev/null 2>&1 ; then
+			printMessage 'error' 'usage' 'filesystem' "path:${defaultLinkedDestination}" "$me: failed to create '\$defaultLinkedDestination' (do you have write permissions?)." ; exit $EX_CANTCREAT
+		fi
+	fi
+
+	if [ -n "$defaultLinkedDestination" ]; then
+		if [ ! -d "$defaultLinkedDestination" ]; then
+			printMessage 'error' 'usage' 'filesystem' "path:${defaultLinkedDestination}" "$me: '\$defaultLinkedDestination' not a directory." ; exit $EX_CANTCREAT
+		elif [ ! -w "$defaultLinkedDestination" ]; then
+			printMessage 'error' 'usage' 'filesystem' "path:${defaultLinkedDestination}" "$me: '\$defaultLinkedDestination' is not writable (permission denied)." ; exit $EX_CANTCREAT
+		else
+			if [ "$defaultLinkedDestination" != '/' -a "${defaultLinkedDestination%/}" != "$defaultLinkedDestination" ]; then
+				defaultLinkedDestination="${defaultLinkedDestination%/}"
+			fi
+			gotLinkedDir=true
+			copyPath=true
+			linkDir="$defaultLinkedDestination"
+		fi
+	fi
+fi
+
 if [ -n "$setCoverArtworkFileByDefault" ]; then
 	setCodecCoverArtFile "default" "$setCoverArtworkFileByDefault"
 fi
@@ -5860,6 +5950,7 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				printMessage 'error' 'usage' 'filesystem' "path:${lastCodecDestDir}" "$me -o: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
 			fi
 			setDestDir "$lastCodec" "$lastCodecDestDir"
+			lastCodecDestDir=""
 			;;
 
 		# from an original idea by Porcus on https://hydrogenaudio.org/index.php/topic,127856.msg1062957.html#msg1062957
@@ -5922,6 +6013,7 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			fi
 			if [ "$o" = 'P' ]; then copyPath=true; fi
 			setDestDir "$lastCodec" "$lastCodecDestDir"
+			lastCodecDestDir=""
 			;;
 
 		k)
@@ -5961,6 +6053,10 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				opus)                lastCodec='Opus' ;;
 				*) printMessage 'error' 'usage' 'bad_value' "$me -c: invalid codec (try $me -h)" ; exit $EX_USAGE ;;
 			esac
+
+			if [ -n "$lastCodecDestDir" ]; then
+				setDestDir "$lastCodec" "$lastCodecDestDir"
+			fi
 			outputCodecs="$outputCodecs $lastCodec"; ((nCodecs++))
 			if [ "$o" = 'c' ]; then
 				preserveMetadata="${preserveMetadata}x${lastCodec}Y"
