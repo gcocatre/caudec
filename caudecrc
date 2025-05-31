@@ -42,7 +42,7 @@ defaultLossyDestination=""
 # put linked WavPack Hybrid files there by default; will be overridden by -l
 # example: defaultLosslessDestination="${HOME}/Music/WavPack/lossless"
 # example: defaultLinkedDestination="${HOME}/Music/WavPack/lossy"
-# !!! set defaultDestination sensibly (or leave it empty) if your lossless and lossy collection is just WavPackHybrid
+# !!! set defaultLosslessDestination sensibly if your lossless and lossy collection is just WavPackHybrid
 defaultLinkedDestination=""
 
 setCoverArtworkFileByDefault="" # embed this file in all supported files as cover art
