@@ -1026,8 +1026,13 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 										addToSourceFiles=true
 									else
 										addToSourceFiles=false
-										dateSourceFile="$( date -r "$( stat -f '%c' "$sourceFile" )" "+%Y-%m-%d %H:%M:%S" )"
-										dateDestFile="$( date -r "$( stat -f '%c' "$destFile" )" "+%Y-%m-%d %H:%M:%S" )"
+										if [ "$OS" = 'Linux' ]; then
+											dateSourceFile="$( date --date="@"$( stat -c '%Y' "$sourceFile" )"" "+%Y-%m-%d %H:%M:%S" )"
+											dateDestFile="$( date --date="@"$( stat -c '%Y' "$destFile" )"" "+%Y-%m-%d %H:%M:%S" )"
+										else
+											dateSourceFile="$( date -r $( stat -f '%c' "$sourceFile" ) "+%Y-%m-%d %H:%M:%S" )"
+											dateDestFile="$( date -r $( stat -f '%c' "$destFile" ) "+%Y-%m-%d %H:%M:%S" )"
+										fi
 										printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: '$dateDestFile' vs. '$dateSourceFile': \"$destFile\" is newer that the source."
 									fi
 								else
