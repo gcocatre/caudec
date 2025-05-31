@@ -57,14 +57,14 @@ Global options:
 When transcoding to multiple codecs at once (multiple -c parameters),
 specify a -o/O/P parameter after each -c parameter in order to set per-codec
 output directories. For instance:
-$ caudec -c flac -P ~/Music/flac -c mp3 -P ~/Music/mp3 "Artist/Album"/*.flac
+$ caudec -c flac -P ~/Music/FLAC -c mp3 -P ~/Music/MP3 "Artist/Album"/*.flac
 
 -------------------------------------------------------------------------------
 
 Similarly, specifying -a/-f after a -c parameter will affect only that codec.
 For instance:
-$ caudec -c flac -P ~/Music/flac -f cover.jpg \
-  -c mp3 -P ~/Music/mp3 -f folder.jpg "Artist/Album"/*.flac
+$ caudec -c flac -P ~/Music/FLAC -f cover.jpg \
+  -c mp3 -P ~/Music/MP3 -f folder.jpg "Artist/Album"/*.flac
 
 -------------------------------------------------------------------------------
 
