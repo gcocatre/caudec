@@ -940,8 +940,8 @@ getInputFiles ()
 checkInputFiles ()
 {
 	local file ec=$EX_OK bn dn commonFileExtension="" fileExtension="" fileExtensionAreAllTheSame=true refDn cdpath pdpath
-	local basenames='' index=0 addToSourceFiles errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
-	local dateSourceFile dateSourceFile
+	local index=0 addToSourceFiles errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
+	local dateSourceFile dateSourceFile outputCodec copyPath
 
 	numberOfInputFiles="${#inputFiles[@]}"
 
@@ -980,27 +980,18 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 			printMessage 'warning' 'usage' 'filesystem' "path:${file}" 'refusing to touch file that is read-only.' ; ec=$EX_CANTCREAT
 		else
 			if [ -z "$refDn" ] ; then refDn="$dn"; fi # for touching mtime files
-			if [ $copyPath = true ]; then
-				cdpath='/./' pdpath='/../'
-				if [ "${file:0:2}" = './' -o "${f:0:3}" = '../' -o "$dn" != "${dn//$cdpath/@}" -o "$dn" != "${dn//$pdpath/@}" ]; then
-					printMessage 'warning' 'usage' 'filesystem' "path:${f}" "can't use paths containing ./ or ../ with caudec -P." ; ec=$EX_USAGE
-					continue
-				fi
-			fi
 
 			if [ -n "$outputCodecs" ]; then # transcode
-				bn="$( basename "$file" )"
-				bn="${bn%.*}"
-				if [ $copyPath = true ]; then
-					bn="x${dn#/}/${bn%.lossy}Y";
-				else
-					bn="x${bn%.lossy}Y";
-				fi
-				if [ "$basenames" != "${basenames//$bn/@}" ]; then
-					printMessage 'warning' 'usage' 'filesystem' "file:${file}" "there's already an input file with the same basename." ; ec=$EX_DATAERR
-					continue
-				fi
-				basenames="${basenames}${bn}"
+				for outputCodec in $outputCodecs; do
+					copyPath="$( copyPathOrNot "$outputCodec" )"
+					if [ "$copyPath" = "true" ]; then
+						cdpath='/./' pdpath='/../'
+						if [ "${file:0:2}" = './' -o "${f:0:3}" = '../' -o "$dn" != "${dn//$cdpath/@}" -o "$dn" != "${dn//$pdpath/@}" ]; then
+							printMessage 'warning' 'usage' 'filesystem' "path:${f}" "can't use paths containing ./ or ../ with caudec -P." ; ec=$EX_USAGE
+							continue
+						fi
+					fi
+				done
 			fi
 
 			if [ -n "$outputCodecs" ]; then # transcode
@@ -2257,10 +2248,10 @@ sanitizeApeTags ()
 		fi
 	done < <( sort -u "$destTagFile" 2>/dev/null ) > "${destTagFile}.tmp"
 	if [ -f "${destTagFile}.tmp" ]; then
-		if [ $gnustat = true ]; then
-			destTagFileSize=$(stat -f %s "${destTagFile}.tmp")
+		if [ "$OS" = "Linux" ]; then
+			destTagFileSize=$( stat -f %s "${destTagFile}.tmp" )
 		else
-			destTagFileSize=$(stat -f %z "${destTagFile}.tmp")
+			destTagFileSize=$( stat -f %z "${destTagFile}.tmp" )
 		fi
 		if [ $destTagFileSize -gt 0 ]; then
 			echo -en "\n" >> "${destTagFile}.tmp"
@@ -3289,7 +3280,7 @@ encodeLossyWAV ()
 
 	if [ $copyLossyWAV = true ]; then
 		getFileProps "$sourceFile" 'lossyWAV'
-		if [ $copyPath = true ]; then
+		if [ $copyPath = "true" ]; then
 			if ! mkdir -p "$destPath" >/dev/null 2>&1 ; then
 				ec=$EX_KO
 			fi
@@ -3779,7 +3770,7 @@ encode ()
 			;;
 	esac
 
-	if [ $copyPath = true ]; then
+	if [ $copyPath = "true" ]; then
 		if ! mkdir -p "$destPath" >/dev/null 2>&1 ; then
 			ec=$EX_KO
 		fi
@@ -5283,7 +5274,8 @@ getFileProps ()
 			fi
 		fi
 
-		if [ $copyPath = true ]; then
+		copyPath="$( copyPathOrNot "$outputCodec" )"
+		if [ $copyPath = "true" ]; then
 			destPath="${destDir}/${sourceDirname#/}"
 			destFile="${destPath}/${destFilename}"
 			if [ -n "$linkDir" ]; then
@@ -5503,7 +5495,7 @@ printHumanStats ()
 
 setDestDir ()
 {
-	local outputCodec="$1" codecDestDir="$2" listOfCodecs codec
+	local outputCodec="$1" codecDestDir="$2" copyPath="$3" listOfCodecs codec
 
 	if [ -z "$outputCodec" ]; then
 		read -a listOfCodecs <<< "$allCodecsString"
@@ -5529,10 +5521,29 @@ setDestDir ()
 			AAC) dir_AAC="$codecDestDir" ;;
 			OggVorbis) dir_OggVorbis="$codecDestDir" ;;
 			Opus) dir_Opus="$codecDestDir" ;;
-			*) codecDestDir="$defaultDestDir" ;;
 		esac
 	done
 
+	for codec in "${listOfCodecs[@]}"; do
+		case "$codec" in
+			WAV) copyPath_WAV="$copyPath" ;;
+			AIFF) copyPath_AIFF="$copyPath" ;;
+			CAF) copyPath_CAF="$copyPath" ;;
+			FLAC) copyPath_FLAC="$copyPath" ;;
+			WavPack) copyPath_WavPack="$copyPath" ;;
+			WavPackHybrid) copyPath_WavPackHybrid="$copyPath" ;;
+
+			WavPackLossy) copyPath_WavPackLossy="$copyPath" ;;
+			MonkeysAudio) copyPath_MonkeysAudio="$copyPath" ;;
+			lossyWAV) copyPath_lossyWAV="$copyPath" ;;
+			lossyFLAC) copyPath_lossyFLAC="$copyPath" ;;
+			lossyWV) copyPath_lossyWV="$copyPath" ;;
+			MP3) copyPath_MP3="$copyPath" ;;
+			AAC) copyPath_AAC="$copyPath" ;;
+			OggVorbis) copyPath_OggVorbis="$copyPath" ;;
+			Opus) copyPath_Opus="$copyPath" ;;
+		esac
+	done
 }
 
 getDestDir ()
@@ -5556,7 +5567,6 @@ getDestDir ()
 		AAC) codecDestDir="$dir_AAC" ;;
 		OggVorbis) codecDestDir="$dir_OggVorbis" ;;
 		Opus) codecDestDir="$dir_Opus" ;;
-		*) codecDestDir="$defaultDestDir" ;;
 	esac
 
 	if [ -n "$codecDestDir" ]; then
@@ -5564,7 +5574,36 @@ getDestDir ()
 	else
 		echo "$defaultDestDir"
 	fi
+}
 
+copyPathOrNot ()
+{
+	local outputCodec="$1" copyPath
+
+	case "$outputCodec" in
+		WAV) copyPath="$copyPath_WAV" ;;
+		AIFF) copyPath="$copyPath_AIFF" ;;
+		CAF) copyPath="$copyPath_CAF" ;;
+		FLAC) copyPath="$copyPath_FLAC" ;;
+		WavPack) copyPath="$copyPath_WavPack" ;;
+		WavPackHybrid) copyPath="$copyPath_WavPackHybrid" ;;
+
+		WavPackLossy) copyPath="$copyPath_WavPackLossy" ;;
+		MonkeysAudio) copyPath="$copyPath_MonkeysAudio" ;;
+		lossyWAV) copyPath="$copyPath_lossyWAV" ;;
+		lossyFLAC) copyPath="$copyPath_lossyFLAC" ;;
+		lossyWV) copyPath="$copyPath_lossyWV" ;;
+		MP3) copyPath="$copyPath_MP3" ;;
+		AAC) copyPath="$copyPath_AAC" ;;
+		OggVorbis) copyPath="$copyPath_OggVorbis" ;;
+		Opus) copyPath="$copyPath_Opus" ;;
+	esac
+
+	if [ -n "$copyPath" ]; then
+		echo "$copyPath"
+	else
+		echo "false"
+	fi
 }
 
 setCodecOtherFiles ()
@@ -5762,7 +5801,7 @@ allCodecsString="${losslessCodecsString} ${lossyCodecsString}"
 
 # Set default values
 outputCodecs='' lastCodec='' nCodecs=0 copyWAV=false verbose=true
-defaultDestDir="$PWD" linkDir='' gotLinkedDir=false copyPath=false
+defaultDestDir="$PWD" linkDir='' gotLinkedDir=false
 nLossyWAV=0 copyLossyWAV=false
 bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false
 applyGain=false applyGainType='' convertToStereo='false'
@@ -5826,9 +5865,8 @@ if [ -n "$defaultDestination" ]; then
 			if [ "$defaultDestination" != '/' -a "${defaultDestination%/}" != "$defaultDestination" ]; then
 				defaultDestination="${defaultDestination%/}"
 			fi
-			setDestDir "$allCodecString" "$defaultDestination"
+			setDestDir "$allCodecString" "$defaultDestination" "true"
 			defaultDestDir="$defaultDestination"
-			copyPath=true
 		fi
 	fi
 fi
@@ -5849,8 +5887,7 @@ if [ -n "$defaultLosslessDestination" ]; then
 			if [ "$defaultLosslessDestination" != '/' -a "${defaultLosslessDestination%/}" != "$defaultLosslessDestination" ]; then
 				defaultLosslessDestination="${defaultLosslessDestination%/}"
 			fi
-			setDestDir "$losslessCodecsString" "$defaultLosslessDestination"
-			copyPath=true
+			setDestDir "$losslessCodecsString" "$defaultLosslessDestination" "true"
 		fi
 	fi
 fi
@@ -5871,8 +5908,7 @@ if [ -n "$defaultLossyDestination" ]; then
 			if [ "$defaultLossyDestination" != '/' -a "${defaultLossyDestination%/}" != "$defaultLossyDestination" ]; then
 				defaultLossyDestination="${defaultLossyDestination%/}"
 			fi
-			setDestDir "$lossyCodecsString" "$defaultLossyDestination"
-			copyPath=true
+			setDestDir "$lossyCodecsString" "$defaultLossyDestination" "true"
 		fi
 	fi
 fi
@@ -5895,7 +5931,6 @@ if [ -n "$defaultLinkedDestination" ]; then
 				defaultLinkedDestination="${defaultLinkedDestination%/}"
 			fi
 			gotLinkedDir=true
-			copyPath=true
 			linkDir="$defaultLinkedDestination"
 		fi
 	fi
@@ -5990,7 +6025,7 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			elif [ ! -w "$lastCodecDestDir" ]; then
 				printMessage 'error' 'usage' 'filesystem' "path:${lastCodecDestDir}" "$me -o: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
 			fi
-			setDestDir "$lastCodec" "$lastCodecDestDir"
+			setDestDir "$lastCodec" "$lastCodecDestDir" "false"
 			lastCodecDestDir=""
 			;;
 
@@ -6012,7 +6047,6 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -l: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
 			fi
 			gotLinkedDir=true
-			copyPath=true # for obtaining the same behavior as -P
 			;;
 
 		# from an original idea by Porcus on https://hydrogenaudio.org/index.php/topic,127856.msg1062957.html#msg1062957
@@ -6035,7 +6069,6 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$me -L: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
 			fi
 			gotLinkedDir=true
-			copyPath=true # for the same behavior as -P
 			;;
 
 		O|P)
@@ -6052,8 +6085,11 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			elif [ ! -w "$lastCodecDestDir" ]; then
 				printMessage 'error' 'usage' 'filesystem' "path:${lastCodecDestDir}" "$me -O/P: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
 			fi
-			if [ "$o" = 'P' ]; then copyPath=true; fi
-			setDestDir "$lastCodec" "$lastCodecDestDir"
+			if [ "$o" = 'P' ]; then
+				setDestDir "$lastCodec" "$lastCodecDestDir" "true"
+			else
+				setDestDir "$lastCodec" "$lastCodecDestDir" "false"
+			fi
 			lastCodecDestDir=""
 			;;
 
@@ -6095,9 +6131,6 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				*) printMessage 'error' 'usage' 'bad_value' "$me -c: invalid codec (try $me -h)" ; exit $EX_USAGE ;;
 			esac
 
-			if [ -n "$lastCodecDestDir" ]; then
-				setDestDir "$lastCodec" "$lastCodecDestDir"
-			fi
 			outputCodecs="$outputCodecs $lastCodec"; ((nCodecs++))
 			if [ "$o" = 'c' ]; then
 				preserveMetadata="${preserveMetadata}x${lastCodec}Y"
