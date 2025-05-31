@@ -9,8 +9,10 @@ Instead of multiple files, one or more directories may be specified.
 Multiple codec switches (optionally paired with a -q switch) may be specified.
 Supported input files: .wav, .aiff, .caf, .flac, .wv, .ape
 
+-------------------------------------------------------------------------------
 
 Global options:
+
   -s        be silent, only print errors
   -n N      launch N processes concurrently (1-10);
             by default, the number of CPU cores.
@@ -50,17 +52,33 @@ Global options:
             command line to take effect. Run 'caudec -z' on its own to print
             a description of the syntax.
 
+-------------------------------------------------------------------------------
+
 When transcoding to multiple codecs at once (multiple -c parameters),
 specify a -o/O/P parameter after each -c parameter in order to set per-codec
 output directories. For instance:
-$ caudec -c flac -P '/data/flac' -c mp3 -P '/data/mp3' "artist/album"/*.flac
+$ caudec -c flac -P ~/Music/flac -c mp3 -P ~/Music/mp3 "Artist/Album"/*.flac
+
+-------------------------------------------------------------------------------
 
 Similarly, specifying -a/-f after a -c parameter will affect only that codec.
 For instance:
-$ caudec -c flac -P '/data/flac' -f cover.jpg \
-  -c mp3 -P '/data/mp3' -f folder.jpg "artist/album"/*.flac
+$ caudec -c flac -P ~/Music/flac -f cover.jpg \
+  -c mp3 -P ~/Music/mp3 -f folder.jpg "Artist/Album"/*.flac
+
+-------------------------------------------------------------------------------
+
+Creating a WavPack Hybrid collection with a different root directory for lossy:
+$ caudec -c wvh -P ~/Music/Lossless -L ~/Music/Lossy "Artist/Album"/*.flac
+That will create a mirrored directory structure with hard linked lossy files.
+~/Music/Lossless will contain the full lossless collection, which can be safely
+backed up and ~/Music/Lossy will contain only the lossy part of the collection.
+Little to no extra storage will be used (just extra inodes).
+
+-------------------------------------------------------------------------------
 
 Processing / resampling options:
+
   -b BITS   bit depth (16, 24)
   -r HZ     sampling rate in Hz (44100, 48000, 88200, 96000, 176400, 192000,
             352800, 384000)
@@ -77,8 +95,10 @@ Processing / resampling options:
             downmixed, using proper channel mappings; mono audio will be
             upmixed to dual-mono (stereo with two identical channels)
 
+-------------------------------------------------------------------------------
 
 Encoding options:
+
   -c CODEC  use specified CODEC: wav, aiff, caf,
             flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
             lossyWAV, lossyFLAC, lossyWV, ape (Monkey's Audio), mp3,
@@ -114,16 +134,20 @@ Encoding options:
             lossless codecs and lossyFLAC, lossyWV only)
   -H ^HASH  do NOT compute HASH even if it's in caudecrc
 
+-------------------------------------------------------------------------------
 
 Decoding options:
+
   -d        decode to WAV (same as -c wav)
   -t        test file integrity
   -H HASH   compute hash of raw PCM (CRC32, MD5, SHA1, SHA256 or SHA512,
             lossless codecs and lossyFLAC, lossyWV only)
   -H ^HASH  do NOT compute HASH even if it's in caudecrc
 
+-------------------------------------------------------------------------------
 
 Replaygain options (mutually exclusive from -c/-d/-t/-T):
+
   -g        generate Replaygain metadata
   -G ARG    MP3: compute and apply gain of type ARG (album or track)
             (no tags, works everywhere)
@@ -133,11 +157,14 @@ Replaygain options (mutually exclusive from -c/-d/-t/-T):
             than 0dBFS with an additional -G parameter: '-G albumpeak -G -4'.
   -G GAIN   MP3: apply arbitrary GAIN (signed number from -99.99 to +99.99).
 
+-------------------------------------------------------------------------------
 
 Information:
+
   -h        display this help and exit
   -V        output version information and exit
 
+-------------------------------------------------------------------------------
 
 caudec uses a temporary directory for processing files ($TMPDIR or /tmp by
 default). If you wish to use another directory, set the CAUDECDIR environment
