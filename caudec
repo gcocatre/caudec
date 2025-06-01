@@ -3797,7 +3797,7 @@ encode ()
 			if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
 				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a alac >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			else
-				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a alac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a alac >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			fi
 			;;
 
