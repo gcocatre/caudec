@@ -3867,9 +3867,9 @@ encode ()
 
 		lossyWV)
 			destExtension='lossy.wv'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt"
-			nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
 			if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
-			printf -- "-q`tagline -w`\x00%s" "$lossywavFile" | xargs -0 wavpack --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			# Using --merge-blocks for lossyWV can only use a single thread
+			printf -- "-q`tagline -w`\x00%s" "$lossywavFile" | xargs -0 wavpack -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 				importBinariesIntoAPEv2 || ec=$EX_KO
 				importArtworkIntoAPEv2 || ec=$EX_KO
