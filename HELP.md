@@ -137,7 +137,7 @@ Encoding options:
 
 Decoding options:
 
-  -d        decode to WAV (same as -c wav)
+  -d        decode to WAV (input: AIFF, CAF, FLAC, WavPack, Monkey's Audio)
   -t        test file integrity
   -H HASH   compute hash of raw PCM (CRC32, MD5, SHA1, SHA256 or SHA512,
             lossless codecs and lossyFLAC, lossyWV only)
