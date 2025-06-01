@@ -270,7 +270,6 @@ Encoding options:
             flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
             lossyWAV, lossyFLAC, lossyWV, ape (Monkey's Audio), mp3,
             aac (m4a), ogg / vorbis, opus.
-            Note that artwork preservation in MP3s requires eyeD3.
 
   -C CODEC  use specified CODEC, but discard existing metadata
 
