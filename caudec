@@ -3762,6 +3762,7 @@ encode ()
 
 		AAC)
 			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt" aaclibs=("aac" "libfdk_aac" "aac_at") aaclib=""
+			nThreads=$( getNumberOfAvailableThreads $index )
 			for aaclib in "${aaclibs[@]}"; do
 				if [ -z "$sourceCoverArtFile" ]; then
 					for f in "${SWAPDIR}/picture-${index}-"*_*; do
@@ -3773,9 +3774,9 @@ encode ()
 					done
 				fi
 				if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
-					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a $aaclib -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				if [ $ec -eq $EX_OK ]; then break; fi
 			done
@@ -3783,6 +3784,7 @@ encode ()
 
 		ALAC)
 			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt"
+			nThreads=$( getNumberOfAvailableThreads $index )
 			if [ -z "$sourceCoverArtFile" ]; then
 				for f in "${SWAPDIR}/picture-${index}-"*_*; do
 					if [ ! -e "$f" ]; then continue; fi
@@ -3793,9 +3795,9 @@ encode ()
 				done
 			fi
 			if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a alac >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a alac >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			else
-				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a alac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a alac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			fi
 			;;
 
