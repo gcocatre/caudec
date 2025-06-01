@@ -174,7 +174,7 @@ Usage: $me [ GLOBAL OPTIONS ] [ PROCESSING ] [ ENCODING/DECODING/RG ] FILES
 Operate on multiple audio files at once, in parallel.
 Instead of multiple files, one or more directories may be specified.
 Multiple codec switches (optionally paired with a -q switch) may be specified.
-Supported input files: .wav, .aiff, .caf, .flac, .wv, .ape
+Supported input files: .wav, .aiff, .caf, .flac, .wv, .ape, .m4a
 
 -------------------------------------------------------------------------------
 
@@ -297,7 +297,7 @@ Encoding options:
   -G GAIN   MP3: apply arbitrary GAIN (signed number from -99.99 to +99.99)
 
   -H HASH   compute hash of raw PCM (CRC32, MD5, SHA1, SHA256 or SHA512,
-            lossless codecs and lossyFLAC, lossyWV only)
+            FLAC, WavPack, Monkey's Audio and lossyFLAC, lossyWV only)
   -H ^HASH  do NOT compute HASH even if it's in caudecrc
 
 -------------------------------------------------------------------------------
@@ -307,7 +307,7 @@ Decoding options:
   -d        decode to WAV (input: AIFF, CAF, FLAC, WavPack, Monkey's Audio)
   -t        test file integrity
   -H HASH   compute hash of raw PCM (CRC32, MD5, SHA1, SHA256 or SHA512,
-            lossless codecs and lossyFLAC, lossyWV only)
+            FLAC, WavPack, Monkey's Audio and lossyFLAC, lossyWV only)
   -H ^HASH  do NOT compute HASH even if it's in caudecrc
 
 -------------------------------------------------------------------------------
@@ -1022,7 +1022,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 
 			if [ -n "$outputCodecs" ]; then # transcode
 				case "$file" in
-					*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape)
+					*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape|*.m4a)
 						if [ $keepExistingFiles = false -a $keepNewerFiles = false ]; then
 							addToSourceFiles=true
 						else
@@ -1286,6 +1286,7 @@ checkBinaries ()
 					*.flac) checkBinary 'flac' 'metaflac' ;;
 					*.wv) checkBinary 'wvunpack' 'APEv2' ;;
 					*.ape) checkBinary 'mac' 'APEv2' ;;
+					*.m4a) checkBinary 'ffmpeg' ;;
 				esac
 			done
 
@@ -1947,6 +1948,123 @@ vorbisCommentsToM4A ()
 	done < "$sourceTagFile"
 }
 
+M4AToVorbisComments ()
+{
+	local line field value totalTracks='' totalDiscs=''
+
+	getTotalDiscsAndTracks
+	if [ -n "$totalDiscs" ]; then
+		printf 'DISCTOTAL=%g\n' "$totalDiscs"
+	fi
+	if [ -n "$totalTracks" ]; then
+		printf 'TRACKTOTAL=%g\n' "$totalTracks"
+	fi
+
+	while read line; do
+		field="${line%%=*}" ; value="${line#*=}"
+		if [ "$value" = '' ]; then continue; fi
+		case "$field" in
+			album)                 echo "ALBUM=$value" ;;
+			album_artist)          echo "ALBUMARTIST=$value" ;;
+			artist)                echo "ARTIST=$value" ;;
+			composer)              echo "COMPOSER=$value" ;;
+			copyright)             echo "COPYRIGHT=$value" ;;
+			date)                  printf 'DATE=%.4s\n' "$value" ;;
+			comment)               echo "DESCRIPTION=$value" ;;
+			disc)                  printf 'DISCNUMBER=%g\n' "$( getTrackOrDiscNumber "$value" )" ;;
+			genre)                 echo "GENRE=$value" ;;
+			isrc)                  echo "ISRC=$value" ;;
+			label)                 echo "ORGANIZATION=$value" ;;
+			title)                 echo "TITLE=$value" ;;
+			track)                 printf -- 'TRACKNUMBER=%g\n' "$( getTrackOrDiscNumber "$value" )";;
+			*) continue ;;
+		esac
+	done < "$sourceTagFile"
+}
+
+M4AToAPEv2 ()
+{
+	local line field value totalTracks='' totalDiscs=''
+
+	getTotalDiscsAndTracks
+	while read line; do
+		field="${line%%=*}" ; value="${line#*=}"
+		if [ "$value" = '' ]; then continue; fi
+		case "$field" in
+			album)                 echo "Album=$value" ;;
+			album_artist)          echo "Album Artist=$value" ;;
+			artist)                echo "Artist=$value" ;;
+			composer)              echo "Composer=$value" ;;
+			copyright)             echo "Copyright=$value" ;;
+			date)                  printf 'Year=%.4s\n' "$value" ;;
+			comment)               echo "Comment=$value" ;;
+			disc)
+				if [ -n "$totalDiscs" ]; then
+					printf 'Disc=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
+				else
+					printf 'Disc=%g\n' "$( getTrackOrDiscNumber "$value" )"
+				fi
+				;;
+			genre)                 echo "Genre=$value" ;;
+			isrc)                  echo "ISRC=$value" ;;
+			title)                 echo "Title=$value" ;;
+			track)
+				if [ -n "$totalTracks" ]; then
+					printf 'Track=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalTracks"
+				else
+					printf 'Track=%g\n' "$( getTrackOrDiscNumber "$value" )"
+				fi
+				;;
+			*) continue ;;
+		esac
+	done < "$sourceTagFile"
+}
+
+M4AToEyeD3 ()
+{
+	local line field value totalTracks='' totalDiscs=''
+
+	getTotalDiscsAndTracks
+	while read line; do
+		field="${line%%=*}" ; value="${line#*=}"
+		if [ "$value" = '' ]; then continue; fi
+		case "$field" in
+			album)                 echo "--album $value" ;;
+			album_artist)
+				echo "--album-artist $value"
+				if [ "$value" = 'Various Artists' -o $setCompilationFlagWithAlbumArtist = true ]; then
+					echo "--text-frame TCMP:1" # iTunes 'compilation' frame
+				fi
+				;;
+			artist)                echo "--artist $value" ;;
+			composer)              echo "--composer $value" ;;
+			genre)                 echo "--genre $value" ;;
+			isrc)                  echo "--text-frame TSRC=$value" ;;
+			disc)
+				case "$value" in
+					[0-9]*)
+						printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )"
+						if [ -n "$totalDiscs" ]; then
+							printf -- '--disc-total %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
+						fi
+						;;
+				esac
+				;;
+			title)                 echo "--title $value" ;;
+			track)
+				if [ -n "$totalTracks" ]; then
+					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
+					printf -- '--track-total %g\n' "$totalTracks"
+				else
+					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
+				fi
+				;;
+			year)                  printf -- '--release-year %.4s\n' "$value" ; printf -- '--release-date %.4s\n' "$value" ;;
+			*) continue ;;
+		esac
+	done < "$sourceTagFile"
+}
+
 APEv2ToVorbisComments ()
 {
 	local line field value totalTracks='' totalDiscs=''
@@ -2014,7 +2132,7 @@ APEv2ToEyeD3 ()
 		case "$field" in
 			Album)                 echo "--album $value" ;;
 			Albumartist|"Album Artist")
-				echo "--album artist $value"
+				echo "--album-artist $value"
 				if [ "$value" = 'Various Artists' -o $setCompilationFlagWithAlbumArtist = true ]; then
 					echo "--text-frame TCMP:1" # iTunes 'compilation' frame
 				fi
@@ -2304,7 +2422,7 @@ convertTags ()
 					fi
 					;;
 
-				ape)  vorbisCommentsToAPEv2 > "$destTagFile" ;;
+				ape) vorbisCommentsToAPEv2 > "$destTagFile" ;;
 				mp3) vorbisCommentsToEyeD3 > "$destTagFile" ;;
 				m4a) vorbisCommentsToM4A > "$destTagFile" ;;
 			esac ;;
@@ -2319,7 +2437,7 @@ convertTags ()
 					fi
 					;;
 
-				vc)   APEv2ToVorbisComments > "$destTagFile" ;;
+				vc) APEv2ToVorbisComments > "$destTagFile" ;;
 				mp3) APEv2ToEyeD3 > "$destTagFile" ;;
 				m4a) APEv2ToM4A > "$destTagFile" ;;
 
@@ -2332,6 +2450,22 @@ convertTags ()
 						$sedcmd -i '' -e 's@\x02@ / @g' -e 's@^ro:@@' "$destTagFile"
 					fi
 					;;
+			esac
+			;;
+
+		m4a)
+			case $2 in
+				m4a)
+					if [ -n "$outputCodecs" ]; then
+						grep -viE '^encoder=|^encoding=' "$sourceTagFile" > "$destTagFile"
+					else
+						cp "$sourceTagFile" "$destTagFile" >/dev/null 2>&1
+					fi
+					;;
+
+				ape) M4AToAPEv2 > "$destTagFile" ;;
+				mp3) M4AToEyeD3 > "$destTagFile" ;;
+				vc) M4AToVorbisComments > "$destTagFile" ;;
 			esac ;;
 	esac
 
@@ -2982,6 +3116,15 @@ decode ()
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
 					extractAPEv2Binaries
 					extractAPEv2Artwork
+				fi
+				;;
+
+			m4a)
+				sourceTagFormat='m4a'
+				nThreads=$( getNumberOfAvailableThreads $index )
+				ffmpeg -i "$copyFile" -threads ${nThreads} "$wavFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				if [ $ec -eq $EX_OK ]; then
+					ffmpeg -i "$copyFile" -f ffmetadata "$sourceTagFile" 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				;;
 

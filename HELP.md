@@ -7,7 +7,7 @@ Usage: caudec [ GLOBAL OPTIONS ] [ PROCESSING ] [ ENCODING/DECODING/RG ] FILES
 Operate on multiple audio files at once, in parallel.
 Instead of multiple files, one or more directories may be specified.
 Multiple codec switches (optionally paired with a -q switch) may be specified.
-Supported input files: .wav, .aiff, .caf, .flac, .wv, .ape
+Supported input files: .wav, .aiff, .caf, .flac, .wv, .ape, .m4a
 
 -------------------------------------------------------------------------------
 
@@ -130,7 +130,7 @@ Encoding options:
   -G GAIN   MP3: apply arbitrary GAIN (signed number from -99.99 to +99.99)
 
   -H HASH   compute hash of raw PCM (CRC32, MD5, SHA1, SHA256 or SHA512,
-            lossless codecs and lossyFLAC, lossyWV only)
+            FLAC, WavPack, Monkey's Audio and lossyFLAC, lossyWV only)
   -H ^HASH  do NOT compute HASH even if it's in caudecrc
 
 -------------------------------------------------------------------------------
@@ -140,7 +140,7 @@ Decoding options:
   -d        decode to WAV (input: AIFF, CAF, FLAC, WavPack, Monkey's Audio)
   -t        test file integrity
   -H HASH   compute hash of raw PCM (CRC32, MD5, SHA1, SHA256 or SHA512,
-            lossless codecs and lossyFLAC, lossyWV only)
+            FLAC, WavPack, Monkey's Audio and lossyFLAC, lossyWV only)
   -H ^HASH  do NOT compute HASH even if it's in caudecrc
 
 -------------------------------------------------------------------------------
