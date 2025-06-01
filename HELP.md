@@ -101,8 +101,8 @@ Encoding options:
 
   -c CODEC  use specified CODEC: wav, aiff, caf,
             flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
-            lossyWAV, lossyFLAC, lossyWV, ape (Monkey's Audio), mp3,
-            aac (m4a), ogg / vorbis, opus.
+            lossyWAV, lossyFLAC, lossyWV, ape (Monkey's Audio), alac (m4a),
+            aac (m4a), mp3, ogg / vorbis, opus.
 
   -C CODEC  use specified CODEC, but discard existing metadata
 

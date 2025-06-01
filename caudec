@@ -20,7 +20,7 @@
 
 me='caudec'
 calledAs="${0##*/}"
-VERSION='2.0.0'
+VERSION='2.1.0'
 
 # EX_USAGE: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # EX_DATAERR: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -268,8 +268,8 @@ Encoding options:
 
   -c CODEC  use specified CODEC: wav, aiff, caf,
             flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
-            lossyWAV, lossyFLAC, lossyWV, ape (Monkey's Audio), mp3,
-            aac (m4a), ogg / vorbis, opus.
+            lossyWAV, lossyFLAC, lossyWV, ape (Monkey's Audio), alac (m4a),
+            aac (m4a), mp3, ogg / vorbis, opus.
 
   -C CODEC  use specified CODEC, but discard existing metadata
 
@@ -1305,7 +1305,7 @@ checkBinaries ()
 				lossyWV) checkBinary 'lossywav' 'wavpack' 'APEv2' ;;
 				OggVorbis) checkBinary 'oggenc' ;;
 				MP3) checkBinary 'lame' 'eyeD3' ;;
-				AAC) checkBinary 'ffmpeg' ;;
+				AAC|ALAC) checkBinary 'ffmpeg' ;;
 				Opus) checkBinary 'opusenc' ;;
 			esac
 		done
@@ -1679,7 +1679,7 @@ tagline ()
 		fi
 
 		case "$outputCodec" in
-			WavPackLossy|MP3|AAC|OggVorbis|Opus)
+			WavPackLossy|MP3|AAC|ALAC|OggVorbis|Opus)
 				if [ "$outputCodec" = 'WavPackLossy' ]; then
 					grep -viE "MD5=|CRC32=|SHA1=|SHA256=|SHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 				else
@@ -1691,7 +1691,7 @@ tagline ()
 				done
 				;;
 
-			FLAC|WavPack|WavPackHybrid|MonkeysAudio)
+			FLAC|WavPack|WavPackHybrid|MonkeysAudio|ALAC)
 				if isWavProcessed ; then # SoX was used on the WAV file for resampling, applying gain, or converting to stereo
 					grep -viE "µµµCRC32=|µµµMD5=|µµµSHA1=|µµµSHA256=|µµµSHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 					mv "${destTagFile}.${outputCodec}.tmp" "${destTagFile}.${outputCodec}"
@@ -3083,7 +3083,7 @@ decode ()
 		for outputCodec in $outputCodecs; do
 			case "$outputCodec" in
 				lossy*|*Vorbis|Opus|WavPackLossy|MP3|AAC) hasLossy=true ;;
-				FLAC|WavPack|WavPackHybrid|MonkeysAudio) hasLossless=true ;;
+				FLAC|WavPack|WavPackHybrid|MonkeysAudio|ALAC) hasLossless=true ;;
 			esac
 		done
 
@@ -3291,7 +3291,7 @@ decode ()
 			FLAC|lossyFLAC|OggVorbis|Opus) convertTags $sourceTagFormat 'vc' ;;
 			WavPack*|MonkeysAudio|lossyWV) convertTags $sourceTagFormat 'ape' ;;
 			MP3) convertTags $sourceTagFormat 'mp3' ;;
-			AAC) convertTags $sourceTagFormat 'm4a' ;;
+			AAC|ALAC) convertTags $sourceTagFormat 'm4a' ;;
 		esac
 	done
 
@@ -3397,6 +3397,7 @@ getEncoderVersions ()
 			MonkeysAudio) apeVersion="$( mac 2>&1 | grep -F '(c)' | tr -d ' ' | cut -d '(' -f 2 | cut -d ')' -f 1 )"; apeVersion="${apeVersion#v}" ;;
 			MP3) lameVersion="$( lame --version 2>/dev/null | grep -E 'LAME.*version' | cut -d 'v' -f 2 | cut -d '(' -f 1 | cut -d ' ' -f 2- )" ; lameVersion="${lameVersion% *}" ;;
 			AAC) aacVersion="$( ffmpeg -version 2>/dev/null | grep -E '^ffmpeg version' | cut -d ' ' -f 3 )" ;;
+			ALAC) alacVersion="$( ffmpeg -version 2>/dev/null | grep -E '^ffmpeg version' | cut -d ' ' -f 3 )" ;;
 			Opus) opusVersion="$( opusenc --version 2>/dev/null | grep -F 'opusenc' )" ;;
 
 			WavPack|WavPackHybrid|WavPackLossy)
@@ -3760,9 +3761,8 @@ encode ()
 			;;
 
 		AAC)
-			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt" aaclib="" aaclibs="aac libfdk_aac aac_at"
-			for ((l=0; l < ${#aaclibs[@]}; l++)); do
-				aaclib="${aaclibs[$l]}"
+			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt" aaclibs=("aac" "libfdk_aac" "aac_at") aaclib=""
+			for aaclib in "${aaclibs[@]}"; do
 				if [ -z "$sourceCoverArtFile" ]; then
 					for f in "${SWAPDIR}/picture-${index}-"*_*; do
 						if [ ! -e "$f" ]; then continue; fi
@@ -3773,12 +3773,30 @@ encode ()
 					done
 				fi
 				if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
-					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a aac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				fi
 				if [ $ec -eq $EX_OK ]; then break; fi
 			done
+			;;
+
+		ALAC)
+			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt"
+			if [ -z "$sourceCoverArtFile" ]; then
+				for f in "${SWAPDIR}/picture-${index}-"*_*; do
+					if [ ! -e "$f" ]; then continue; fi
+					picType="${f#*_}"; picType="${picType%.*}"
+					case $picType in
+						3) sourceCoverArtFile="$f" ; break ;;
+					esac
+				done
+			fi
+			if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
+				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a alac >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			else
+				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a alac -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			fi
 			;;
 
 		Opus)
@@ -5230,7 +5248,7 @@ getCodecExtension ()
 		lossyWV)       ext='lossy.wv' ;;
 		OggVorbis)     ext='ogg' ;;
 		MP3)           ext='mp3' ;;
-		AAC)           ext='m4a' ;;
+		AAC|ALAC)      ext='m4a' ;;
 		Opus)          ext='opus' ;;
 	esac
 
@@ -5246,6 +5264,7 @@ getCodecFullName ()
 		AIFF)          codecFullName='AIFF' ;;
 		CAF)           codecFullName='CAF' ;;
 		FLAC)          codecFullName='FLAC' ;;
+		ALAC)          codecFullName='ALAC' ;;
 		WavPack)       codecFullName='WavPack' ;;
 		WavPackHybrid) codecFullName='WavPack Hybrid' ;;
 		MonkeysAudio)  codecFullName="Monkey's Audio" ;;
@@ -5535,6 +5554,7 @@ setDestDir ()
 			AIFF) dir_AIFF="$codecDestDir" ;;
 			CAF) dir_CAF="$codecDestDir" ;;
 			FLAC) dir_FLAC="$codecDestDir" ;;
+			ALAC) dir_ALAC="$codecDestDir" ;;
 			WavPack) dir_WavPack="$codecDestDir" ;;
 			WavPackHybrid) dir_WavPackHybrid="$codecDestDir" ;;
 
@@ -5556,6 +5576,7 @@ setDestDir ()
 			AIFF) copyPath_AIFF="$copyPath" ;;
 			CAF) copyPath_CAF="$copyPath" ;;
 			FLAC) copyPath_FLAC="$copyPath" ;;
+			ALAC) copyPath_ALAC="$copyPath" ;;
 			WavPack) copyPath_WavPack="$copyPath" ;;
 			WavPackHybrid) copyPath_WavPackHybrid="$copyPath" ;;
 
@@ -5581,6 +5602,7 @@ getDestDir ()
 		AIFF) codecDestDir="$dir_AIFF" ;;
 		CAF) codecDestDir="$dir_CAF" ;;
 		FLAC) codecDestDir="$dir_FLAC" ;;
+		ALAC) codecDestDir="$dir_ALAC" ;;
 		WavPack) codecDestDir="$dir_WavPack" ;;
 		WavPackHybrid) codecDestDir="$dir_WavPackHybrid" ;;
 		MonkeysAudio) codecDestDir="$dir_MonkeysAudio" ;;
@@ -5611,6 +5633,7 @@ copyPathOrNot ()
 		AIFF) copyPath="$copyPath_AIFF" ;;
 		CAF) copyPath="$copyPath_CAF" ;;
 		FLAC) copyPath="$copyPath_FLAC" ;;
+		ALAC) copyPath="$copyPath_ALAC" ;;
 		WavPack) copyPath="$copyPath_WavPack" ;;
 		WavPackHybrid) copyPath="$copyPath_WavPackHybrid" ;;
 
@@ -5649,6 +5672,7 @@ setCodecOtherFiles ()
 			AIFF) copyOtherFiles_AIFF="$pattern" ;;
 			CAF) copyOtherFiles_CAF="$pattern" ;;
 			FLAC) copyOtherFiles_FLAC="$pattern" ;;
+			ALAC) copyOtherFiles_ALAC="$pattern" ;;
 			WavPack) copyOtherFiles_WavPack="$pattern" ;;
 			WavPackHybrid) copyOtherFiles_WavPackHybrid="$pattern" ;;
 			MonkeysAudio) copyOtherFiles_MonkeysAudio="$pattern" ;;
@@ -5674,6 +5698,7 @@ getCodecOtherFiles ()
 		AIFF) otherFilesPattern="$copyOtherFiles_AIFF" ;;
 		CAF) otherFilesPattern="$copyOtherFiles_CAF" ;;
 		FLAC) otherFilesPattern="$copyOtherFiles_FLAC" ;;
+		ALAC) otherFilesPattern="$copyOtherFiles_ALAC" ;;
 		WavPack) otherFilesPattern="$copyOtherFiles_WavPack" ;;
 		WavPackHybrid) otherFilesPattern="$copyOtherFiles_WavPackHybrid" ;;
 		MonkeysAudio) otherFilesPattern="$copyOtherFiles_MonkeysAudio" ;;
@@ -5708,6 +5733,7 @@ setCodecCoverArtFile ()
 			AIFF) coverArtFile_AIFF="$coverArtFile" ;;
 			CAF) coverArtFile_CAF="$coverArtFile" ;;
 			FLAC) coverArtFile_FLAC="$coverArtFile" ;;
+			ALAC) coverArtFile_ALAC="$coverArtFile" ;;
 			WavPack) coverArtFile_WavPack="$coverArtFile" ;;
 			WavPackHybrid) coverArtFile_WavPackHybrid="$coverArtFile" ;;
 			MonkeysAudio) coverArtFile_MonkeysAudio="$coverArtFile" ;;
@@ -5733,6 +5759,7 @@ getCodecCoverArtFile ()
 		AIFF) coverArtFile="$coverArtFile_AIFF" ;;
 		CAF) coverArtFile="$coverArtFile_CAF" ;;
 		FLAC) coverArtFile="$coverArtFile_FLAC" ;;
+		ALAC) coverArtFile="$coverArtFile_ALAC" ;;
 		WavPack) coverArtFile="$coverArtFile_WavPack" ;;
 		WavPackHybrid) coverArtFile="$coverArtFile_WavPackHybrid" ;;
 		MonkeysAudio) coverArtFile="$coverArtFile_MonkeysAudio" ;;
@@ -5821,7 +5848,7 @@ case "$maxProcesses" in
 esac
 maxProcessesSetByUser=$nProcesses
 
-losslessCodecsString="WAV AIFF CAF FLAC WavPack WavPackHybrid MonkeysAudio"
+losslessCodecsString="WAV AIFF CAF FLAC ALAC WavPack WavPackHybrid MonkeysAudio"
 lossyCodecsString="WavPackLossy lossyWAV lossyFLAC lossyWV MP3 AAC OggVorbis Opus"
 allCodecsString="${losslessCodecsString} ${lossyCodecsString}"
 
@@ -6143,6 +6170,7 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				aiff)                lastCodec='AIFF' ;;
 				caf)                 lastCodec='CAF' ;;
 				flac)                lastCodec='FLAC' ;;
+				alac)                lastCodec='ALAC' ;;
 				wv)                  lastCodec='WavPack' ;;
 				wvh)                 lastCodec='WavPackHybrid' ;;
 				wvl)                 lastCodec='WavPackLossy' ;;
