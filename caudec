@@ -3745,7 +3745,7 @@ copyOrLinkOtherFiles ()
 encode ()
 {
 	local ec=$EX_OK pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses nThreads=1 listOfOtherFiles
-	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag=''
+	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag='' nChannels
 
 	getFileProps "$sourceFile" "$outputCodec"
 	case "$outputCodec" in
@@ -3796,7 +3796,13 @@ encode ()
 		WavPackHybrid)
 			destExtension='wv'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt" kfm='-r'
 			if [ $keepWavMetadata = true ]; then kfm=''; fi
-			nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
+			# WavPack Hybrid only supports multithreading for files with more than 2 channels
+			nChannels=$( getNumberOfChannels "$wavFile" )
+			if [ $nChannels -gt 2 ]; then
+				nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
+			else
+				nThreads=1
+			fi
 			if [ $tagCompressionSetting = true ]; then
 				if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
 					compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy bits per sample (ABR)"
@@ -3817,7 +3823,13 @@ encode ()
 				printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$me -c wv: correction files are present. Please delete them and try again." ; ec=$EX_KO
 			else
 				if [ $keepWavMetadata = true ]; then kfm=''; fi
-				nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
+				# WavPack Lossy only supports multithreading for files with more than 2 channels
+				nChannels=$( getNumberOfChannels "$wavFile" )
+				if [ $nChannels -gt 2 ]; then
+					nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
+				else
+					nThreads=1
+				fi
 				if [ $tagCompressionSetting = true ]; then
 					if [ -z "$compression_WavPack" ]; then
 						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
