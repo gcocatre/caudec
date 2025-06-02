@@ -1133,8 +1133,8 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 				if [ $touchFiles = true ]; then
 					case "$inputFile" in
 						*.flac|*.ogg|*.m4a|*.wv|*.ape|*.opus) gotAudioFile=true ;;
+						*.wvc) continue ;;
 					esac
-					addToSourceFiles=false
 					sourceFiles[$index]="$inputFile"
 					((index++))
 				fi
