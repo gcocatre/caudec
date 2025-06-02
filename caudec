@@ -1200,7 +1200,7 @@ checkOutputDirectories ()
 
 checkBinary ()
 {
-	local binary listOfBinaries="$@" pattern rc=$EX_OK
+	local binary listOfBinaries="$@" pattern ec=$EX_OK
 
 	for binary in $listOfBinaries; do
 		pattern="x${binary}Y"
@@ -1210,7 +1210,7 @@ checkBinary ()
 				foundBinaries="${foundBinaries}${pattern}"
 				continue
 			else
-				binaryMissing=true rc=$EX_KO
+				binaryMissing=true ec=$EX_KO
 				if [ "$binary" = "opusgain" ]; then
 					printMessage 'warning' 'initialization' 'filesystem' \
 	"Binary \"${binary}\" not found. Make sure it is in your \$PATH, and that you've upgraded it to the latest available version. \
@@ -1222,11 +1222,11 @@ You may find it at https://github.com/FrancisRussell/zoog"
 			fi
 		elif [ -z "$foundBinaries" -o "$foundBinaries" = "${foundBinaries//$pattern/@}" ]; then
 			# binary was previously searched, but not found
-			rc=$EX_KO
+			ec=$EX_KO
 		fi
 	done
 
-	return $rc
+	return $ec
 }
 
 checkMainBinaries ()
