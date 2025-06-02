@@ -1,5 +1,5 @@
 ```
-caudec 2.1.2: multiprocess audio converter
+caudec 2.1.3: multiprocess audio converter
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
