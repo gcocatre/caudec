@@ -20,7 +20,7 @@
 
 me='caudec'
 calledAs="${0##*/}"
-VERSION='2.1.2'
+VERSION='2.1.3'
 
 # EX_USAGE: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # EX_DATAERR: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -965,9 +965,9 @@ getInputFiles ()
 
 checkInputFiles ()
 {
-	local file ec=$EX_OK bn dn commonFileExtension="" fileExtension="" fileExtensionAreAllTheSame=true refDn cdpath pdpath
+	local inputFile ec=$EX_OK inputDirName commonFileExtension="" inputFileExtension="" inputFileExtensionAreAllTheSame=true refDn cdpath pdpath
 	local index=0 addToSourceFiles errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
-	local dateSourceFile dateSourceFile outputCodec copyPath
+	local dateSourceFile dateSourceFile outputCodec copyPath codec
 
 	numberOfInputFiles="${#inputFiles[@]}"
 	if [ $numberOfInputFiles -gt $maxInputFiles ]; then
@@ -982,37 +982,35 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 		cleanExit $EX_USAGE
 	fi
 
-	for file in "${inputFiles[@]}" ; do
-		fileExtension="${file##*.}"
+	for inputFile in "${inputFiles[@]}" ; do
+		inputFileExtension="${inputFile##*.}"
 		if [ -z "$commonFileExtension" ]; then
-			commonFileExtension="$fileExtension"
-		elif [ "$fileExtension" != "$commonFileExtension" ]; then
-			fileExtensionAreAllTheSame=false
+			commonFileExtension="$inputFileExtension"
+		elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
+			inputFileExtensionAreAllTheSame=false
 		fi
 		addToSourceFiles=false
-		dn="$( dirname "$file" )"
-		if [ ! -e "$file" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${file}" 'no such file.' ; ec=$EX_NOINPUT
-		elif [ ! -f "$file" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${file}" 'not a regular file.' ; ec=$EX_DATAERR
-		elif [ ! -r "$file" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${file}" 'cannot open file for reading (permission denied).' ; ec=$EX_NOINPUT
-		elif [ ! -w "$file" -a $computeReplaygain = true ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${file}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
-		elif [ ! -w "$file" -a $actionHash = true ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${file}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
-		elif [ ! -w "$file" -a $touchFiles = true ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${file}" 'refusing to touch file that is read-only.' ; ec=$EX_CANTCREAT
+		inputDirName="$( dirname "$inputFile" )"
+		if [ ! -e "$inputFile" ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'no such file.' ; ec=$EX_NOINPUT
+		elif [ ! -f "$inputFile" ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'not a regular file.' ; ec=$EX_DATAERR
+		elif [ ! -r "$inputFile" ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for reading (permission denied).' ; ec=$EX_NOINPUT
+		elif [ ! -w "$inputFile" -a $computeReplaygain = true ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
+		elif [ ! -w "$inputFile" -a $actionHash = true ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
+		elif [ ! -w "$inputFile" -a $touchFiles = true ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'refusing to touch file that is read-only.' ; ec=$EX_CANTCREAT
 		else
-			if [ -z "$refDn" ] ; then refDn="$dn"; fi # for touching mtime files
-
 			if [ -n "$outputCodecs" ]; then # transcode
 				for outputCodec in $outputCodecs; do
 					copyPath="$( copyPathOrNot "$outputCodec" )"
 					if [ "$copyPath" = "true" ]; then
 						cdpath='/./' pdpath='/../'
-						if [ "${file:0:2}" = './' -o "${f:0:3}" = '../' -o "$dn" != "${dn//$cdpath/@}" -o "$dn" != "${dn//$pdpath/@}" ]; then
-							printMessage 'warning' 'usage' 'filesystem' "path:${f}" "can't use paths containing ./ or ../ with caudec -P." ; ec=$EX_USAGE
+						if [ "${inputFile:0:2}" = './' -o "${inputFile:0:3}" = '../' -o "$inputDirName" != "${inputDirName//$cdpath/@}" -o "$inputDirName" != "${inputDirName//$pdpath/@}" ]; then
+							printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" "can't use paths containing ./ or ../ with caudec -P." ; ec=$EX_USAGE
 							continue
 						fi
 					fi
@@ -1020,81 +1018,90 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 			fi
 
 			if [ -n "$outputCodecs" ]; then # transcode
-				case "$file" in
+				case "$inputFile" in
 					*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape|*.m4a)
-						if [ $keepExistingFiles = false -a $keepNewerFiles = false ]; then
-							addToSourceFiles=true
-						else
-							if [ $keepExistingFiles = true -o $keepNewerFiles = true ]; then
-								getFileProps "$file" "$outputCodec"
-							fi
-							if [ $keepExistingFiles = true ]; then
-								if [ -e "$destFile" ]; then
+						addToSourceFiles=true
+						case "$inputFile" in
+							*.m4a)
+								codec="$( ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$inputFile" 2>/dev/null )"
+								if [ "$codec" = "alac" ]; then
+									addToSourceFiles=true
+								else
 									addToSourceFiles=false
-									printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: \"$destFile\" exists already."
-								else
-									addToSourceFiles=true
+									printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" "refusing to transcode from lossy codec ($codec)." ; ec=$EX_DATAERR
 								fi
+								;;
+						esac
+						if [ $addToSourceFiles = false ]; then continue ; fi
+						if [ $keepExistingFiles = true -o $keepNewerFiles = true ]; then
+							getFileProps "$inputFile" "$outputCodec"
+						fi
+						if [ $keepExistingFiles = true ]; then
+							if [ -e "$destFile" ]; then
+								addToSourceFiles=false
+								printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: \"$destFile\" exists already."
 							fi
-							if [ $keepNewerFiles = true ]; then
-								if [ -e "$destFile" ]; then
-									if isFileNewer "$sourceFile" "$destFile"; then
-										addToSourceFiles=true
+						fi
+						if [ $keepNewerFiles = true ]; then
+							if [ -e "$destFile" ]; then
+								if isFileNewer "$destFile" "$sourceFile"; then
+									addToSourceFiles=false
+									if [ $gnudate = true ]; then
+										dateSourceFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$sourceFile" )"" "+%Y-%m-%d %H:%M:%S" )"
+										dateDestFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$destFile" )"" "+%Y-%m-%d %H:%M:%S" )"
 									else
-										addToSourceFiles=false
-										if [ $gnudate = true ]; then
-											dateSourceFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$sourceFile" )"" "+%Y-%m-%d %H:%M:%S" )"
-											dateDestFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$destFile" )"" "+%Y-%m-%d %H:%M:%S" )"
-										else
-											dateSourceFile="$( $datecmd -r $( $statcmd -f '%c' "$sourceFile" ) "+%Y-%m-%d %H:%M:%S" )"
-											dateDestFile="$( $datecmd -r $( $statcmd -f '%c' "$destFile" ) "+%Y-%m-%d %H:%M:%S" )"
-										fi
-										printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: '$dateDestFile' vs. '$dateSourceFile': \"$destFile\" is newer that the source."
+										dateSourceFile="$( $datecmd -r $( $statcmd -f '%c' "$sourceFile" ) "+%Y-%m-%d %H:%M:%S" )"
+										dateDestFile="$( $datecmd -r $( $statcmd -f '%c' "$destFile" ) "+%Y-%m-%d %H:%M:%S" )"
 									fi
-								else
-									addToSourceFiles=true
+									printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: '$dateDestFile' vs. '$dateSourceFile': \"$destFile\" is newer that the source."
 								fi
+							else
+								addToSourceFiles=true
 							fi
 						fi
 						;;
 
 					*)
-						if [ $ignoreUnsupportedFiles = true ]; then
+						if [ $ignoreUnsupportedFiles = false ]; then
+							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+							ec=$EX_DATAERR
 							continue
-						else
-							printMessage 'warning' 'processing' 'unsupported' "file:${file}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
 						fi
 						;;
 				esac
 
 			else # actions other than transcoding
 				if [ $checkFiles = true -o $actionHash = true ]; then
-					case "$file" in
+					case "$inputFile" in
 						*.flac|*.wv|*.ape) addToSourceFiles=true ;;
 						*)
 							if [ $ignoreUnsupportedFiles = true ]; then
 								continue
 							else
-								printMessage 'warning' 'processing' 'unsupported' "file:${file}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
+								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
 							fi
 							;;
 					esac
 				fi
 
 				if [ $computeReplaygain = true ]; then
-					if [ $fileExtensionAreAllTheSame = false ]; then
-						printMessage 'error' 'usage' 'filesystem' "file:${file}" "all files must have the same file extension" ; ec=$EX_DATAERR
+					if [ $inputFileExtensionAreAllTheSame = false ]; then
+						if [ $ignoreUnsupportedFiles = true ]; then
+							continue
+						else
+							printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension" ; ec=$EX_DATAERR
+						fi
 					else
-						case "$file" in
+						case "$inputFile" in
 							*.flac|*.wv|*.ogg|*.opus|*.mp3)
-								nChannels="$( getNumberOfChannels "$file" )"
+								nChannels="$( getNumberOfChannels "$inputFile" )"
 								if [ $nChannels -le 2 ]; then
 									addToSourceFiles=true
 								else
 									if [ $ignoreUnsupportedFiles = true ]; then
 										continue
 									else
-										printMessage 'warning' 'processing' 'unsupported' "file:${file}" 'unsupported format (neither mono or stereo).' ; ec=$EX_DATAERR ; continue
+										printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format (neither mono or stereo).' ; ec=$EX_DATAERR ; continue
 									fi
 								fi
 								;;
@@ -1103,7 +1110,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 								if [ $ignoreUnsupportedFiles = true ]; then
 									continue
 								else
-									printMessage 'warning' 'processing' 'unsupported' "file:${file}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
+									printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
 								fi
 								;;
 						esac
@@ -1111,36 +1118,31 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 				fi
 
 				if [ $applyGain = true ]; then
-					case "$file" in
+					case "$inputFile" in
 						*.mp3) addToSourceFiles=true ;;
 						*)
 							if [ $ignoreUnsupportedFiles = true ]; then
 								continue
 							else
-								printMessage 'warning' 'processing' 'unsupported' "file:${file}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
+								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; ec=$EX_DATAERR ; continue
 							fi
 							;;
 					esac
 				fi
 
 				if [ $touchFiles = true ]; then
-					# if [ "$dn" != "$refDn" ]; then
-					# 	printMessage 'error' 'usage' 'filesystem' "all files must be in the same directory" ; ec=$EX_DATAERR
-					# 	printMessage 'abort' 'verbose'
-					# 	cleanExit $ec
-					# fi
-					case "$file" in
+					case "$inputFile" in
 						*.flac|*.ogg|*.m4a|*.wv|*.ape|*.opus) gotAudioFile=true ;;
 					esac
 					addToSourceFiles=false
-					sourceFiles[$index]="$file"
+					sourceFiles[$index]="$inputFile"
 					((index++))
 				fi
 			fi
 		fi
 
 		if [ $addToSourceFiles = true ]; then
-			sourceFiles[$index]="$file"
+			sourceFiles[$index]="$inputFile"
 			((index++))
 		fi
 	done
@@ -4484,14 +4486,14 @@ testFiles ()
 
 getInternalMD5 ()
 {
-	local f="$1" dn bn
+	local file="$1"
 
 	sourceMD5=''
-	case "$f" in
-		*.flac) sourceMD5="$( metaflac --show-md5sum "$f" 2>/dev/null )" ;;
+	case "$file" in
+		*.flac) sourceMD5="$( metaflac --show-md5sum "$file" 2>/dev/null )" ;;
 
 		*.wv)
-			sourceMD5="$( wvunpack -f "$f" 2>/dev/null | cut -d ';' -f 7 )"
+			sourceMD5="$( wvunpack -f "$file" 2>/dev/null | cut -d ';' -f 7 )"
 			;;
 	esac
 }
