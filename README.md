@@ -111,7 +111,7 @@ With the `-s` parameter used above, caudec will only display errors, making them
 
 ## Requirements
 
-caudec uses common UNIX tools (bc, cut, date/gdate, find, grep, head, mktemp, ps, sed/gsed, sort, stat, tail, tr, uname, wc, xargs), as well as the following software:
+caudec uses common UNIX tools (bc, cut, date/gdate, find, grep, head, mktemp, ps, sed/gsed, sort, stat, tail, tr, uname, wc, xargs), as well as the following software (most of them available via **Homebrew** on macOS):
 
 ### Mandatory Software
 
