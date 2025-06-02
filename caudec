@@ -20,7 +20,7 @@
 
 me='caudec'
 calledAs="${0##*/}"
-VERSION='2.1.1'
+VERSION='2.1.2'
 
 # EX_USAGE: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # EX_DATAERR: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -970,7 +970,6 @@ checkInputFiles ()
 	local dateSourceFile dateSourceFile outputCodec copyPath
 
 	numberOfInputFiles="${#inputFiles[@]}"
-
 	if [ $numberOfInputFiles -gt $maxInputFiles ]; then
 		printMessage 'warning' 'usage' 'quota' "the number of input files ($numberOfInputFiles) is greater than maxInputFiles=${maxInputFiles}."
 		printMessage 'abort'
@@ -1153,11 +1152,12 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 	fi
 
 	unset inputFiles
+	numberOfSourceFiles=$index
 
 	if [ $ec -ne $EX_OK ]; then
 		printMessage 'abort'
 		cleanExit $ec
-	elif [ $index -eq 0 ]; then
+	elif [ $numberOfSourceFiles -eq 0 ]; then
 		if [ $keepExistingFiles = true ]; then
 			printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: all or some destination files exist already, nothing to do."
 		elif [ $keepNewerFiles = true ]; then
@@ -1167,7 +1167,6 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 		printMessage 'abort' 'verbose'
 		cleanExit $ec
 	else
-		nTracks=$index
 		return $EX_OK
 	fi
 }
@@ -1211,7 +1210,7 @@ checkBinary ()
 				foundBinaries="${foundBinaries}${pattern}"
 				continue
 			else
-				rc=$EX_KO binaryMissing=true
+				binaryMissing=true rc=$EX_KO
 				if [ "$binary" = "opusgain" ]; then
 					printMessage 'warning' 'initialization' 'filesystem' \
 	"Binary \"${binary}\" not found. Make sure it is in your \$PATH, and that you've upgraded it to the latest available version. \
@@ -1230,6 +1229,24 @@ You may find it at https://github.com/FrancisRussell/zoog"
 	return $rc
 }
 
+checkMainBinaries ()
+{
+	if ! which 'which' >/dev/null 2>&1 ; then
+		printMessage 'warning' 'initialization' 'filesystem' "Binary \"which\" not found. Make sure it is in your \$PATH."
+		printMessage 'abort'
+		cleanExit $EX_OSFILE
+	fi
+
+	checkBinary 'bc' 'cut' "$datecmd" 'find' 'grep' 'head' 'mktemp' 'ps' "$sedcmd" 'sort' 'soxi' 'stat' 'tail' 'tr' 'uname' 'wc' 'xargs'
+
+	if [ $? -eq $EX_KO ]; then
+		printMessage 'abort'
+		cleanExit $EX_OSFILE
+	else
+		return $EX_OK
+	fi
+}
+
 checkBinaries ()
 {
 	local sourceFile searchedBinaries='' binaryMissing=false hash outputCodec
@@ -1240,103 +1257,99 @@ checkBinaries ()
 		cleanExit $EX_OSFILE
 	fi
 
-	if [ -z "$nTracks" ]; then
-		checkBinary 'bc' 'cut' "$datecmd" 'find' 'grep' 'head' 'mktemp' 'ps' "$sedcmd" 'sort' 'soxi' 'stat' 'tail' 'tr' 'uname' 'wc' 'xargs'
-	else
+	for sourceFile in "${sourceFiles[@]}" ; do
+		case "$sourceFile" in
+			*.ape) checkBinary 'ffprobe' ; break ;;
+		esac
+	done
+
+	if [ $computeReplaygain = true ]; then
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
-				*.ape) checkBinary 'ffprobe' ; break ;;
+				*.flac) checkBinary 'metaflac' ;;
+				*.wv) checkBinary 'APEv2' 'wvunpack' 'wvgain' ;;
+				*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
+				*.opus) checkBinary 'opusinfo' 'opusgain' ;; # https://github.com/FrancisRussell/zoog
+				*.mp3) checkBinary 'ffprobe' 'lame' 'mp3gain' ; if [ $applyGain = false ]; then checkBinary 'eyeD3' 'mp3gain'; fi ;;
+			esac
+		done
+	elif [ $checkFiles = true ]; then
+		checkBinary 'sox'
+		for sourceFile in "${sourceFiles[@]}" ; do
+			case "$sourceFile" in
+				*.flac) checkBinary 'flac' 'metaflac' ;;
+				*.wv) checkBinary 'wvunpack' 'APEv2' ;;
+				*.ape) checkBinary 'mac' 'APEv2' ;;
+			esac
+		done
+	elif [ $touchFiles = true ]; then
+		for sourceFile in "${sourceFiles[@]}" ; do
+			case "$sourceFile" in
+				*.flac) checkBinary 'metaflac' ;;
+				*.ogg) checkBinary 'ogginfo' 'vorbiscomment' ;;
+				*.m4a) checkBinary 'ffmpeg' 'ffprobe' ;;
+				*.opus) checkBinary 'opusinfo' ;;
+				*.wv) checkBinary 'wvtag' 'wvunpack' ;;
+				*.ape) checkBinary 'mac' 'APEv2' 'ffprobe' ;;
+			esac
+		done
+	else # transcode
+		for sourceFile in "${sourceFiles[@]}" ; do
+			case "$sourceFile" in
+				*.aiff|*.caf) checkBinary 'sox' ;;
+				*.flac) checkBinary 'flac' 'metaflac' ;;
+				*.wv) checkBinary 'wvunpack' 'APEv2' ;;
+				*.ape) checkBinary 'mac' 'APEv2' ;;
+				*.m4a) checkBinary 'ffmpeg' ;;
 			esac
 		done
 
-		if [ $computeReplaygain = true ]; then
-			for sourceFile in "${sourceFiles[@]}" ; do
-				case "$sourceFile" in
-					*.flac) checkBinary 'metaflac' ;;
-					*.wv) checkBinary 'APEv2' 'wvunpack' 'wvgain' ;;
-					*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
-					*.opus) checkBinary 'opusinfo' 'opusgain' ;; # https://github.com/FrancisRussell/zoog
-					*.mp3) checkBinary 'ffprobe' 'lame' 'mp3gain' ; if [ $applyGain = false ]; then checkBinary 'eyeD3' 'mp3gain'; fi ;;
-				esac
-			done
-		elif [ $checkFiles = true ]; then
-			checkBinary 'sox'
-			for sourceFile in "${sourceFiles[@]}" ; do
-				case "$sourceFile" in
-					*.flac) checkBinary 'flac' 'metaflac' ;;
-					*.wv) checkBinary 'wvunpack' 'APEv2' ;;
-					*.ape) checkBinary 'mac' 'APEv2' ;;
-				esac
-			done
-		elif [ $touchFiles = true ]; then
-			for sourceFile in "${sourceFiles[@]}" ; do
-				case "$sourceFile" in
-					*.flac) checkBinary 'metaflac' ;;
-					*.ogg) checkBinary 'ogginfo' 'vorbiscomment' ;;
-					*.m4a) checkBinary 'ffmpeg' 'ffprobe' ;;
-					*.opus) checkBinary 'opusinfo' ;;
-					*.wv) checkBinary 'wvtag' 'wvunpack' ;;
-					*.ape) checkBinary 'mac' 'APEv2' 'ffprobe' ;;
-				esac
-			done
-		else # transcode
-			for sourceFile in "${sourceFiles[@]}" ; do
-				case "$sourceFile" in
-					*.aiff|*.caf) checkBinary 'sox' ;;
-					*.flac) checkBinary 'flac' 'metaflac' ;;
-					*.wv) checkBinary 'wvunpack' 'APEv2' ;;
-					*.ape) checkBinary 'mac' 'APEv2' ;;
-					*.m4a) checkBinary 'ffmpeg' ;;
-				esac
-			done
-
-			if [ $applyGain = true ]; then
-				checkBinary 'sox'
-			fi
-		fi
-
-		for outputCodec in $outputCodecs; do
-			case "$outputCodec" in
-				AIFF|CAF) checkBinary 'sox' ;;
-				FLAC) checkBinary 'flac' ;;
-				WavPack|WavPackHybrid|WavPackLossy) checkBinary 'wavpack' 'APEv2' ;;
-				MonkeysAudio) checkBinary 'mac' 'APEv2' ;;
-				lossyWAV) checkBinary 'lossywav' ;;
-				lossyFLAC) checkBinary 'lossywav' 'flac' ;;
-				lossyWV) checkBinary 'lossywav' 'wavpack' 'APEv2' ;;
-				OggVorbis) checkBinary 'oggenc' ;;
-				MP3) checkBinary 'lame' 'eyeD3' ;;
-				AAC|ALAC) checkBinary 'ffmpeg' ;;
-				Opus) checkBinary 'opusenc' ;;
-			esac
-		done
-
-		if [ -n "$hashes" ]; then
-			checkBinary 'sox'
-			if [ "$OS" = 'Linux' ]; then
-				for hash in $hashes; do
-					case $hash in
-						CRC32) checkBinary 'cksfv' 'mkfifo' ;;
-						MD5) checkBinary 'md5sum' ;;
-						SHA1) checkBinary 'sha1sum' ;;
-						SHA256) checkBinary 'sha256sum' ;;
-						SHA512) checkBinary 'sha512sum' ;;
-					esac
-				done
-			else
-				for hash in $hashes; do
-					case $hash in
-						CRC32) checkBinary 'cksfv' 'mkfifo' ;;
-						MD5) checkBinary 'md5' ;;
-						SHA1|SHA256|SHA512) checkBinary 'shasum' ;;
-					esac
-				done
-			fi
-		fi
-
-		if [ -n "$bitDepth" -o -n "$samplingRate" -o "$convertToStereo" != 'false' ]; then
+		if [ $applyGain = true ]; then
 			checkBinary 'sox'
 		fi
+	fi
+
+	for outputCodec in $outputCodecs; do
+		case "$outputCodec" in
+			AIFF|CAF) checkBinary 'sox' ;;
+			FLAC) checkBinary 'flac' ;;
+			WavPack|WavPackHybrid|WavPackLossy) checkBinary 'wavpack' 'APEv2' ;;
+			MonkeysAudio) checkBinary 'mac' 'APEv2' ;;
+			lossyWAV) checkBinary 'lossywav' ;;
+			lossyFLAC) checkBinary 'lossywav' 'flac' ;;
+			lossyWV) checkBinary 'lossywav' 'wavpack' 'APEv2' ;;
+			OggVorbis) checkBinary 'oggenc' ;;
+			MP3) checkBinary 'lame' 'eyeD3' ;;
+			AAC|ALAC) checkBinary 'ffmpeg' ;;
+			Opus) checkBinary 'opusenc' ;;
+		esac
+	done
+
+	if [ -n "$hashes" ]; then
+		checkBinary 'sox'
+		if [ "$OS" = 'Linux' ]; then
+			for hash in $hashes; do
+				case $hash in
+					CRC32) checkBinary 'cksfv' 'mkfifo' ;;
+					MD5) checkBinary 'md5sum' ;;
+					SHA1) checkBinary 'sha1sum' ;;
+					SHA256) checkBinary 'sha256sum' ;;
+					SHA512) checkBinary 'sha512sum' ;;
+				esac
+			done
+		else
+			for hash in $hashes; do
+				case $hash in
+					CRC32) checkBinary 'cksfv' 'mkfifo' ;;
+					MD5) checkBinary 'md5' ;;
+					SHA1|SHA256|SHA512) checkBinary 'shasum' ;;
+				esac
+			done
+		fi
+	fi
+
+	if [ -n "$bitDepth" -o -n "$samplingRate" -o "$convertToStereo" != 'false' ]; then
+		checkBinary 'sox'
 	fi
 
 	if [ $binaryMissing = true ]; then
@@ -1624,7 +1637,7 @@ getNumberOfAvailableThreads ()
 	fi
 
 	nProcessedFiles="$( getNumberOfProcessedFiles )"
-	nUnprocessedFiles=$(( numberOfInputFiles - nProcessedFiles ))
+	nUnprocessedFiles=$(( numberOfSourceFiles - nProcessedFiles ))
 	if [ $nUnprocessedFiles -ge $maxProcessesSetByUser ]; then
 		echo 1
 		return
@@ -5985,7 +5998,7 @@ if which 'uname' >/dev/null 2>&1 ; then
 	fi
 fi
 
-checkBinaries
+checkMainBinaries
 
 maxProcesses=''
 if which 'nproc' >/dev/null 2>&1; then # GNU Coreutils installed
@@ -6579,11 +6592,12 @@ elif [ $computeReplaygain = true -a $actionHash = true ]; then
 	exit $EX_USAGE
 fi
 
-nTracks=$# ec=$EX_OK
+ec=$EX_OK
 declare -a inputFilesAndDirs=("$@")
 declare -a inputFiles=()
 declare -a sourceFiles=()
 numberOfInputFiles=0
+numberOfSourceFiles=0
 
 getInputFiles && checkInputFiles && checkBinaries && handleInstance && setupSwapDir
 
@@ -6598,7 +6612,7 @@ fi
 if [ $nCodecs -gt 0 ]; then # action: transcode files
 	checkOutputDirectories
 
-	nJobs=$(( nTracks * nCodecs ))
+	nJobs=$(( numberOfSourceFiles * nCodecs ))
 	if [ $nProcesses -gt $nJobs ]; then setNumberOfProcesses $nJobs ; fi
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
@@ -6609,7 +6623,7 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 		transcode &
 	done
 elif [ $checkFiles = true ]; then
-	if [ $nProcesses -gt $nTracks ]; then setNumberOfProcesses $nTracks ; fi
+	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
@@ -6619,7 +6633,7 @@ elif [ $checkFiles = true ]; then
 		testFiles &
 	done
 elif [ $computeReplaygain = true ]; then
-	if [ $nProcesses -gt $nTracks ]; then setNumberOfProcesses $nTracks ; fi
+	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
@@ -6629,7 +6643,7 @@ elif [ $computeReplaygain = true ]; then
 		computeTrackGains &
 	done
 elif [ $touchFiles = true ]; then
-	if [ $nProcesses -gt $nTracks ]; then setNumberOfProcesses $nTracks ; fi
+	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
@@ -6639,7 +6653,7 @@ elif [ $touchFiles = true ]; then
 		computeTrackDateTimes &
 	done
 elif [ $actionHash = true ]; then
-	if [ $nProcesses -gt $nTracks ]; then setNumberOfProcesses $nTracks ; fi
+	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
