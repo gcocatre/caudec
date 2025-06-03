@@ -1876,32 +1876,33 @@ vorbisCommentsToEyeD3 ()
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
 		case "$field" in
-			ALBUM)                 echo "--album $value" ;;
+			ALBUM)                 echo "--album -- $value" ;;
 			ALBUMARTIST|"ALBUM ARTIST")
-				echo "--album-artist $value"
+				echo "--album-artist -- $value"
 				if [ "$value" = 'Various Artists' -o $setCompilationFlagWithAlbumArtist = true ]; then
 					echo "--text-frame TCMP:1" # iTunes 'compilation' frame
 				fi
 				;;
-			ARTIST)                echo "--artist $value" ;;
-			COMPOSER)              echo "--composer $value" ;;
+			ARTIST)                echo "--artist -- $value" ;;
+			COMPOSER)              echo "--composer -- $value" ;;
 			CONDUCTOR)             echo "--text-frame TPE3=$value" ;;
 			DATE)                  printf -- '--release-year %.4s\n' "$value" ; printf -- '--release-date %.4s\n' "$value" ; printf -- '--orig-release-date %.4s\n' "$value" ; printf -- '--recording-date %.4s\n' "$value" ;;
 			# DESCRIPTION)           echo "--tc $value" ;;
 			DISCNUMBER)            printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
 			DISCTOTAL|TOTALDISCS)  printf -- '--disc-total %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs" ;;
 			ENCODER|ENCODING)      continue ;;
-			GENRE)                 echo "--genre $value" ;;
+			GENRE)                 echo "--genre -- $value" ;;
 			ISRC)                  echo "--text-frame TSRC=$value" ;;
 			LICENSE) if [ "${value:0:7}" = 'http://' ]; then echo "--text-frame WCOP=$value" ; fi ;;
 			LYRICIST)              echo "--text-frame TEXT=$value" ;;
 			PERFORMER)             echo "--text-frame TPE3=$value" ;;
-			PUBLISHER)             echo "--publisher $value" ;;
+			PUBLISHER)             echo "--publisher -- $value" ;;
 			SUBTITLE)              echo "--text-frame TIT3=$value" ;;
-			TITLE)                 echo "--title $value" ;;
+			TITLE)                 echo "--title -- $value" ;;
 			TRACKNUMBER)           printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
 			TRACKTOTAL|TOTALTRACKS) printf -- '--track-total %g\n' "$totalTracks" ;;
-			*)                     echo "--user-text-frame ${field}:${value}" ;;
+			# *)                     echo "--user-text-frame ${field}:${value}" ;;
+			*) continue ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -2036,16 +2037,16 @@ M4AToEyeD3 ()
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
 		case "$field" in
-			album)                 echo "--album $value" ;;
+			album)                 echo "--album -- $value" ;;
 			album_artist)
-				echo "--album-artist $value"
+				echo "--album-artist -- $value"
 				if [ "$value" = 'Various Artists' -o $setCompilationFlagWithAlbumArtist = true ]; then
 					echo "--text-frame TCMP:1" # iTunes 'compilation' frame
 				fi
 				;;
-			artist)                echo "--artist $value" ;;
-			composer)              echo "--composer $value" ;;
-			genre)                 echo "--genre $value" ;;
+			artist)                echo "--artist -- $value" ;;
+			composer)              echo "--composer -- $value" ;;
+			genre)                 echo "--genre -- $value" ;;
 			isrc)                  echo "--text-frame TSRC=$value" ;;
 			disc)
 				case "$value" in
@@ -2057,7 +2058,7 @@ M4AToEyeD3 ()
 						;;
 				esac
 				;;
-			title)                 echo "--title $value" ;;
+			title)                 echo "--title -- $value" ;;
 			track)
 				if [ -n "$totalTracks" ]; then
 					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
@@ -2137,18 +2138,18 @@ APEv2ToEyeD3 ()
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
 		case "$field" in
-			Album)                 echo "--album $value" ;;
+			Album)                 echo "--album -- $value" ;;
 			Albumartist|"Album Artist")
-				echo "--album-artist $value"
+				echo "--album-artist -- $value"
 				if [ "$value" = 'Various Artists' -o $setCompilationFlagWithAlbumArtist = true ]; then
 					echo "--text-frame TCMP:1" # iTunes 'compilation' frame
 				fi
 				;;
-			Artist)                echo "--artist $value" ;;
-			Composer)              echo "--composer $value" ;;
+			Artist)                echo "--artist -- $value" ;;
+			Composer)              echo "--composer -- $value" ;;
 			Conductor)             echo "--text-frame TPE3=$value" ;;
 			Encoder|Encoding)      continue ;;
-			Genre)                 echo "--genre $value" ;;
+			Genre)                 echo "--genre -- $value" ;;
 			ISRC)                  echo "--text-frame TSRC=$value" ;;
 			License) if [ "${value:0:7}" = 'http://' ]; then echo "--text-frame WCOP=$value" ; fi ;;
 			Media|Disc)
@@ -2162,9 +2163,9 @@ APEv2ToEyeD3 ()
 				esac
 				;;
 			Performer)             echo "--text-frame TPE3=$value" ;;
-			Publisher)             echo "--publisher $value" ;;
+			Publisher)             echo "--publisher -- $value" ;;
 			Subtitle)              echo "--text-frame TIT3=$value" ;;
-			Title)                 echo "--title $value" ;;
+			Title)                 echo "--title -- $value" ;;
 			Track)
 				if [ -n "$totalTracks" ]; then
 					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
