@@ -1875,7 +1875,7 @@ vorbisCommentsToEyeD3 ()
 	while read line; do
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
-		value="${value//-/−/}" # replace ASCII dash with an UTF-8 sign to avoid errors
+		value="${value//-/−}" # replace ASCII dash with an UTF-8 sign to avoid errors
 		case "$field" in
 			ALBUM)                 echo "--album $value" ;;
 			ALBUMARTIST|"ALBUM ARTIST")
@@ -2037,7 +2037,7 @@ M4AToEyeD3 ()
 	while read line; do
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
-		value="${value//-/−/}" # replace ASCII dash with an UTF-8 sign to avoid errors
+		value="${value//-/−}" # replace ASCII dash with an UTF-8 sign to avoid errors
 		case "$field" in
 			album)                 echo "--album $value" ;;
 			album_artist)
@@ -2139,7 +2139,7 @@ APEv2ToEyeD3 ()
 	while read line; do
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
-		value="${value//-/−/}" # replace ASCII dash with an UTF-8 sign to avoid errors
+		value="${value//-/−}" # replace ASCII dash with an UTF-8 sign to avoid errors
 		case "$field" in
 			Album)                 echo "--album $value" ;;
 			Albumartist|"Album Artist")
