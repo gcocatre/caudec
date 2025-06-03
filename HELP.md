@@ -1,5 +1,5 @@
 ```
-caudec 2.1.4: multiprocess audio converter
+caudec 2.1.5: multiprocess audio converter
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
@@ -110,10 +110,9 @@ Encoding options:
             a list of valid values)
 
   -b ARG    constant or target bitrate in bits per sample (for -c wvh/wvl)
-            or in kilobits per second (for -c wvh/wvl, opus, mp3, ogg/vorbis)
+            or in kilobits per second (for all lossy codecs)
 
-  -B ARG    average bitrate in kilobits per second (for -c mp3, aac (m4a),
-            ogg/vorbis, opus)
+  -B ARG    average bitrate in kilobits per second (for all lossy codecs)
 
   -G ARG    MP3: apply ReplayGain (album or track) if found in source file
             metadata, after decoding and BEFORE encoding (irreversible).

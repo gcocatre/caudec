@@ -6,26 +6,30 @@
 
 # default compression levels (try 'caudec -c CODEC -q help' for a full list of possible values)
 compression_FLAC=5 # 0-8
-compression_WavPack=g # [f|g|h|hh][x[1-6]]
-bitrate_WavPackLossy=320 # 2.9-23.9 or 24-9600
-compression_MonkeysAudio=2 # 1-5
 compression_lossyWAV=S # X, P, C, S, H, E, I
+compression_MonkeysAudio=2 # 1-5
+compression_WavPack=gx1 # [f|g|h|hh][x[1-6]]
+bitrate_WavPackLossy=256 # 2.9-23.9 or 24-9600
 
-compression_MP3=2 # 0-9, used with MP3_MODE='VBR'
-bitrate_MP3=320 # 16-320, used with MP3_MODE='CBR'
+bitrate_AAC=128 # 8-320, always average bitrate
+average_bitrate_AAC=128 # 8-320, always average bitrate
+AAC_MODE='ABR' # 'ABR' (average bitrate) or 'CBR' (constant bitrate)
+
+compression_MP3=3 # 0-9, used with MP3_MODE='VBR'
+bitrate_MP3=128 # 16-320, used with MP3_MODE='CBR'
 average_bitrate_MP3=256 # 8-310, used with MP3_MODE='ABR'
-MP3_MODE='VBR' # 'VBR' (variable bitrate), 'CBR' (constant bitrate) or 'ABR' (average bitrate)
+MP3_MODE='VBR' # 'VBR' (variable bitrate), 'ABR' (average bitrate) or 'CBR' (constant bitrate)
 ID3Padding=512 # size in bytes of padding to add to ID3v2 tags
 
-compression_OggVorbis=5 # 0-10, used with OggVorbis_MODE='VBR'
-bitrate_OggVorbis=256 # 32-500, used with OggVorbis_MODE='CBR'
-average_bitrate_OggVorbis=256 # 32-500, used with OggVorbis_MODE='ABR'
-OggVorbis_MODE='VBR' # 'VBR' (variable bitrate), 'CBR' (constant bitrate) or 'ABR' (average bitrate)
+compression_OggVorbis=3 # 0-10, used with OggVorbis_MODE='VBR'
+bitrate_OggVorbis=96 # 32-500, used with OggVorbis_MODE='CBR'
+average_bitrate_OggVorbis=96 # 32-500, used with OggVorbis_MODE='ABR'
+OggVorbis_MODE='VBR' # 'VBR' (variable bitrate), 'ABR' (average bitrate) or 'CBR' (constant bitrate)
 
 compression_Opus=96 # 6-320, used with Opus_MODE='VBR'
 bitrate_Opus=96 # 6-320, used with Opus_MODE='CBR'
 average_bitrate_Opus=96 # 6-320, used with Opus_Mode='ABR'
-Opus_MODE='VBR' # 'VBR' (variable bitrate), 'CBR' (constant bitrate) or 'ABR' (average bitrate)
+Opus_MODE='VBR' # 'VBR' (variable bitrate), 'ABR' (average bitrate) or 'CBR' (constant bitrate)
 
 # output to this directory by default
 # example: defaultDestination="${HOME}/Music"
@@ -63,7 +67,7 @@ preventClipping=true # reduce volume to prevent clipping, when resampling or app
 setCompilationFlagWithAlbumArtist=false # always true when ALBUMARTIST="Various Artists" regardless of this setting
 keepWavMetadata=false # set to true to keep WAV metadata with FLAC and WavPack
 tagCompressionSetting=true # store the compression setting in metadata
-ignoreUnsupportedFiles=false # set to true to prevent caudec from aborting when some of the input files are unsupported
+ignoreUnsupportedFiles=true # set to true to prevent caudec from aborting when some of the input files are unsupported
 hashes='' # comma separated list of hashes to compute and tag (CRC32, MD5, SHA1, SHA256 and / or SHA512)
 enableColors=true # Enable colors in human-readable output
 useBrightColors=true # If enableColors=true, use bright colors (instead of darker ones)

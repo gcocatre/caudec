@@ -20,7 +20,7 @@
 
 me='caudec'
 calledAs="${0##*/}"
-VERSION='2.1.4'
+VERSION='2.1.5'
 
 # EX_USAGE: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # EX_DATAERR: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -87,12 +87,12 @@ esac
 
 # true by default
 if [ "$preventClipping" = "false" ]; then preventClipping=false; else preventClipping=true; fi
+if [ "$ignoreUnsupportedFiles" = "false" ]; then ignoreUnsupportedFiles=false; else ignoreUnsupportedFiles=true; fi
 
 # false by default
 if [ "$tagCompressionSetting" = "true" ]; then tagCompressionSetting=true; else tagCompressionSetting=false; fi
 if [ "$setCompilationFlagWithAlbumArtist" = "true" ]; then setCompilationFlagWithAlbumArtist=true; else setCompilationFlagWithAlbumArtist=false; fi
 if [ "$keepWavMetadata" = "true" ]; then keepWavMetadata=true; else keepWavMetadata=false; fi
-if [ "$ignoreUnsupportedFiles" = "true" ]; then ignoreUnsupportedFiles=true; else ignoreUnsupportedFiles=false; fi
 
 test -z "$hashes" && hashes=''
 if [ -n "$hashes" ]; then
@@ -153,6 +153,12 @@ maxFlacThreads=128
 maxWavPackThreads=12
 
 # Functions ====================================================================
+
+debug ()
+{
+	local str="$1"
+	echo -e "${WG}>>> DEBUG:${NM} $str" 1>&2
+}
 
 printUsage ()
 {
@@ -277,10 +283,9 @@ Encoding options:
             a list of valid values)
 
   -b ARG    constant or target bitrate in bits per sample (for -c wvh/wvl)
-            or in kilobits per second (for -c wvh/wvl, opus, mp3, ogg/vorbis)
+            or in kilobits per second (for all lossy codecs)
 
-  -B ARG    average bitrate in kilobits per second (for -c mp3, aac (m4a),
-            ogg/vorbis, opus)
+  -B ARG    average bitrate in kilobits per second (for all lossy codecs)
 
   -G ARG    MP3: apply ReplayGain (album or track) if found in source file
             metadata, after decoding and BEFORE encoding (irreversible).
@@ -629,48 +634,38 @@ printMessage ()
 
 getCompressionSetting ()
 {
-	local c="$1" v="$2" s="$3" errormsg="$me -q:"
+	local codec="$1" value="$2" source="$3" errormsg
 
-	if [ -n "$s" ]; then
+	if [ -n "$source" ]; then
 		errormsg="Configuration error (caudecrc):"
+	else
+		errormsg="$me -q:"
 	fi
 
-	case "$c" in
+	case "$codec" in
+		AAC)
+			if [ -z "$value" ]; then value=1; fi
+			case "$value" in
+				[0-9]|1[0-4]) compression_AAC="$value" ;; # ffmpeg aac_at
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $codec must be an integer between 0 and 14" ; exit $EX_USAGE ;;
+			esac
+			;;
+
 		FLAC)
-			case "$v" in
-				[0-8]) compression_FLAC="$v" ;;
+			if [ -z "$value" ]; then value=5; fi
+			case "$value" in
+				[0-8]) compression_FLAC="$value" ;;
 				f|fast) compression_FLAC=0 ;;
 				b|best) compression_FLAC=8 ;;
-				'') compression_FLAC=5 ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be an integer between 0 and 8, or one of fast or best" ; exit $EX_USAGE ;;
-			esac
-			;;
-
-		WavPack|WavPackHybrid|WavPackLossy)
-			case "$v" in
-				x|x[1-6]|g|gx|gx[1-6]|f|fx|fx[1-6]|h|hx|hx[1-6]|hh|hhx|hhx[1-6]) compression_WavPack="$v" ;;
-				'') compression_WavPack='g' ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be a combination of [f|g|h|hh][x[1-6]]" ; exit $EX_USAGE ;;
-			esac
-			;;
-
-		MonkeysAudio)
-			case "$v" in
-				[1-5]) compression_MonkeysAudio="$v" ;;
-				fast) compression_MonkeysAudio=1 ;;
-				normal) compression_MonkeysAudio=2 ;;
-				high) compression_MonkeysAudio=3 ;;
-				extra*) compression_MonkeysAudio=4 ;;
-				insane) compression_MonkeysAudio=5 ;;
-				'') compression_MonkeysAudio=2 ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be a number between 1 and 5, or one of fast, normal, high, extra, insane" ; exit $EX_USAGE ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $codec must be an integer between 0 and 8, or one of fast or best" ; exit $EX_USAGE ;;
 			esac
 			;;
 
 		lossyWAV|lossyFLAC|lossyWV)
-			case "$v" in
-				x|p|c|s|h|e|i) compression_lossyWAV="$( echo "$v" | tr '[:lower:]' '[:upper:]' )" ;;
-				X|P|C|S|H|E|I) compression_lossyWAV="$v" ;;
+			if [ -z "$value" ]; then value="S"; fi
+			case "$value" in
+				x|p|c|s|h|e|i) compression_lossyWAV="$( echo "$value" | tr '[:lower:]' '[:upper:]' )" ;;
+				X|P|C|S|H|E|I) compression_lossyWAV="$value" ;;
 				extraportable) compression_lossyWAV='X' ;;
 				portable) compression_lossyWAV='P' ;;
 				economic) compression_lossyWAV='C' ;;
@@ -678,185 +673,182 @@ getCompressionSetting ()
 				high) compression_lossyWAV='H' ;;
 				extreme) compression_lossyWAV='E' ;;
 				insane) compression_lossyWAV='I' ;;
-				'') compression_lossyWAV='S' ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be one of X, P, C, S, H, E, I, or one of extraportable, portable, economic, standard, high, extreme or insane" ; exit $EX_USAGE ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $codec must be one of X, P, C, S, H, E, I, or one of extraportable, portable, economic, standard, high, extreme or insane" ; exit $EX_USAGE ;;
+			esac
+			;;
+
+		MonkeysAudio)
+			if [ -z "$value" ]; then value="2"; fi
+			case "$value" in
+				[1-5]) compression_MonkeysAudio="$value" ;;
+				fast) compression_MonkeysAudio=1 ;;
+				normal) compression_MonkeysAudio=2 ;;
+				high) compression_MonkeysAudio=3 ;;
+				extra*) compression_MonkeysAudio=4 ;;
+				insane) compression_MonkeysAudio=5 ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $codec must be a number between 1 and 5, or one of fast, normal, high, extra, insane" ; exit $EX_USAGE ;;
 			esac
 			;;
 
 		MP3)
-			case "$v" in
-				[0-9]) compression_MP3="$v" ;;
+			if [ -z "$value" ]; then value="3"; fi
+			case "$value" in
+				[0-9]) compression_MP3="$value" ;;
 				medium) compression_MP3=4 ;;
 				standard) compression_MP3=2 ;;
 				extreme) compression_MP3=0 ;;
 				insane|320) compression_MP3=320 ;;
-				'') compression_MP3=2 ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be an integer between 0 and 9 or one of medium, standard, extreme, insane or 320" ; exit $EX_USAGE ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $codec must be an integer between 0 and 9 or one of medium, standard, extreme, insane or 320" ; exit $EX_USAGE ;;
 			esac
 			;;
 
 		OggVorbis)
-			case "$v" in
-				[0-9]|10) compression_OggVorbis="$v" ;;
-				'') compression_OggVorbis=3 ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $c must be an integer between 0 and 10" ; exit $EX_USAGE ;;
+			if [ -z "$value" ]; then value="3"; fi
+			case "$value" in
+				[0-9]|10) compression_OggVorbis="$value" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $codec must be an integer between 0 and 10" ; exit $EX_USAGE ;;
 			esac
 			;;
 
-		Opus)
-			if [ -z "$v" ]; then
-				compression_Opus=128
-			else
-				case "$v" in
-					[6-9]|[1-9][0-9]|[1-3][0-9][0-9]) true ;;
-					*) printMessage 'error' 'usage' 'bad_value' "$errormsg target bitrate for $c must be an integer between 6 and 320 in kilobits per second" ; exit $EX_USAGE ;;
-				esac
-				if [ $v -lt 6 -o $v -gt 320 ]; then
-					printMessage 'error' 'usage' 'bad_value' "$errormsg target bitrate for $c must be an integer between 6 and 320 in kilobits per second" ; exit $EX_USAGE
-				fi
-				compression_Opus="$v"
-			fi
+		WavPack|WavPackHybrid|WavPackLossy)
+			if [ -z "$value" ]; then value="gx1"; fi
+			case "$value" in
+				x|x[1-6]|g|gx|gx[1-6]|f|fx|fx[1-6]|h|hx|hx[1-6]|hh|hhx|hhx[1-6]) compression_WavPack="$value" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $codec must be a combination of [f|g|h|hh][x[1-6]]" ; exit $EX_USAGE ;;
+			esac
 			;;
 	esac
 }
 
 getConstantBitrate ()
 {
-	local c="$1" v="$2" s="$3" errormsg="$me -b:"
+	local codec="$1" bitrate="$2" source="$3" errormsg
 
-	if [ -n "$s" ]; then
+	if [ -n "$source" ]; then
 		errormsg="Configuration error (caudecrc):"
+	else
+		errormsg="$me -b:"
 	fi
 
-	case "$c" in
-		WavPackHybrid|WavPackLossy)
-			if [ -z "$v" ]; then
-				bitrate_WavPackLossy=320
-			else
-				case "$v" in
-					[2-9]|[2-9].[0-9]|1[0-9]|1[0-9].[0-9]|2[0-3]|2[0-3].[0-9]) true ;;
-					[2-9][0-9]|[1-9][0-9][0-9]|[1-9][0-9][0-9][0-9]) true ;;
-					*) printMessage 'error' 'usage' 'bad_value' "$errormsg target bitrate for $c must be a float between 2.0 and 23.9 in bits per sample, or an integer between 24 and 9600 in kilobits per second" ; exit $EX_USAGE ;;
-				esac
-				if [ "${v%.*}" -lt 2 -o "${v%.*}" -gt 9600 ]; then
-					printMessage 'error' 'usage' 'bad_value' "$errormsg target bitrate for $c must be a float between 2.0 and 23.9 in bits per sample, or an integer between 24 and 9600 in kilobits per second" ; exit $EX_USAGE
-				fi
-				bitrate_WavPackLossy="$v"
-			fi
+	case "$codec" in
+		AAC)
+			if [ -z "$bitrate" ]; then bitrate=128; fi # ffmpeg default
+			case "$bitrate" in
+				[0-9]|[1-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) bitrate_AAC="$bitrate" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $codec must be an integer between 0 and 320 in kilobits per second" ; exit $EX_USAGE ;;
+			esac
 			;;
 
 		MP3)
-			if [ -z "$v" ]; then
-				bitrate_MP3=320
-			else
-				case "$v" in
-					1[6-9]|[2-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) bitrate_MP3="$v" ;;
-					*) printMessage 'error' 'usage' 'bad_value' "$errormsg constant bitrate for $c must be an integer between 16 and 320 in kilobits per second" ; exit $EX_USAGE ;;
-				esac
-			fi
+			if [ -z "$bitrate" ]; then bitrate=128; fi # LAME default
+			case "$bitrate" in
+				1[6-9]|[2-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) bitrate_MP3="$bitrate" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg constant bitrate for $codec must be an integer between 16 and 320 in kilobits per second" ; exit $EX_USAGE ;;
+			esac
 			;;
 
 		OggVorbis)
-			if [ -z "$v" ]; then
-				bitrate_OggVorbis=256
-			else
-				case "$v" in
-					3[2-9][4-9][0-9]|[1-4][0-9][0-9]|500) bitrate_OggVorbis="$v" ;;
-					*) printMessage 'error' 'usage' 'bad_value' "$errormsg constant bitrate for $c must be an integer between 32 and 500 in kilobits per second" ; exit $EX_USAGE ;;
-				esac
-			fi
+			if [ -z "$bitrate" ]; then bitrate=96; fi # oggenc default
+			case "$bitrate" in
+				3[2-9]|[4-9][0-9]|[1-4][0-9][0-9]|500) bitrate_OggVorbis="$bitrate" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg target bitrate for $codec must be an integer between 32 and 500 in kilobits per second" ; exit $EX_USAGE ;;
+			esac
 			;;
 
 		Opus)
-			if [ -z "$v" ]; then
-				bitrate_Opus=128
-			else
-				case "$v" in
-					[6-9]|[1-9][0-9]|[1-3][0-9][0-9]) true ;;
-					*) printMessage 'error' 'usage' 'bad_value' "$errormsg constant bitrate for $c must be an integer between 6 and 320 in kilobits per second" ; exit $EX_USAGE ;;
-				esac
-				if [ $v -lt 6 -o $v -gt 320 ]; then
-					printMessage 'error' 'usage' 'bad_value' "$errormsg constant bitrate for $c must be an integer between 6 and 320 in kilobits per second" ; exit $EX_USAGE
-				fi
-				bitrate_Opus="$v"
-			fi
+			if [ -z "$bitrate" ]; then bitrate=96; fi # opusenc default
+			case "$bitrate" in
+				[6-9]|[1-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) bitrate_Opus="$bitrate" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg target bitrate for $codec must be an integer between 6 and 320 in kilobits per second" ; exit $EX_USAGE ;;
+			esac
+			;;
+
+		WavPackHybrid|WavPackLossy)
+			if [ -z "$bitrate" ]; then bitrate=256; fi # WavPack default
+			case "$bitrate" in
+				[2-9]|[2-9].[0-9]|1[0-9]|1[0-9].[0-9]|2[0-3]|2[0-3].[0-9]) bitrate_WavPackLossy="$bitrate" ;;
+				2[4-9]|[2-9][0-9]|[1-9][0-9][0-9]|[1-8][0-9][0-9][0-9]|9[0-5][0-9][0-9]|9600) bitrate_WavPackLossy="$bitrate" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg target bitrate for $codec must be a float between 2.0 and 23.9 in bits per sample, or an integer between 24 and 9600 in kilobits per second" ; exit $EX_USAGE ;;
+			esac
 			;;
 	esac
 }
 
 getAverageBitrate ()
 {
-	local c="$1" v="$2" s="$3" errormsg="$me -B:"
+	local codec="$1" bitrate="$2" source="$3" errormsg
 
-	if [ -n "$s" ]; then
+	if [ -n "$source" ]; then
 		errormsg="Configuration error (caudecrc):"
+	else
+		errormsg="$me -B:"
 	fi
 
-	case "$c" in
-		MP3)
-			if [ -z "$v" ]; then
-				average_bitrate_MP3=256
-			else
-				case "$v" in
-					[8-9]|[1-9][0-9]|[1-2][0-9][0-9]|30[0-9]|310) average_bitrate_MP3="$v" ;;
-					*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $c must be an integer between 8 and 310 in kilobits per second" ; exit $EX_USAGE ;;
-				esac
-			fi
+	case "$codec" in
+		AAC)
+			if [ -z "$bitrate" ]; then bitrate=128; fi # ffmpeg default
+			case "$bitrate" in
+				[0-9]|[1-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) average_bitrate_AAC="$bitrate" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $codec must be an integer between 0 and 320 in kilobits per second" ; exit $EX_USAGE ;;
+			esac
 			;;
 
-		AAC)
-			if [ -z "$v" ]; then
-				average_bitrate_AAC=256
-			else
-				case "$v" in
-					[0-9]|[1-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) average_bitrate_AAC="$v" ;;
-					*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $c must be an integer between 0 and 320 in kilobits per second" ; exit $EX_USAGE ;;
-				esac
-			fi
+		MP3)
+			if [ -z "$bitrate" ]; then bitrate=128; fi # LAME default
+			case "$bitrate" in
+				[8-9]|[1-9][0-9]|[1-2][0-9][0-9]|30[0-9]|310) average_bitrate_MP3="$bitrate" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $codec must be an integer between 8 and 310 in kilobits per second" ; exit $EX_USAGE ;;
+			esac
 			;;
 
 		OggVorbis)
-			if [ -z "$v" ]; then
-				average_bitrate_OggVorbis=256
-			else
-				case "$v" in
-					3[2-9][4-9][0-9]|[1-4][0-9][0-9]|500) average_bitrate_OggVorbis="$v" ;;
-					*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $c must be an integer between 32 and 500 in kilobits per second" ; exit $EX_USAGE ;;
-				esac
-			fi
+			if [ -z "$bitrate" ]; then bitrate=96; fi # oggenc default
+			case "$bitrate" in
+				3[2-9]|[4-9][0-9]|[1-4][0-9][0-9]|500) average_bitrate_OggVorbis="$bitrate" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $codec must be an integer between 32 and 500 in kilobits per second" ; exit $EX_USAGE ;;
+			esac
 			;;
 
 		Opus)
-			if [ -z "$v" ]; then
-				average_bitrate_Opus=128
-			else
-				case "$v" in
-					[6-9]|[1-9][0-9]|[1-3][0-9][0-9]) true ;;
-					*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $c must be an integer between 6 and 320 in kilobits per second" ; exit $EX_USAGE ;;
-				esac
-				if [ $v -lt 6 -o $v -gt 320 ]; then
-					printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $c must be an integer between 6 and 320 in kilobits per second" ; exit $EX_USAGE
-				fi
-				average_bitrate_Opus="$v"
-			fi
+			if [ -z "$bitrate" ]; then bitrate=96; fi # opusenc default
+			case "$bitrate" in
+				[6-9]|[1-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) average_bitrate_Opus="$bitrate" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $codec must be an integer between 6 and 320 in kilobits per second" ; exit $EX_USAGE ;;
+			esac
+			;;
+
+		WavPackHybrid|WavPackLossy)
+			if [ -z "$bitrate" ]; then bitrate=256; fi # WavPack default
+			case "$bitrate" in
+				[2-9]|[2-9].[0-9]|1[0-9]|1[0-9].[0-9]|2[0-3]|2[0-3].[0-9]) bitrate_WavPackLossy="$bitrate" ;;
+				2[4-9]|[2-9][0-9]|[1-9][0-9][0-9]|[1-8][0-9][0-9][0-9]|9[0-5][0-9][0-9]|9600) bitrate_WavPackLossy="$bitrate" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg target bitrate for $codecodec must be a float between 2.0 and 23.9 in bits per sample, or an integer between 24 and 9600 in kilobits per second" ; exit $EX_USAGE ;;
+			esac
 			;;
 	esac
 }
 
 getBitrateMode ()
 {
-	local c="$1" mode="$2"
+	local codec="$1" mode="$2"
 
 	case "$mode" in
 		cbr|abr|vbr) mode="$( echo "$mode" | tr '[:lower:]' '[:upper:]' )" ;;
 		CBR|ABR|VBR) true ;;
 		'') mode='VBR' ;;
-		*) printMessage 'error' 'usage' 'bad_value' "Configuration error (caudecrc): bitrate mode for $c must be one of VBR, ABR or CBR" ; exit $EX_USAGE ;;
+		*) printMessage 'error' 'usage' 'bad_value' "Configuration error (caudecrc): bitrate mode for $codec must be one of VBR, ABR or CBR" ; exit $EX_USAGE ;;
 	esac
 
-	case "$c" in
+	case "$codec" in
+		AAC)
+			if [ "$mode" != "CBR" -a "$mode" != "ABR" ]; then
+				printMessage 'error' 'usage' 'bad_value' "Configuration error (caudecrc): bitrate mode for $codec must be one of ABR or CBR"
+				exit $EX_USAGE
+			else
+				AAC_MODE="$mode"
+			fi
+			;;
 		MP3) MP3_MODE="$mode" ;;
-		AAC) AAC_MODE="ABR" ;;
 		OggVorbis) OggVorbis_MODE="$mode" ;;
 		Opus) Opus_MODE="$mode" ;;
 	esac
@@ -1165,7 +1157,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 		elif [ $keepNewerFiles = true ]; then
 			printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: all or some destination files are newer than their source, nothing to do."
 		fi
-		printMessage 'warning' 'usage' 'filesystem' 'verbose' "no files to work with, nothing to do."
+		printMessage 'warning' 'usage' 'filesystem' 'verbose' "no supported files to work with, nothing to do."
 		printMessage 'abort' 'verbose'
 		cleanExit $ec
 	else
@@ -1894,7 +1886,7 @@ vorbisCommentsToEyeD3 ()
 			ARTIST)                echo "--artist $value" ;;
 			COMPOSER)              echo "--composer $value" ;;
 			CONDUCTOR)             echo "--text-frame TPE3=$value" ;;
-			DATE)                  printf -- '--release-year %.4s\n' "$value" ; printf -- '--release-date %.4s\n' "$value" ;;
+			DATE)                  printf -- '--release-year %.4s\n' "$value" ; printf -- '--release-date %.4s\n' "$value" ; printf -- '--orig-release-date %.4s\n' "$value" ; printf -- '--recording-date %.4s\n' "$value" ;;
 			# DESCRIPTION)           echo "--tc $value" ;;
 			DISCNUMBER)            printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
 			DISCTOTAL|TOTALDISCS)  printf -- '--disc-total %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs" ;;
@@ -1957,8 +1949,8 @@ vorbisCommentsToM4A ()
 				fi
 				;;
 			TRACKTOTAL|TOTALTRACKS) continue ;;
-			cdec|encoding*|itunnorm|itunsmpb|tool) continue ;;
-			# *)                     echo "-meta-user:${field}=${value}" ;;
+			cdec|encoding|itunnorm|itunsmpb|tool) continue ;;
+			*) continue ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -2074,7 +2066,7 @@ M4AToEyeD3 ()
 					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
-			year)                  printf -- '--release-year %.4s\n' "$value" ; printf -- '--release-date %.4s\n' "$value" ;;
+			year)                  printf -- '--release-year %.4s\n' "$value" ; printf -- '--release-date %.4s\n' "$value" ; printf -- '--orig-release-date %.4s\n' "$value" ; printf -- '--recording-date %.4s\n' "$value" ;;
 			*) continue ;;
 		esac
 	done < "$sourceTagFile"
@@ -2181,8 +2173,9 @@ APEv2ToEyeD3 ()
 					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
-			Year)                  printf -- '--release-year %.4s\n' "$value" ; printf -- '--release-date %.4s\n' "$value" ;;
-			*)                     echo "--user-text-frame ${field}:${value}" ;;
+			Year)                  printf -- '--release-year %.4s\n' "$value" ; printf -- '--release-date %.4s\n' "$value" ; printf -- '--orig-release-date %.4s\n' "$value" ; printf -- '--recording-date %.4s\n' "$value" ;;
+			# *)                     echo "--user-text-frame ${field}:${value}" ;;
+			*) continue ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -2232,7 +2225,7 @@ APEv2ToM4A ()
 				;;
 			Year)                  printf -- '-metadata date=%.4s\n' "$value" ;;
 			cdec|encoding*|itunnorm|itunsmpb|tool) continue ;;
-			# *)                     echo "-meta-user:${field}=${value}" ;;
+			*) continue ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -3761,6 +3754,7 @@ encode ()
 {
 	local ec=$EX_OK pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses nThreads=1 listOfOtherFiles
 	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag='' nChannels
+	local compression_param quality_arg
 
 	getFileProps "$sourceFile" "$outputCodec"
 	case "$outputCodec" in
@@ -3782,6 +3776,25 @@ encode ()
 			sox "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			;;
 
+		ALAC)
+			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt"
+			nThreads=$( getNumberOfAvailableThreads $index )
+			if [ -z "$sourceCoverArtFile" ]; then
+				for f in "${SWAPDIR}/picture-${index}-"*_*; do
+					if [ ! -e "$f" ]; then continue; fi
+					picType="${f#*_}"; picType="${picType%.*}"
+					case $picType in
+						3) sourceCoverArtFile="$f" ; break ;;
+					esac
+				done
+			fi
+			if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
+				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a alac >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			else
+				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a alac >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			fi
+			;;
+
 		FLAC)
 			destExtension='flac'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt" kfm=''
 			# Kohlrabi is a very cool dude
@@ -3790,6 +3803,18 @@ encode ()
 			nThreads=$( getNumberOfAvailableThreads $index $maxFlacThreads )
 			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P 4096 $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
 			importArtworkIntoFLAC || ec=$EX_KO
+			;;
+
+		MonkeysAudio)
+			destExtension='ape'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt"
+			nThreads=$( getNumberOfAvailableThreads $index )
+			mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 -threads=${nThreads} >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
+				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
+				printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				importBinariesIntoAPEv2 || ec=$EX_KO
+				importArtworkIntoAPEv2 || ec=$EX_KO
+			fi
 			;;
 
 		WavPack)
@@ -3860,18 +3885,6 @@ encode ()
 			fi
 			;;
 
-		MonkeysAudio)
-			destExtension='ape'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt"
-			nThreads=$( getNumberOfAvailableThreads $index )
-			mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 -threads=${nThreads} >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-			if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
-				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$me $VERSION / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
-				printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				importBinariesIntoAPEv2 || ec=$EX_KO
-				importArtworkIntoAPEv2 || ec=$EX_KO
-			fi
-			;;
-
 		lossyFLAC)
 			destExtension='lossy.flac'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt"
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
@@ -3888,20 +3901,6 @@ encode ()
 			if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 				importBinariesIntoAPEv2 || ec=$EX_KO
 				importArtworkIntoAPEv2 || ec=$EX_KO
-			fi
-			;;
-
-		OggVorbis)
-			destExtension='ogg'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt"
-			if [ "$OggVorbis_MODE" = 'VBR' ]; then
-				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / -q $compression_OggVorbis"; fi
-				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc -q $compression_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-			elif [ "$OggVorbis_MODE" = 'ABR' ]; then
-				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / $average_bitrate_OggVorbis kbps (ABR)"; fi
-				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $average_bitrate_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-			else
-				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / $bitrate_OggVorbis kbps (CBR)"; fi
-				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $bitrate_OggVorbis -m $bitrate_OggVorbis -M $bitrate_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			fi
 			;;
 
@@ -3931,29 +3930,7 @@ encode ()
 			;;
 
 		AAC)
-			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt" aaclibs=("aac" "libfdk_aac" "aac_at") aaclib=""
-			nThreads=$( getNumberOfAvailableThreads $index )
-			for aaclib in "${aaclibs[@]}"; do
-				if [ -z "$sourceCoverArtFile" ]; then
-					for f in "${SWAPDIR}/picture-${index}-"*_*; do
-						if [ ! -e "$f" ]; then continue; fi
-						picType="${f#*_}"; picType="${picType%.*}"
-						case $picType in
-							3) sourceCoverArtFile="$f" ; break ;;
-						esac
-					done
-				fi
-				if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				else
-					printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a $aaclib -b:a "${average_bitrate_AAC}k" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
-				fi
-				if [ $ec -eq $EX_OK ]; then break; fi
-			done
-			;;
-
-		ALAC)
-			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt"
+			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt" aaclibs=("aac_at" "libfdk_aac" "aac") aaclib=""
 			nThreads=$( getNumberOfAvailableThreads $index )
 			if [ -z "$sourceCoverArtFile" ]; then
 				for f in "${SWAPDIR}/picture-${index}-"*_*; do
@@ -3964,10 +3941,67 @@ encode ()
 					esac
 				done
 			fi
-			if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a alac >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+
+			# https://trac.ffmpeg.org/wiki/Encode/AAC
+			for aaclib in "${aaclibs[@]}"; do
+				case "$aaclib" in
+					aac_at)
+						if [ "$AAC_MODE" = "ABR" -a -n "$average_bitrate_AAC" ]; then
+							compression_param="-aac_at_mode abr -b:a" quality_arg="${average_bitrate_AAC}k"
+						else
+							compression_param="-b:a" quality_arg="${bitrate_AAC}k"
+						fi
+						# debug "aaclib [$aaclib] compression_param[$compression_param] quality_arg[$quality_arg]"
+						if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
+						else
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
+						fi
+						if [ $ec -ne $EX_KO ]; then ec=$EX_OK; break; fi
+						;;
+
+					libfdk_aac)
+						compression_param="-b:a" quality_arg="${bitrate_AAC}k"
+						# debug "aaclib [$aaclib] compression_param[$compression_param] quality_arg[$quality_arg]"
+						if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
+						else
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
+						fi
+						if [ $ec -ne $EX_KO ]; then ec=$EX_OK; break; fi
+						;;
+
+					aac)
+						if [ "$AAC_MODE" != "CBR" ]; then
+							if [ -z "$average_bitrate_AAC" -o "$average_bitrate_AAC" != "$bitrate_AAC" ]; then
+								bitrate_AAC="$average_bitrate_AAC"
+							fi
+						fi
+						compression_param="-b:a" quality_arg="${bitrate_AAC}k"
+						# debug "aaclib [$aaclib] compression_param[$compression_param] quality_arg[$quality_arg]"
+						if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
+						else
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
+						fi
+						if [ $ec -ne $EX_KO ]; then ec=$EX_OK; break; fi
+						;;
+				esac
+				if [ $ec -eq $EX_OK ]; then break; fi
+			done
+			;;
+
+		OggVorbis)
+			destExtension='ogg'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt"
+			if [ "$OggVorbis_MODE" = 'VBR' ]; then
+				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / -q $compression_OggVorbis"; fi
+				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc -q $compression_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			elif [ "$OggVorbis_MODE" = 'ABR' ]; then
+				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / $average_bitrate_OggVorbis kbps (ABR)"; fi
+				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $average_bitrate_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			else
-				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a alac >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / oggenc $oggencVersion / $bitrate_OggVorbis kbps (CBR)"; fi
+				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $bitrate_OggVorbis -m $bitrate_OggVorbis -M $bitrate_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			fi
 			;;
 
@@ -3977,7 +4011,7 @@ encode ()
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $opusVersion / $compression_Opus kbps (VBR)"; fi
 				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --vbr --bitrate $compression_Opus >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			elif [ "$Opus_MODE" = 'ABR' ]; then
-				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $opusVersion / $average_bitrate_Opus kbps (CVBR)"; fi
+				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $opusVersion / $average_bitrate_Opus kbps (ABR)"; fi
 				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --cvbr --bitrate $average_bitrate_Opus >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			else
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$me $VERSION / $opusVersion / $bitrate_Opus kbps (CBR)"; fi
@@ -6045,26 +6079,28 @@ if [ -n "$hashes" ]; then
 	hashes="$( echo -n "$hashes" | tr '[:lower:]' '[:upper:]' )"
 fi
 
+getCompressionSetting 'AAC' "$compression_AAC" 'caudecrc'
 getCompressionSetting 'FLAC' "$compression_FLAC" 'caudecrc'
-getCompressionSetting 'WavPack' "$compression_WavPack" 'caudecrc'
-getCompressionSetting 'MonkeysAudio' "$compression_MonkeysAudio" 'caudecrc'
 getCompressionSetting 'lossyWAV' "$compression_lossyWAV" 'caudecrc'
+getCompressionSetting 'MonkeysAudio' "$compression_MonkeysAudio" 'caudecrc'
 getCompressionSetting 'MP3' "$compression_MP3" 'caudecrc'
 getCompressionSetting 'OggVorbis' "$compression_OggVorbis" 'caudecrc'
 getCompressionSetting 'Opus' "$compression_Opus" 'caudecrc'
+getCompressionSetting 'WavPack' "$compression_WavPack" 'caudecrc'
 
-getConstantBitrate 'WavPackLossy' "$bitrate_WavPackLossy" 'caudecrc'
+getConstantBitrate 'AAC' "$bitrate_AAC" 'caudecrc'
 getConstantBitrate 'MP3' "$bitrate_MP3" 'caudecrc'
 getConstantBitrate 'OggVorbis' "$bitrate_OggVorbis" 'caudecrc'
 getConstantBitrate 'Opus' "$bitrate_Opus" 'caudecrc'
+getConstantBitrate 'WavPackLossy' "$bitrate_WavPackLossy" 'caudecrc'
 
-getAverageBitrate 'MP3' "$average_bitrate_MP3" 'caudecrc'
 getAverageBitrate 'AAC' "$average_bitrate_AAC" 'caudecrc'
+getAverageBitrate 'MP3' "$average_bitrate_MP3" 'caudecrc'
 getAverageBitrate 'OggVorbis' "$average_bitrate_OggVorbis" 'caudecrc'
 getAverageBitrate 'Opus' "$average_bitrate_Opus" 'caudecrc'
 
-getBitrateMode 'MP3' "$MP3_MODE" 'caudecrc'
 getBitrateMode 'AAC' "$AAC_MODE" 'caudecrc'
+getBitrateMode 'MP3' "$MP3_MODE" 'caudecrc'
 getBitrateMode 'OggVorbis' "$OggVorbis_MODE" 'caudecrc'
 getBitrateMode 'Opus' "$Opus_MODE" 'caudecrc'
 
@@ -6345,13 +6381,14 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				alac)                lastCodec='ALAC' ;;
 				wv)                  lastCodec='WavPack' ;;
 				wvh)                 lastCodec='WavPackHybrid' ;;
+
 				wvl)                 lastCodec='WavPackLossy' ;;
+				aac)                 lastCodec='AAC' ;;
 				ape)                 lastCodec='MonkeysAudio' ;;
 				lossyWAV|lossywav)   lastCodec='lossyWAV'; ((nLossyWAV++)) ; copyLossyWAV=true ;;
 				lossyFLAC|lossyflac) lastCodec='lossyFLAC'; ((nLossyWAV++)) ;;
 				lossyWV|lossywv)     lastCodec='lossyWV'; ((nLossyWAV++)) ;;
 				mp3)                 lastCodec='MP3' ;;
-				aac)                 lastCodec='AAC' ;;
 				ogg|vorbis)          lastCodec='OggVorbis' ;;
 				opus)                lastCodec='Opus' ;;
 				*) printMessage 'error' 'usage' 'bad_value' "$me -c: invalid codec (try $me -h)" ; exit $EX_USAGE ;;
@@ -6389,14 +6426,15 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			fi
 
 			case "$lastCodec" in
+				AAC) getCompressionSetting 'AAC' "$OPTARG" ;;
 				FLAC) getCompressionSetting 'FLAC' "$OPTARG" ;;
-				WavPack|WavPackHybrid) getCompressionSetting 'WavPack' "$OPTARG" ;;
-				WavPackLossy) getCompressionSetting 'WavPackLossy' "$OPTARG" ;;
-				MonkeysAudio) getCompressionSetting 'MonkeysAudio' "$OPTARG" ;;
 				lossyWAV|lossyFLAC|lossyWV) getCompressionSetting 'lossyWAV' "$OPTARG" ;;
+				MonkeysAudio) getCompressionSetting 'MonkeysAudio' "$OPTARG" ;;
 				MP3) getCompressionSetting 'MP3' "$OPTARG" ; MP3_MODE='VBR' ;;
 				OggVorbis) getCompressionSetting 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='VBR' ;;
 				Opus) getCompressionSetting 'Opus' "$OPTARG" ; Opus_MODE='VBR' ;;
+				WavPack|WavPackHybrid) getCompressionSetting 'WavPack' "$OPTARG" ;;
+				WavPackLossy) getCompressionSetting 'WavPackLossy' "$OPTARG" ;;
 				*) printMessage 'error' 'usage' 'command_line' "$me -q: parameter not available with the selected codec" ; exit $EX_USAGE ;;
 			esac ;;
 
@@ -6408,10 +6446,11 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				esac
 			else
 				case "$lastCodec" in
-					WavPackHybrid|WavPackLossy) getConstantBitrate 'WavPackLossy' "$OPTARG" ;;
-					Opus) getConstantBitrate 'Opus' "$OPTARG" ; Opus_MODE='CBR' ;;
+					AAC) getConstantBitrate 'AAC' "$OPTARG" ; AAC_MODE='CBR' ;;
 					MP3) getConstantBitrate 'MP3' "$OPTARG" ; MP3_MODE='CBR' ;;
 					OggVorbis) getConstantBitrate 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='CBR' ;;
+					Opus) getConstantBitrate 'Opus' "$OPTARG" ; Opus_MODE='CBR' ;;
+					WavPackHybrid|WavPackLossy) getAverageBitrate 'WavPackLossy' "$OPTARG" ;; # for backwards compatibility
 					*) printMessage 'error' 'usage' 'command_line' "$me -b: parameter not available with the selected codec" ; exit $EX_USAGE ;;
 				esac
 			fi
@@ -6422,10 +6461,11 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				printMessage 'error' 'usage' 'command_line' "$me -B: you must select a codec first (-c)" ; exit $EX_USAGE
 			fi
 			case "$lastCodec" in
-				MP3) getAverageBitrate 'MP3' "$OPTARG" ; MP3_MODE='ABR' ;;
 				AAC) getAverageBitrate 'AAC' "$OPTARG" ; AAC_MODE='ABR' ;;
+				MP3) getAverageBitrate 'MP3' "$OPTARG" ; MP3_MODE='ABR' ;;
 				OggVorbis) getAverageBitrate 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='ABR' ;;
 				Opus) getAverageBitrate 'Opus' "$OPTARG" ; Opus_MODE='ABR' ;;
+				WavPackHybrid|WavPackLossy) getAverageBitrate 'WavPackLossy' "$OPTARG" ;;
 				*) printMessage 'error' 'usage' 'command_line' "$me -B: parameter not available with the selected codec" ; exit $EX_USAGE ;;
 			esac
 			;;
