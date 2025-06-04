@@ -1859,7 +1859,8 @@ vorbisCommentsToEyeD3 ()
 	while read line; do
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
-		value="${value//-/‑}" # replace ASCII hyphen-minus with an UTF-8 non-breaking hyphen (U+2011)to avoid errors
+		# replace ASCII hyphen-minus with an UTF-8 non-breaking hyphen only when they may cause failure
+		value="$( echo "$value" | $sedcmd -e 's@^-@‑@' -e 's@ -@ ‑@' )"
 		value="${value// /\ }" # escape spaces
 		case "$field" in
 			ALBUM)                 echo "--album $value" ;;
@@ -2022,7 +2023,8 @@ M4AToEyeD3 ()
 	while read line; do
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
-		value="${value//-/‑}" # replace ASCII hyphen-minus with an UTF-8 non-breaking hyphen (U+2011)to avoid errors
+		# replace ASCII hyphen-minus with an UTF-8 non-breaking hyphen only when they may cause failure
+		value="$( echo "$value" | $sedcmd -e 's@^-@‑@' -e 's@ -@ ‑@' )"
 		value="${value// /\ }" # escape spaces
 		case "$field" in
 			album)                 echo "--album $value" ;;
@@ -2125,7 +2127,8 @@ APEv2ToEyeD3 ()
 	while read line; do
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
-		value="${value//-/‑}" # replace ASCII hyphen-minus with an UTF-8 non-breaking hyphen (U+2011)to avoid errors
+		# replace ASCII hyphen-minus with an UTF-8 non-breaking hyphen only when they may cause failure
+		value="$( echo "$value" | $sedcmd -e 's@^-@‑@' -e 's@ -@ ‑@' )"
 		value="${value// /\ }" # escape spaces
 		case "$field" in
 			Album)                 echo "--album $value" ;;
