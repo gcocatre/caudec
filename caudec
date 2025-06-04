@@ -2140,6 +2140,7 @@ APEv2ToEyeD3 ()
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
 		value="${value//-/‑}" # replace ASCII dash with an UTF-8 sign to avoid errors
+		value="${value// /\ }" # escape spaces
 		case "$field" in
 			Album)                 echo "--album $value" ;;
 			Albumartist|"Album Artist")
@@ -3910,18 +3911,15 @@ encode ()
 
 		MP3)
 			destExtension='mp3'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.mp3.txt"
-			if [ "$compression_MP3" = 'insane' -o "$compression_MP3" = '320' ]; then
+			if [ "$compression_MP3" = '320' ]; then
 				MP3_MODE='CBR' bitrate_MP3=320
 			fi
 			if [ "$MP3_MODE" = 'VBR' ]; then
-				if [ $tagCompressionSetting = true ]; then compressionTag="--text-frame TSSE=$me $VERSION / LAME $lameVersion / -V $compression_MP3"; fi
-					lame -S -V $compression_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				lame -S -V $compression_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			elif [ "$MP3_MODE" = 'ABR' ]; then
-				if [ $tagCompressionSetting = true ]; then compressionTag="--text-frame TSSE=$me $VERSION / LAME $lameVersion / $average_bitrate_MP3 kbps (ABR)"; fi
-					lame -S --abr $average_bitrate_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				lame -S --abr $average_bitrate_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			else
-				if [ $tagCompressionSetting = true ]; then compressionTag="--text-frame TSSE=$me $VERSION / LAME $lameVersion / $bitrate_MP3 kbps (CBR)"; fi
-				if [ $bitrate_MP3 -eq 320 ]; then
+				if [ $compression_MP3 -eq "insane" ]; then
 					lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				else
 					lame -S -b $bitrate_MP3 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
