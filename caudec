@@ -754,14 +754,7 @@ getConstantBitrate ()
 			esac
 			;;
 
-		WavPackHybrid|WavPackLossy)
-			if [ -z "$bitrate" ]; then bitrate=256; fi # WavPack default
-			case "$bitrate" in
-				[2-9]|[2-9].[0-9]|1[0-9]|1[0-9].[0-9]|2[0-3]|2[0-3].[0-9]) bitrate_WavPackLossy="$bitrate" ;;
-				2[4-9]|[2-9][0-9]|[1-9][0-9][0-9]|[1-8][0-9][0-9][0-9]|9[0-5][0-9][0-9]|9600) bitrate_WavPackLossy="$bitrate" ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg target bitrate for $codec must be a float between 2.0 and 23.9 in bits per sample, or an integer between 24 and 9600 in kilobits per second" ; exit $EX_USAGE ;;
-			esac
-			;;
+		WavPackHybrid|WavPackLossy) getAverageBitrate "$codec" "$bitrate" "$source" ;; # for backwards compatibility
 	esac
 }
 
@@ -811,8 +804,8 @@ getAverageBitrate ()
 		WavPackHybrid|WavPackLossy)
 			if [ -z "$bitrate" ]; then bitrate=256; fi # WavPack default
 			case "$bitrate" in
-				[2-9]|[2-9].[0-9]|1[0-9]|1[0-9].[0-9]|2[0-3]|2[0-3].[0-9]) bitrate_WavPackLossy="$bitrate" ;;
-				2[4-9]|[2-9][0-9]|[1-9][0-9][0-9]|[1-8][0-9][0-9][0-9]|9[0-5][0-9][0-9]|9600) bitrate_WavPackLossy="$bitrate" ;;
+				[2-9]|[2-9].[0-9]|1[0-9]|1[0-9].[0-9]|2[0-3]|2[0-3].[0-9]) average_bitrate_WavPackLossy="$bitrate" ;;
+				2[4-9]|[2-9][0-9]|[1-9][0-9][0-9]|[1-8][0-9][0-9][0-9]|9[0-5][0-9][0-9]|9600) average_bitrate_WavPackLossy="$bitrate" ;;
 				*) printMessage 'error' 'usage' 'bad_value' "$errormsg target bitrate for $codecodec must be a float between 2.0 and 23.9 in bits per sample, or an integer between 24 and 9600 in kilobits per second" ; exit $EX_USAGE ;;
 			esac
 			;;
@@ -3842,13 +3835,13 @@ encode ()
 				nThreads=1
 			fi
 			if [ $tagCompressionSetting = true ]; then
-				if [ "${bitrate_WavPackLossy%.*}" -lt 24 ]; then
-					compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy bits per sample (ABR)"
+				if [ "${average_bitrate_WavPackLossy%.*}" -lt 24 ]; then
+					compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $average_bitrate_WavPackLossy bits per sample (ABR)"
 				else
-					compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
+					compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $average_bitrate_WavPackLossy kbps (ABR)"
 				fi
 			fi
-			printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -c${compression_WavPack} -b${bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+			printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -c${compression_WavPack} -b${average_bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 			if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 				importBinariesIntoAPEv2 || ec=$EX_KO
 				importArtworkIntoAPEv2 || ec=$EX_KO
@@ -3870,12 +3863,12 @@ encode ()
 				fi
 				if [ $tagCompressionSetting = true ]; then
 					if [ -z "$compression_WavPack" ]; then
-						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $bitrate_WavPackLossy bits per sample (ABR)"
+						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / default / $average_bitrate_WavPackLossy bits per sample (ABR)"
 					else
-						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $bitrate_WavPackLossy kbps (ABR)"
+						compressionTag="Encoding=$me $VERSION / WavPack $wavpackVersion / -$compression_WavPack / $average_bitrate_WavPackLossy kbps (ABR)"
 					fi
 				fi
-				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -$compression_WavPack -b${bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -$compression_WavPack -b${average_bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 				if [ $ec -eq $EX_OK -a -f "$destTagFile" ]; then
 					importBinariesIntoAPEv2 || ec=$EX_KO
 					importArtworkIntoAPEv2 || ec=$EX_KO
@@ -6087,12 +6080,13 @@ getConstantBitrate 'AAC' "$bitrate_AAC" 'caudecrc'
 getConstantBitrate 'MP3' "$bitrate_MP3" 'caudecrc'
 getConstantBitrate 'OggVorbis' "$bitrate_OggVorbis" 'caudecrc'
 getConstantBitrate 'Opus' "$bitrate_Opus" 'caudecrc'
-getConstantBitrate 'WavPackLossy' "$bitrate_WavPackLossy" 'caudecrc'
+getConstantBitrate 'WavPackLossy' "$bitrate_WavPackLossy" 'caudecrc'  # for backwards compatibility
 
 getAverageBitrate 'AAC' "$average_bitrate_AAC" 'caudecrc'
 getAverageBitrate 'MP3' "$average_bitrate_MP3" 'caudecrc'
 getAverageBitrate 'OggVorbis' "$average_bitrate_OggVorbis" 'caudecrc'
 getAverageBitrate 'Opus' "$average_bitrate_Opus" 'caudecrc'
+getAverageBitrate 'WavPackLossy' "$average_bitrate_WavPackLossy" 'caudecrc'
 
 getBitrateMode 'AAC' "$AAC_MODE" 'caudecrc'
 getBitrateMode 'MP3' "$MP3_MODE" 'caudecrc'
