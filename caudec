@@ -6252,6 +6252,8 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 					else
 						setCodecOtherFiles "WavPackHybrid" "$OPTARG"
 					fi
+				# elif [ "$lastCodec" = "WavPackLossy" ]; then
+				# 	setCodecOtherFiles "WavPackLossy" "$OPTARG"
 				else
 					setCodecOtherFiles "$lastCodec" "$OPTARG"
 				fi
@@ -6381,6 +6383,18 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			outputCodecs="$outputCodecs $lastCodec"; ((nCodecs++))
 			if [ "$o" = 'c' ]; then
 				preserveMetadata="${preserveMetadata}x${lastCodec}Y"
+			fi
+
+			grep -E "(WavPack.*WavPackLossy)|(WavPackLossy.*WavPack)" < <( echo "$outputCodecs" ) 1>/dev/null 2>/dev/null; rc=$?
+			if [ $rc -eq $EX_OK ]; then
+				printMessage 'error' 'usage' 'bad_value' "$me -c: don't specify both WavPack[*] and WavPackLossy; choose one or the other."
+				printMessage 'error' 'usage' 'bad_value' "$me -c: if you want both lossless and lossy WavPack, choose -c wvh (possibly with -l DIR)"
+				exit $EX_USAGE
+			fi
+
+			if [ "$lastCodec" = "WavPackLossy" -a -n "$linkDir" ]; then
+				gotLinkedDir=false
+				linkDir=""
 			fi
 			;;
 
