@@ -5869,6 +5869,12 @@ setCodecOtherFiles ()
 {
 	local outputCodec="$1" pattern="$2" listOfCodecs codec
 
+	if [ -n "$pattern" ]; then
+		copyOtherFiles=true
+	else
+		copyOtherFiles=false
+	fi
+
 	case "$outputCodec" in
 		default) read -a listOfCodecs <<< "$allCodecsString" ;;
 		lossless) read -a listOfCodecs <<< "$losslessCodecsString" ;;
@@ -5929,6 +5935,12 @@ getCodecOtherFiles ()
 setCodecCoverArtFile ()
 {
 	local outputCodec="$1" coverArtFile="$2" listOfCodecs codec
+
+	if [ -n "$coverArtFile" ]; then
+		setCoverArtworkFile=true
+	else
+		setCoverArtworkFile=false
+	fi
 
 	case "$outputCodec" in
 		default) read -a listOfCodecs <<< "$allCodecsString" ;;
@@ -6070,7 +6082,7 @@ bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false
 applyGain=false applyGainType='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human'
 checkFiles=false actionHash=false touchFiles=false peakReference=0 allFilesAreOpus=true
-setCoverArtworkFile=false
+setCoverArtworkFile=false copyOtherFiles=false
 
 if [ "$calledAs" = 'decaude' ]; then
 	lastCodec='WAV'
@@ -6213,15 +6225,12 @@ fi
 
 if [ -n "$copyOtherFilesByDefault" ]; then
 	setCodecOtherFiles "default" "$copyOtherFilesByDefault"
-	copyOtherFiles=true
 fi
 if [ -n "$copyOtherFilesForLosslessByDefault" ]; then
 	setCodecOtherFiles "lossless" "$copyOtherFilesForLosslessByDefault"
-	copyOtherFiles=true
 fi
 if [ -n "$copyOtherFilesForLossyByDefault" ]; then
 	setCodecOtherFiles "lossy" "$copyOtherFilesForLossyByDefault"
-	copyOtherFiles=true
 else
 	setCodecOtherFiles "default" ""
 	copyOtherFiles=false
@@ -6249,20 +6258,20 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 		a)
 			setArtworkFilename="$OPTARG"
 			case "$OPTARG" in
-				*.jpg|*.jpeg|*.png)
+				*.jpg|*.jpeg|*.png|"")
+				 	# "" disables embedding artwork
 					if [ -z "$lastCodec" ]; then
 						setCodecCoverArtFile "default" "$OPTARG"
 					elif [ -n "$lastCodec" ]; then
 						setCodecCoverArtFile "$lastCodec" "$OPTARG"
 					fi
-				;;
+					;;
 
 				*) printMessage 'error' 'usage' 'bad_value' "$me -a: the argument must be a JPEG or PNG file" ; exit $EX_USAGE ;;
 			esac
 			;;
 
 		f)
-			copyOtherFiles=true
 			if [ -z "$lastCodec" ]; then
 				setCodecOtherFiles "default" "$OPTARG"
 			elif [ -n "$lastCodec" ]; then
@@ -6372,9 +6381,9 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			fi
 			;;
 
-		t) checkFiles=true copyOtherFiles=false ;;
+		t) checkFiles=true ;;
 
-		T) touchFiles=true copyOtherFiles=false ;;
+		T) touchFiles=true ;;
 
 		c|C)
 			case "$OPTARG" in
@@ -6407,7 +6416,6 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 		d) lastCodec='WAV'; outputCodecs="$outputCodecs $lastCodec"; ((nCodecs++)); copyWAV=true ;;
 
 		H)
-			copyOtherFiles=false
 			case "$OPTARG" in
 				crc32|CRC32)   hashes="${hashes}CRC32 "  ;;
 				md5|MD5)   hashes="${hashes}MD5 "  ;;
@@ -6497,10 +6505,9 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 
 		2) convertToStereo='flat' ;;
 
-		g) computeReplaygain=true copyOtherFiles=false ;;
+		g) computeReplaygain=true ;;
 
 		G)
-			copyOtherFiles=false
 			if [ -z "$lastCodec" ]; then
 				computeReplaygain=true
 			fi
