@@ -1876,6 +1876,7 @@ vorbisCommentsToEyeD3 ()
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
 		value="${value//-/‑}" # replace ASCII dash with an UTF-8 sign to avoid errors
+		value="${value// /\ }" # escape spaces
 		case "$field" in
 			ALBUM)                 echo "--album $value" ;;
 			ALBUMARTIST|"ALBUM ARTIST")
@@ -2038,6 +2039,7 @@ M4AToEyeD3 ()
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
 		value="${value//-/‑}" # replace ASCII dash with an UTF-8 sign to avoid errors
+		value="${value// /\ }" # escape spaces
 		case "$field" in
 			album)                 echo "--album $value" ;;
 			album_artist)
