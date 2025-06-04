@@ -991,7 +991,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for reading (permission denied).' ; ec=$EX_NOINPUT
 		elif [ ! -w "$inputFile" -a $computeReplaygain = true ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
-		elif [ ! -w "$inputFile" -a $actionHash = true ]; then
+		elif [ ! -w "$inputFile" -a $hashFiles = true ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
 		elif [ ! -w "$inputFile" -a $touchFiles = true ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'refusing to touch file that is read-only.' ; ec=$EX_CANTCREAT
@@ -1063,7 +1063,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 				esac
 
 			else # actions other than transcoding
-				if [ $checkFiles = true -o $actionHash = true ]; then
+				if [ $checkFiles = true -o $hashFiles = true ]; then
 					case "$inputFile" in
 						*.flac|*.wv|*.ape) addToSourceFiles=true ;;
 						*)
@@ -5869,12 +5869,6 @@ setCodecOtherFiles ()
 {
 	local outputCodec="$1" pattern="$2" listOfCodecs codec
 
-	if [ -n "$pattern" ]; then
-		copyOtherFiles=true
-	else
-		copyOtherFiles=false
-	fi
-
 	case "$outputCodec" in
 		default) read -a listOfCodecs <<< "$allCodecsString" ;;
 		lossless) read -a listOfCodecs <<< "$losslessCodecsString" ;;
@@ -5935,12 +5929,6 @@ getCodecOtherFiles ()
 setCodecCoverArtFile ()
 {
 	local outputCodec="$1" coverArtFile="$2" listOfCodecs codec
-
-	if [ -n "$coverArtFile" ]; then
-		setCoverArtworkFile=true
-	else
-		setCoverArtworkFile=false
-	fi
 
 	case "$outputCodec" in
 		default) read -a listOfCodecs <<< "$allCodecsString" ;;
@@ -6081,8 +6069,8 @@ nLossyWAV=0 copyLossyWAV=false
 bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false
 applyGain=false applyGainType='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human'
-checkFiles=false actionHash=false touchFiles=false peakReference=0 allFilesAreOpus=true
-setCoverArtworkFile=false copyOtherFiles=false
+checkFiles=false hashFiles=false touchFiles=false peakReference=0 allFilesAreOpus=true
+setArtworkParam=false copyFilesParam=false
 
 if [ "$calledAs" = 'decaude' ]; then
 	lastCodec='WAV'
@@ -6231,9 +6219,6 @@ if [ -n "$copyOtherFilesForLosslessByDefault" ]; then
 fi
 if [ -n "$copyOtherFilesForLossyByDefault" ]; then
 	setCodecOtherFiles "lossy" "$copyOtherFilesForLossyByDefault"
-else
-	setCodecOtherFiles "default" ""
-	copyOtherFiles=false
 fi
 
 while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
@@ -6256,7 +6241,7 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			;;
 
 		a)
-			setArtworkFilename="$OPTARG"
+			setArtworkParam=true
 			case "$OPTARG" in
 				*.jpg|*.jpeg|*.png|"")
 				 	# "" disables embedding artwork
@@ -6272,6 +6257,7 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			;;
 
 		f)
+			copyFilesParam=true
 			if [ -z "$lastCodec" ]; then
 				setCodecOtherFiles "default" "$OPTARG"
 			elif [ -n "$lastCodec" ]; then
@@ -6429,7 +6415,7 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				^sha512|^SHA512) hashes="${hashes//SHA512/}" ;;
 				*) printMessage 'error' 'usage' 'bad_value' "$me -H: hash algorithm must be one of CRC32, MD5, SHA1, SHA256 or SHA512" ; exit $EX_USAGE ;;
 			esac
-			actionHash=true
+			hashFiles=true
 			;;
 
 		q)
@@ -6599,9 +6585,9 @@ else
 	hashes="${newHashes% }"
 fi
 unset gotPCMCodecsOnly
-if [ -z "$hashes" ]; then actionHash=false; fi
+if [ -z "$hashes" ]; then hashFiles=false; fi
 
-if [ -z "$outputCodecs" -a $checkFiles = false -a $computeReplaygain = false -a $actionHash = false -a $touchFiles = false ]; then
+if [ -z "$outputCodecs" -a $checkFiles = false -a $computeReplaygain = false -a $hashFiles = false -a $touchFiles = false ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: no action specified"
 	exit $EX_USAGE
 elif [ -z "$outputCodecs" -a $keepExistingFiles = true ]; then
@@ -6610,10 +6596,10 @@ elif [ -z "$outputCodecs" -a $keepExistingFiles = true ]; then
 elif [ -z "$outputCodecs" -a $keepNewerFiles = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -K is only available when -c has been provided."
 	exit $EX_USAGE
-elif [ -z "$outputCodecs" -a $setCoverArtworkFile = true ]; then
+elif [ -z "$outputCodecs" -a $setArtworkParam = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -a is only available when transcoding (-c)."
 	exit $EX_USAGE
-elif [ -z "$outputCodecs" -a $copyOtherFiles = true ]; then
+elif [ -z "$outputCodecs" -a $copyFilesParam = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -f is only available when transcoding (-c)."
 	exit $EX_USAGE
 elif [ -n "$outputCodecs" -a $checkFiles = true ]; then
@@ -6625,7 +6611,7 @@ elif [ -n "$outputCodecs" -a $touchFiles = true ]; then
 elif [ $computeReplaygain = true -a $touchFiles = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -g/-G/-S and -T are mutually exclusive. Try again with either one alone."
 	exit $EX_USAGE
-elif [ $actionHash = true -a $touchFiles = true ]; then
+elif [ $hashFiles = true -a $touchFiles = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -H and -T are mutually exclusive. Try again with either one alone."
 	exit $EX_USAGE
 elif [ -n "$outputCodecs" -a $computeReplaygain = true ]; then
@@ -6634,13 +6620,13 @@ elif [ -n "$outputCodecs" -a $computeReplaygain = true ]; then
 elif [ $checkFiles = true -a $computeReplaygain = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -g/-G/-S and -t are mutually exclusive. Try again with either one alone."
 	exit $EX_USAGE
-elif [ $checkFiles = true -a $actionHash = true ]; then
+elif [ $checkFiles = true -a $hashFiles = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -H and -t are mutually exclusive. Try again with either one alone."
 	exit $EX_USAGE
 elif [ $checkFiles = true -a $touchFiles = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -t and -T are mutually exclusive. Try again with either one alone."
 	exit $EX_USAGE
-elif [ $computeReplaygain = true -a $actionHash = true ]; then
+elif [ $computeReplaygain = true -a $hashFiles = true ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: -g/-G/-S and -H are mutually exclusive. Try again with either one alone."
 	exit $EX_USAGE
 fi
@@ -6705,7 +6691,7 @@ elif [ $touchFiles = true ]; then
 	for ((p=0; p < nProcesses; p++)); do
 		computeTrackDateTimes &
 	done
-elif [ $actionHash = true ]; then
+elif [ $hashFiles = true ]; then
 	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
