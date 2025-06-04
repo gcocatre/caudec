@@ -6587,48 +6587,114 @@ fi
 unset gotPCMCodecsOnly
 if [ -z "$hashes" ]; then hashFiles=false; fi
 
-if [ -z "$outputCodecs" -a $checkFiles = false -a $computeReplaygain = false -a $hashFiles = false -a $touchFiles = false ]; then
+# transcode, test, replaygain, touch, hash
+if [ -z "$outputCodecs" -a $checkFiles = false -a $computeReplaygain = false -a $touchFiles = false -a $hashFiles = false ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: no action specified"
 	exit $EX_USAGE
-elif [ -z "$outputCodecs" -a $keepExistingFiles = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -k is only available when -c has been provided."
-	exit $EX_USAGE
-elif [ -z "$outputCodecs" -a $keepNewerFiles = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -K is only available when -c has been provided."
-	exit $EX_USAGE
-elif [ -z "$outputCodecs" -a $setArtworkParam = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -a is only available when transcoding (-c)."
-	exit $EX_USAGE
-elif [ -z "$outputCodecs" -a $copyFilesParam = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -f is only available when transcoding (-c)."
-	exit $EX_USAGE
-elif [ -n "$outputCodecs" -a $checkFiles = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -t are mutually exclusive. Try again with either one alone."
-	exit $EX_USAGE
-elif [ -n "$outputCodecs" -a $touchFiles = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -T are mutually exclusive. Try again with either one alone."
-	exit $EX_USAGE
-elif [ $computeReplaygain = true -a $touchFiles = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -g/-G/-S and -T are mutually exclusive. Try again with either one alone."
-	exit $EX_USAGE
-elif [ $hashFiles = true -a $touchFiles = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -H and -T are mutually exclusive. Try again with either one alone."
-	exit $EX_USAGE
-elif [ -n "$outputCodecs" -a $computeReplaygain = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -g/-S are mutually exclusive. Try again with either one alone."
-	exit $EX_USAGE
-elif [ $checkFiles = true -a $computeReplaygain = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -g/-G/-S and -t are mutually exclusive. Try again with either one alone."
-	exit $EX_USAGE
-elif [ $checkFiles = true -a $hashFiles = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -H and -t are mutually exclusive. Try again with either one alone."
-	exit $EX_USAGE
-elif [ $checkFiles = true -a $touchFiles = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -t and -T are mutually exclusive. Try again with either one alone."
-	exit $EX_USAGE
-elif [ $computeReplaygain = true -a $hashFiles = true ]; then
-	printMessage 'error' 'usage' 'command_line' "$me: -g/-G/-S and -H are mutually exclusive. Try again with either one alone."
-	exit $EX_USAGE
+fi
+
+# transcode
+if [ -z "$outputCodecs" ]; then
+	if [ $setArtworkParam = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -a is only available when transcoding (-c)."
+		exit $EX_USAGE
+	fi
+	if [ $copyFilesParam = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -f is only available when transcoding (-c)."
+		exit $EX_USAGE
+	fi
+	if [ $keepExistingFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -k is only available when -c has been provided."
+		exit $EX_USAGE
+	fi
+	if [ $keepNewerFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -K is only available when -c has been provided."
+		exit $EX_USAGE
+	fi
+fi
+
+# transcode (test, replaygain, touch, hash)
+if [ -n "$outputCodecs" ]; then
+	if [ $computeReplaygain = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -g/-G are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+	if [ $hashFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -H are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+	if [ $touchFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -T are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+	if [ $checkFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -t are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+fi
+
+# Test files (replaygain, touch, hash)
+if [ $checkFiles = true ]; then
+	if [ $computeReplaygain = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -t and -g/-G are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+	if [ $touchFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -t and -T are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+	if [ $hashFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -t and -H are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+fi
+
+# ReplayGain (test, touch, hash)
+if [ $computeReplaygain = true ]; then
+	if [ $checkFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -g/-G and -t are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+	if [ $touchFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -g/-G and -T are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+	if [ $hashFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -g/-G and -H are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+fi
+
+# Touch files (test, replaygain, hash)
+if [ $touchFiles = true ]; then
+	if [ $checkFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -T and -t are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+	if [ $computeReplaygain = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -T and -g/-G are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+	if [ $hashFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -T and -H are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+fi
+
+# Hash files (test, replaygain, touch)
+if [ $hashFiles = true ]; then
+	if [ $checkFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -H and -t are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+	if [ $computeReplaygain = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -H and -g/-G are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
+	if [ $touchFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$me: -H and -T are mutually exclusive. Try again with either one alone."
+		exit $EX_USAGE
+	fi
 fi
 
 ec=$EX_OK
