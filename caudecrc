@@ -31,17 +31,19 @@ bitrate_Opus=96 # 6-320, used with Opus_MODE='CBR'
 average_bitrate_Opus=96 # 6-320, used with Opus_Mode='ABR'
 Opus_MODE='VBR' # 'VBR' (variable bitrate), 'ABR' (average bitrate) or 'CBR' (constant bitrate)
 
-# output to this directory by default
+# Default destination is the current directory. This can be overridden by the following destinations variables:
+
+# output to this directory by default (implies -P "$defaultDestination")
 # example: defaultDestination="${HOME}/Music"
 # !!! All codecs will go there, unless overridden by -o/-O/-P
 defaultDestination=""
 
-# output to this directory by default for lossless codecs
+# output to this directory by default for lossless codecs (implies -P "$defaultLosslessDestination")
 # example: defaultLosslessDestination="${HOME}/Music/FLAC"
 # !!! All lossless codecs will go there, unless overridden by -o/-O/-P
 defaultLosslessDestination=""
 
-# output to this directory by default for lossy codecs
+# output to this directory by default for lossy codecs (implies -P "$defaultLossyDestination")
 # example: defaultLossyDestination="${HOME}/Music/MP3"
 # !!! All lossy codecs will go there, unless overridden by -o/-O/-P
 defaultLossyDestination=""
