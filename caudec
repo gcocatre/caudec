@@ -20,7 +20,7 @@
 
 me='caudec'
 calledAs="${0##*/}"
-VERSION='2.1.5'
+VERSION='2.1.6'
 
 # EX_USAGE: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # EX_DATAERR: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -191,9 +191,14 @@ Global parameters:
   -n N      launch N processes concurrently (1-${maxProcesses});
             by default, the number of CPU cores.
 
+  -i        ignore unsupported files
+
   -z        produce machine-parsable output; must be the first parameter on the
             command line to take effect. Run 'caudec -z' on its own to print
             a description of the syntax.
+
+  -Z        produce human-readable output to STDOUT, and machine-parsable
+            to STDERR
 
 -------------------------------------------------------------------------------
 
@@ -566,7 +571,9 @@ genHumanReadableString ()
 
 printMessage ()
 {
-	local msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo='' statusData='' file='' path='' filePath='' msg='' p='' numberOfThreads='' hashType='' hashError='' gain='' bitrate='' rate='' codec='' str=''
+	local msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo='' statusData=''
+	local file='' path='' filePath='' msg='' p='' numberOfThreads='' hashType='' hashError='' gain='' bitrate='' rate=''
+	local codec='' outputCodec='' str=''
 
 	for a in "$@"; do
 		case "$a" in
@@ -581,6 +588,7 @@ printMessage ()
 			server|up_to_date|new_version_available|running_newer_version) statusData="$a" ;;
 			file:*) file="${a#file:}"; filePath="$( dirname "$file" )"; fileName="$( basename "$file" )" ;;
 			path:*) file="${a#path:}"; fileName="$file" ;;
+			outputCodec:*) statusData="${a#outputCodec:}" ;;
 			+*dB|-*dB) gain="${a% dB}" ;;
 			*bps) bitrate="${a%bps}" ;;
 			*x) rate="${a%x}" ;;
@@ -606,6 +614,7 @@ printMessage ()
 	if [ "$msgVerbose" = 'verbose' -a "$verbose" != 'true' ]; then return $EX_OK; fi
 	if [ "$msgDebug" = 'debug' -a -z "$CAUDECDEBUG" ]; then return $EX_OK; fi
 
+	# debug "printMessage() outputMode=${outputMode}"
 	if [ "$outputMode" = 'machine' ]; then
 		genMachineParsableString
 	else
@@ -617,6 +626,13 @@ printMessage ()
 			echo -e "$str" 1>&2
 		else
 			echo -e "$str"
+		fi
+
+		if [ "$outputMode" = 'humanAndMachine' ]; then
+			genMachineParsableString
+			if [ -n "$str" ]; then
+				echo -e "$str" 1>&2
+			fi
 		fi
 	fi
 
@@ -3518,7 +3534,7 @@ encodeLossyWAV ()
 				chmod 0644 "$encodedFile"
 				rm -f "$destFile" >/dev/null 2>> "$errorLogFile"
 				cp -a "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
-				printMessage 'success' 'encoding' $p "file:${destFile}"
+				printMessage 'success' 'encoding' $p "outputCodec:${outputCodec}" "file:${destFile}"
 			fi
 		fi
 	else
@@ -4058,9 +4074,9 @@ encode ()
 			fi
 
 			if [ "$outputCodec" = "WAV" ]; then
-				printMessage 'success' "$statusInfo" "file:${destFile}" $p # FIXME DECODE THREADS
+				printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:WAV" # FIXME DECODE THREADS
 			else
-				printMessage 'success' "$statusInfo" "file:${destFile}" $p "threads:$nThreads" # FIXME DECODE THREADS
+				printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:${outputCodec}" "threads:$nThreads" # FIXME DECODE THREADS
 			fi
 		fi
 	else
@@ -6209,8 +6225,10 @@ if [ -n "$copyOtherFilesForLossyByDefault" ]; then
 	setCodecOtherFiles "lossy" "$copyOtherFilesForLossyByDefault"
 fi
 
-while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
+while getopts '2a:B:b:C:c:df:G:ghH:iKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 	case $o in
+# -----------------------------------------------------------------------------
+
 		s) verbose=false ;;
 
 		n)
@@ -6228,39 +6246,127 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			esac
 			;;
 
-		a)
-			setArtworkParam=true
-			case "$OPTARG" in
-				*.jpg|*.jpeg|*.png|"")
-				 	# "" disables embedding artwork
-					if [ -z "$lastCodec" ]; then
-						setCodecCoverArtFile "default" "$OPTARG"
-					elif [ -n "$lastCodec" ]; then
-						setCodecCoverArtFile "$lastCodec" "$OPTARG"
-					fi
-					;;
+		i) ignoreUnsupportedFiles=true ;;
 
-				*) printMessage 'error' 'usage' 'bad_value' "$me -a: the argument must be a JPEG or PNG file" ; exit $EX_USAGE ;;
+		z) outputMode='machine' ;;
+
+		Z) outputMode='humanAndMachine' ;;
+
+# -----------------------------------------------------------------------------
+
+		b)
+			if [ -z "$lastCodec" ]; then
+				case "$OPTARG" in
+					16|24) bitDepth=$OPTARG ;;
+					*) printMessage 'error' 'usage' 'bad_value' "$me -b: bit depth must be either 16 or 24" ; exit $EX_USAGE
+				esac
+			else
+				case "$lastCodec" in
+					AAC) getConstantBitrate 'AAC' "$OPTARG" ; AAC_MODE='CBR' ;;
+					MP3) getConstantBitrate 'MP3' "$OPTARG" ; MP3_MODE='CBR' ;;
+					OggVorbis) getConstantBitrate 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='CBR' ;;
+					Opus) getConstantBitrate 'Opus' "$OPTARG" ; Opus_MODE='CBR' ;;
+					WavPackHybrid|WavPackLossy) getAverageBitrate 'WavPackLossy' "$OPTARG" ;; # for backwards compatibility
+					*) printMessage 'error' 'usage' 'command_line' "$me -b: parameter not available with the selected codec" ; exit $EX_USAGE ;;
+				esac
+			fi
+			;;
+
+		r)
+			if [ -n "$lastCodec" -a "$calledAs" != 'decaude' ]; then
+				printMessage 'error' 'usage' 'command_line' "$me -r: parameter must be given before -c" ; exit $EX_USAGE
+			fi
+			case "$OPTARG" in
+				44|44.1) samplingRate=44100 ;;
+				88|88.2) samplingRate=88200 ;;
+				176|176.4) samplingRate=176400 ;;
+				352|352.8) samplingRate=352800 ;;
+				48|96|192|384) samplingRate="${OPTARG}000" ;;
+				44100|48000|88200|96000|176400|192000|352800|384000) samplingRate=$OPTARG ;;
+				cd|CD) bitDepth=16 samplingRate=44100 convertToStereo='flat' ;;
+				dvd|DVD) bitDepth=16 samplingRate=48000 ;;
+				sacd|SACD) bitDepth=24 samplingRate=88200 ;;
+				dvda|DVDA|dvdaudio|DVDAUDIO|DVDAudio|bd|BD|bluray|BLURAY|BluRay) bitDepth=24 samplingRate=96000 ;;
+				pono|Pono|PONO) bitDepth=24 samplingRate=192000 ;;
+				dxd|DXD) bitDepth=24 samplingRate=352800 ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$me -r: sampling rate must be one of 44[100], 48[000], 88[200], 96[000], 176[400], 192[000], 352[800], 384[000], cd, dvd, sacd, dvda, bluray, pono or dxd" ; exit $EX_USAGE
 			esac
 			;;
 
-		f)
-			copyFilesParam=true
-			if [ -z "$lastCodec" ]; then
-				setCodecOtherFiles "default" "$OPTARG"
-			elif [ -n "$lastCodec" ]; then
-				if [ "$lastCodec" = "WavPackHybrid" ]; then
-					if [ $gotLinkedDir = true ]; then
-						setCodecOtherFiles "WavPackLossy" "$OPTARG"
-					else
-						setCodecOtherFiles "WavPackHybrid" "$OPTARG"
-					fi
-				# elif [ "$lastCodec" = "WavPackLossy" ]; then
-				# 	setCodecOtherFiles "WavPackLossy" "$OPTARG"
-				else
-					setCodecOtherFiles "$lastCodec" "$OPTARG"
-				fi
+		2) convertToStereo='flat' ;;
+
+# -----------------------------------------------------------------------------
+
+		c|C)
+			case "$OPTARG" in
+				wav)                 lastCodec='WAV' copyWAV=true ;;
+				aiff)                lastCodec='AIFF' ;;
+				caf)                 lastCodec='CAF' ;;
+				flac)                lastCodec='FLAC' ;;
+				alac)                lastCodec='ALAC' ;;
+				wv)                  lastCodec='WavPack' ;;
+				wvh)                 lastCodec='WavPackHybrid' ;;
+
+				wvl)                 lastCodec='WavPackLossy' ;;
+				aac)                 lastCodec='AAC' ;;
+				ape)                 lastCodec='MonkeysAudio' ;;
+				lossyWAV|lossywav)   lastCodec='lossyWAV'; ((nLossyWAV++)) ; copyLossyWAV=true ;;
+				lossyFLAC|lossyflac) lastCodec='lossyFLAC'; ((nLossyWAV++)) ;;
+				lossyWV|lossywv)     lastCodec='lossyWV'; ((nLossyWAV++)) ;;
+				mp3)                 lastCodec='MP3' ;;
+				ogg|vorbis)          lastCodec='OggVorbis' ;;
+				opus)                lastCodec='Opus' ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$me -c: invalid codec (try $me -h)" ; exit $EX_USAGE ;;
+			esac
+
+			outputCodecs="$outputCodecs $lastCodec"; ((nCodecs++))
+			if [ "$o" = 'c' ]; then
+				preserveMetadata="${preserveMetadata}x${lastCodec}Y"
 			fi
+
+			grep -E "(WavPack.*WavPackLossy)|(WavPackLossy.*WavPack)" < <( echo "$outputCodecs" ) 1>/dev/null 2>/dev/null; rc=$?
+			if [ $rc -eq $EX_OK ]; then
+				printMessage 'error' 'usage' 'bad_value' "$me -c: don't specify both WavPack[*] and WavPackLossy; choose one or the other."
+				printMessage 'error' 'usage' 'bad_value' "$me -c: if you want both lossless and lossy WavPack, choose -c wvh (possibly with -l DIR)"
+				exit $EX_USAGE
+			fi
+
+			if [ "$lastCodec" = "WavPackLossy" -a -n "$linkDir" ]; then
+				gotLinkedDir=false
+				linkDir=""
+			fi
+			;;
+
+		q)
+			if [ -z "$lastCodec" ]; then
+				printMessage 'error' 'usage' 'command_line' "$me -q: you must specify a codec first (-c)" ; exit $EX_USAGE
+			fi
+
+			case "$lastCodec" in
+				AAC) getCompressionSetting 'AAC' "$OPTARG" ;;
+				FLAC) getCompressionSetting 'FLAC' "$OPTARG" ;;
+				lossyWAV|lossyFLAC|lossyWV) getCompressionSetting 'lossyWAV' "$OPTARG" ;;
+				MonkeysAudio) getCompressionSetting 'MonkeysAudio' "$OPTARG" ;;
+				MP3) getCompressionSetting 'MP3' "$OPTARG" ; MP3_MODE='VBR' ;;
+				OggVorbis) getCompressionSetting 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='VBR' ;;
+				Opus) getCompressionSetting 'Opus' "$OPTARG" ; Opus_MODE='VBR' ;;
+				WavPack|WavPackHybrid) getCompressionSetting 'WavPack' "$OPTARG" ;;
+				WavPackLossy) getCompressionSetting 'WavPackLossy' "$OPTARG" ;;
+				*) printMessage 'error' 'usage' 'command_line' "$me -q: parameter not available with the selected codec" ; exit $EX_USAGE ;;
+			esac ;;
+
+		B)
+			if [ -z "$lastCodec" ]; then
+				printMessage 'error' 'usage' 'command_line' "$me -B: you must select a codec first (-c)" ; exit $EX_USAGE
+			fi
+			case "$lastCodec" in
+				AAC) getAverageBitrate 'AAC' "$OPTARG" ; AAC_MODE='ABR' ;;
+				MP3) getAverageBitrate 'MP3' "$OPTARG" ; MP3_MODE='ABR' ;;
+				OggVorbis) getAverageBitrate 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='ABR' ;;
+				Opus) getAverageBitrate 'Opus' "$OPTARG" ; Opus_MODE='ABR' ;;
+				WavPackHybrid|WavPackLossy) getAverageBitrate 'WavPackLossy' "$OPTARG" ;;
+				*) printMessage 'error' 'usage' 'command_line' "$me -B: parameter not available with the selected codec" ; exit $EX_USAGE ;;
+			esac
 			;;
 
 		o)
@@ -6276,6 +6382,28 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 				printMessage 'error' 'usage' 'filesystem' "path:${lastCodecDestDir}" "$me -o: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
 			fi
 			setDestDir "$lastCodec" "$lastCodecDestDir" "false"
+			lastCodecDestDir=""
+			;;
+
+		O|P)
+			lastCodecDestDir="$OPTARG"
+			if [ "$lastCodecDestDir" != '/' -a "${lastCodecDestDir%/}" != "$lastCodecDestDir" ]; then
+				lastCodecDestDir="${lastCodecDestDir%/}"
+			fi
+			if [ ! -e "$lastCodecDestDir" ]; then
+				if ! mkdir -p "$lastCodecDestDir" >/dev/null 2>&1 ; then
+					printMessage 'error' 'usage' 'filesystem' "path:${lastCodecDestDir}" "$me -O/P: failed to create directory (do you have write permissions?)." ; exit $EX_CANTCREAT
+				fi
+			elif [ ! -d "$lastCodecDestDir" ]; then
+				printMessage 'error' 'usage' 'filesystem' "path:${lastCodecDestDir}" "$me -O/P: not a directory." ; exit $EX_CANTCREAT
+			elif [ ! -w "$lastCodecDestDir" ]; then
+				printMessage 'error' 'usage' 'filesystem' "path:${lastCodecDestDir}" "$me -O/P: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
+			fi
+			if [ "$o" = 'P' ]; then
+				setDestDir "$lastCodec" "$lastCodecDestDir" "true"
+			else
+				setDestDir "$lastCodec" "$lastCodecDestDir" "false"
+			fi
 			lastCodecDestDir=""
 			;;
 
@@ -6321,26 +6449,39 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			gotLinkedDir=true
 			;;
 
-		O|P)
-			lastCodecDestDir="$OPTARG"
-			if [ "$lastCodecDestDir" != '/' -a "${lastCodecDestDir%/}" != "$lastCodecDestDir" ]; then
-				lastCodecDestDir="${lastCodecDestDir%/}"
-			fi
-			if [ ! -e "$lastCodecDestDir" ]; then
-				if ! mkdir -p "$lastCodecDestDir" >/dev/null 2>&1 ; then
-					printMessage 'error' 'usage' 'filesystem' "path:${lastCodecDestDir}" "$me -O/P: failed to create directory (do you have write permissions?)." ; exit $EX_CANTCREAT
+		a)
+			setArtworkParam=true
+			case "$OPTARG" in
+				*.jpg|*.jpeg|*.png|"")
+				 	# "" disables embedding artwork
+					if [ -z "$lastCodec" ]; then
+						setCodecCoverArtFile "default" "$OPTARG"
+					elif [ -n "$lastCodec" ]; then
+						setCodecCoverArtFile "$lastCodec" "$OPTARG"
+					fi
+					;;
+
+				*) printMessage 'error' 'usage' 'bad_value' "$me -a: the argument must be a JPEG or PNG file" ; exit $EX_USAGE ;;
+			esac
+			;;
+
+		f)
+			copyFilesParam=true
+			if [ -z "$lastCodec" ]; then
+				setCodecOtherFiles "default" "$OPTARG"
+			elif [ -n "$lastCodec" ]; then
+				if [ "$lastCodec" = "WavPackHybrid" ]; then
+					if [ $gotLinkedDir = true ]; then
+						setCodecOtherFiles "WavPackLossy" "$OPTARG"
+					else
+						setCodecOtherFiles "WavPackHybrid" "$OPTARG"
+					fi
+				# elif [ "$lastCodec" = "WavPackLossy" ]; then
+				# 	setCodecOtherFiles "WavPackLossy" "$OPTARG"
+				else
+					setCodecOtherFiles "$lastCodec" "$OPTARG"
 				fi
-			elif [ ! -d "$lastCodecDestDir" ]; then
-				printMessage 'error' 'usage' 'filesystem' "path:${lastCodecDestDir}" "$me -O/P: not a directory." ; exit $EX_CANTCREAT
-			elif [ ! -w "$lastCodecDestDir" ]; then
-				printMessage 'error' 'usage' 'filesystem' "path:${lastCodecDestDir}" "$me -O/P: directory is not writable (permission denied)." ; exit $EX_CANTCREAT
 			fi
-			if [ "$o" = 'P' ]; then
-				setDestDir "$lastCodec" "$lastCodecDestDir" "true"
-			else
-				setDestDir "$lastCodec" "$lastCodecDestDir" "false"
-			fi
-			lastCodecDestDir=""
 			;;
 
 		k)
@@ -6357,51 +6498,11 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			fi
 			;;
 
-		t) checkFiles=true ;;
-
-		T) touchFiles=true ;;
-
-		c|C)
-			case "$OPTARG" in
-				wav)                 lastCodec='WAV' copyWAV=true ;;
-				aiff)                lastCodec='AIFF' ;;
-				caf)                 lastCodec='CAF' ;;
-				flac)                lastCodec='FLAC' ;;
-				alac)                lastCodec='ALAC' ;;
-				wv)                  lastCodec='WavPack' ;;
-				wvh)                 lastCodec='WavPackHybrid' ;;
-
-				wvl)                 lastCodec='WavPackLossy' ;;
-				aac)                 lastCodec='AAC' ;;
-				ape)                 lastCodec='MonkeysAudio' ;;
-				lossyWAV|lossywav)   lastCodec='lossyWAV'; ((nLossyWAV++)) ; copyLossyWAV=true ;;
-				lossyFLAC|lossyflac) lastCodec='lossyFLAC'; ((nLossyWAV++)) ;;
-				lossyWV|lossywv)     lastCodec='lossyWV'; ((nLossyWAV++)) ;;
-				mp3)                 lastCodec='MP3' ;;
-				ogg|vorbis)          lastCodec='OggVorbis' ;;
-				opus)                lastCodec='Opus' ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$me -c: invalid codec (try $me -h)" ; exit $EX_USAGE ;;
-			esac
-
-			outputCodecs="$outputCodecs $lastCodec"; ((nCodecs++))
-			if [ "$o" = 'c' ]; then
-				preserveMetadata="${preserveMetadata}x${lastCodec}Y"
-			fi
-
-			grep -E "(WavPack.*WavPackLossy)|(WavPackLossy.*WavPack)" < <( echo "$outputCodecs" ) 1>/dev/null 2>/dev/null; rc=$?
-			if [ $rc -eq $EX_OK ]; then
-				printMessage 'error' 'usage' 'bad_value' "$me -c: don't specify both WavPack[*] and WavPackLossy; choose one or the other."
-				printMessage 'error' 'usage' 'bad_value' "$me -c: if you want both lossless and lossy WavPack, choose -c wvh (possibly with -l DIR)"
-				exit $EX_USAGE
-			fi
-
-			if [ "$lastCodec" = "WavPackLossy" -a -n "$linkDir" ]; then
-				gotLinkedDir=false
-				linkDir=""
-			fi
-			;;
+# -----------------------------------------------------------------------------
 
 		d) lastCodec='WAV'; outputCodecs="$outputCodecs $lastCodec"; ((nCodecs++)); copyWAV=true ;;
+
+		t) checkFiles=true ;;
 
 		H)
 			case "$OPTARG" in
@@ -6420,78 +6521,7 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			hashFiles=true
 			;;
 
-		q)
-			if [ -z "$lastCodec" ]; then
-				printMessage 'error' 'usage' 'command_line' "$me -q: you must specify a codec first (-c)" ; exit $EX_USAGE
-			fi
-
-			case "$lastCodec" in
-				AAC) getCompressionSetting 'AAC' "$OPTARG" ;;
-				FLAC) getCompressionSetting 'FLAC' "$OPTARG" ;;
-				lossyWAV|lossyFLAC|lossyWV) getCompressionSetting 'lossyWAV' "$OPTARG" ;;
-				MonkeysAudio) getCompressionSetting 'MonkeysAudio' "$OPTARG" ;;
-				MP3) getCompressionSetting 'MP3' "$OPTARG" ; MP3_MODE='VBR' ;;
-				OggVorbis) getCompressionSetting 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='VBR' ;;
-				Opus) getCompressionSetting 'Opus' "$OPTARG" ; Opus_MODE='VBR' ;;
-				WavPack|WavPackHybrid) getCompressionSetting 'WavPack' "$OPTARG" ;;
-				WavPackLossy) getCompressionSetting 'WavPackLossy' "$OPTARG" ;;
-				*) printMessage 'error' 'usage' 'command_line' "$me -q: parameter not available with the selected codec" ; exit $EX_USAGE ;;
-			esac ;;
-
-		b)
-			if [ -z "$lastCodec" ]; then
-				case "$OPTARG" in
-					16|24) bitDepth=$OPTARG ;;
-					*) printMessage 'error' 'usage' 'bad_value' "$me -b: bit depth must be either 16 or 24" ; exit $EX_USAGE
-				esac
-			else
-				case "$lastCodec" in
-					AAC) getConstantBitrate 'AAC' "$OPTARG" ; AAC_MODE='CBR' ;;
-					MP3) getConstantBitrate 'MP3' "$OPTARG" ; MP3_MODE='CBR' ;;
-					OggVorbis) getConstantBitrate 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='CBR' ;;
-					Opus) getConstantBitrate 'Opus' "$OPTARG" ; Opus_MODE='CBR' ;;
-					WavPackHybrid|WavPackLossy) getAverageBitrate 'WavPackLossy' "$OPTARG" ;; # for backwards compatibility
-					*) printMessage 'error' 'usage' 'command_line' "$me -b: parameter not available with the selected codec" ; exit $EX_USAGE ;;
-				esac
-			fi
-			;;
-
-		B)
-			if [ -z "$lastCodec" ]; then
-				printMessage 'error' 'usage' 'command_line' "$me -B: you must select a codec first (-c)" ; exit $EX_USAGE
-			fi
-			case "$lastCodec" in
-				AAC) getAverageBitrate 'AAC' "$OPTARG" ; AAC_MODE='ABR' ;;
-				MP3) getAverageBitrate 'MP3' "$OPTARG" ; MP3_MODE='ABR' ;;
-				OggVorbis) getAverageBitrate 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='ABR' ;;
-				Opus) getAverageBitrate 'Opus' "$OPTARG" ; Opus_MODE='ABR' ;;
-				WavPackHybrid|WavPackLossy) getAverageBitrate 'WavPackLossy' "$OPTARG" ;;
-				*) printMessage 'error' 'usage' 'command_line' "$me -B: parameter not available with the selected codec" ; exit $EX_USAGE ;;
-			esac
-			;;
-
-		r)
-			if [ -n "$lastCodec" -a "$calledAs" != 'decaude' ]; then
-				printMessage 'error' 'usage' 'command_line' "$me -r: parameter must be given before -c" ; exit $EX_USAGE
-			fi
-			case "$OPTARG" in
-				44|44.1) samplingRate=44100 ;;
-				88|88.2) samplingRate=88200 ;;
-				176|176.4) samplingRate=176400 ;;
-				352|352.8) samplingRate=352800 ;;
-				48|96|192|384) samplingRate="${OPTARG}000" ;;
-				44100|48000|88200|96000|176400|192000|352800|384000) samplingRate=$OPTARG ;;
-				cd|CD) bitDepth=16 samplingRate=44100 convertToStereo='flat' ;;
-				dvd|DVD) bitDepth=16 samplingRate=48000 ;;
-				sacd|SACD) bitDepth=24 samplingRate=88200 ;;
-				dvda|DVDA|dvdaudio|DVDAUDIO|DVDAudio|bd|BD|bluray|BLURAY|BluRay) bitDepth=24 samplingRate=96000 ;;
-				pono|Pono|PONO) bitDepth=24 samplingRate=192000 ;;
-				dxd|DXD) bitDepth=24 samplingRate=352800 ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$me -r: sampling rate must be one of 44[100], 48[000], 88[200], 96[000], 176[400], 192[000], 352[800], 384[000], cd, dvd, sacd, dvda, bluray, pono or dxd" ; exit $EX_USAGE
-			esac
-			;;
-
-		2) convertToStereo='flat' ;;
+# -----------------------------------------------------------------------------
 
 		g) computeReplaygain=true ;;
 
@@ -6534,11 +6564,17 @@ while getopts 'zsn:o:O:P:l:L:a:f:kKtTdc:C:H:q:b:B:r:2gG:S:huV' o ; do
 			unset gainValue
 			;;
 
+# -----------------------------------------------------------------------------
+
+		T) touchFiles=true ;;
+
+# -----------------------------------------------------------------------------
+
 		h) printUsage; exit $EX_OK ;;
 
 		V) echo "$me $VERSION"; exit $EX_OK ;;
 
-		z) outputMode='machine' ;;
+# -----------------------------------------------------------------------------
 
 		*) printMessage 'error' 'usage' 'command_line' "Try '$me -h' for more information." ; exit $EX_USAGE ;;
 	esac

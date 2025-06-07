@@ -1,5 +1,5 @@
 ```
-caudec 2.1.5: multiprocess audio converter
+caudec 2.1.6: multiprocess audio converter
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
@@ -17,6 +17,8 @@ Global options:
 
   -n N      launch N processes concurrently (1-10);
             by default, the number of CPU cores.
+
+  -i        ignore unsupported files
 
   -z        produce machine-parsable output; must be the first parameter on the
             command line to take effect. Run 'caudec -z' on its own to print
