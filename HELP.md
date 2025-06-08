@@ -142,6 +142,8 @@ ReplayGain parameters (mutually exclusive from all other actions):
   -G ARG    MP3: apply ReplayGain ('album' or 'track') using MP3's gain header.
             It is the standard way for MP3 and is reversible.
 
+  -G undo   MP3: reverse ReplayGain using MP3's gain header.
+
 -------------------------------------------------------------------------------
 
 Touching file times (mutually exclusive from all other actions):
