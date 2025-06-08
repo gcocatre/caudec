@@ -87,12 +87,12 @@ esac
 
 # true by default
 if [ "$preventClipping" = "false" ]; then preventClipping=false; else preventClipping=true; fi
-if [ "$ignoreUnsupportedFiles" = "false" ]; then ignoreUnsupportedFiles=false; else ignoreUnsupportedFiles=true; fi
 
 # false by default
-if [ "$tagCompressionSetting" = "true" ]; then tagCompressionSetting=true; else tagCompressionSetting=false; fi
-if [ "$setCompilationFlagWithAlbumArtist" = "true" ]; then setCompilationFlagWithAlbumArtist=true; else setCompilationFlagWithAlbumArtist=false; fi
+if [ "$ignoreUnsupportedFiles" = "true" ]; then ignoreUnsupportedFiles=true; else ignoreUnsupportedFiles=false; fi
 if [ "$keepWavMetadata" = "true" ]; then keepWavMetadata=true; else keepWavMetadata=false; fi
+if [ "$setCompilationFlagWithAlbumArtist" = "true" ]; then setCompilationFlagWithAlbumArtist=true; else setCompilationFlagWithAlbumArtist=false; fi
+if [ "$tagCompressionSetting" = "true" ]; then tagCompressionSetting=true; else tagCompressionSetting=false; fi
 
 test -z "$hashes" && hashes=''
 if [ -n "$hashes" ]; then
