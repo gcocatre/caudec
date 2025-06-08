@@ -5000,7 +5000,7 @@ computeTrackGain ()
 
 	if [ "$sourceFileExt" != "opus" ]; then
 		if [ $ec -eq $EX_OK ]; then
-			if [ "$sourceFileExt" != "mp3" -o "$applyGainType" = "TRACK" ]; then
+			if [ $applyGain = false -o "$applyGainType" = "TRACK" ]; then
 				saveGain 'TRACK' || ec=$EX_KO
 			fi
 		fi
