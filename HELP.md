@@ -3,7 +3,7 @@ caudec 2.1.6: multiprocess audio converter
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
-Usage: caudec [ GLOBAL OPTIONS ] [ PROCESSING [ OPTIONS ] ] FILES
+Usage: caudec [ GLOBAL PARAMETERS ] [ PROCESSING [ PARAMETERS ] ] FILES
 Operate on multiple audio files at once, in parallel.
 Instead of multiple files, one or more directories may be specified.
 Multiple codec switches (optionally paired with a -q switch) may be specified.
@@ -11,12 +11,12 @@ Supported input files: .wav, .aiff, .caf, .flac, .wv, .ape, .m4a
 
 -------------------------------------------------------------------------------
 
-Global options:
+Global parameters:
 
   -s        be silent, only print errors
 
-  -n N      launch N processes concurrently (1-10);
-            by default, the number of CPU cores.
+  -n N      launch N processes concurrently (1 or more)
+            By default, the number of CPU cores.
 
   -i        ignore unsupported files
 
@@ -24,9 +24,26 @@ Global options:
             command line to take effect. Run 'caudec -z' on its own to print
             a description of the syntax.
 
+  -Z        produce human-readable output to STDOUT, and machine-parsable
+            to STDERR
+
 -------------------------------------------------------------------------------
 
-Processing / resampling options (before encoding):
+Processing / resampling parameters (before encoding):
+
+  -G ARG    apply ReplayGain ('album' or 'track') if found in source file
+            metadata, after decoding and BEFORE encoding (irreversible).
+            Note: it is possible to specify a preamp value with an additional
+            -G parameter, for instance '-G album -G -3' or '-G track -G +2'.
+            Only use positive preamp values if you know what you're doing.
+
+  -G ARG    apply peak normalization ('albumpeak' or 'trackpeak'); this
+            makes the tracks as loud as possible without clipping; requires
+            ReplayGain metadata to be available in the source files.
+            Note: it is possible to specify an arbitrary peak reference lower
+            than 0dBFS with an additional -G parameter: '-G albumpeak -G -4'.
+
+  -G GAIN   apply arbitrary GAIN (signed number from -99.99 to +99.99)
 
   -b BITS   bit depth (16, 24)
   -r HZ     sampling rate in Hz (44100, 48000, 88200, 96000, 176400, 192000,
@@ -46,7 +63,7 @@ Processing / resampling options (before encoding):
 
 -------------------------------------------------------------------------------
 
-Encoding options (mutually exclusive from all other actions):
+Encoding parameters (mutually exclusive from all other actions):
 
   -c CODEC  use specified CODEC: wav, aiff, caf,
             flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
@@ -108,7 +125,7 @@ Little to no extra storage will be used (just extra inodes).
 
 -------------------------------------------------------------------------------
 
-Decoding options (all mutually exlusive from each other and other actions):
+Decoding parameters (all mutually exlusive from each other and other actions):
 
   -d        decode to WAV (input: AIFF, CAF, FLAC, WavPack, Monkey's Audio)
   -t        test file integrity
@@ -118,24 +135,12 @@ Decoding options (all mutually exlusive from each other and other actions):
 
 -------------------------------------------------------------------------------
 
-ReplayGain options (mutually exclusive from all other actions):
+ReplayGain parameters (mutually exclusive from all other actions):
 
   -g        generate ReplayGain metadata
-  -G ARG    MP3: compute and apply gain of type ARG (album or track)
-            (no tags, works everywhere)
-  -G ARG    MP3: apply ReplayGain (album or track) if found in source file
-            metadata, after decoding and BEFORE encoding (irreversible).
-            Note: it is possible to specify a preamp value with an additional
-            -G parameter, for instance '-G album -G -3' or '-G track -G +2'.
-            Only use positive preamp values if you know what you're doing.
 
-  -G ARG    MP3: apply peak normalization (albumpeak or trackpeak); this makes
-            the tracks as loud as possible without clipping; requires
-            ReplayGain metadata to be available in the source files.
-            Note: it is possible to specify an arbitrary peak reference lower
-            than 0dBFS with an additional -G parameter: '-G albumpeak -G -4'.
-
-  -G GAIN   MP3: apply arbitrary GAIN (signed number from -99.99 to +99.99)
+  -G ARG    MP3: apply ReplayGain ('album' or 'track') using MP3's gain header.
+            It is the standard way for MP3 and is reversible.
 
 -------------------------------------------------------------------------------
 
