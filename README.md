@@ -131,9 +131,9 @@ caudec uses common UNIX tools (bc, cut, date/gdate, find, grep, head, mktemp, ps
 
 #### ReplayGain
 
-* mp3gain: https://mp3gain.sourceforge.net/
-* vorbisgain: http://sjeng.org/vorbisgain.html
-* opusgain: https://github.com/FrancisRussell/zoog
+* MP3 (mp3gain): https://mp3gain.sourceforge.net/
+* Ogg Vorbis (vorbisgain): http://sjeng.org/vorbisgain.html
+* Opus (opusgain): https://github.com/FrancisRussell/zoog
 
 #### Miscellaneous
 * APEv2 (for files with APEv2 metadata): https://github.com/gcocatre/APEv2

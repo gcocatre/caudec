@@ -1631,6 +1631,7 @@ getNumberOfChannels ()
 		*.wv) numberOfChannels="$( wvunpack -f "$file" 2>/dev/null | cut -d ";" -f 4 )" ;;
 		*.ogg) numberOfChannels="$( ogginfo "$file" 2>/dev/null | grep -E "^Channels:" | tr -cd "0-9" )" ;;
 		*.opus) numberOfChannels="$( opusinfo "$file" | grep -F "Channels: " | tr -cd "0-9" )" ;;
+		*.mp3) numberOfChannels="$( soxi -c "$file" 2>/dev/null | tr -cd "0-9" )" ;;
 		*) numberOfChannels="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | grep -F "channels=" | tr -cd "0-9" )" ;;
 	esac
 
