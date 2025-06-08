@@ -2826,7 +2826,7 @@ importArtworkIntoMP3 ()
 		if [ -z "$description" ]; then
 			description="${picTypeText}_${n}" # add a number to make it unique
 		fi
-		eyeD3 --add-image="${f}:${picTypeText}:${description}" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
+		eyeD3 --quiet --to-v2.4 --add-image="${f}:${picTypeText}:${description}" "$encodedFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 	done
 	return $ec
 }
@@ -4727,7 +4727,7 @@ saveReplaygainToMP3 ()
 {
 	local ec=$EX_OK
 
-	eyeD3 -2 --user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
+	eyeD3 --quiet --to-v2.4 --user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
 		--user-text-frame="REPLAYGAIN_${gainType}_PEAK:${peak}" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
 
 	return $ec
@@ -4742,7 +4742,6 @@ saveGain ()
 	else
 		gain="$albumGain" peak="$albumPeak" uGain="$albumGain"
 	fi
-	# debug "saveGain() applyGainType=[$applyGainType] uGain=[$uGain]"
 
 	if [ "${gain:0:1}" != '-' ]; then
 		gain="+${gain}"
@@ -4789,7 +4788,6 @@ saveGain ()
 
 		*.mp3)
 			if [ $applyGain = true ]; then
-				# uGain="${applyGainType#+}"
 				mp3GainSteps="$( echo "scale=3; $uGain / 1.5" | bc )" # MP3 gain steps are 1.5dB
 				mp3GainSteps="$( printf '%.0f' "$mp3GainSteps" )"
 				mp3gain -c -g "$mp3GainSteps" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$EX_KO
