@@ -143,6 +143,7 @@ ReplayGain parameters (mutually exclusive from all other actions):
             It is the standard way for MP3 and is reversible.
 
   -G undo   MP3: reverse ReplayGain using MP3's gain header.
+            Other codecs except Opus: remove ReplayGain metadata.
 
 -------------------------------------------------------------------------------
 

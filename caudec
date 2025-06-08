@@ -316,6 +316,7 @@ ReplayGain parameters (mutually exclusive from all other actions):
             It is the standard way for MP3 and is reversible.
 
   -G undo   MP3: reverse ReplayGain using MP3's gain header.
+            Other codecs except Opus: remove ReplayGain metadata.
 
 -------------------------------------------------------------------------------
 
@@ -997,7 +998,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'not a regular file.' ; ec=$EX_DATAERR
 		elif [ ! -r "$inputFile" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for reading (permission denied).' ; ec=$EX_NOINPUT
-		elif [ ! -w "$inputFile" -a $computeReplaygain = true ]; then
+		elif [ ! -w "$inputFile" -a $computeReplayGain = true ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
 		elif [ ! -w "$inputFile" -a $hashFiles = true ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; ec=$EX_CANTCREAT
@@ -1084,7 +1085,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 					esac
 				fi
 
-				if [ $computeReplaygain = true ]; then
+				if [ $computeReplayGain = true ]; then
 					if [ $inputFileExtensionAreAllTheSame = false ]; then
 						printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension" ; ec=$EX_DATAERR
 					else
@@ -1113,12 +1114,12 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 					fi
 				fi
 
-				if [ $reverseReplaygain = true ]; then
+				if [ $reverseReplayGain = true ]; then
 					if [ $inputFileExtensionAreAllTheSame = false ]; then
 						printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension" ; ec=$EX_DATAERR
 					else
 						case "$inputFile" in
-							*.mp3) addToSourceFiles=true ;;
+							*.flac|*.wv|*.ape|*.ogg|*.mp3) addToSourceFiles=true ;;
 							*)
 								if [ $ignoreUnsupportedFiles = true ]; then
 									continue
@@ -1278,7 +1279,7 @@ checkBinaries ()
 		esac
 	done
 
-	if [ $computeReplaygain = true ]; then
+	if [ $computeReplayGain = true ]; then
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
 				*.flac) checkBinary 'metaflac' ;;
@@ -1286,6 +1287,16 @@ checkBinaries ()
 				*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
 				*.opus) checkBinary 'opusinfo' 'opusgain' ;; # https://github.com/FrancisRussell/zoog
 				*.mp3) checkBinary 'ffprobe' 'lame' 'mp3gain' ; if [ $applyGain = false ]; then checkBinary 'eyeD3' 'mp3gain'; fi ;;
+			esac
+		done
+	elif [ $reverseReplayGain = true ]; then
+		for sourceFile in "${sourceFiles[@]}" ; do
+			case "$sourceFile" in
+				*.flac) checkBinary 'metaflac' ;;
+				*.wv) checkBinary 'wvtag' ;;
+				*.ogg) checkBinary 'vorbiscomment' ;;
+				*.ape) checkBinary 'APEv2' ;;
+				*.mp3) checkBinary 'mp3gain' ;;
 			esac
 		done
 	elif [ $checkFiles = true ]; then
@@ -5180,9 +5191,21 @@ reverseTrackGain ()
 
 	if [ -e "$sourceFile" ]; then
 		case "$sourceFile" in
-			*.mp3)
-				mp3gain -u "$sourceFile" 1>/dev/null 2>/dev/null ; ec=$?
+			*.flac) metaflac --remove-replay-gain "$sourceFile" 1>/dev/null 2>/dev/null ; ec=$? ;;
+
+			*.wv) wvtag -d "Replaygain_Album_Peak" -d "Replaygain_Track_Peak" -d "Replaygain_Album_Gain" \
+				-d "Replaygain_Track_Gain" -d "Replaygain_Reference_Loudness" "$sourceFile" 1>/dev/null 2>/dev/null ; ec=$?
 				;;
+
+			*.ape) APEv2 -z -r "Replaygain_Album_Peak" -r "Replaygain_Track_Peak" -r "Replaygain_Album_Gain" \
+				-r "Replaygain_Track_Gain" -r "Replaygain_Reference_Loudness" "$sourceFile" 1>/dev/null 2>/dev/null ; ec=$?
+				;;
+
+			*.ogg) vorbiscomment -d "Replaygain_Album_Peak" -d "Replaygain_Track_Peak" -d "Replaygain_Album_Gain" \
+				-d "Replaygain_Track_Gain" -d "Replaygain_Reference_Loudness" "$sourceFile" 1>/dev/null 2>/dev/null ; ec=$?
+				;;
+
+			*.mp3) mp3gain -u "$sourceFile" 1>/dev/null 2>/dev/null ; ec=$? ;;
 
 			*) printMessage 'warning' 'track_gain' 'unsupported' "file:${sourceFile}" $p 'unsupported format' ; return $EX_KO ;;
 		esac
@@ -6111,7 +6134,7 @@ allCodecsString="${losslessCodecsString} ${lossyCodecsString}"
 outputCodecs='' lastCodec='' nCodecs=0 copyWAV=false verbose=true
 defaultDestDir="$PWD" linkDir='' gotLinkedDir=false
 nLossyWAV=0 copyLossyWAV=false
-bitDepth='' samplingRate='' preserveMetadata='' computeReplaygain=false reverseReplaygain=false
+bitDepth='' samplingRate='' preserveMetadata='' computeReplayGain=false reverseReplayGain=false
 applyGain=false applyGainType='' preamp='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human'
 checkFiles=false hashFiles=false touchFiles=false peakReference=0 allFilesAreOpus=true
@@ -6565,14 +6588,14 @@ while getopts '2a:B:b:C:c:df:G:ghH:iKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 # -----------------------------------------------------------------------------
 
-		g) computeReplaygain=true ;;
+		g) computeReplayGain=true ;;
 
 		G)
 			if [ -z "$outputCodecs" ]; then
 				case "$OPTARG" in
-					album) gainValue='ALBUM'; computeReplaygain=true applyGain=true applyGainType="$gainValue" ;;
-					track) gainValue='TRACK'; computeReplaygain=true applyGain=true applyGainType="$gainValue"  ;;
-					undo) reverseReplaygain=true ;;
+					album) gainValue='ALBUM'; computeReplayGain=true applyGain=true applyGainType="$gainValue" ;;
+					track) gainValue='TRACK'; computeReplayGain=true applyGain=true applyGainType="$gainValue"  ;;
+					undo) reverseReplayGain=true ;;
 					*) printMessage 'error' 'usage' 'bad_value' "$me -G: MP3 gain type must be 'album', 'track' or 'undo'" ; exit $EX_USAGE ;;
 				esac
 			else
@@ -6674,7 +6697,7 @@ unset gotPCMCodecsOnly
 if [ -z "$hashes" ]; then hashFiles=false; fi
 
 # transcode, test, replaygain, touch, hash
-if [ -z "$outputCodecs" -a $checkFiles = false -a $computeReplaygain = false -a $reverseReplaygain = false -a $touchFiles = false -a $hashFiles = false ]; then
+if [ -z "$outputCodecs" -a $checkFiles = false -a $computeReplayGain = false -a $reverseReplayGain = false -a $touchFiles = false -a $hashFiles = false ]; then
 	printMessage 'error' 'usage' 'command_line' "$me: no action specified"
 	exit $EX_USAGE
 fi
@@ -6701,7 +6724,7 @@ fi
 
 # transcode (test, replaygain, touch, hash)
 if [ -n "$outputCodecs" ]; then
-	if [ $computeReplaygain = true -o $reverseReplaygain = true ]; then
+	if [ $computeReplayGain = true -o $reverseReplayGain = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$me: -c/-d and -g/-G are mutually exclusive. Try again with either one alone."
 		exit $EX_USAGE
 	fi
@@ -6721,7 +6744,7 @@ fi
 
 # Test files (replaygain, touch, hash)
 if [ $checkFiles = true ]; then
-	if [ $computeReplaygain = true -o $reverseReplaygain = true ]; then
+	if [ $computeReplayGain = true -o $reverseReplayGain = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$me: -t and -g/-G are mutually exclusive. Try again with either one alone."
 		exit $EX_USAGE
 	fi
@@ -6736,7 +6759,7 @@ if [ $checkFiles = true ]; then
 fi
 
 # ReplayGain (test, touch, hash)
-if [ $computeReplaygain = true -o $reverseReplaygain = true ]; then
+if [ $computeReplayGain = true -o $reverseReplayGain = true ]; then
 	if [ $checkFiles = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$me: -g/-G and -t are mutually exclusive. Try again with either one alone."
 		exit $EX_USAGE
@@ -6757,7 +6780,7 @@ if [ $touchFiles = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$me: -T and -t are mutually exclusive. Try again with either one alone."
 		exit $EX_USAGE
 	fi
-	if [ $computeReplaygain = true -o $reverseReplaygain = true ]; then
+	if [ $computeReplayGain = true -o $reverseReplayGain = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$me: -T and -g/-G are mutually exclusive. Try again with either one alone."
 		exit $EX_USAGE
 	fi
@@ -6773,7 +6796,7 @@ if [ $hashFiles = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$me: -H and -t are mutually exclusive. Try again with either one alone."
 		exit $EX_USAGE
 	fi
-	if [ $computeReplaygain = true -o $reverseReplaygain = true ]; then
+	if [ $computeReplayGain = true -o $reverseReplayGain = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$me: -H and -g/-G are mutually exclusive. Try again with either one alone."
 		exit $EX_USAGE
 	fi
@@ -6823,7 +6846,7 @@ elif [ $checkFiles = true ]; then
 	for ((p=0; p < nProcesses; p++)); do
 		testFiles &
 	done
-elif [ $computeReplaygain = true ]; then
+elif [ $computeReplayGain = true ]; then
 	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
@@ -6833,7 +6856,7 @@ elif [ $computeReplaygain = true ]; then
 	for ((p=0; p < nProcesses; p++)); do
 		computeTrackGains &
 	done
-elif [ $reverseReplaygain = true ]; then
+elif [ $reverseReplayGain = true ]; then
 	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
@@ -6867,7 +6890,7 @@ fi
 ec=$EX_OK ; for p in $( jobs -p ); do wait $p || ec=$EX_KO ; done
 
 if [ $ec -eq $EX_OK ]; then
-	if [ $computeReplaygain = true ]; then
+	if [ $computeReplayGain = true ]; then
 		if [ $allFilesAreOpus = true ]; then
 			computeOpusAlbumGain || ec=$EX_KO
 		else
