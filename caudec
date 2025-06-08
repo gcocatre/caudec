@@ -1286,7 +1286,7 @@ checkBinaries ()
 				*.wv) checkBinary 'APEv2' 'wvunpack' 'wvgain' ;;
 				*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
 				*.opus) checkBinary 'opusinfo' 'opusgain' ;; # https://github.com/FrancisRussell/zoog
-				*.mp3) checkBinary 'ffprobe' 'lame' 'mp3gain' ; if [ $applyGain = false ]; then checkBinary 'eyeD3' 'mp3gain'; fi ;;
+				*.mp3) checkBinary 'ffprobe' 'mp3gain'; if [ $applyGain = false ]; then checkBinary 'eyeD3'; fi ;;
 			esac
 		done
 	elif [ $reverseReplayGain = true ]; then
