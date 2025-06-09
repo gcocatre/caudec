@@ -638,14 +638,14 @@ printMessage ()
 	if [ "$msgVerbose" = 'verbose' -a "$verbose" != 'true' ]; then return $EX_OK; fi
 	if [ "$msgDebug" = 'debug' -a -z "$CAUDECDEBUG" ]; then return $EX_OK; fi
 
-	if [ "$outputMode" = 'human' ]; then
-		printMessageToStdoutOrStderr "$( getHumanReadableString )" "$msgOut"
-	elif [ "$outputMode" = 'machine' ]; then
-		printMessageToStdoutOrStderr "$( getMachineParsableString )" "$msgOut"
-	elif [ "$outputMode" = 'humanAndMachine' ]; then
-		printMessageToStdoutOrStderr "$( getHumanReadableString )" 'stdout'
-		printMessageToStdoutOrStderr "$( getMachineParsableString )" 'stderr'
-	fi
+	case "$outputMode" in
+		human) printMessageToStdoutOrStderr "$( getHumanReadableString )" "$msgOut" ;;
+		machine) printMessageToStdoutOrStderr "$( getMachineParsableString )" "$msgOut" ;;
+		humanAndMachine)
+			printMessageToStdoutOrStderr "$( getHumanReadableString )" 'stdout'
+			printMessageToStdoutOrStderr "$( getMachineParsableString )" 'stderr'
+			;;
+	esac
 
 	return $EX_OK
 }
