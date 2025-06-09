@@ -186,12 +186,12 @@ Supported input files: .wav, .aiff, .caf, .flac, .wv, .ape, .m4a
 
 Global parameters:
 
-  -s        be silent, only print errors
-
   -n N      launch N processes concurrently (1-${maxProcesses});
             by default, the number of CPU cores.
 
   -i        ignore unsupported files
+
+  -s        be silent, only print errors
 
   -z        produce machine-parsable output; must be the first parameter on the
             command line to take effect. Run 'caudec -z' on its own to print
@@ -397,7 +397,7 @@ process_id: identifier (PID) of the caudec process."
 }
 
 # status;status_info;status_data;file;message;process_number
-genMachineParsableString ()
+getMachineParsableString ()
 {
 	local pid=''
 
@@ -466,9 +466,11 @@ genMachineParsableString ()
 			fi
 			;;
 	esac
+
+	echo -e "$str"
 }
 
-genHumanReadableString ()
+getHumanReadableString ()
 {
 	case "$msgType" in
 		info)
@@ -576,6 +578,19 @@ genHumanReadableString ()
 			fi
 			;;
 	esac
+
+	echo -e "$str"
+}
+
+printMessageToStdoutOrStderr ()
+{
+	local str="$1" stdOut="$2"
+
+	if [ "$stdOut" = 'stderr' ]; then
+		echo -e "$str" 1>&2
+	else
+		echo -e "$str"
+	fi
 }
 
 printMessage ()
@@ -623,26 +638,13 @@ printMessage ()
 	if [ "$msgVerbose" = 'verbose' -a "$verbose" != 'true' ]; then return $EX_OK; fi
 	if [ "$msgDebug" = 'debug' -a -z "$CAUDECDEBUG" ]; then return $EX_OK; fi
 
-	# debug "printMessage() outputMode=${outputMode}"
-	if [ "$outputMode" = 'machine' ]; then
-		genMachineParsableString
-	else
-		genHumanReadableString
-	fi
-
-	if [ -n "$str" ]; then
-		if [ "$msgOut" = 'stderr' ]; then
-			echo -e "$str" 1>&2
-		else
-			echo -e "$str"
-		fi
-
-		if [ "$outputMode" = 'humanAndMachine' ]; then
-			genMachineParsableString
-			if [ -n "$str" ]; then
-				echo -e "$str" 1>&2
-			fi
-		fi
+	if [ "$outputMode" = 'human' ]; then
+		printMessageToStdoutOrStderr "$( getHumanReadableString )" "$msgOut"
+	elif [ "$outputMode" = 'machine' ]; then
+		printMessageToStdoutOrStderr "$( getMachineParsableString )" "$msgOut"
+	elif [ "$outputMode" = 'humanAndMachine' ]; then
+		printMessageToStdoutOrStderr "$( getHumanReadableString )" 'stdout'
+		printMessageToStdoutOrStderr "$( getMachineParsableString )" 'stderr'
 	fi
 
 	return $EX_OK
@@ -6293,8 +6295,6 @@ while getopts '2a:B:b:C:c:df:G:ghH:iKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 	case $o in
 # -----------------------------------------------------------------------------
 
-		s) verbose=false ;;
-
 		n)
 			case "$OPTARG" in
 				[0-9]|[0-9][0-9])
@@ -6311,6 +6311,8 @@ while getopts '2a:B:b:C:c:df:G:ghH:iKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 			;;
 
 		i) ignoreUnsupportedFiles=true ;;
+
+		s) verbose=false ;;
 
 		z) outputMode='machine' ;;
 

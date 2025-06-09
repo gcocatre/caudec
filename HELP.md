@@ -13,12 +13,12 @@ Supported input files: .wav, .aiff, .caf, .flac, .wv, .ape, .m4a
 
 Global parameters:
 
-  -s        be silent, only print errors
-
-  -n N      launch N processes concurrently (1 or more)
-            By default, the number of CPU cores.
+  -n N      launch N processes concurrently (1 or more);
+            by default, the number of CPU cores.
 
   -i        ignore unsupported files
+
+  -s        be silent, only print errors
 
   -z        produce machine-parsable output; must be the first parameter on the
             command line to take effect. Run 'caudec -z' on its own to print
