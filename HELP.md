@@ -25,7 +25,7 @@ Global parameters:
             a description of the syntax.
 
   -Z        produce human-readable output to STDOUT, and machine-parsable
-            to STDERR
+            output to STDERR
 
 -------------------------------------------------------------------------------
 
