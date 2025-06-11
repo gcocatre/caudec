@@ -57,7 +57,8 @@ fi
 install -m 0755 'caudec' "$bindir" &&
 rm -f "${bindir}/decaude" &&
 ln -s 'caudec' "${bindir}/decaude" &&
-echo "caudec and decaude installed in $bindir. See $caudecrcPath for configuration."
+install -m 0755 'transcaude' "$bindir" &&
+echo "caudec, decaude and transcaude installed in $bindir. See $caudecrcPath for configuration."
 if [ "$caudecrcPath" = '/etc/caudecrc' ]; then
 	echo "You may also copy /etc/caudecrc to ~/.caudecrc."
 fi

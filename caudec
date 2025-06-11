@@ -20,7 +20,7 @@
 
 me='caudec'
 calledAs="${0##*/}"
-VERSION='2.2.1'
+VERSION='2.3.0'
 
 # EX_USAGE: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # EX_DATAERR: The input data was incorrect in some way. This should only be used for user's data & not system files.
