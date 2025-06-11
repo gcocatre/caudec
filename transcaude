@@ -197,9 +197,9 @@ touchFiles ()
       if [ $verbose = true ]; then
         echo
         echo "Touching dir for codec $lastCodec in $lastDir:"
-        caudec -Z -T "$lastDir" 2> "${touchLog}_${lastCodec}" || ec=$EX_KO
+        caudec -Z -i -T "$lastDir" 2> "${touchLog}_${lastCodec}" || ec=$EX_KO
       else
-        caudec -Z -T "$lastDir" 1>/dev/null 2> "${touchLog}_${lastCodec}" || ec=$EX_KO
+        caudec -Z -i -T "$lastDir" 1>/dev/null 2> "${touchLog}_${lastCodec}" || ec=$EX_KO
       fi
 
       if [ $verbose = false ]; then
@@ -208,6 +208,13 @@ touchFiles ()
             outputWarningOrError
           fi
         done < <( grep -F "|touch_file" "${touchLog}_${lastCodec}" 2>/dev/null )
+      fi
+      ;;
+
+    *)
+      if [ $verbose = true ]; then
+        echo
+        echo "Not touching dir for unsupported codec $lastCodec in $lastDir."
       fi
       ;;
   esac
