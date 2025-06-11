@@ -214,6 +214,7 @@ touchFiles ()
 }
 
 if [ $verbose = true ]; then
+  echo "Transcoding files:"
   caudec -Z "$@" 2>"$encodingLog"; ec=$?
 else
   caudec -Z "$@" 1>/dev/null 2>"$encodingLog"; ec=$?
