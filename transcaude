@@ -139,6 +139,7 @@ outputWarningOrError ()
 			elif [ -n "$message" ]; then
 				str="$( printf "${GR} * ${KO}ER${NM} %s\n" "$message" )"
 			fi
+      echo -e "$str" 1>&2
 			;;
 
 		warning)
@@ -147,10 +148,9 @@ outputWarningOrError ()
 			else
 				str="$( printf "${GR} * ${WG}WG${NM} %s\n" "$message" )"
 			fi
+      echo -e "$str" 1>&2
 			;;
 	esac
-
-	echo -e "$str" 1>&2
 }
 
 computeReplayGain ()
@@ -267,6 +267,8 @@ if [ $ec -eq $EX_OK ]; then
   IFS="$OIFS"
 fi
 
-echo
+if [ $verbose = true ]; then
+  echo
+fi
 rm -rf "$TDIR"
 exit $ec
