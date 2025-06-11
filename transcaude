@@ -103,14 +103,14 @@ done
 if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
 TDIR="$( mktemp -d "${mktempDir}/${me}.XXXXXXXX" )"
 if [ ! -e "$TDIR" ]; then
-  echo "$me: error: cannot create temporary directory" 1>&2; ec=$EX_KO
+  echo "$me: error: cannot create temporary directory" 1>&2; ec=$EX_CANTCREAT
   exit $ec
 elif [ ! -d "$TDIR" ]; then
-  echo "$me: error: cannot create temporary directory" 1>&2; ec=$EX_KO
+  echo "$me: error: cannot create temporary directory" 1>&2; ec=$EX_CANTCREAT
   rm -rf "$TDIR"
   exit $ec
 elif [ ! -w "$TDIR" ]; then
-  echo "$me: error: temporary directory is not writable" 1>&2; ec=$EX_KO
+  echo "$me: error: temporary directory is not writable" 1>&2; ec=$EX_NOPERM
   rm -rf "$TDIR"
   exit $ec
 fi
