@@ -189,7 +189,9 @@ computeReplayGain ()
     *)
       if [ $verbose = true ]; then
         echo
-        echo "Not computing ReplayGain for unsupported codec $lastCodec in $lastDir."
+        status="warning"
+        message="Not computing ReplayGain for unsupported codec $lastCodec in $lastDir."
+        outputWarningOrError
       fi
       ;;
   esac
@@ -221,7 +223,9 @@ touchFiles ()
     *)
       if [ $verbose = true ]; then
         echo
-        echo "Not touching directory for unsupported codec $lastCodec in $lastDir."
+        status="warning"
+        message="Not touching directory for unsupported codec $lastCodec in $lastDir."
+        outputWarningOrError
       fi
       ;;
   esac
