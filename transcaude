@@ -54,7 +54,7 @@ https://github.com/gcocatre/caudec
 
 Usage: $me [ GLOBAL PARAMS ] [ CAUDEC PARAMS ] [ DIR | FILES ]
 Operate on all audio files of a single album at once, in parallel.
-A single directory, or a list of files, may be passed as arguments.
+A single directory (with -i), or a list of files, may be passed as arguments.
 Try 'caudec -h' to learn about CAUDEC PARAMS.
 
 -------------------------------------------------------------------------------
@@ -103,14 +103,14 @@ done
 if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
 TDIR="$( mktemp -d "${mktempDir}/${me}.XXXXXXXX" )"
 if [ ! -e "$TDIR" ]; then
-  echo "$me: error: cannot create temporary dir" 1>&2; ec=$EX_KO
+  echo "$me: error: cannot create temporary directory" 1>&2; ec=$EX_KO
   exit $ec
 elif [ ! -d "$TDIR" ]; then
-  echo "$me: error: cannot create temporary dir" 1>&2; ec=$EX_KO
+  echo "$me: error: cannot create temporary directory" 1>&2; ec=$EX_KO
   rm -rf "$TDIR"
   exit $ec
 elif [ ! -w "$TDIR" ]; then
-  echo "$me: error: temporary dir is not writable" 1>&2; ec=$EX_KO
+  echo "$me: error: temporary directory is not writable" 1>&2; ec=$EX_KO
   rm -rf "$TDIR"
   exit $ec
 fi
@@ -196,7 +196,7 @@ touchFiles ()
     FLAC|ALAC|WavPack*|lossyFLAC|lossyWV|OggVorbis|AAC|MonkeysAudio|Opus)
       if [ $verbose = true ]; then
         echo
-        echo "Touching dir for codec $lastCodec in $lastDir:"
+        echo "Touching directory for codec $lastCodec in $lastDir:"
         caudec -Z -i -T "$lastDir" 2> "${touchLog}_${lastCodec}" || ec=$EX_KO
       else
         caudec -Z -i -T "$lastDir" 1>/dev/null 2> "${touchLog}_${lastCodec}" || ec=$EX_KO
@@ -214,7 +214,7 @@ touchFiles ()
     *)
       if [ $verbose = true ]; then
         echo
-        echo "Not touching dir for unsupported codec $lastCodec in $lastDir."
+        echo "Not touching directory for unsupported codec $lastCodec in $lastDir."
       fi
       ;;
   esac
