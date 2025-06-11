@@ -71,7 +71,7 @@ Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
 Usage: $me [ GLOBAL PARAMS ] [ CAUDEC PARAMS ] [ DIR | FILES ]
-Operate on all audio files of a single album at once, in parallel.
+Operate on all audio files of an album at once, in parallel.
 A single directory (with -i), or a list of files, may be passed as arguments.
 Try 'caudec -h' to learn about CAUDEC PARAMS.
 
