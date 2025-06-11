@@ -197,9 +197,9 @@ touchFiles ()
       if [ $verbose = true ]; then
         echo
         echo "Touching directory for codec $lastCodec in $lastDir:"
-        caudec -Z -i -T "$lastDir" 2> "${touchLog}_${lastCodec}" || ec=$EX_KO
+        caudec -Z -T "$lastDir" 2> "${touchLog}_${lastCodec}" || ec=$EX_KO
       else
-        caudec -Z -i -T "$lastDir" 1>/dev/null 2> "${touchLog}_${lastCodec}" || ec=$EX_KO
+        caudec -Z -T "$lastDir" 1>/dev/null 2> "${touchLog}_${lastCodec}" || ec=$EX_KO
       fi
 
       if [ $verbose = false ]; then
