@@ -185,6 +185,13 @@ computeReplayGain ()
         done < <( grep -F "_gain|" "${replayGainLog}_${lastCodec}" 2>/dev/null )
       fi
       ;;
+
+    *)
+      if [ $verbose = true ]; then
+        echo
+        echo "Not computing ReplayGain for unsupported codec $lastCodec in $lastDir."
+      fi
+      ;;
   esac
 }
 
