@@ -1152,7 +1152,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 
 				if [ $touchFiles = true ]; then
 					case "$inputFile" in
-						*.flac|*.ogg|*.m4a|*.wv|*.ape|*.opus) gotAudioFile=true ;;
+						*.flac|*.ogg|*.m4a|*.wv|*.ape|*.mp3|*.opus) gotAudioFile=true ;;
 						*.wvc) continue ;;
 					esac
 					sourceFiles[$index]="$inputFile"
@@ -1323,6 +1323,7 @@ checkBinaries ()
 				*.opus) checkBinary 'opusinfo' ;;
 				*.wv) checkBinary 'wvtag' 'wvunpack' ;;
 				*.ape) checkBinary 'mac' 'APEv2' 'ffprobe' ;;
+				*.mp3) checkBinary 'ffmpeg' ;;
 			esac
 		done
 	else # transcode
@@ -5280,7 +5281,7 @@ computeTrackDateTime ()
 	local ec=0 trackYear trackMonth trackDay
 
 	case "$sourceFile" in
-		*.flac|*ogg|*.m4a|*.wv|*.ape|*.opus)
+		*.flac|*ogg|*.m4a|*.wv|*.ape|*.opus|*.mp3)
 			case "$sourceFile" in
 				*.flac) date=$( metaflac --no-filename --show-tag=date "$sourceFile" | tr -cd "[:digit:]-" ) ;;
 				*.ogg) date=$( vorbiscomment "$sourceFile" | grep -iF "date=" | tr -cd "[:digit:]-" ) ;;
@@ -5288,6 +5289,7 @@ computeTrackDateTime ()
 				*.wv) date=$( wvtag -x Year "$sourceFile" 2>/dev/null | tr -cd "[:digit:]-" ) ;;
 				*.ape) date=$( APEv2 -z "$sourceFile" 2>/dev/null | grep -iF year= | tr -cd "[:digit:]-" ) ;;
 				*.opus) date=$( opusinfo "$sourceFile" | grep -iF "date=" | tr -cd "[:digit:]-" ) ;;
+				*.mp3) date=$( ffmpeg -i "$sourceFile" -f ffmetadata - 2>/dev/null | grep -iE "^date=|^TDOR=|^TDRC=|^TDRL=" | head -n 1 | tr -cd "[:digit:]-" ) ;;
 			esac
 			if [ ${#date} -eq 4 ]; then
 				trackYear="$date"
@@ -5388,9 +5390,9 @@ touchAllFiles ()
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			case "$sourceFile" in
-				*.flac|*ogg|*.m4a|*.wv|*.ape|*.opus) audioFiles[$audioFileIndex]="$sourceFile" ; audioFileIndex=$(( audioFileIndex + 1 )) ;;
+				*.flac|*ogg|*.m4a|*.wv|*.ape|*.mp3|*.opus) audioFiles[$audioFileIndex]="$sourceFile" ; audioFileIndex=$(( audioFileIndex + 1 )) ;;
 				*.wvc) continue ;; # will be touched when the matching .wv file is touched
-				*.aiff|*.caf|*.mp3) continue ;; # unsupported audio files
+				*.aiff|*.caf) continue ;; # unsupported audio files
 				*) otherFiles[$otherFileIndex]="$sourceFile" ; otherFileIndex=$(( otherFileIndex + 1 )) ;; # all non-audio files
 			esac
 		done
@@ -5426,7 +5428,7 @@ touchAllFiles ()
 			millisecondsFile="${TDIR}/${index}.milliseconds"
 
 			case "$sourceFile" in
-				*.flac|*ogg|*m4a|*.wv|*.ape|*.opus)
+				*.flac|*ogg|*m4a|*.wv|*.ape|*.mp3|*.opus)
 					read trackDate < "$sourceTagFile"
 					if [ -z "$trackDate" ]; then trackDate="$defaultTrackDate"; fi
 					read trackMilliseconds < "$millisecondsFile"

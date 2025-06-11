@@ -193,7 +193,7 @@ touchFiles ()
   local status status_info status_data file message process_id
 
   case "$lastCodec" in
-    FLAC|ALAC|WavPack*|lossyFLAC|lossyWV|OggVorbis|AAC|MonkeysAudio|Opus)
+    FLAC|ALAC|WavPack*|lossyFLAC|lossyWV|OggVorbis|AAC|MonkeysAudio|MP3|Opus)
       if [ $verbose = true ]; then
         echo
         echo "Touching directory for $lastCodec in $lastDir:"
