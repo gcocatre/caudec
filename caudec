@@ -20,7 +20,7 @@
 
 me='caudec'
 calledAs="${0##*/}"
-VERSION='2.2.0'
+VERSION='2.2.1'
 
 # EX_USAGE: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # EX_DATAERR: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -369,7 +369,7 @@ status: one of info, success, error, warning, abort.
 status_info: optional additional information about the status (usage,
     initialization, decoding, processing, encoding, testing, hashing, debugging,
     track_gain, album_gain, checking_version, aborting, hash_type,
-    bitrate_codecName, processing_rate).
+    bitrate_codecName, processing_rate, touch_file, touch_files).
 
 status_data: optional data about the status (hash type, hash value, hash error,
     gain value in dB, bitrate in bits per second, processing rate, version
@@ -429,14 +429,18 @@ getMachineParsableString ()
 		success)
 			if [ "$statusInfo" = 'track_gain' ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$gain" "$file" '' "$pid" )"
+			elif [ "$statusInfo" = 'album_gain' ]; then
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$gain" "$file" "$msg" "$pid" )"
+			elif [ "$statusInfo" = 'touch_file' ]; then
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$dateTime" "$file" "$msg" "$pid" )"
+			elif [ "$statusInfo" = 'touch_files' ]; then
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$albumTime" "$path" "$msg" "$pid" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$hashError" ]; then
 					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$hashError" "$file" '' "$pid" )"
 				else
 					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$hashType" "$file" '' "$pid" )"
 				fi
-			elif [ "$statusInfo" = 'album_gain' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$gain" '' "$msg" "$pid" )"
 			else
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$statusData" "$file" "$msg" "$pid" )"
 			fi
@@ -596,7 +600,7 @@ printMessageToStdoutOrStderr ()
 printMessage ()
 {
 	local msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo='' statusData=''
-	local file='' path='' filePath='' msg='' p='' numberOfThreads='' hashType='' hashError='' gain='' bitrate='' rate=''
+	local file='' path='' fileDir='' msg='' p='' numberOfThreads='' hashType='' hashError='' gain='' bitrate='' rate=''
 	local codec='' outputCodec='' str=''
 
 	for a in "$@"; do
@@ -610,8 +614,8 @@ printMessage ()
 			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|touch_file|touch_files|checking_version) statusInfo="$a" ;;
 			unsupported|quota|bad_value|filesystem|command_line|internal|user_agent) statusData="$a" ;;
 			server|up_to_date|new_version_available|running_newer_version) statusData="$a" ;;
-			file:*) file="${a#file:}"; filePath="$( dirname "$file" )"; fileName="$( basename "$file" )" ;;
-			path:*) file="${a#path:}"; fileName="$file" ;;
+			file:*) file="${a#file:}"; fileDir="$( dirname "$file" )"; fileName="$( basename "$file" )" ;;
+			path:*) path="${a#path:}" ;;
 			outputCodec:*) statusData="${a#outputCodec:}" ;;
 			+*dB|-*dB) gain="${a% dB}" ;;
 			*bps) bitrate="${a%bps}" ;;
@@ -5591,10 +5595,10 @@ getFileProps ()
 			sourceCoverArtFile="${sourceDirname}/${coverArtFilename}"
 			if [ ! -e "$sourceCoverArtFile" ]; then
 				sourceCoverArtFile=""
-				# printMessage 'warning' 'usage' 'filesystem' "path:${coverArtFilename}" 'no such file.'
+				# printMessage 'warning' 'usage' 'filesystem' "file:${coverArtFilename}" 'no such file.'
 			elif [ ! -r "$sourceCoverArtFile" ]; then
 				sourceCoverArtFile=""
-				# printMessage 'warning' 'usage' 'filesystem' "path:${coverArtFilename}" 'cannot open file for reading (permission denied).'
+				# printMessage 'warning' 'usage' 'filesystem' "file:${coverArtFilename}" 'cannot open file for reading (permission denied).'
 			fi
 		fi
 
