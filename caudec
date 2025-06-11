@@ -6654,7 +6654,7 @@ while getopts '2a:B:b:C:c:df:G:ghH:iKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 # -----------------------------------------------------------------------------
 
-		*) printMessage 'error' 'usage' 'command_line' "Try '$me -h' for more information." ; exit $EX_USAGE ;;
+		*) printMessage 'error' 'usage' 'command_line' "Run '$me -h' for more information." ; exit $EX_USAGE ;;
 	esac
 done
 
