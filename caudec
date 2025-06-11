@@ -5289,7 +5289,7 @@ computeTrackDateTime ()
 				*.wv) date=$( wvtag -x Year "$sourceFile" 2>/dev/null | tr -cd "[:digit:]-" ) ;;
 				*.ape) date=$( APEv2 -z "$sourceFile" 2>/dev/null | grep -iF year= | tr -cd "[:digit:]-" ) ;;
 				*.opus) date=$( opusinfo "$sourceFile" | grep -iF "date=" | tr -cd "[:digit:]-" ) ;;
-				*.mp3) date=$( ffmpeg -i "$sourceFile" -f ffmetadata - 2>/dev/null | grep -iE "^date=|^TDOR=|^TDRC=|^TDRL=" | head -n 1 | tr -cd "[:digit:]-" ) ;;
+				*.mp3) date=$( ffmpeg -i "$sourceFile" -f ffmetadata - 2>/dev/null | grep -iE "^(date|TDOR|TDRC|TDRL)=[0-9]{4}" | head -n 1 | tr -cd "[:digit:]-" ) ;;
 			esac
 			if [ ${#date} -eq 4 ]; then
 				trackYear="$date"
