@@ -4733,22 +4733,17 @@ getFileMilliseconds ()
 	case "$file" in
 		*.wv|*.ape|*.m4a)
 			seconds="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | grep -F 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '0-9.' )"
-			if [ -n "$seconds" ]; then
-				printf "%.0f" "$( echo "scale=3; ($seconds * 1000) / 1" | bc )"
-			else
-				echo 0
-			fi
 			;;
 
-		*)
-			seconds="$( soxi -D "$file" )"
-			if [ -n "$seconds" ]; then
-				printf "%.0f" "$( echo "scale=3; ($seconds * 1000) / 1" | bc )"
-			else
-				echo 0
-			fi
-			;;
+		*) seconds="$( soxi -D "$file" )" ;;
 	esac
+
+	if [ -n "$seconds" -a "$seconds" != "0" ]; then
+		printf "%.0f" "$( echo "scale=3; ($seconds * 1000) / 1" | bc 2>/dev/null )" 2>/dev/null
+	else
+		ec=$EX_KO
+		echo 1
+	fi
 
 	return $ec
 }
