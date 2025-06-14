@@ -1606,12 +1606,15 @@ setupSwapDir ()
 		fi
 
 		touch "${TDIR}/${index}"
+
 		fileMilliseconds="$( getFileMilliseconds "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
 		echo "$fileMilliseconds $index" > "${TDIR}/inputMilliseconds_${index}"
+
 		if [ $nLossyWAV -ge 1 ]; then
 			touch "${TDIR}/lossyWAV_${index}"
 			touch "${TDIR}/lossyWAV_${index}_WAV_NEEDED"
 		fi
+
 		for outputCodec in $outputCodecs; do
 			touch "${TDIR}/${outputCodec}_${index}"
 			if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' ]; then
