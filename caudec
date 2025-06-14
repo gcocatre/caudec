@@ -471,7 +471,9 @@ getMachineParsableString ()
 			;;
 	esac
 
-	echo -e "$str"
+	if [ -n "$str" ]; then
+		echo -e "$str"
+	fi
 }
 
 getHumanReadableString ()
@@ -583,17 +585,21 @@ getHumanReadableString ()
 			;;
 	esac
 
-	echo -e "$str"
+	if [ -n "$str" ]; then
+		echo -e "$str"
+	fi
 }
 
 printMessageToStdoutOrStderr ()
 {
 	local str="$1" stdOut="$2"
 
-	if [ "$stdOut" = 'stderr' ]; then
-		echo -e "$str" 1>&2
-	else
-		echo -e "$str"
+	if [ -n "$str" ]; then
+		if [ "$stdOut" = 'stderr' ]; then
+			echo -e "$str" 1>&2
+		else
+			echo -e "$str"
+		fi
 	fi
 }
 
@@ -1516,7 +1522,7 @@ handleInstance ()
 
 setupSwapDir ()
 {
-	local index mktempFS='other' devshmFS='other' mktempSpace devshmSpace ec=1 copyLockFile fileBytes
+	local index ec=1 copyLockFile fileMilliseconds
 
 	if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
 
@@ -1600,12 +1606,8 @@ setupSwapDir ()
 		fi
 
 		touch "${TDIR}/${index}"
-		if [ "$OS" = 'Linux' ]; then
-			fileBytes="$( stat -L --printf "%s" "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
-		else
-			fileBytes="$( stat -L -n -f "%z" "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
-		fi
-		echo "$fileBytes $index" > "${TDIR}/inputBytes_${index}"
+		fileMilliseconds="$( getFileMilliseconds "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
+		echo "$fileMilliseconds $index" > "${TDIR}/inputMilliseconds_${index}"
 		if [ $nLossyWAV -ge 1 ]; then
 			touch "${TDIR}/lossyWAV_${index}"
 			touch "${TDIR}/lossyWAV_${index}_WAV_NEEDED"
@@ -1621,7 +1623,7 @@ setupSwapDir ()
 		done
 	done
 
-	sort -n "${TDIR}/inputBytes_"* > "${TDIR}/bytesAndFileNumbers"
+	sort -n "${TDIR}/inputMilliseconds_"* > "${TDIR}/millisecondsAndFileNumbers"
 
 	echo -n "0" > "${TDIR}/durations"
 	echo -n "0" > "${TDIR}/readTimes"
@@ -1664,7 +1666,7 @@ getNumberOfProcessedFiles ()
 
 getNumberOfAvailableThreads ()
 {
-	local n=$1 maxThreads="$2" nProcessedFiles=0 nUnprocessedFiles nAvailableProcesses nBytesLeft=0 nThreads=1
+	local n=$1 maxThreads="$2" nProcessedFiles=0 nUnprocessedFiles nAvailableProcesses nMillisecondsLeft=0 nThreads=1
 
 	if [ -z "$maxThreads" ]; then
 		maxThreads=999999
@@ -1677,19 +1679,19 @@ getNumberOfAvailableThreads ()
 		return
 	fi
 
-	while read bytes number; do
+	while read milliseconds number; do
 		test -e "${TDIR}/WAS_PROCESSED.${number}" &>/dev/null && continue
-		nBytesLeft=$(( nBytesLeft + bytes ))
-	done < "${TDIR}/bytesAndFileNumbers"
+		nMillisecondsLeft=$(( nMillisecondsLeft + milliseconds ))
+	done < "${TDIR}/millisecondsAndFileNumbers"
 
-	while read bytes number; do
+	while read milliseconds number; do
 		test -e "${TDIR}/WAS_PROCESSED.${number}" &>/dev/null && continue
 		if [ "$number" = "$index" ]; then
-			nThreads="$( printf "%.0f" "$( echo "scale=3; ($maxProcessesSetByUser * ($bytes / $nBytesLeft)) / 1" | bc )" )"
-			# debug "$( echo "scale=3; ($maxProcessesSetByUser * ($bytes / $nBytesLeft)) / 1" | bc ) | $nAvailableProcesses | $nProcessedFiles -> ${nThreads}x"
+			nThreads="$( printf "%.0f" "$( echo "scale=3; ($maxProcessesSetByUser * ($milliseconds / $nMillisecondsLeft)) / 1" | bc )" )"
+			# debug "$( echo "scale=3; ($maxProcessesSetByUser * ($milliseconds / $nMillisecondsLeft)) / 1" | bc ) | $nAvailableProcesses | $nProcessedFiles -> ${nThreads}x"
 			break
 		fi
-	done < "${TDIR}/bytesAndFileNumbers"
+	done < "${TDIR}/millisecondsAndFileNumbers"
 
 	if [ $nThreads -lt 1 ]; then
 		nThreads=1
@@ -4235,11 +4237,11 @@ addTranscodingErrorFile ()
 
 transcode ()
 {
-	local lastCodec="${outputCodecs##* }" allDone=false copyDone=false encodingDone=false ec=$EX_OK lsec=0 bytes index
+	local lastCodec="${outputCodecs##* }" allDone=false copyDone=false encodingDone=false ec=$EX_OK lsec=0 milliseconds index
 
 	until test $allDone = true; do
 		allDone=true
-		while read bytes index; do
+		while read milliseconds index; do
 			getFileProps "${sourceFiles[$index]}"
 			copyFile="${SWAPDIR}/${index}.${sourceFilename}"
 
@@ -4339,7 +4341,7 @@ transcode ()
 			# 	fi
 			# fi
 		chmod u+rwX "$destPath" "${destPath}"/* 2>> "$errorLogFile" # FIXME chmod u=rw,go=r
-		done < "${TDIR}/bytesAndFileNumbers"
+		done < "${TDIR}/millisecondsAndFileNumbers"
 		sleep 0.1 # make sure idling processes don't hog the CPU
 	done
 
@@ -4554,8 +4556,8 @@ getAndRenameLock ()
 
 testFiles ()
 {
-	local ec=$EX_OK bytes index
-	while read bytes index; do
+	local ec=$EX_OK milliseconds index
+	while read milliseconds index; do
 		sourceFile="${sourceFiles[$index]}"
 		sourceFilename="${sourceFile##*/}"
 		copyFile="${SWAPDIR}/${index}.${sourceFilename}"
@@ -4571,7 +4573,7 @@ testFiles ()
 			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
 			touch "$wasProcessedFile"
 		fi
-	done < "${TDIR}/bytesAndFileNumbers"
+	done < "${TDIR}/millisecondsAndFileNumbers"
 
 	rm -f "${instanceDir}/process.${p}"
 	return $ec
@@ -4811,6 +4813,33 @@ saveGain ()
 	return $ec
 }
 
+getFileMilliseconds ()
+{
+	local file="$1" ec=$EX_OK seconds
+
+	case "$file" in
+		*.wv|*.ape|*.m4a)
+			seconds="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | grep -F 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '0-9.' )"
+			if [ -n "$seconds" ]; then
+				printf "%.0f" "$( echo "scale=3; ($seconds * 1000) / 1" | bc )"
+			else
+				echo 0
+			fi
+			;;
+
+		*)
+			seconds="$( soxi -D "$file" )"
+			if [ -n "$seconds" ]; then
+				printf "%.0f" "$( echo "scale=3; ($seconds * 1000) / 1" | bc )"
+			else
+				echo 0
+			fi
+			;;
+	esac
+
+	return $ec
+}
+
 saveSeconds ()
 {
 	local samples sampleRate seconds=0 duration hours minutes centiseconds ec=$EX_OK line msec milliseconds=0 data file nThreads infoExe
@@ -5031,9 +5060,9 @@ computeTrackGain ()
 
 computeTrackGains ()
 {
-	local ec=$EX_OK bytes index
+	local ec=$EX_OK milliseconds index
 
-	while read bytes index; do
+	while read milliseconds index; do
 		sourceFile="${sourceFiles[$index]}"
 		sourceFilename="${sourceFile##*/}"
 		sourceFileExt="${sourceFile##*.}"
@@ -5055,7 +5084,7 @@ computeTrackGains ()
 			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
 			touch "$wasProcessedFile"
 		fi
-	done < "${TDIR}/bytesAndFileNumbers"
+	done < "${TDIR}/millisecondsAndFileNumbers"
 
 	rm -f "${instanceDir}/process.${p}"
 	return $ec
@@ -5232,16 +5261,16 @@ reverseTrackGain ()
 
 reverseTrackGains ()
 {
-	local ec=$EX_OK bytes index
+	local ec=$EX_OK milliseconds index
 
-	while read bytes index; do
+	while read milliseconds index; do
 		sourceFile="${sourceFiles[$index]}"
 		gainLockFile="${TDIR}/${index}"
 
 		if getLock "$gainLockFile"; then
 			reverseTrackGain || ec=$EX_KO
 		fi
-	done < "${TDIR}/bytesAndFileNumbers"
+	done < "${TDIR}/millisecondsAndFileNumbers"
 
 	rm -f "${instanceDir}/process.${p}"
 	return $ec
