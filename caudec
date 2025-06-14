@@ -1625,7 +1625,6 @@ setupSwapDir ()
 
 	sort -n "${TDIR}/inputMilliseconds_"* > "${TDIR}/millisecondsAndFileNumbers"
 
-	echo -n "0" > "${TDIR}/durations"
 	echo -n "0" > "${TDIR}/readTimes"
 	touch "${TDIR}/transcodingErrorFiles"
 	ln -s "$SWAPDIR" "$piddir"
@@ -2915,90 +2914,6 @@ computeSHA ()
 	fi
 }
 
-getSoxDuration ()
-{
-	local f="$1" hours minutes seconds milliseconds
-
-	duration="$( soxi -D "$f" 2>/dev/null )"
-	if [ -z "$duration" -o -z "${duration//0/}" -o "${duration//0/}" = '.' ]; then
-		duration='1.0'
-	fi
-}
-
-getSoxSeconds ()
-{
-	local msec
-	getSoxDuration "$1"
-	seconds="${duration%.*}"
-	msec="${duration#*.}"
-	if [ -z "$msec" ]; then
-		msec=0
-	fi
-	milliseconds="$( echo "scale=3; $seconds + 0.$msec" | bc )"
-	if [ $msec -ge 500 ]; then
-		((seconds++))
-	fi
-}
-
-saveDurations ()
-{
-	local samples sampleRate duration hours minutes seconds centiseconds data
-
-	case "$copyFile" in
-		*.flac)
-			data="$( metaflac --show-total-samples --show-sample-rate "$copyFile" 2>/dev/null )"
-			if [ -n "$data" ]; then
-				for v in $data; do
-					if [ -z "$samples" ]; then
-						samples="$v"
-					else
-						sampleRate="$v"
-					fi
-				done
-				if [ -n "$samples" -a -n "$sampleRate" ]; then
-					duration="$( echo "scale=3; $samples / $sampleRate" | bc )"
-					echo -n " + $duration" >> "${TDIR}/durations"
-				fi
-			fi
-			;;
-
-		*.wv)
-			# New WavPack data format (-f):
-			# 1. sampling rate
-			# 2. bit-depth (1-32)
-			# 3. format ("int" or "float")
-			# 4. number of channels
-			# 5. channel mask (in hex because it's a mask, always prefixed with "0x")
-			# 6. number of samples (missing if unknown)
-			# 7. md5sum (technically is hex, but not prefixed with "0x", might be missing)
-			# 8. encoder version (basically this will always be 4, but there are some old files out there, could be 5 one day)
-			# 9. encoding mode (in hex because it's a bitfield, always prefixed with "0x")
-			# 10. filename
-			data="$( wvunpack -f "$copyFile" 2>/dev/null )"
-			if [ -n "$data" ]; then
-				samples="$( echo "$data" | cut -d ';' -f 6 )"
-				sampleRate="$( echo "$data" | cut -d ';' -f 1 )"
-				if [ -n "$samples" -a -n "$sampleRate" ]; then
-					seconds="$( echo "scale=3; $samples / $sampleRate" | bc )"
-					echo -n " + ${seconds}" >> "${TDIR}/durations"
-				fi
-			fi
-			;;
-
-		*.ape|*.m4a)
-			duration="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$copyFile" 2>/dev/null | grep -F 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '0-9.' )"
-			if [ -n "$duration" ]; then
-				echo -n " + $duration" >> "${TDIR}/durations"
-			fi
-			;;
-
-		*)
-			getSoxDuration "$wavFile"
-			echo -n " + $duration" >> "${TDIR}/durations"
-			;;
-	esac
-}
-
 getDownmixFactors ()
 {
 	local divider="$1"
@@ -3117,7 +3032,7 @@ isWavProcessed ()
 
 decode ()
 {
-	local ec=$EX_OK sourceTagFormat hline samples sampleRate duration hours minutes seconds centiseconds pattern
+	local ec=$EX_OK sourceTagFormat hline samples sampleRate hours minutes seconds centiseconds pattern
 	local soxGuard='' sourceMD5='' kfm='' nChannels=2 gaincmd='' ratecmd='' bitdepthcmd='' dithercmd='' gainPeak=''
 
 	isWavProcessed 'false'
@@ -3202,7 +3117,6 @@ decode ()
 	fi
 
 	if [ $ec -eq $EX_OK ]; then
-		saveDurations
 		if [ -e "$copyFile" ]; then
 			rm -f "$copyFile" "${copyFile}c"
 		fi
@@ -4237,7 +4151,8 @@ addTranscodingErrorFile ()
 
 transcode ()
 {
-	local lastCodec="${outputCodecs##* }" allDone=false copyDone=false encodingDone=false ec=$EX_OK lsec=0 milliseconds index
+	local ec=$EX_OK lastCodec="${outputCodecs##* }" allDone=false copyDone=false encodingDone=false lsec=0
+	local milliseconds index
 
 	until test $allDone = true; do
 		allDone=true
@@ -4256,8 +4171,6 @@ transcode ()
 			apeBinariesDir="${TDIR}/${index}.apeBinariesDir"
 			trackGainFile="${TDIR}/${index}.trackgain"
 			trackPeakFile="${TDIR}/${index}.trackpeak"
-			secondsFile="${TDIR}/${index}.seconds"
-			millisecondsFile="${TDIR}/${index}.milliseconds"
 			sourceCRC32File="${TDIR}/${index}.sourceCRC32"
 			sourceMD5File="${TDIR}/${index}.sourceMD5"
 			sourceSHA1File="${TDIR}/${index}.sourceSHA1"
@@ -4502,19 +4415,16 @@ testFile ()
 		case "$copyFile" in
 			*.flac)
 				flac -st "$copyFile" >/dev/null 2>&1; ec=$?
-				saveDurations
 				;;
 
 			*.wv)
 				nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
 				wvunpack --threads=$nThreads -qmv "$copyFile" >/dev/null 2>&1; ec=$?
-				saveDurations
 				;;
 
 			*.ape)
 				nThreads=$( getNumberOfAvailableThreads $index )
 				mac "$copyFile" -threads=$nThreads -V >/dev/null 2>&1; ec=$?
-				saveDurations
 				;;
 
 			*) printMessage 'warning' 'testing' 'unsupported' "file:${sourceFile}" $p 'unsupported format' ; return $EX_KO ;;
@@ -4840,88 +4750,19 @@ getFileMilliseconds ()
 	return $ec
 }
 
-saveSeconds ()
+getMillisecondsByFileIndex ()
 {
-	local samples sampleRate seconds=0 duration hours minutes centiseconds ec=$EX_OK line msec milliseconds=0 data file nThreads infoExe
+	local index="$1" fileIndex
 
-	if [ $touchFiles = true ]; then
-		file="$sourceFile"
+	read trackMilliseconds fileIndex < "${TDIR}/inputMilliseconds_${index}"
+	if [ -n "$trackMilliseconds" ]; then
+		echo $trackMilliseconds
 	else
-		file="$copyFile"
+		echo 1
+		return $EX_KO
 	fi
 
-	case "$file" in
-		*.flac)
-			data="$( metaflac --show-total-samples --show-sample-rate "$file" 2>> "$errorLogFile" )"
-			if [ -n "$data" ]; then
-				for v in $data; do
-					if [ -z "$samples" ]; then
-						samples="$v"
-					else
-						sampleRate="$v"
-					fi
-				done
-				seconds=$(( (samples + (sampleRate / 2)) / sampleRate )) # (sampleRate / 2) is for rounding
-				milliseconds="$( echo "scale=3; $samples / $sampleRate" | bc )"
-			fi
-			;;
-
-		*.wv)
-			nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
-			data="$( wvunpack  -f "$file" 2>/dev/null )"
-			if [ -n "$data" ]; then
-				samples="$( echo "$data" | cut -d ';' -f 6 )"
-				sampleRate="$( echo "$data" | cut -d ';' -f 1 )"
-				if [ -n "$samples" -a -n "$sampleRate" ]; then
-					seconds=$(( (samples + (sampleRate / 2)) / sampleRate )) # (sampleRate / 2) is for rounding
-					milliseconds="$( echo "scale=3; $samples / $sampleRate" | bc )"
-				fi
-			fi
-			;;
-
-		*.ogg|*.opus)
-			case "$file" in
-				*.ogg) infoExe="ogginfo" ;;
-				*.opus) infoExe="opusinfo" ;;
-			esac
-			line="$( $infoExe "$file" 2>> "$errorLogFile" | grep -F 'Playback length:' | tr -d '\t ' | cut -d ':' -f 2-3 )"
-			if [ -n "$line" ]; then
-				minutes="${line%:*}" ; minutes="${minutes%m}"
-				seconds="${line#*:}" ; seconds="${seconds%s}"; seconds="${seconds%\.*}"
-				msec="${line#*\.}" ; msec="${msec%s}"
-				seconds="${seconds%.*}" ; seconds="${seconds#0}"
-				milliseconds="$( echo "scale=3; (($minutes * 60) + $seconds + 0.$msec) / 1" | bc -l )"
-				if [ "${msec:0:1}" -ge 5 ]; then
-					((seconds++))
-				fi
-				seconds=$(( (minutes * 60) + seconds ))
-			fi
-			;;
-
-		*.ape|*.m4a)
-			line="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | grep -F 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '0-9.' )"
-			if [ -n "$line" ]; then
-				seconds="${line%.*}" milliseconds="${line#*.}"
-				if [ "${milliseconds:0:1}" -ge 5 ]; then
-					((seconds++))
-				fi
-				milliseconds="$( echo "scale=3; ($seconds + 0.${milliseconds}) / 1" | bc )"
-			fi
-			;;
-
-		*.mp3)
-			getSoxSeconds "$file"
-			;;
-
-		*)
-			getSoxSeconds "$wavFile"
-			;;
-	esac
-
-	echo "$seconds" > "$secondsFile"
-	echo "$milliseconds" > "$millisecondsFile"
-	echo -n " + $seconds" >> "${TDIR}/durations"
-	return $ec
+	return $EX_OK
 }
 
 computeTrackGain ()
@@ -4939,7 +4780,6 @@ computeTrackGain ()
 				if [ -n "$trackGain" -a -n "$trackPeak" ]; then
 					echo "$trackGain" > "$trackGainFile"
 					echo "$trackPeak" > "$trackPeakFile"
-					saveSeconds
 				else
 					ec=$EX_KO
 				fi
@@ -4961,7 +4801,6 @@ computeTrackGain ()
 						if [ -n "$trackGain" -a -n "$trackPeak" ]; then
 							echo "$trackGain" > "$trackGainFile"
 							echo "$trackPeak" > "$trackPeakFile"
-							saveSeconds
 						else
 							ec=$EX_KO
 						fi
@@ -4990,7 +4829,6 @@ computeTrackGain ()
 							cp "$sourceTagFile" "$destTagFile" >/dev/null 2>&1
 							echo "$trackGain" > "$trackGainFile"
 							echo "$trackPeak" > "$trackPeakFile"
-							saveSeconds
 						fi
 					else
 						ec=$EX_KO
@@ -4998,7 +4836,7 @@ computeTrackGain ()
 				fi
 				;;
 
-			*.opus) saveSeconds ;;
+			*.opus) break ;;
 
 			*.mp3)
 				if [ -L "$copyFile" ]; then # make a real copy so that APE metadata doesn't get added to the source
@@ -5018,7 +4856,6 @@ computeTrackGain ()
 						if [ -n "$trackGain" -a -n "$trackPeak" ]; then
 							echo "$trackGain" > "$trackGainFile"
 							echo "$trackPeak" > "$trackPeakFile"
-							saveSeconds || ec=$EX_KO
 						else
 							ec=$EX_KO
 						fi
@@ -5072,8 +4909,6 @@ computeTrackGains ()
 		sourceTagFile="${TDIR}/${index}.txt"
 		trackGainFile="${TDIR}/${index}.trackgain"
 		trackPeakFile="${TDIR}/${index}.trackpeak"
-		secondsFile="${TDIR}/${index}.seconds"
-		millisecondsFile="${TDIR}/${index}.milliseconds"
 		destFile="$sourceFile"
 		wavFile="${SWAPDIR}/${index}.wav"
 
@@ -5097,16 +4932,14 @@ computeAlbumGain ()
 	# A comparison between gains on 754 albums revealed max differences ranging from -2.06 dB to +1.50 dB.
 	# PINK_REF="64.82" is from flac/src/share/replaygain_analysis/replaygain_analysis.c
 	local ec=$EX_OK PINK_REF_COMPLEMENT="35.18" index processIndex secondsIndex rank trackGain trackSeconds=1 increment=0
-	local trackGainFile trackPeakFile trackSecondsFile trackMillisecondsFile albumPeak albumGain
+	local trackGainFile trackPeakFile albumPeak albumGain
 
 	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
 		trackGainFile="${TDIR}/${index}.trackgain"
 		trackPeakFile="${TDIR}/${index}.trackpeak"
-		trackSecondsFile="${TDIR}/${index}.seconds"
-		trackMillisecondsFile="${TDIR}/${index}.milliseconds"
-		if [ -e "$trackGainFile" -a -e "$trackSecondsFile" ]; then
 			trackGain="$( cat "$trackGainFile" )"
-			trackSeconds="$( cat "$trackSecondsFile" )"
+			trackMilliseconds="$( getMillisecondsByFileIndex "$index" )"
+			trackSeconds="$( printf "%.0f" "$( echo "scale=3; $trackMilliseconds / 1000" | bc )" )"
 			if [ -z "$trackSeconds" ]; then
 				trackSeconds=1
 			fi
@@ -5115,10 +4948,6 @@ computeAlbumGain ()
 				((increment++))
 			done
 			cat "$trackPeakFile" >> "${TDIR}/trackpeaks" 2>/dev/null
-		else
-			printMessage 'error' 'album_gain' "Album gain"
-			return $EX_KO
-		fi
 	done
 
 	albumPeak="$( sort -n "${TDIR}/trackpeaks" 2>/dev/null | tail -n 1 )"
@@ -5308,7 +5137,7 @@ getTouchString ()
 
 computeTrackDateTime ()
 {
-	local ec=0 trackYear trackMonth trackDay
+	local ec=$EX_OK trackYear trackMonth trackDay
 
 	case "$sourceFile" in
 		*.flac|*ogg|*.m4a|*.wv|*.ape|*.opus|*.mp3)
@@ -5340,8 +5169,6 @@ computeTrackDateTime ()
 			fi
 
 			echo "${trackYear}${trackMonth}${trackDay}" > "$sourceTagFile"
-
-			saveSeconds; ec=$?
 			;;
 
 		*) continue ;;
@@ -5366,8 +5193,6 @@ computeTrackDateTimes ()
 		sourceTagFile="${TDIR}/${index}.txt"
 		touchLockFile="${TDIR}/${index}"
 		wasProcessedFile="${TDIR}/WAS_PROCESSED.${index}"
-		secondsFile="${TDIR}/${index}.seconds"
-		millisecondsFile="${TDIR}/${index}.milliseconds"
 
 		if getLock "$touchLockFile"; then
 			prepareSource &&
@@ -5385,7 +5210,7 @@ touchAllFiles ()
 	local ec=$EX_OK index audioFileIndex otherFileIndex dirIndex
 	local trackDate albumSeconds discSeconds trackMilliseconds discHours discMinutes discSeconds
 	local defaultTrackDate lastDir="" curDir artistDir albumDir albumLinkDir albumPath dirPath inode linkedFile linkPath
-	local touchString discDirs linkedDiscDirs audioFiles otherFiles otherFile audioFile sourceFile sourceTagFile secondsFile millisecondsFile
+	local touchString discDirs linkedDiscDirs audioFiles otherFiles otherFile audioFile sourceFile sourceTagFile
 
 	trackDate="$( $datecmd "+%Ymd" )"
 	defaultTrackDate="$trackDate"
@@ -5454,16 +5279,13 @@ touchAllFiles ()
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			sourceTagFile="${TDIR}/${index}.txt"
-			secondsFile="${TDIR}/${index}.seconds"
-			millisecondsFile="${TDIR}/${index}.milliseconds"
 
 			case "$sourceFile" in
 				*.flac|*ogg|*m4a|*.wv|*.ape|*.mp3|*.opus)
 					read trackDate < "$sourceTagFile"
 					if [ -z "$trackDate" ]; then trackDate="$defaultTrackDate"; fi
-					read trackMilliseconds < "$millisecondsFile"
+					trackMilliseconds="$( getMillisecondsByFileIndex "$index" )"
 					if [ -z "$trackMilliseconds" ]; then trackMilliseconds=0; fi
-					trackMilliseconds="$( printf "%.3f" "$trackMilliseconds" )"
 					;;
 
 				*.wvc) continue ;;
@@ -5476,13 +5298,10 @@ touchAllFiles ()
 			if [ -e "${sourceFile}c" ]; then  # WavPack correction file
 				touch -t "$touchString" "${sourceFile}c" || ec=$EX_IOERR
 			fi
-			if [ -e "$millisecondsFile" ]; then
-				read trackMilliseconds < "$millisecondsFile"
-			else
-				trackMilliseconds=0
-			fi
-			discSeconds="$( echo "scale=3; $discSeconds + $trackMilliseconds" | bc )"
-			albumSeconds="$( echo "scale=3; $albumSeconds + $trackMilliseconds" | bc )"
+			trackMilliseconds="$( getMillisecondsByFileIndex "$index" )"
+			discSeconds="$( echo "scale=3; ($discSeconds + ($trackMilliseconds / 1000)) / 1" | bc )"
+			albumSeconds="$( echo "scale=3; ($albumSeconds + ($trackMilliseconds / 1000)) / 1" | bc )"
+			# debug "trackMilliseconds=[$trackMilliseconds] discSeconds=[$discSeconds] albumSeconds[$albumSeconds]"
 		done
 
 		for otherFile in "${otherFiles[@]}"; do
@@ -5656,16 +5475,18 @@ getFileProps ()
 printMachineStats ()
 {
 	local sourceCoverArtBytes audio_bytes_compressed=0 destExtension dest bcmd seconds slist
-	local bytes_compressed duration='0' rate=''
+	local bytes_compressed duration=0 rate=''
 
 	seconds="$( printf 'scale=6; %.6f - %.6f\n' "$time2" "$time1" | bc )"
 	if [ "$seconds" = '0' ]; then seconds='1'; fi # prevent division by 0 situations
-	if [ -f "${TDIR}/durations" ]; then
-		duration="$( { echo -n 'scale=2; ' ; cat "${TDIR}/durations" ; echo ; } | bc )"
-		if [ "$duration" != '0' ]; then
-			duration="$( printf "%.0f" "$duration" )"
-			rate="$( echo "scale=1; $duration / $seconds" | bc )"
-		fi
+
+	while read fileMilliseconds index; do
+		duration=$(( duration + fileMilliseconds ))
+	done < "${TDIR}/millisecondsAndFileNumbers"
+
+	if [ "$duration" != '0' ]; then
+		duration="$( printf "%.0f" "$( echo "scale=3; $duration / 1000" | bc )" )"
+		rate="$( echo "scale=1; $duration / $seconds" | bc )"
 	fi
 
 	if [ -z "$outputCodecs" ]; then
@@ -5735,12 +5556,14 @@ printHumanStats ()
 
 	seconds="$( printf 'scale=6; %.6f - %.6f\n' "$time2" "$time1" | bc )"
 	if [ "$seconds" = '0' ]; then seconds='1'; fi # prevent division by 0 situations
-	if [ -f "${TDIR}/durations" ]; then
-		duration="$( { echo -n 'scale=2; ' ; cat "${TDIR}/durations" ; echo ; } | bc )"
-		if [ "$duration" != '0' ]; then
-			duration="$( printf "%.0f" "$duration" )"
-			rate="$( echo "scale=1; $duration / $seconds" | bc )"
-		fi
+
+	while read fileMilliseconds index; do
+		duration=$(( duration + fileMilliseconds ))
+	done < "${TDIR}/millisecondsAndFileNumbers"
+
+	if [ "$duration" != '0' ]; then
+		duration="$( printf "%.0f" "$( echo "scale=3; $duration / 1000" | bc )" )"
+		rate="$( echo "scale=1; $duration / $seconds" | bc )"
 	fi
 	printf "${GR} * ${NM}%.2f seconds" $seconds
 
