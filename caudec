@@ -1287,7 +1287,7 @@ checkBinaries ()
 
 	for sourceFile in "${sourceFiles[@]}" ; do
 		case "$sourceFile" in
-			*.ape) checkBinary 'ffprobe' ; break ;;
+			*.ape|*.m4a|*.wv) checkBinary 'ffprobe' ; break ;;
 		esac
 	done
 
