@@ -1659,20 +1659,20 @@ getNumberOfCaudecProcesses ()
 
 getNumberOfProcessedFiles ()
 {
-	$statcmd "${TDIR}/WAS_PROCESSED".* 2>/dev/null | wc -l | tr -cd '[:digit:]'
+	ls -1 "${TDIR}/WAS_PROCESSED".* 2>/dev/null | wc -l | tr -cd '[:digit:]'
 }
 
 getNumberOfAvailableThreads ()
 {
-	local n=$1 maxThreads="$2" nProcessedFiles=0 nUnprocessedFiles nBytesLeft=0 nThreads=1 foo
+	local n=$1 maxThreads="$2" nProcessedFiles=0 nUnprocessedFiles nAvailableProcesses nBytesLeft=0 nThreads=1
 
 	if [ -z "$maxThreads" ]; then
 		maxThreads=999999
 	fi
 
 	nProcessedFiles="$( getNumberOfProcessedFiles )"
-	nUnprocessedFiles=$(( numberOfSourceFiles - nProcessedFiles ))
-	if [ $nUnprocessedFiles -ge $maxProcessesSetByUser ]; then
+	nAvailableProcesses=$(( maxProcessesSetByUser - ( numberOfSourceFiles - 1 - nProcessedFiles ) ))
+	if [ $nAvailableProcesses -lt 2 ]; then
 		echo 1
 		return
 	fi
@@ -1685,7 +1685,8 @@ getNumberOfAvailableThreads ()
 	while read bytes number; do
 		test -e "${TDIR}/WAS_PROCESSED.${number}" &>/dev/null && continue
 		if [ "$number" = "$index" ]; then
-			nThreads="$( printf "%.0f" "$( echo "scale=3; $maxProcessesSetByUser * ($bytes / $nBytesLeft)" | bc )" )"
+			nThreads="$( printf "%.0f" "$( echo "scale=3; ($maxProcessesSetByUser * ($bytes / $nBytesLeft)) / 1" | bc )" )"
+			# debug "$( echo "scale=3; ($maxProcessesSetByUser * ($bytes / $nBytesLeft)) / 1" | bc ) | $nAvailableProcesses | $nProcessedFiles -> ${nThreads}x"
 			break
 		fi
 	done < "${TDIR}/bytesAndFileNumbers"
