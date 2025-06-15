@@ -1287,7 +1287,7 @@ checkBinaries ()
 
 	for sourceFile in "${sourceFiles[@]}" ; do
 		case "$sourceFile" in
-			*.ape|*.m4a|*.wv) checkBinary 'ffprobe' ; break ;;
+			*.ape|*.m4a) checkBinary 'ffprobe' ; break ;;
 		esac
 	done
 
@@ -1638,6 +1638,7 @@ getNumberOfChannels ()
 	local file="$1" numberOfChannels=0
 
 	case "$file" in
+		*.wav|*.aiff|*.caf) numberOfChannels="$( soxi -c "$file" 2>/dev/null )" ;;
 		*.flac) numberOfChannels="$( metaflac --show-channels "$file" 2>/dev/null )" ;;
 		*.wv) numberOfChannels="$( wvunpack -f "$file" 2>/dev/null | cut -d ";" -f 4 )" ;;
 		*.ogg) numberOfChannels="$( ogginfo "$file" 2>/dev/null | grep -E "^Channels:" | tr -cd "0-9" )" ;;
@@ -3035,7 +3036,7 @@ isWavProcessed ()
 
 decode ()
 {
-	local ec=$EX_OK sourceTagFormat hline samples sampleRate hours minutes seconds centiseconds pattern
+	local ec=$EX_OK sourceTagFormat hline
 	local soxGuard='' sourceMD5='' kfm='' nChannels=2 gaincmd='' ratecmd='' bitdepthcmd='' dithercmd='' gainPeak=''
 
 	isWavProcessed 'false'
@@ -3200,7 +3201,7 @@ decode ()
 			printMessage 'warning' 'processing' "file:${sourceFile}" $p "threads:1" "no gain value"
 		fi
 
-		nChannels="$( soxi -c "$wavFile" 2>> "$errorLogFile" )"
+		nChannels=$( getNumberOfChannels "$wavFile" )
 		if [ -z "$nChannels" -o "$nChannels" = '0' ]; then
 			nChannels=2
 		fi
@@ -4728,10 +4729,19 @@ saveGain ()
 
 getFileMilliseconds ()
 {
-	local file="$1" ec=$EX_OK seconds
+	local file="$1" ec=$EX_OK seconds line samplingRate bitDepth format nChannels channelMask nSamples rest
 
 	case "$file" in
-		*.wv|*.ape|*.m4a)
+		*.wv)
+				line="$( wvunpack -f "$file" 2>/dev/null )"
+				OIFS="$IFS"
+				IFS=";"
+				read -r samplingRate bitDepth format nChannels channelMask nSamples rest <<< "$line"
+				seconds="$( echo "scale=3; $nSamples / $samplingRate" | bc )"
+				IFS="$OIFS"
+			;;
+
+		*.ape|*.m4a)
 			seconds="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | grep -F 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '0-9.' )"
 			;;
 

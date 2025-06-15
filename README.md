@@ -125,7 +125,7 @@ caudec uses common UNIX tools (bc, cut, date/gdate, find, grep, head, mktemp, ps
 ### Mandatory Software
 
 * SoX: http://sox.sourceforge.net/
-* WavPack, Monkey's Audio, ALAC (as source files): https://ffmpeg.org/
+* Monkey's Audio, ALAC (as source files): https://ffmpeg.org/
 
 #### Native Codecs
 
