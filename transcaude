@@ -18,59 +18,50 @@
 
 # Global variables =============================================================
 
-me="transcaude"
-VERSION='2.3.0'
+declare -r Self_Name='transcaude'
+declare -r Self_Version='2.3.0'
 
-# EX_USAGE: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
-# EX_DATAERR: The input data was incorrect in some way. This should only be used for user's data & not system files.
-# EX_NOINPUT: An input file (not a system file) did not exist or was not readable. This could also include errors like "No message" to a mailer (if it cared to catch it).
-# EX_NOUSER: The user specified did not exist. This might be used for mail addresses or remote logins.
-# EX_NOHOST: The host specified did not exist. This is used in mail addresses or network requests.
-# EX_UNAVAILABLE: A service is unavailable. This can occur if a support program or file does not exist. This can also be used as a catchall message when something you wanted to do doesn't work, but you don't know why.
-# EX_SOFTWARE: An internal software error has been detected. This should be limited to non-operating system related errors as possible.
-# EX_OSERR: An operating system error has been detected. This is intended to be used for such things as "cannot fork", "cannot create pipe", or the like. It includes things like getuid returning a user that does not exist in the passwd file.
-# EX_OSFILE: Some system file (e.g., /etc/passwd, /etc/utmp, etc.) does not exist, cannot be opened, or has some sort of error (e.g., syntax error).
-# EX_CANTCREAT: A (user specified) output file cannot be created.
-# EX_IOERR: An error occurred while doing I/O on some file.
-# EX_TEMPFAIL: temporary failure, indicating something that is not really an error. In sendmail, this means that a mailer (e.g.) could not create a connection, and the request should be reattempted later.
-# EX_PROTOCOL: the remote system returned something that was "not possible" during a protocol exchange.
-# EX_NOPERM: You did not have sufficient permission to perform the operation. This is not intended for file system problems, which should use NOINPUT or CANTCREAT, but rather for higher level permissions.
+# Ex_Usage: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
+# Ex_Data_Err: The input data was incorrect in some way. This should only be used for user's data & not system files.
+# Ex_No_Input: An input file (not a system file) did not exist or was not readable. This could also include errors like "No message" to a mailer (if it cared to catch it).
+# Ex_No_User: The user specified did not exist. This might be used for mail addresses or remote logins.
+# Ex_No_Host: The host specified did not exist. This is used in mail addresses or network requests.
+# Ex_Unavailable: A service is unavailable. This can occur if a support program or file does not exist. This can also be used as a catchall message when something you wanted to do doesn't work, but you don't know why.
+# Ex_Software: An internal software error has been detected. This should be limited to non-operating system related errors as possible.
+# Ex_Os_Err: An operating system error has been detected. This is intended to be used for such things as "cannot fork", "cannot create pipe", or the like. It includes things like getuid returning a user that does not exist in the passwd file.
+# Ex_Os_File: Some system file (e.g., /etc/passwd, /etc/utmp, etc.) does not exist, cannot be opened, or has some sort of error (e.g., syntax error).
+# Ex_Cant_Create: A (user specified) output file cannot be created.
+# Ex_Io_Err: An error occurred while doing I/O on some file.
+# Ex_Temp_Fail: temporary failure, indicating something that is not really an error. In sendmail, this means that a mailer (e.g.) could not create a connection, and the request should be reattempted later.
+# Ex_Protocol: the remote system returned something that was "not possible" during a protocol exchange.
+# Ex_No_Perm: You did not have sufficient permission to perform the operation. This is not intended for file system problems, which should use NOINPUT or CANTCREAT, but rather for higher level permissions.
 
-EX_OK=0             # successful termination
-EX_KO=1             # unsuccessful termination
-EX_USAGE=64         # command line usage error
-EX_DATAERR=65       # data format error
-EX_NOINPUT=66       # cannot open input
-EX_NOUSER=67        # addressee unknown
-EX_NOHOST=68        # host name unknown
-EX_UNAVAILABLE=69   # service unavailable
-EX_SOFTWARE=70      # internal software error
-EX_OSERR=71         # system error (e.g., can't fork)
-EX_OSFILE=72        # critical OS file missing
-EX_CANTCREAT=73     # can't create (user) output file
-EX_IOERR=74         # input/output error
-EX_TEMPFAIL=75      # temp failure; user is invited to retry
-EX_PROTOCOL=76      # remote error in protocol
-EX_NOPERM=77        # permission denied
-EX_CONFIG=78        # configuration error
-EX_INTERRUPT=143    # user interruption (Ctrl+C)
-
-EL="\\033[2K\\033[0G"
-OK="\\033[1;32m" KO="\\033[1;31m" WG="\\033[1;33m"
-DG="\\033[0;32m" # dark green
-DR="\\033[0;31m" # dark red
-BR="\\033[0;33m" # brown
-DB="\\033[0;34m" # dark blue
-BB="\\033[1;34m" # bright blue
-NM="\\033[0m" BD="\\033[1;37m" GR="\\033[1;30m" CY="\\033[0;36m" BCY="\\033[1;36m"
+declare -r Ex_Ok=0            # successful termination
+declare -r Ex_Ko=1            # unsuccessful termination
+declare -r Ex_Usage=64        # command line usage error
+declare -r Ex_Data_Err=65     # data format error
+declare -r Ex_No_Input=66     # cannot open input
+declare -r Ex_No_User=67      # addressee unknown
+declare -r Ex_No_Host=68      # host name unknown
+declare -r Ex_Unavailable=69  # service unavailable
+declare -r Ex_Software=70     # internal software error
+declare -r Ex_Os_Err=71       # system error (e.g., can't fork)
+declare -r Ex_Os_File=72      # critical OS file missing
+declare -r Ex_Cant_Create=73	# can't create (user) output file
+declare -r Ex_Io_Err=74       # input/output error
+declare -r Ex_Temp_Fail=75    # temp failure; user is invited to retry
+declare -r Ex_Protocol=76     # remote error in protocol
+declare -r Ex_No_Perm=77      # permission denied
+declare -r Ex_Config_Err=78   # configuration error
+declare -r Ex_Interrupt=143   # user interruption (Ctrl+C)
 
 printUsage ()
 {
-  echo "$me ${VERSION}: transcode an album, compute ReplayGain and touch files
+  echo "$Self_Name ${Self_Version}: transcode an album, compute ReplayGain and touch files
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
-Usage: $me [ GLOBAL PARAMS ] [ CAUDEC PARAMS ] [ DIR | FILES ]
+Usage: $Self_Name [ GLOBAL PARAMS ] [ CAUDEC PARAMS ] [ DIR | FILES ]
 Operate on all audio files of an album at once, in parallel.
 A single directory (with -i), or a list of files, may be passed as arguments.
 Run 'caudec -h' to learn about CAUDEC PARAMS.
@@ -93,15 +84,15 @@ https://github.com/gcocatre/caudec"
 
 if [ $# -eq 0 ]; then
   printUsage
-  exit $EX_USAGE
+  exit $Ex_Usage
 fi
 if [ "$1" = "-h" ]; then
   printUsage
-  exit $EX_OK
+  exit $Ex_Ok
 fi
 if [ "$1" = "-V" ]; then
-  echo "$me $VERSION"
-  exit $EX_OK
+  echo "$Self_Name $Self_Version"
+  exit $Ex_Ok
 fi
 
 verbose=true
@@ -112,23 +103,23 @@ fi
 
 for arg in "$@"; do
   if [ "$arg" = "-z" -o "$arg" = "-Z" ]; then
-    echo "$me: error: don't specify either -z or -Z." 1>&2; exit $EX_USAGE
+    echo "$Self_Name: error: don't specify either -z or -Z." 1>&2; exit $Ex_Usage
   elif [ "$arg" = "-h" -o "$arg" = "-V" -o "$arg" = "-s" ]; then
-    echo "$me: error: please specify $arg only once, as the first parameter." 1>&2; exit $EX_USAGE
+    echo "$Self_Name: error: please specify $arg only once, as the first parameter." 1>&2; exit $Ex_Usage
   fi
 done
 
 if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
-TDIR="$( mktemp -d "${mktempDir}/${me}.XXXXXXXX" )"
+TDIR="$( mktemp -d "${mktempDir}/${Self_Name}.XXXXXXXX" )"
 if [ ! -e "$TDIR" ]; then
-  echo "$me: error: cannot create temporary directory" 1>&2; ec=$EX_CANTCREAT
+  echo "$Self_Name: error: cannot create temporary directory" 1>&2; ec=$Ex_Cant_Create
   exit $ec
 elif [ ! -d "$TDIR" ]; then
-  echo "$me: error: cannot create temporary directory" 1>&2; ec=$EX_CANTCREAT
+  echo "$Self_Name: error: cannot create temporary directory" 1>&2; ec=$Ex_Cant_Create
   rm -rf "$TDIR"
   exit $ec
 elif [ ! -w "$TDIR" ]; then
-  echo "$me: error: temporary directory is not writable" 1>&2; ec=$EX_NOPERM
+  echo "$Self_Name: error: temporary directory is not writable" 1>&2; ec=$Ex_No_Perm
   rm -rf "$TDIR"
   exit $ec
 fi
@@ -145,26 +136,26 @@ outputWarningOrError ()
 	case "$status" in
 		error)
 			if [ "$status_info" = 'decoding' ]; then
-				str="$( printf "${GR} * ${KO}DC ${CY}%s${NM}\n" "$fileName" )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ko}DC ${Clr_N_Cy}%s${Clr_Rst}\n" "$fileName" )"
 			elif [ "$status_info" = 'processing' ]; then
-				str="$( printf "${GR} * ${KO}PR ${CY}%s${NM}\n" "$fileName" )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ko}PR ${Clr_N_Cy}%s${Clr_Rst}\n" "$fileName" )"
 			elif [ -n "$file" ]; then
 				if [ -n "$message" ]; then
-					str="$( printf "${GR} * ${KO}ER ${CY}%s${NM}: %s\n" "$fileName" "$message" )"
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}: %s\n" "$fileName" "$message" )"
 				else
-					str="$( printf "${GR} * ${KO}ER ${CY}%s${NM}\n" "$fileName" )"
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}\n" "$fileName" )"
 				fi
 			elif [ -n "$message" ]; then
-				str="$( printf "${GR} * ${KO}ER${NM} %s\n" "$message" )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ko}ER ${Clr_Rst}%s\n" "$message" )"
 			fi
       echo -e "$str" 1>&2
 			;;
 
 		warning)
 			if [ -n "$file" ]; then
-				str="$( printf "${GR} * ${WG}WG ${CY}%s${NM}: %s\n" "$fileName" "$message" )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" "$fileName" "$message" )"
 			else
-				str="$( printf "${GR} * ${WG}WG${NM} %s\n" "$message" )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Wg}WG ${Clr_Rst}%s\n" "$message" )"
 			fi
       echo -e "$str" 1>&2
 			;;
@@ -183,15 +174,15 @@ computeReplayGain ()
       fi
       if [ "$lastCodec" = "MP3" ]; then
         if [ $verbose = true ]; then
-          caudec -Z -G album "${files[@]}" 2>"${replayGainLog}_${lastCodec}" || ec=$EX_KO
+          caudec -Z -G album "${files[@]}" 2>"${replayGainLog}_${lastCodec}" || ec=$Ex_Ko
         else
-          caudec -Z -G album "${files[@]}" 1>/dev/null 2>"${replayGainLog}_${lastCodec}" || ec=$EX_KO
+          caudec -Z -G album "${files[@]}" 1>/dev/null 2>"${replayGainLog}_${lastCodec}" || ec=$Ex_Ko
         fi
       else
         if [ $verbose = true ]; then
-          caudec -Z -g "${files[@]}" 2>"${replayGainLog}_${lastCodec}" || ec=$EX_KO
+          caudec -Z -g "${files[@]}" 2>"${replayGainLog}_${lastCodec}" || ec=$Ex_Ko
         else
-          caudec -Z -g "${files[@]}" 1>/dev/null 2>"${replayGainLog}_${lastCodec}" || ec=$EX_KO
+          caudec -Z -g "${files[@]}" 1>/dev/null 2>"${replayGainLog}_${lastCodec}" || ec=$Ex_Ko
         fi
       fi
 
@@ -224,9 +215,9 @@ touchFiles ()
       if [ $verbose = true ]; then
         echo
         echo "Touching directory for $lastCodec in $lastDir:"
-        caudec -Z -T "$lastDir" 2> "${touchLog}_${lastCodec}" || ec=$EX_KO
+        caudec -Z -T "$lastDir" 2> "${touchLog}_${lastCodec}" || ec=$Ex_Ko
       else
-        caudec -Z -T "$lastDir" 1>/dev/null 2> "${touchLog}_${lastCodec}" || ec=$EX_KO
+        caudec -Z -T "$lastDir" 1>/dev/null 2> "${touchLog}_${lastCodec}" || ec=$Ex_Ko
       fi
 
       if [ $verbose = false ]; then
@@ -256,7 +247,7 @@ else
   caudec -Z "$@" 1>/dev/null 2>"$encodingLog"; ec=$?
 fi
 
-if [ $ec -eq $EX_OK ]; then
+if [ $ec -eq $Ex_Ok ]; then
   sort "$encodingLog" > "${encodingLog}2" && mv "${encodingLog}2" "$encodingLog"
   echo "zzzzzzzz|encoding|zzzzzzzz|zzzzzzzz|zzzzzzzz|12345678" 1>> "$encodingLog"
   OIFS="$IFS"
