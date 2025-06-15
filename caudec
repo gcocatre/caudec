@@ -82,6 +82,12 @@ Clr_B_Cy="\\033[1;36m" # bright cyan
 Clr_N_Wh="\\033[0;37m" # bright gray
 Clr_B_Wh="\\033[1;37m" # white
 
+declare -r Self_Pid_Dir="/tmp/${Self_Name}"
+declare -r Self_Io_Dir="${Self_Pid_Dir}/io"
+
+declare -r Flac_Max_Threads=128
+declare -r WavPack_Max_Threads=12
+
 # User settings ================================================================
 
 if [ -r '/etc/caudecrc' ]; then
@@ -147,12 +153,9 @@ if [ "$preloadSources" = "false" ]; then preloadSources=false; else preloadSourc
 
 # true by default
 if [ "$enableColors" = "false" ]; then
-	enableColors=false
 	Clr_Ok="" Clr_Ko="" Clr_Wg="" Clr_Rst="" Clr_N_Bk="" Clr_B_Bk="" Clr_N_Rd="" Clr_B_Rd="" Clr_N_Gr="" Clr_B_Gr=""
 	Clr_N_Yl="" Clr_B_Yl="" Clr_N_Bl="" Clr_B_Bl="" Clr_N_Pp="" Clr_B_Pp="" Clr_N_Cy="" Clr_B_Cy="" Clr_N_Wh=""
 	Clr_B_Wh=""
-else
-	enableColors=true
 fi
 
 # true by default
@@ -162,14 +165,6 @@ if [ "$useBrightColors" = "false" ]; then
 else
 	useBrightColors=true
 fi
-
-# Global values ================================================================
-
-piddir='/tmp/caudec'
-iodir="${piddir}/io"
-
-maxFlacThreads=128
-maxWavPackThreads=12
 
 # Functions ====================================================================
 
@@ -909,22 +904,22 @@ cleanExit ()
 	if [ -n "$SWAPDIR" ]; then
 		rm -rf "$SWAPDIR"
 		swapDirBasename="$( basename "$SWAPDIR" )"
-		rm "${piddir}"/"${swapDirBasename}"
+		rm "${Self_Pid_Dir}"/"${swapDirBasename}"
 	fi
 	test -n "$TDIR" && rm -rf "$TDIR"
 
 	for f in "$instanceDir"/ioLockFiles/* ; do
 		if [ -e "$f" ]; then
-			echo '' > "${iodir}/${f##*/}.lock" 2>/dev/null
-			mv "${iodir}/${f##*/}.lock" "${iodir}/${f##*/}" >/dev/null 2>&1
+			echo '' > "${Self_Io_Dir}/${f##*/}.lock" 2>/dev/null
+			mv "${Self_Io_Dir}/${f##*/}.lock" "${Self_Io_Dir}/${f##*/}" >/dev/null 2>&1
 		fi
 	done
 
 	rm -rf "$instanceDir"
 	cleanUpInstances
-	ls -d "${piddir}"/instance.* >/dev/null 2>&1 || rm -rf "$iodir"
+	ls -d "${Self_Pid_Dir}"/instance.* >/dev/null 2>&1 || rm -rf "$Self_Io_Dir"
 
-	rm -rf "$piddir" >/dev/null 2>&1
+	rm -rf "$Self_Pid_Dir" >/dev/null 2>&1
 
 	exit $1
 }
@@ -1452,7 +1447,7 @@ cleanUpInstances ()
 {
 	local pid tdir
 
-	for d in "${piddir}/instance".???????? ; do
+	for d in "${Self_Pid_Dir}/instance".???????? ; do
 		if [ -d "$d" -a -f "${d}/PID" ]; then
 			pid="$( cat "${d}/PID" 2>/dev/null )"
 			if ! isProcessRunning $pid ; then
@@ -1465,7 +1460,7 @@ cleanUpInstances ()
 		fi
 	done
 
-	for f in "${iodir}"/*.lock ; do
+	for f in "${Self_Io_Dir}"/*.lock ; do
 		if [ -f "$f" ]; then
 			cleanUpCopyLockFile "${f%.lock}"
 		fi
@@ -1476,29 +1471,29 @@ handleInstance ()
 {
 	local nRunningProcesses=0 nAvailableProcesses=$nProcesses pid
 
-	if [ -e "$piddir" ]; then
+	if [ -e "$Self_Pid_Dir" ]; then
 		cleanUpInstances
 	else
-		mkdir -m 0777 -p "$piddir" >/dev/null 2>&1
+		mkdir -m 0777 -p "$Self_Pid_Dir" >/dev/null 2>&1
 	fi
 
-	if [ ! -d "$piddir" ]; then
-		printMessage 'warning' 'initialization' 'filesystem' "path:${piddir}" "couldn't create directory."
+	if [ ! -d "$Self_Pid_Dir" ]; then
+		printMessage 'warning' 'initialization' 'filesystem' "path:${Self_Pid_Dir}" "couldn't create directory."
 		printMessage 'abort'
 		cleanExit $Ex_Cant_Create
-	elif [ ! -w "$piddir" ]; then
-		printMessage 'warning' 'initialization' 'filesystem' "path:${piddir}" "directory is not writable (permission denied)."
+	elif [ ! -w "$Self_Pid_Dir" ]; then
+		printMessage 'warning' 'initialization' 'filesystem' "path:${Self_Pid_Dir}" "directory is not writable (permission denied)."
 		printMessage 'abort'
 		cleanExit $Ex_No_Perm
 	fi
 
-	if [ ! -d "$iodir" ]; then
-		mkdir -m 0777 -p "$iodir" >/dev/null 2>&1
+	if [ ! -d "$Self_Io_Dir" ]; then
+		mkdir -m 0777 -p "$Self_Io_Dir" >/dev/null 2>&1
 	fi
 
-	instanceDir="$( TMPDIR="$piddir" mktemp -d "${piddir}/instance.XXXXXXXX" 2>/dev/null )"
+	instanceDir="$( TMPDIR="$Self_Pid_Dir" mktemp -d "${Self_Pid_Dir}/instance.XXXXXXXX" 2>/dev/null )"
 	if [ -z "$instanceDir" ]; then
-		printMessage 'warning' 'initialization' 'filesystem' "path:${piddir}" "mktemp failed to create a directory (do you have write permissions?)."
+		printMessage 'warning' 'initialization' 'filesystem' "path:${Self_Pid_Dir}" "mktemp failed to create a directory (do you have write permissions?)."
 		printMessage 'abort'
 		cleanExit $Ex_Os_Err
 	elif [ ! -w "$instanceDir" ]; then
@@ -1512,7 +1507,7 @@ handleInstance ()
 	touch "$errorLogFile"
 	echo "$$" > "${instanceDir}/PID"
 
-	nInstances=$( find "$piddir" -type d -name 'instance.*' 2>/dev/null | wc -l | tr -cd '0-9' )
+	nInstances=$( find "$Self_Pid_Dir" -type d -name 'instance.*' 2>/dev/null | wc -l | tr -cd '0-9' )
 	if [ $nInstances -le $maxInstances ]; then
 		nRunningProcesses="$( getNumberOfCaudecProcesses )"
 		nAvailableProcesses=$(( maxProcesses - nRunningProcesses ))
@@ -1616,9 +1611,9 @@ setupSwapDir ()
 
 	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
 		if [ "$OS" = 'Linux' ]; then
-			copyLockFile="${iodir}/$( stat -c '%d' "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
+			copyLockFile="${Self_Io_Dir}/$( stat -c '%d' "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
 		else
-			copyLockFile="${iodir}/$( stat -f '%d' "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
+			copyLockFile="${Self_Io_Dir}/$( stat -f '%d' "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
 		fi
 		if [ ! -e "${copyLockFile}.lock" ]; then
 			touch "$copyLockFile"
@@ -1649,7 +1644,7 @@ setupSwapDir ()
 
 	echo -n "0" > "${TDIR}/readTimes"
 	touch "${TDIR}/transcodingErrorFiles"
-	ln -s "$SWAPDIR" "$piddir"
+	ln -s "$SWAPDIR" "$Self_Pid_Dir"
 }
 
 getNumberOfChannels ()
@@ -1674,7 +1669,7 @@ getNumberOfCaudecProcesses ()
 {
 	local n=0
 
-	n=$( find "$piddir" -type f -name 'process.*' 2>/dev/null | wc -l | tr -cd '0-9' )
+	n=$( find "$Self_Pid_Dir" -type f -name 'process.*' 2>/dev/null | wc -l | tr -cd '0-9' )
 	case "$n" in
 		[0-9]*) echo $n ;;
 		*) echo 0 ;;
@@ -3098,7 +3093,7 @@ decode ()
 				sourceTagFormat='ape' kfm='-w'
 				getInternalMD5 "$copyFile"
 				if [ $keepWavMetadata = true ]; then kfm='' ; fi
-				nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
+				nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
 				wvunpack -q $kfm -m --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
 				if [ $ec -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
@@ -3801,7 +3796,7 @@ encode ()
 			# Kohlrabi is a very cool dude
 			if [ $keepWavMetadata = true ]; then kfm='--keep-foreign-metadata' ; fi
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / FLAC $flacVersion / -$compression_FLAC"; fi
-			nThreads=$( getNumberOfAvailableThreads $index $maxFlacThreads )
+			nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
 			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P 4096 $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
 			importArtworkIntoFLAC || ec=$Ex_Ko
 			;;
@@ -3824,7 +3819,7 @@ encode ()
 				printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$Self_Name -c wv: correction files are present. Please delete them and try again." ; ec=$Ex_Ko
 			else
 				if [ $keepWavMetadata = true ]; then kfm=''; fi
-				nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
+				nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
 				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack"; fi
 				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
 				if [ $ec -eq $Ex_Ok -a -f "$destTagFile" ]; then
@@ -3840,7 +3835,7 @@ encode ()
 			# WavPack Hybrid only supports multithreading for files with more than 2 channels
 			nChannels=$( getNumberOfChannels "$wavFile" )
 			if [ $nChannels -gt 2 ]; then
-				nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
+				nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
 			else
 				nThreads=1
 			fi
@@ -3867,7 +3862,7 @@ encode ()
 				# WavPack Lossy only supports multithreading for files with more than 2 channels
 				nChannels=$( getNumberOfChannels "$wavFile" )
 				if [ $nChannels -gt 2 ]; then
-					nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
+					nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
 				else
 					nThreads=1
 				fi
@@ -3889,7 +3884,7 @@ encode ()
 		lossyFLAC)
 			destExtension='lossy.flac'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt"
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
-			nThreads=$( getNumberOfAvailableThreads $index $maxFlacThreads )
+			nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
 			printf -- "--totally-silent`tagline -T`\x00%s" "$lossywavFile" | xargs -0 flac -j $nThreads -P 4096 -5 -b 512 --keep-foreign-metadata -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
 			importArtworkIntoFLAC || ec=$Ex_Ko
 			;;
@@ -4099,9 +4094,9 @@ prepareSource ()
 
 	if [ $preloadSources = true -a $touchFiles = false ]; then
 		if [ "$OS" = 'Linux' ]; then
-			copyLockFile="${iodir}/$( stat -c '%d' "$sourceFile" 2>> "$errorLogFile" )"
+			copyLockFile="${Self_Io_Dir}/$( stat -c '%d' "$sourceFile" 2>> "$errorLogFile" )"
 		else
-			copyLockFile="${iodir}/$( stat -f '%d' "$sourceFile" 2>> "$errorLogFile" )"
+			copyLockFile="${Self_Io_Dir}/$( stat -f '%d' "$sourceFile" 2>> "$errorLogFile" )"
 		fi
 		until test $copyDone = true; do
 			# if test -f "$copyLockFile" && mv "$copyLockFile" "${copyLockFile}.lock" >/dev/null 2>&1; then
@@ -4441,7 +4436,7 @@ testFile ()
 				;;
 
 			*.wv)
-				nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
+				nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
 				wvunpack --threads=$nThreads -qmv "$copyFile" >/dev/null 2>&1; ec=$?
 				;;
 
@@ -4545,7 +4540,7 @@ computeHash ()
 				touch "$sourceTagFile"
 				if [ $ec -eq $Ex_Ok ]; then
 					getInternalMD5 "$copyFile"
-					nThreads=$( getNumberOfAvailableThreads $index $maxWavPackThreads )
+					nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
 					wvunpack -q -m --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
 				fi
 				;;
