@@ -4736,7 +4736,7 @@ getFileMilliseconds ()
 				line="$( wvunpack -f "$file" 2>/dev/null )"
 				OIFS="$IFS"
 				IFS=";"
-				read -r samplingRate bitDepth format nChannels channelMask nSamples rest <<< "$line"
+				read samplingRate bitDepth format nChannels channelMask nSamples rest <<< "$line"
 				seconds="$( echo "scale=3; $nSamples / $samplingRate" | bc )"
 				IFS="$OIFS"
 			;;
