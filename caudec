@@ -3925,7 +3925,6 @@ encode ()
 
 		AAC)
 			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt" aaclibs=("aac_at" "libfdk_aac" "aac") aaclib=""
-			nThreads=$( getNumberOfAvailableThreads $index )
 			if [ -z "$sourceCoverArtFile" ]; then
 				for f in "${SWAPDIR}/picture-${index}-"*_*; do
 					if [ ! -e "$f" ]; then continue; fi
@@ -3947,9 +3946,9 @@ encode ()
 						fi
 						# debug "aaclib [$aaclib] compression_param[$compression_param] quality_arg[$quality_arg]"
 						if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
 						else
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
 						fi
 						if [ $ec -ne $Ex_Ko ]; then ec=$Ex_Ok; break; fi
 						;;
@@ -3958,9 +3957,9 @@ encode ()
 						compression_param="-b:a" quality_arg="${bitrate_AAC}k"
 						# debug "aaclib [$aaclib] compression_param[$compression_param] quality_arg[$quality_arg]"
 						if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
 						else
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
 						fi
 						if [ $ec -ne $Ex_Ko ]; then ec=$Ex_Ok; break; fi
 						;;
@@ -3974,9 +3973,9 @@ encode ()
 						compression_param="-b:a" quality_arg="${bitrate_AAC}k"
 						# debug "aaclib [$aaclib] compression_param[$compression_param] quality_arg[$quality_arg]"
 						if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
 						else
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; ec=$?
 						fi
 						if [ $ec -ne $Ex_Ko ]; then ec=$Ex_Ok; break; fi
 						;;
