@@ -3748,7 +3748,8 @@ copyOrLinkOtherFiles ()
 
 encode ()
 {
-	local ec=$Ex_Ok pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses nThreads=1 listOfOtherFiles
+	local nDecodingThreads=$1 nThreads=1
+	local ec=$Ex_Ok pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses listOfOtherFiles
 	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag='' nChannels
 	local compression_param quality_arg
 
@@ -4059,11 +4060,10 @@ encode ()
 				fi
 			fi
 
-			if [ "$outputCodec" = "WAV" ]; then
-				printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:WAV" # FIXME DECODE THREADS
-			else
-				printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:${outputCodec}" "threads:$nThreads" # FIXME DECODE THREADS
-			fi
+			case $outputCodec in
+				WAV|AIFF|CAF) printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:WAV" "threads:$nDecodingThreads" ;;
+				*) printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:${outputCodec}" "threads:$nThreads" ;;
+			esac
 		fi
 	else
 		rm -f "$encodedFile" >/dev/null 2>&1 # in case it exists
@@ -4170,7 +4170,7 @@ addTranscodingErrorFile ()
 transcode ()
 {
 	local ec=$Ex_Ok lastCodec="${outputCodecs##* }" allDone=false copyDone=false encodingDone=false lsec=0
-	local milliseconds index
+	local milliseconds index nDecodingThreads=1
 
 	until test $allDone = true; do
 		allDone=true
@@ -4210,6 +4210,11 @@ transcode ()
 				allDone=false
 				prepareSource &&
 				decode || ec=$Ex_Ko
+				if [ -n "$nThreads" ]; then
+					nDecodingThreads=$nThreads
+				else
+					nDecodingThreads=1
+				fi
 				if [ $ec -ne $Ex_Ok ]; then addTranscodingErrorFile "$sourceFile" ; fi
 				rm -f "$decodingLockFile" >/dev/null 2>&1
 			elif [ -e "$decodingLockFile" ]; then # can't do anything for this track yet, gotta wait for it to be decoded
@@ -4243,7 +4248,7 @@ transcode ()
 				# if test -e "$encodingLockFile" && unlink "$encodingLockFile" 2>/dev/null; then
 				if test -e "$encodingLockFile" && getLock "$encodingLockFile"; then
 					allDone=false
-					encode || ec=$Ex_Ko
+					encode $nDecodingThreads || ec=$Ex_Ko
 					if [ $ec -ne $Ex_Ok ]; then addTranscodingErrorFile "$sourceFile" ; fi
 					rm -f "${encodingLockFile}_WAV_NEEDED"
 					ls "${TDIR}/"*"_${index}_WAV_NEEDED" >/dev/null 2>&1 || rm -f "$wavFile"
