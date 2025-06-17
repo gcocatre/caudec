@@ -3070,14 +3070,13 @@ decode ()
 			flac)
 				sourceTagFormat='vc'
 				getInternalMD5 "$copyFile"
-				nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
 				if [ $keepWavMetadata = true ]; then
-					if ! flac -s -d --threads=$nThreads --keep-foreign-metadata -o "$wavFile" "$copyFile" >/dev/null 2>&1; then
+					if ! flac -s -d --keep-foreign-metadata -o "$wavFile" "$copyFile" >/dev/null 2>&1; then
 						if [ -e "$wavFile" ]; then rm -f "$wavFile"; fi
-						flac -s -d --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+						flac -s -d -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
 					fi
 				else
-					flac -s -d --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+					flac -s -d -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
 				fi
 				if [ $ec -eq $Ex_Ok ]; then
 					metaflac --no-utf8-convert --export-tags-to="$sourceTagFile" "$copyFile" >/dev/null 2>> "$errorLogFile" &&
