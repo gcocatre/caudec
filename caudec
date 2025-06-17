@@ -1704,8 +1704,7 @@ getNumberOfAvailableThreads ()
 	while read milliseconds number; do
 		test -e "${TDIR}/WAS_PROCESSED.${number}" &>/dev/null && continue
 		if [ "$number" = "$index" ]; then
-			nThreads="$( printf "%.0f" "$( echo "scale=3; ($maxProcessesSetByUser * ($milliseconds / $nMillisecondsLeft)) / 1" | bc )" )"
-			# debug "$( echo "scale=3; ($maxProcessesSetByUser * ($milliseconds / $nMillisecondsLeft)) / 1" | bc ) | $nAvailableProcesses | $nProcessedFiles -> ${nThreads}x"
+			nThreads="$( printf "%.0f" "$( echo "scale=3; $maxProcessesSetByUser * $milliseconds / $nMillisecondsLeft" | bc )" )"
 			break
 		fi
 	done < "${TDIR}/millisecondsAndFileNumbers"
@@ -3071,13 +3070,14 @@ decode ()
 			flac)
 				sourceTagFormat='vc'
 				getInternalMD5 "$copyFile"
+				nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
 				if [ $keepWavMetadata = true ]; then
-					if ! flac -s -d --keep-foreign-metadata -o "$wavFile" "$copyFile" >/dev/null 2>&1; then
+					if ! flac -s -d --threads=$nThreads --keep-foreign-metadata -o "$wavFile" "$copyFile" >/dev/null 2>&1; then
 						if [ -e "$wavFile" ]; then rm -f "$wavFile"; fi
-						flac -s -d -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+						flac -s -d --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
 					fi
 				else
-					flac -s -d -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+					flac -s -d --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
 				fi
 				if [ $ec -eq $Ex_Ok ]; then
 					metaflac --no-utf8-convert --export-tags-to="$sourceTagFile" "$copyFile" >/dev/null 2>> "$errorLogFile" &&
