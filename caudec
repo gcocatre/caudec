@@ -4950,7 +4950,6 @@ computeTrackGains ()
 	return $ec
 }
 
-# rm -f /tmp/REPLAYGAIN_ALBUM_GAIN_DIFF.txt; for d in */*; do f="$( gls "$d" | head -n 1 )"; correctGain="$( metaflac --show-tag=REPLAYGAIN_ALBUM_GAIN "${d}/${f}" | sed -e 's@.*=@@' -e 's@^+\.@+0.@' -e 's@^-\.@-0.@' -e 's@ dB@@' )"; newGain="$( metaflac --show-tag=REPLAYGAIN_ALBUM_GAIN "~/replaygain/${d}/${f}" | sed -e 's@.*=@@' -e 's@^+\.@+0.@' -e 's@^-\.@-.@' -e 's@ dB@@' )"; diff="$( echo -e "(${correctGain}) - (${newGain})" | tr -d "+" | bc -z )"; if [ "${diff:0:1}" != '-' ]; then diff="+${diff}"; fi ; echo -e "${diff}\t${correctGain}\t${newGain}\t${d}" >> /tmp/REPLAYGAIN_ALBUM_GAIN_DIFF.txt ; done
 computeAlbumGain ()
 {
 	# This is a very fast way of computing the album gain, but it is also less precise than the official implementation.
