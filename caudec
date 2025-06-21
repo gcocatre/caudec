@@ -4777,8 +4777,8 @@ getMillisecondsByFileIndex () {
 }
 
 computeGainFromPeak () {
-	local decimalPeak="$1"
-	printf "%.2f" "$( echo "scale=10; 20 * l(${decimalPeak}) / l(10)" | bc -l 2>> "$errorLogFile" )"
+	local floatingPointPeak="$1"
+	printf "%.2f" "$( echo "scale=10; 20 * l(${floatingPointPeak}) / l(10)" | bc -l 2>> "$errorLogFile" )"
 }
 
 computeTrackGain () {
