@@ -4688,7 +4688,7 @@ saveGain () {
 
 	if [ $computeAudioPeaks = true ]; then
 		peakDbfs="$( computeGainFromPeak "$peak" )"
-		if [ "${peakDbfs:0:1}" != '-' ]; then
+		if [ "${peakDbfs:0:1}" != '-' -a "$peakDbfs" != "0.00" ]; then
 			peakDbfs="+${peakDbfs}"
 		fi
 	fi
