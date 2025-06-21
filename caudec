@@ -169,14 +169,14 @@ fi
 
 # Functions ====================================================================
 
-debug ()
-{
+debug () {
+
 	local str="$1"
 	echo -e "${Clr_Wg}>>> DEBUG:${Clr_Rst} $str" 1>&2
 }
 
-printUsage ()
-{
+printUsage () {
+
 	if [ "$Self_Called_As" = 'decaude' ]; then
 		echo "caudec ${Self_Version}: multiprocess audio converter
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
@@ -369,8 +369,8 @@ https://github.com/gcocatre/caudec"
 	fi
 }
 
-printMachineSyntax ()
-{
+printMachineSyntax () {
+
 	echo "-------------------------------------------------------------------------------
          Format specification of caudec's machine-parsable output (-z)
 -------------------------------------------------------------------------------
@@ -414,8 +414,8 @@ process_id: identifier (PID) of the caudec process."
 }
 
 # status;status_info;status_data;file;message;process_number
-getMachineParsableString ()
-{
+getMachineParsableString () {
+
 	local pid=''
 
 	if [ -n "$BASHPID" ]; then
@@ -493,8 +493,8 @@ getMachineParsableString ()
 	fi
 }
 
-getHumanReadableString ()
-{
+getHumanReadableString () {
+
 	case "$msgType" in
 		info)
 			if [ -n "$msg" ]; then
@@ -607,8 +607,8 @@ getHumanReadableString ()
 	fi
 }
 
-printMessageToStdoutOrStderr ()
-{
+printMessageToStdoutOrStderr () {
+
 	local str="$1" stdOut="$2"
 
 	if [ -n "$str" ]; then
@@ -620,8 +620,8 @@ printMessageToStdoutOrStderr ()
 	fi
 }
 
-printMessage ()
-{
+printMessage () {
+
 	local msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo='' statusData=''
 	local file='' path='' fileDir='' msg='' p='' numberOfThreads='' hashType='' hashError='' gain='' bitrate='' rate=''
 	local codec='' outputCodec='' str=''
@@ -677,8 +677,8 @@ printMessage ()
 	return $Ex_Ok
 }
 
-getCompressionSetting ()
-{
+getCompressionSetting () {
+
 	local codec="$1" value="$2" source="$3" errormsg
 
 	if [ -n "$source" ]; then
@@ -765,8 +765,8 @@ getCompressionSetting ()
 	esac
 }
 
-getConstantBitrate ()
-{
+getConstantBitrate () {
+
 	local codec="$1" bitrate="$2" source="$3" errormsg
 
 	if [ -n "$source" ]; then
@@ -812,8 +812,8 @@ getConstantBitrate ()
 	esac
 }
 
-getAverageBitrate ()
-{
+getAverageBitrate () {
+
 	local codec="$1" bitrate="$2" source="$3" errormsg
 
 	if [ -n "$source" ]; then
@@ -866,8 +866,8 @@ getAverageBitrate ()
 	esac
 }
 
-getBitrateMode ()
-{
+getBitrateMode () {
+
 	local codec="$1" mode="$2"
 
 	case "$mode" in
@@ -892,8 +892,8 @@ getBitrateMode ()
 	esac
 }
 
-cleanExit ()
-{
+cleanExit () {
+
 	local nLines=0 swapDirBasename
 
 	if [ -n "$CAUDECDEBUG" -a "$verbose" = "true" -a "$outputMode" != 'machine' -a $1 -ne $Ex_Ok -a $1 -ne $Ex_Interrupt -a -e "$errorLogFile" ]; then
@@ -927,16 +927,16 @@ cleanExit ()
 	exit $1
 }
 
-cleanAbort ()
-{
+cleanAbort () {
+
 	echo
 	printMessage 'abort'
 	kill $( jobs -p ) >/dev/null 2>&1
 	cleanExit $Ex_Interrupt
 }
 
-getInputFiles ()
-{
+getInputFiles () {
+
 	local index=0 fileOrDir ec=$Ex_Ok ext line inputDir
 
 	if [ ${#inputFilesAndDirs[@]} -eq 1 -a -d "${inputFilesAndDirs[0]}" ]; then
@@ -993,8 +993,8 @@ getInputFiles ()
 	fi
 }
 
-checkInputFiles ()
-{
+checkInputFiles () {
+
 	local inputFile ec=$Ex_Ok inputDirName commonFileExtension="" inputFileExtension="" inputFileExtensionAreAllTheSame=true refDn cdpath pdpath
 	local index=0 addToSourceFiles errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
 	local dateSourceFile dateSourceFile outputCodec copyPath codec
@@ -1216,8 +1216,8 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 	fi
 }
 
-checkOutputDirectories ()
-{
+checkOutputDirectories () {
+
 	local outputCodec codecFullName codecDestDir
 
 	for outputCodec in $outputCodecs; do
@@ -1243,8 +1243,8 @@ checkOutputDirectories ()
 	done
 }
 
-checkBinary ()
-{
+checkBinary () {
+
 	local binary listOfBinaries="$@" pattern ec=$Ex_Ok
 
 	for binary in $listOfBinaries; do
@@ -1274,8 +1274,8 @@ You may find it at https://github.com/FrancisRussell/zoog"
 	return $ec
 }
 
-checkMainBinaries ()
-{
+checkMainBinaries () {
+
 	if ! which 'which' >/dev/null 2>&1 ; then
 		printMessage 'warning' 'initialization' 'filesystem' "Binary \"which\" not found. Make sure it is in your \$PATH."
 		printMessage 'abort'
@@ -1292,8 +1292,8 @@ checkMainBinaries ()
 	fi
 }
 
-checkBinaries ()
-{
+checkBinaries () {
+
 	local sourceFile searchedBinaries='' binaryMissing=false hash outputCodec
 
 	if ! which 'which' >/dev/null 2>&1 ; then
@@ -1416,8 +1416,8 @@ checkBinaries ()
 	fi
 }
 
-setNumberOfProcesses ()
-{
+setNumberOfProcesses () {
+
 	local newNumberOfProcesses=$1 processNumber
 
 	for (( processNumber=0 ; processNumber < newNumberOfProcesses; processNumber++ )); do
@@ -1437,8 +1437,8 @@ setNumberOfProcesses ()
 	nProcesses=$newNumberOfProcesses
 }
 
-isProcessRunning ()
-{
+isProcessRunning () {
+
 	if ps "$1" >/dev/null 2>&1 ; then
 		return $Ex_Ok
 	else
@@ -1446,8 +1446,8 @@ isProcessRunning ()
 	fi
 }
 
-cleanUpInstances ()
-{
+cleanUpInstances () {
+
 	local pid tdir
 
 	for d in "${Self_Pid_Dir}/instance".???????? ; do
@@ -1470,8 +1470,8 @@ cleanUpInstances ()
 	done
 }
 
-handleInstance ()
-{
+handleInstance () {
+
 	local nRunningProcesses=0 nAvailableProcesses=$nProcesses pid
 
 	if [ -e "$Self_Pid_Dir" ]; then
@@ -1537,8 +1537,8 @@ handleInstance ()
 	fi
 }
 
-setupSwapDir ()
-{
+setupSwapDir () {
+
 	local index ec=1 copyLockFile fileMilliseconds
 
 	if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
@@ -1650,8 +1650,8 @@ setupSwapDir ()
 	ln -s "$SWAPDIR" "$Self_Pid_Dir"
 }
 
-getNumberOfChannels ()
-{
+getNumberOfChannels () {
+
 	local file="$1" numberOfChannels=0
 
 	case "$file" in
@@ -1668,8 +1668,8 @@ getNumberOfChannels ()
 	echo "$numberOfChannels"
 }
 
-getNumberOfCaudecProcesses ()
-{
+getNumberOfCaudecProcesses () {
+
 	local n=0
 
 	n=$( find "$Self_Pid_Dir" -type f -name 'process.*' 2>/dev/null | wc -l | tr -cd '0-9' )
@@ -1679,13 +1679,13 @@ getNumberOfCaudecProcesses ()
 	esac
 }
 
-getNumberOfProcessedFiles ()
-{
+getNumberOfProcessedFiles () {
+
 	ls -1 "${TDIR}/WAS_PROCESSED".* 2>/dev/null | wc -l | tr -cd '[:digit:]'
 }
 
-getNumberOfAvailableThreads ()
-{
+getNumberOfAvailableThreads () {
+
 	local n=$1 maxThreads="$2" nProcessedFiles=0 nUnprocessedFiles nAvailableProcesses nMillisecondsLeft=0 nThreads=1
 
 	if [ -z "$maxThreads" ]; then
@@ -1722,8 +1722,8 @@ getNumberOfAvailableThreads ()
 }
 
 
-tagline ()
-{
+tagline () {
+
 	local IFS=' ' tags switch value pattern nLines ereg
 	test -e "$destTagFile" || return
 
@@ -1829,8 +1829,8 @@ tagline ()
 # http://www.id3.org/id3v2.3.0
 
 # Sanitize track or disc number
-getTrackOrDiscNumber ()
-{
+getTrackOrDiscNumber () {
+
 	local s="$1"
 
 	s="${s%/*}"
@@ -1840,8 +1840,8 @@ getTrackOrDiscNumber ()
 	esac
 }
 
-getTotalDiscsAndTracks ()
-{
+getTotalDiscsAndTracks () {
+
 	local field value
 
 	while read line; do
@@ -1869,8 +1869,8 @@ getTotalDiscsAndTracks ()
 	done < "$sourceTagFile"
 }
 
-vorbisCommentsToAPEv2 ()
-{
+vorbisCommentsToAPEv2 () {
+
 	local line field value totalDiscs='' totalTracks=''
 
 	getTotalDiscsAndTracks
@@ -1929,8 +1929,8 @@ vorbisCommentsToAPEv2 ()
 	done < "$sourceTagFile"
 }
 
-vorbisCommentsToEyeD3 ()
-{
+vorbisCommentsToEyeD3 () {
+
 	local line field value totalTracks='' totalDiscs=''
 
 	getTotalDiscsAndTracks
@@ -1972,8 +1972,8 @@ vorbisCommentsToEyeD3 ()
 	done < "$sourceTagFile"
 }
 
-vorbisCommentsToM4A ()
-{
+vorbisCommentsToM4A () {
+
 	local line field value totalTracks='' totalDiscs=''
 
 	getTotalDiscsAndTracks
@@ -2021,8 +2021,8 @@ vorbisCommentsToM4A ()
 	done < "$sourceTagFile"
 }
 
-M4AToVorbisComments ()
-{
+M4AToVorbisComments () {
+
 	local line field value totalTracks='' totalDiscs=''
 
 	getTotalDiscsAndTracks
@@ -2055,8 +2055,8 @@ M4AToVorbisComments ()
 	done < "$sourceTagFile"
 }
 
-M4AToAPEv2 ()
-{
+M4AToAPEv2 () {
+
 	local line field value totalTracks='' totalDiscs=''
 
 	getTotalDiscsAndTracks
@@ -2093,8 +2093,8 @@ M4AToAPEv2 ()
 	done < "$sourceTagFile"
 }
 
-M4AToEyeD3 ()
-{
+M4AToEyeD3 () {
+
 	local line field value totalTracks='' totalDiscs=''
 
 	getTotalDiscsAndTracks
@@ -2141,8 +2141,8 @@ M4AToEyeD3 ()
 	done < "$sourceTagFile"
 }
 
-APEv2ToVorbisComments ()
-{
+APEv2ToVorbisComments () {
+
 	local line field value totalTracks='' totalDiscs=''
 
 	getTotalDiscsAndTracks
@@ -2197,8 +2197,8 @@ APEv2ToVorbisComments ()
 	done < "$sourceTagFile"
 }
 
-APEv2ToEyeD3 ()
-{
+APEv2ToEyeD3 () {
+
 	local line field value totalTracks='' totalDiscs=''
 
 	getTotalDiscsAndTracks
@@ -2252,8 +2252,8 @@ APEv2ToEyeD3 ()
 	done < "$sourceTagFile"
 }
 
-APEv2ToM4A ()
-{
+APEv2ToM4A () {
+
 	local line field value totalTracks='' totalDiscs=''
 
 	getTotalDiscsAndTracks
@@ -2302,8 +2302,8 @@ APEv2ToM4A ()
 	done < "$sourceTagFile"
 }
 
-genTagFilter ()
-{
+genTagFilter () {
+
 	local taglist="$1" translations search match
 
 	translations="@albumartist@,@album artist@
@@ -2331,8 +2331,8 @@ genTagFilter ()
 	IFS="$OIFS"
 }
 
-processSourceTagFile ()
-{
+processSourceTagFile () {
+
 	local firstLine=true nChars=0
 
 	test -e "$sourceTagFile" || return
@@ -2450,8 +2450,8 @@ processSourceTagFile ()
 	fi
 }
 
-sanitizeApeTags ()
-{
+sanitizeApeTags () {
+
 	local field lastField value lastValue first=true
 
 	# transform duplicate fields into unique multi-value fields
@@ -2485,8 +2485,8 @@ sanitizeApeTags ()
 	fi
 }
 
-convertTags ()
-{
+convertTags () {
+
 	destTagFile="${TDIR}/${index}.${2}.txt"
 	test -e "$sourceTagFile" || return
 	test -e "$destTagFile" && return
@@ -2555,8 +2555,8 @@ convertTags ()
 	shopt -qu nocasematch
 }
 
-extractFlacArtwork ()
-{
+extractFlacArtwork () {
+
 	local blockNumber withinPictureBlock=false picType picNumber=0 picExt description pattern ec=$Ex_Ok
 
 	for outputCodec in $outputCodecs; do
@@ -2605,8 +2605,8 @@ extractFlacArtwork ()
 	return $ec
 }
 
-extractAPEv2Artwork ()
-{
+extractAPEv2Artwork () {
+
 	local picNumber=0 picExt='' picType=0 picTypeText='' pattern ec=$Ex_Ok otherType='' argString='' fieldName=''
 
 	for outputCodec in $outputCodecs; do
@@ -2627,8 +2627,8 @@ extractAPEv2Artwork ()
 	return $ec
 }
 
-extractAPEv2Binaries ()
-{
+extractAPEv2Binaries () {
+
 	local pattern ec=$Ex_Ok argString='' fieldName='' b=0
 
 	for outputCodec in $outputCodecs; do
@@ -2656,8 +2656,8 @@ extractAPEv2Binaries ()
 	return $ec
 }
 
-importCoverArt ()
-{
+importCoverArt () {
+
 	local ec=$Ex_Ok userSpecifiedArtwork
 
 	for f in "${SWAPDIR}/picture-3-"*_*; do
@@ -2680,8 +2680,8 @@ importCoverArt ()
 	return $ec
 }
 
-importArtworkIntoFLAC ()
-{
+importArtworkIntoFLAC () {
+
 	local ec=$Ex_Ok picBasename="" picType picExt description='' descFile='' swapFilePath pattern
 
 	pattern="x${outputCodec}Y"
@@ -2706,8 +2706,8 @@ importArtworkIntoFLAC ()
 	return $ec
 }
 
-genOpusArtworkCommandLine ()
-{
+genOpusArtworkCommandLine () {
+
 	local ec=$Ex_Ok picBasename="" picType description='' descFile='' pattern cmdline=''
 
 	pattern="x${outputCodec}Y"
@@ -2732,8 +2732,8 @@ genOpusArtworkCommandLine ()
 	return 0
 }
 
-importArtworkIntoAPEv2 ()
-{
+importArtworkIntoAPEv2 () {
+
 	local ec=$Ex_Ok picBasename="" picType picTypeText pattern af='' argString='' lastPicType=''
 
 	pattern="x${outputCodec}Y"
@@ -2784,8 +2784,8 @@ importArtworkIntoAPEv2 ()
 	return $ec
 }
 
-importBinariesIntoAPEv2 ()
-{
+importBinariesIntoAPEv2 () {
+
 	local ec=$Ex_Ok pattern argString='' fieldName='' bf=''
 
 	if [ ! -d "$apeBinariesDir" ]; then return $Ex_Ok; fi
@@ -2808,8 +2808,8 @@ importBinariesIntoAPEv2 ()
 	return $ec
 }
 
-importArtworkIntoMP3 ()
-{
+importArtworkIntoMP3 () {
+
 	local ec=$Ex_Ok picBasename="" picType picTypeText pattern descFile description='' n=0
 
 	pattern="x${outputCodec}Y"
@@ -2861,8 +2861,8 @@ importArtworkIntoMP3 ()
 	return $ec
 }
 
-computeCRC32 ()
-{
+computeCRC32 () {
+
 	local hfile="$1" fifo dgst wtype='' earg=''
 
 	wtype="$( soxi -e "$wavFile" 2>/dev/null )"
@@ -2880,8 +2880,8 @@ computeCRC32 ()
 	fi
 }
 
-computeMD5 ()
-{
+computeMD5 () {
+
 	local wavFile="$1" dgst wtype='' earg=''
 
 	wtype="$( soxi -e "$wavFile" 2>/dev/null )"
@@ -2900,8 +2900,8 @@ computeMD5 ()
 	fi
 }
 
-computeSHA ()
-{
+computeSHA () {
+
 	local wavFile="$1" hashtype="$2" hashvar='' dgst wtype='' earg=''
 
 	wtype="$( soxi -e "$wavFile" 2>/dev/null )"
@@ -2934,8 +2934,8 @@ computeSHA ()
 	fi
 }
 
-getDownmixFactors ()
-{
+getDownmixFactors () {
+
 	local divider="$1"
 
 	fv="$( echo "scale=5; 1 / $divider" | bc )"
@@ -2948,8 +2948,8 @@ getDownmixFactors ()
 	hv="$( printf "%.4f" "$hv" )"
 }
 
-upmixToStereo ()
-{
+upmixToStereo () {
+
 	local ec=$Ex_Ok
 
 	sox $soxGuard -M "$wavFile" "$wavFile" $bitdepthcmd -c 2 "$resampledWavFile" $gaincmd $ratecmd $dithercmd >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
@@ -2964,8 +2964,8 @@ upmixToStereo ()
 	return $ec
 }
 
-downmixToStereo ()
-{
+downmixToStereo () {
+
 	local ec=$Ex_Ok surroundConfig='' fv='' pv='' hv=''
 
 	# The following channel mappings have been thoroughly tested and should never clip, even in worst-case scenarios
@@ -3017,8 +3017,8 @@ downmixToStereo ()
 	return $ec
 }
 
-isWavProcessed ()
-{
+isWavProcessed () {
+
 	local val="$1"
 
 	if [ -z "$wavProcessedStatusFile" ]; then
@@ -3050,8 +3050,8 @@ isWavProcessed ()
 	fi
 }
 
-decode ()
-{
+decode () {
+
 	local ec=$Ex_Ok sourceTagFormat hline
 	local soxGuard='' sourceMD5='' kfm='' nChannels=2 gaincmd='' ratecmd='' bitdepthcmd='' dithercmd='' gainPeak=''
 
@@ -3439,8 +3439,8 @@ decode ()
 	return $ec
 }
 
-encodeLossyWAV ()
-{
+encodeLossyWAV () {
+
 	local ec=$Ex_Ok overwriteLossyWAV=true
 
 	encodedFile="$lossywavFile"
@@ -3528,8 +3528,8 @@ encodeLossyWAV ()
 	return $ec
 }
 
-getEncoderVersions ()
-{
+getEncoderVersions () {
+
 	local outputCodec oggencPath vorbisPrefix libvorbisVersion
 
 	for outputCodec in $outputCodecs; do
@@ -3567,8 +3567,8 @@ getEncoderVersions ()
 	done
 }
 
-isFileNewer ()
-{
+isFileNewer () {
+
 	local fileA="$1" fileB="$2" mtimeA mtimeB
 
 	# Don't use 'test -nt' because it doesn't work on files touched by 'caudec -T '
@@ -3590,8 +3590,8 @@ isFileNewer ()
 	fi
 }
 
-areInodesDifferent ()
-{
+areInodesDifferent () {
+
 	local fileA="$1" fileB="$2" inodeA inodeB
 
 	if [ -e "$fileA" -a -e "$fileB" ]; then
@@ -3607,8 +3607,8 @@ areInodesDifferent ()
 	fi
 }
 
-copyOrLinkAllFiles ()
-{
+copyOrLinkAllFiles () {
+
 	local codec="$1" sourceDirFile otherFileBasename destOtherFile destOtherLinkedFile
 	for sourceDirFile in "$sourceDirname"/*; do
 		case "$sourceDirFile" in
@@ -3632,8 +3632,8 @@ copyOrLinkAllFiles ()
 	done
 }
 
-copyOrLinkCommaSeparatedFiles ()
-{
+copyOrLinkCommaSeparatedFiles () {
+
 	local codec="$1" pattern="$2" listOfOtherFiles otherFile extOtherFile otherFileBasename destOtherFile destOtherLinkedFile
 
 	OIFS="$IFS"; IFS=','
@@ -3681,8 +3681,8 @@ copyOrLinkCommaSeparatedFiles ()
 	IFS="$OIFS"
 }
 
-copyOrLinkFile ()
-{
+copyOrLinkFile () {
+
 	local codec="$1" otherFile="$2" extOtherFile otherFileBasename destOtherFile destOtherLinkedFile
 
 	case "$otherFile" in
@@ -3725,8 +3725,8 @@ copyOrLinkFile ()
 	esac
 }
 
-copyOrLinkOtherFiles ()
-{
+copyOrLinkOtherFiles () {
+
 	local codec="$1"
 
 	pattern="$( getCodecOtherFiles "$codec" )"
@@ -3740,8 +3740,8 @@ copyOrLinkOtherFiles ()
 	fi
 }
 
-encode ()
-{
+encode () {
+
 	local nDecodingThreads=$1 nThreads=1
 	local ec=$Ex_Ok pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses listOfOtherFiles
 	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag='' nChannels
@@ -4066,8 +4066,8 @@ encode ()
 	return $ec
 }
 
-cleanUpCopyLockFile ()
-{
+cleanUpCopyLockFile () {
+
 	local copyLockFile="$1" pid
 
 	if [ -f "${copyLockFile}.lock" ]; then
@@ -4081,8 +4081,8 @@ cleanUpCopyLockFile ()
 	fi
 }
 
-prepareSource ()
-{
+prepareSource () {
+
 	local sourcePath ec=$Ex_Ok copyLockFile copyDone=false cptimer1 cptimer2 cpseconds attemptNumber=0
 
 	if [ $preloadSources = true -a $touchFiles = false ]; then
@@ -4155,13 +4155,13 @@ prepareSource ()
 	return $ec
 }
 
-addTranscodingErrorFile ()
-{
+addTranscodingErrorFile () {
+
 	echo "$1" >> "${TDIR}/transcodingErrorFiles"
 }
 
-transcode ()
-{
+transcode () {
+
 	local ec=$Ex_Ok lastCodec="${outputCodecs##* }" allDone=false copyDone=false encodingDone=false lsec=0
 	local milliseconds index nDecodingThreads=1
 
@@ -4276,8 +4276,8 @@ transcode ()
 	return $ec
 }
 
-compareHashes ()
-{
+compareHashes () {
+
 	local hashvalA='' hashvalB=''
 
 	case "$testHashType" in
@@ -4297,8 +4297,8 @@ compareHashes ()
 	fi
 }
 
-checkHashAvailability ()
-{
+checkHashAvailability () {
+
 	local hashtype="$1" hashval="$2"
 
 	test -z "$hashval" && return $Ex_Data_Err
@@ -4345,8 +4345,8 @@ checkHashAvailability ()
 	return $Ex_Ok
 }
 
-getSuitableHash ()
-{
+getSuitableHash () {
+
 	local errType=$Ex_Data_Err
 
 	if [ -z "$hashtags" ]; then
@@ -4397,8 +4397,8 @@ getSuitableHash ()
 	return $errType
 }
 
-getHashTags ()
-{
+getHashTags () {
+
 	hashtags='' hashSHA512='' hashSHA256='' hashSHA1='' hashMD5='' hashCRC32=''
 	if [ ! -e "$sourceTagFile" ]; then return $Ex_Data_Err; fi
 
@@ -4421,8 +4421,8 @@ getHashTags ()
 	return $Ex_Ok
 }
 
-testFile ()
-{
+testFile () {
+
 	local ec=$Ex_Ok nThreads=1
 
 	if [ -e "$copyFile" ]; then
@@ -4458,8 +4458,8 @@ testFile ()
 	return $ec
 }
 
-getLock ()
-{
+getLock () {
+
 	local lockFile="$1"
 	if [ "$OS" = 'Darwin' ]; then
 		lockf -s -n -t 1 "$lockFile" test -e "$lockFile" &>/dev/null
@@ -4468,8 +4468,8 @@ getLock ()
 	fi
 }
 
-getAndRenameLock ()
-{
+getAndRenameLock () {
+
 	local lockFileOne="$1" lockFileTwo="$2"
 	if [ "$OS" = 'Darwin' ]; then
 		lockf -k -s -n -t 1 "$lockFileOne" mv "$lockFileOne" "$lockFileTwo" &>/dev/null
@@ -4478,8 +4478,8 @@ getAndRenameLock ()
 	fi
 }
 
-testFiles ()
-{
+testFiles () {
+
 	local ec=$Ex_Ok milliseconds index
 	while read milliseconds index; do
 		sourceFile="${sourceFiles[$index]}"
@@ -4503,8 +4503,8 @@ testFiles ()
 	return $ec
 }
 
-getInternalMD5 ()
-{
+getInternalMD5 () {
+
 	local file="$1"
 
 	sourceMD5=''
@@ -4517,8 +4517,8 @@ getInternalMD5 ()
 	esac
 }
 
-computeHash ()
-{
+computeHash () {
+
 	local ec=$Ex_Ok ereg nThreads=1
 
 	if [ -e "$copyFile" ]; then
@@ -4629,8 +4629,8 @@ computeHash ()
 	return $ec
 }
 
-computeHashes ()
-{
+computeHashes () {
+
 	local ec=$Ex_Ok index
 
 	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
@@ -4658,8 +4658,8 @@ computeHashes ()
 	return $ec
 }
 
-saveReplaygainToMP3 ()
-{
+saveReplaygainToMP3 () {
+
 	local ec=$Ex_Ok
 
 	eyeD3 --quiet --to-v2.4 --user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
@@ -4668,8 +4668,8 @@ saveReplaygainToMP3 ()
 	return $ec
 }
 
-saveGain ()
-{
+saveGain () {
+
 	local gainType="$1" gainTypeText ec=$Ex_Ok gain peak peakDbfs uGain mp3GainSteps
 
 	if [ "$gainType" = 'TRACK' ]; then
@@ -4724,8 +4724,8 @@ saveGain ()
 	return $ec
 }
 
-getFileMilliseconds ()
-{
+getFileMilliseconds () {
+
 	local file="$1" ec=$Ex_Ok seconds line samplingRate bitDepth format nChannels channelMask nSamples rest
 
 	case "$file" in
@@ -4755,8 +4755,8 @@ getFileMilliseconds ()
 	return $ec
 }
 
-getMillisecondsByFileIndex ()
-{
+getMillisecondsByFileIndex () {
+
 	local index="$1" fileIndex
 
 	read trackMilliseconds fileIndex < "${TDIR}/inputMilliseconds_${index}"
@@ -4770,14 +4770,14 @@ getMillisecondsByFileIndex ()
 	return $Ex_Ok
 }
 
-computeGainFromPeak ()
-{
+computeGainFromPeak () {
+
 	local decimalPeak="$1"
 	printf "%.2f" "$( echo "scale=5; 20 * l(${decimalPeak}) / l(10)" | bc -l 2>> "$errorLogFile" )"
 }
 
-computeTrackGain ()
-{
+computeTrackGain () {
+
 	local ec=$Ex_Ok line nLines=0 decimals trackGain trackPeak albumGain destTagFile clippingPreventionParam=""
 
 	if [ -e "$sourceFile" ]; then
@@ -4882,8 +4882,8 @@ computeTrackGain ()
 	return $ec
 }
 
-computeTrackGains ()
-{
+computeTrackGains () {
+
 	local ec=$Ex_Ok milliseconds index
 
 	while read milliseconds index; do
@@ -4906,8 +4906,8 @@ computeTrackGains ()
 	return $ec
 }
 
-computeAlbumGain ()
-{
+computeAlbumGain () {
+
 	# This is a very fast way of computing the album gain, but it is also less precise than the official implementation.
 	# A comparison between gains on 754 albums revealed max differences ranging from -2.06 dB to +1.50 dB.
 	# PINK_REF="64.82" is from flac/src/share/replaygain_analysis/replaygain_analysis.c
@@ -4993,8 +4993,8 @@ computeAlbumGain ()
 }
 
 # https://github.com/FrancisRussell/zoog
-computeOpusAlbumGain ()
-{
+computeOpusAlbumGain () {
+
 	local ec=$Ex_Ok list sourceFile albumPlaybackGain trackPlaybackGain trackDecibels signedTrackGain signedAlbumGain
 
 	for sourceFile in "${sourceFiles[@]}"; do
@@ -5034,8 +5034,8 @@ computeOpusAlbumGain ()
 	return $ec
 }
 
-reverseTrackGain ()
-{
+reverseTrackGain () {
+
 	local ec=$Ex_Ok
 
 	if [ -e "$sourceFile" ]; then
@@ -5075,8 +5075,8 @@ reverseTrackGain ()
 	return $ec
 }
 
-reverseTrackGains ()
-{
+reverseTrackGains () {
+
 	local ec=$Ex_Ok milliseconds index
 
 	while read milliseconds index; do
@@ -5092,8 +5092,8 @@ reverseTrackGains ()
 	return $ec
 }
 
-echoTouchString ()
-{
+echoTouchString () {
+
   local trackDate="$1" hours="$2" minutes="$3" seconds="$4"
   if [ ${#hours} -lt 2 ]; then hours="0${hours}"; fi
   if [ ${#minutes} -lt 2 ]; then minutes="0${minutes}"; fi
@@ -5101,8 +5101,8 @@ echoTouchString ()
   echo "${trackDate}${hours}${minutes}.${seconds}"
 }
 
-getTouchString ()
-{
+getTouchString () {
+
   local trackDate="$1" totalSeconds="$2" str="" fDays fHours fMinutes fSeconds fMilliseconds=0
 
   fSeconds=$totalSeconds
@@ -5122,8 +5122,8 @@ getTouchString ()
   echoTouchString $trackDate $fHours $fMinutes $fSeconds
 }
 
-computeTrackDateTime ()
-{
+computeTrackDateTime () {
+
 	local ec=$Ex_Ok trackYear trackMonth trackDay
 
 	case "$sourceFile" in
@@ -5170,8 +5170,8 @@ computeTrackDateTime ()
 	return $ec
 }
 
-computeTrackDateTimes ()
-{
+computeTrackDateTimes () {
+
 	local ec=$Ex_Ok index
 
 	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
@@ -5192,8 +5192,8 @@ computeTrackDateTimes ()
 	return $ec
 }
 
-touchAllFiles ()
-{
+touchAllFiles () {
+
 	local ec=$Ex_Ok index audioFileIndex otherFileIndex dirIndex
 	local trackDate albumSeconds discSeconds trackMilliseconds discHours discMinutes discSeconds
 	local defaultTrackDate lastDir="" curDir artistDir albumDir albumLinkDir albumPath dirPath inode linkedFile linkPath
@@ -5351,8 +5351,8 @@ touchAllFiles ()
 	return $ec
 }
 
-getCodecExtension ()
-{
+getCodecExtension () {
+
 	local codec="$1" ext
 
 	case "$codec" in
@@ -5376,8 +5376,8 @@ getCodecExtension ()
 	echo "$ext"
 }
 
-getCodecFullName ()
-{
+getCodecFullName () {
+
 	local codec="$1" codecFullName
 
 	case "$codec" in
@@ -5402,8 +5402,8 @@ getCodecFullName ()
 	echo "$codecFullName"
 }
 
-getFileProps ()
-{
+getFileProps () {
+
 	local outputCodec="$2"
 
 	sourceFile="$1"
@@ -5459,8 +5459,8 @@ getFileProps ()
 	fi
 }
 
-printMachineStats ()
-{
+printMachineStats () {
+
 	local sourceCoverArtBytes audio_bytes_compressed=0 destExtension dest bcmd seconds slist
 	local bytes_compressed duration=0 rate=''
 
@@ -5536,8 +5536,8 @@ printMachineStats ()
 	return $Ex_Ok
 }
 
-printHumanStats ()
-{
+printHumanStats () {
+
 	local sourceFile sourceCoverArtBytes audio_bytes_compressed=0 destExtension dest bcmd seconds slist
 	local bytes_wav bytes_compressed imbsec ombsec mib_compressed ratio duration='0' rate='' readDuration
 
@@ -5663,8 +5663,8 @@ printHumanStats ()
 	return $Ex_Ok
 }
 
-setDestDir ()
-{
+setDestDir () {
+
 	local outputCodec="$1" codecDestDir="$2" copyPath="$3" listOfCodecs codec
 
 	if [ -z "$outputCodec" ]; then
@@ -5718,8 +5718,8 @@ setDestDir ()
 	done
 }
 
-getDestDir ()
-{
+getDestDir () {
+
 	local outputCodec="$1" codecDestDir=""
 
 	case "$outputCodec" in
@@ -5749,8 +5749,8 @@ getDestDir ()
 	fi
 }
 
-copyPathOrNot ()
-{
+copyPathOrNot () {
+
 	local outputCodec="$1" copyPath
 
 	case "$outputCodec" in
@@ -5780,8 +5780,8 @@ copyPathOrNot ()
 	fi
 }
 
-setCodecOtherFiles ()
-{
+setCodecOtherFiles () {
+
 	local outputCodec="$1" pattern="$2" listOfCodecs codec
 
 	case "$outputCodec" in
@@ -5814,8 +5814,8 @@ setCodecOtherFiles ()
 	done
 }
 
-getCodecOtherFiles ()
-{
+getCodecOtherFiles () {
+
 	local outputCodec="$1" otherFilesPattern=""
 
 	case "$outputCodec" in
@@ -5841,8 +5841,8 @@ getCodecOtherFiles ()
 	echo "$otherFilesPattern"
 }
 
-setCodecCoverArtFile ()
-{
+setCodecCoverArtFile () {
+
 	local outputCodec="$1" coverArtFile="$2" listOfCodecs codec
 
 	case "$outputCodec" in
@@ -5875,8 +5875,8 @@ setCodecCoverArtFile ()
 	done
 }
 
-getCodecCoverArtFile ()
-{
+getCodecCoverArtFile () {
+
 	local outputCodec="$1" coverArtFile=""
 
 	case "$outputCodec" in
@@ -5902,8 +5902,8 @@ getCodecCoverArtFile ()
 	echo "$coverArtFile"
 }
 
-getNumberOfCpuCores ()
-{
+getNumberOfCpuCores () {
+
 	local core lastCpuID currentCpuID totalNumberOfCores=0
 
 	while read line; do
