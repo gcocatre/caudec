@@ -331,7 +331,7 @@ ReplayGain parameters (mutually exclusive from all other actions):
             It is the standard way for MP3 and is reversible.
 
   -G undo   MP3: reverse ReplayGain using MP3's gain header.
-            Other codecs except Opus: remove ReplayGain metadata.
+            Other codecs: remove ReplayGain metadata.
 
 -------------------------------------------------------------------------------
 
@@ -1133,7 +1133,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 						printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension" ; ec=$Ex_Data_Err
 					else
 						case "$inputFile" in
-							*.flac|*.wv|*.ape|*.ogg|*.mp3) addToSourceFiles=true ;;
+							*.flac|*.wv|*.ape|*.ogg|*.opus|*.mp3) addToSourceFiles=true ;;
 							*)
 								if [ $ignoreUnsupportedFiles = true ]; then
 									continue
@@ -1306,6 +1306,7 @@ checkBinaries () {
 				*.wv) checkBinary 'wvtag' ;;
 				*.ape) checkBinary 'APEv2' ;;
 				*.ogg) checkBinary 'vorbiscomment' ;;
+				*.opus) checkBinary 'opusgain' ;;
 				*.mp3) checkBinary 'mp3gain' ;;
 			esac
 		done
@@ -5017,6 +5018,33 @@ computeOpusAlbumGain () {
 	return $ec
 }
 
+reverseOpusTrackGains () {
+	local ec=$Ex_Ok list sourceFile
+
+	for sourceFile in "${sourceFiles[@]}"; do
+		if [ -z "$list" ]; then
+			list="$sourceFile"
+		else
+			list="${list}\x00${sourceFile}"
+		fi
+	done
+
+	echo -en "$list" | xargs -0 opusgain -j $nProcesses -p 'original' 1>/dev/null 2>> "$errorLogFile" &&
+	echo -en "$list" | xargs -0 opusgain -j $nProcesses -c 1>/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+	if [ $ec -ne $Ex_Ko ]; then
+		# opusgain changes the rights on the files it touches, to u=rw,go=
+		chmod u=rw,go=r "${sourceFiles[@]}" 1>/dev/null 2>> "$errorLogFile"
+
+		for sourceFile in "${sourceFiles[@]}"; do
+			printMessage 'success' 'track_gain' 0 "-0 dB" "file:${sourceFile}"
+		done
+	else
+		printMessage 'error' 'track_gain' "Track gain"
+	fi
+
+	return $ec
+}
+
 reverseTrackGain () {
 	local ec=$Ex_Ok
 
@@ -6704,9 +6732,13 @@ elif [ $reverseReplayGain = true ]; then
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for ((p=0; p < nProcesses; p++)); do
-		reverseTrackGains &
-	done
+	if [ $allFilesAreOpus = true ]; then
+		reverseOpusTrackGains || ec=$Ex_Ko
+	else
+		for ((p=0; p < nProcesses; p++)); do
+			reverseTrackGains &
+		done
+	fi
 elif [ $touchFiles = true ]; then
 	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
 	if [ $gnudate = true ]; then
