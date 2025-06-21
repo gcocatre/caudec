@@ -29,21 +29,23 @@ Global parameters:
 
 -------------------------------------------------------------------------------
 
-Processing / resampling parameters (before encoding):
+Applying gain after decoding and before encoding, with an upper limit of 0dBFS:
 
   -G ARG    apply ReplayGain ('album' or 'track') if found in source file
-            metadata, after decoding and BEFORE encoding (irreversible).
-            Note: it is possible to specify a preamp value with an additional
-            -G parameter, for instance '-G album -G -3' or '-G track -G +2'.
-            Only use positive preamp values if you know what you're doing.
+            metadata. Note: it is possible to specify a preamp value with an
+            additional -G GAIN parameter (see below), for instance
+            '-G album -G -3' or '-G track -G +2'.
 
-  -G ARG    apply peak normalization ('albumpeak' or 'trackpeak'); this
-            makes the tracks as loud as possible without clipping; requires
-            ReplayGain metadata to be available in the source files.
-            Note: it is possible to specify an arbitrary peak reference lower
-            than 0dBFS with an additional -G parameter: '-G albumpeak -G -4'.
+  -G ARG    apply peak normalization ('albumpeak' or 'trackpeak'); same as
+            above, except album or track peak values are used as a starting
+            point instead of album or track gain values. An additional preamp
+            value may be specified as well (see -G GAIN below).
 
   -G GAIN   apply arbitrary GAIN (signed number from -99.99 to +99.99)
+
+-------------------------------------------------------------------------------
+
+Resampling after decoding and before encoding:
 
   -b BITS   bit depth (16, 24)
   -r HZ     sampling rate in Hz (44100, 48000, 88200, 96000, 176400, 192000,
@@ -143,7 +145,7 @@ ReplayGain parameters (mutually exclusive from all other actions):
             It is the standard way for MP3 and is reversible.
 
   -G undo   MP3: reverse ReplayGain using MP3's gain header.
-            Other codecs except Opus: remove ReplayGain metadata.
+            Other codecs: remove ReplayGain metadata.
 
 -------------------------------------------------------------------------------
 
