@@ -3180,7 +3180,8 @@ decode ()
 				fi
 				if [ -n "$gainPeak" ]; then
 					if [ "${gainPeak:0:1}" = '0' ]; then
-						gainValue="$( printf "%.2f" "$( echo  "20 * (l(${gainPeak}) / l(10))" | bc -l )" )"
+						# gainValue="$( printf "%.2f" "$( echo  "20 * l(${gainPeak} / l(10)" | bc -l 2>> "$errorLogFile" )" )"
+						gainValue="$( computeGainFromPeak "$gainPeak" )"
 						if [ "${gainValue:0:1}" != '-' ]; then # gainValue is positive
 							if [ "${peakReference:0:1}" = '-' ]; then
 								gainValue="${peakReference}"
@@ -4185,8 +4186,6 @@ transcode ()
 			wavProcessedStatusFile="${TDIR}/${index}.wavProcessed"
 			sourceTagFile="${TDIR}/${index}.txt"
 			apeBinariesDir="${TDIR}/${index}.apeBinariesDir"
-			trackGainFile="${TDIR}/${index}.trackgain"
-			trackPeakFile="${TDIR}/${index}.trackpeak"
 			sourceCRC32File="${TDIR}/${index}.sourceCRC32"
 			sourceMD5File="${TDIR}/${index}.sourceMD5"
 			sourceSHA1File="${TDIR}/${index}.sourceSHA1"
@@ -4691,8 +4690,10 @@ saveGain ()
 
 	case "$destFile" in
 		*.flac)
-			metaflac --remove-tag="REPLAYGAIN_${gainType}_GAIN" --remove-tag="REPLAYGAIN_${gainType}_PEAK" \
-				--set-tag="REPLAYGAIN_${gainType}_GAIN=${gain} dB" --set-tag="REPLAYGAIN_${gainType}_PEAK=${peak}" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+			metaflac \
+				--remove-tag="REPLAYGAIN_${gainType}_GAIN" --remove-tag="REPLAYGAIN_${gainType}_PEAK" \
+				--set-tag="REPLAYGAIN_${gainType}_GAIN=${gain} dB" --set-tag="REPLAYGAIN_${gainType}_PEAK=${peak}" \
+				"$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
 			;;
 
 		*.wv)
@@ -4788,6 +4789,12 @@ getMillisecondsByFileIndex ()
 	fi
 
 	return $Ex_Ok
+}
+
+computeGainFromPeak ()
+{
+	local decimalPeak="$1"
+	printf "%.2f" "$( echo "scale=5; 20 * l(${decimalPeak}) / l(10)" | bc -l 2>> "$errorLogFile" )"
 }
 
 computeTrackGain ()
@@ -4980,11 +4987,11 @@ computeAlbumGain ()
 	fi
 
 	if [ $applyGain = true -a "$applyGainType" = 'ALBUM_PEAK' ]; then
-		albumGain="$( printf "%.2f" "$( echo "scale=3; (20 * (l(${albumPeak}) / l(10))) / 1" | bc -l 2>> "$errorLogFile" )" )"
+		albumGain="$( computeGainFromPeak "$albumPeak" )"
 		if [ "${albumGain:0:1}" = '-' ]; then
 			albumGain="${albumGain:1}"
 			if [ "${peakReference:0:1}" = '-' ]; then
-				albumGain="$( printf "%.2f" "$( echo "scale=3; ($albumGain + ($peakReference)) / 1" | bc -l 2>> "$errorLogFile" )" )"
+				albumGain="$( printf "%.2f" "$( echo "scale=3; ($albumGain + $peakReference) / 1" | bc 2>> "$errorLogFile" )" )"
 			fi
 		elif [ "${peakReference:0:1}" = '-' ]; then
 			albumGain="$peakReference"
@@ -4997,16 +5004,16 @@ computeAlbumGain ()
 
 		# By using PINK_REF_COMPLEMENT instead of PINK_REF, running 'head' MIGHT be slightly faster than
 		# running 'tail' with PINK_REF because 'head' will output fewer lines than 'tail'.
-		rank="$( printf "%.0f" "$( echo "scale=5; (${PINK_REF_COMPLEMENT} / 100) * $increment + (1 / 2)" | bc )" )"
+		rank="$( printf "%.0f" "$( echo "scale=5; ((${PINK_REF_COMPLEMENT} / 100) * $increment + (1 / 2)) / 1" | bc 2>> "$errorLogFile" )" )"
 		albumGain="$( head -n $rank "${TDIR}/trackgains" 2>/dev/null | tail -n 1 )"
 		if [ -z "$albumGain" ]; then
 			printMessage 'error' 'album_gain' "Album gain"
 			return $Ex_Ko
 		elif [ $applyGain = true -a "$applyGainType" = 'ALBUM' -a -n "$preamp" ]; then
 			if [ "${preamp:0:1}" = '-' ]; then
-				albumGain="$( printf "%.2f" "$( echo "$albumGain - ${preamp:1}" | bc -l 2>/dev/null )" )"
+				albumGain="$( printf "%.2f" "$( echo "scale=3; ($albumGain - ${preamp:1}) / 1" | bc 2>> "$errorLogFile" )" )"
 			elif [ "${preamp:0:1}" = '+' ]; then
-				albumGain="$( printf "%.2f" "$( echo "$albumGain + ${preamp:1}" | bc -l 2>/dev/null )" )"
+				albumGain="$( printf "%.2f" "$( echo "scale=3; ($albumGain + ${preamp:1}) / 1" | bc 2>> "$errorLogFile" )" )"
 			fi
 		fi
 	fi
