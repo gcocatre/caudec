@@ -1725,7 +1725,7 @@ tagline () {
 				if [ "$outputCodec" = 'WavPackLossy' ]; then
 					grep -viE "MD5=|CRC32=|SHA1=|SHA256=|SHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 				else
-					grep -viE "replaygain|MD5=|CRC32=|SHA1=|SHA256=|SHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
+					grep -viE "replaygain_|audio_track_peak|audio_album_peak|MD5=|CRC32=|SHA1=|SHA256=|SHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 				fi
 				mv "${destTagFile}.${outputCodec}.tmp" "${destTagFile}.${outputCodec}"
 				for h in $hashes; do
@@ -1768,7 +1768,7 @@ tagline () {
 	fi
 
 	if isWavProcessed ; then # SoX was used on the WAV file for resampling, applying gain, or converting to stereo
-		grep -Fvi 'replaygain' "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
+		grep -viE 'replaygain_|audio_track_peak|audio_album_peak' "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 		mv "${destTagFile}.${outputCodec}.tmp" "${destTagFile}.${outputCodec}"
 	fi
 
@@ -1850,6 +1850,8 @@ vorbisCommentsToAPEv2 () {
 			album)                 echo "Album=$value" ;;
 			albumartist|"album artist") echo "Album Artist=$value" ;;
 			artist)                echo "Artist=$value" ;;
+			audio_album_peak)      echo "Audio_Album_Peak" ;;
+			audio_track_peak)      echo "Audio_Track_Peak" ;;
 			composer)              echo "Composer=$value" ;;
 			conductor)             echo "Conductor=$value" ;;
 			copyright)             echo "Copyright=$value" ;;
@@ -2123,6 +2125,8 @@ APEv2ToVorbisComments () {
 			album)                 echo "ALBUM=$value" ;;
 			albumartist|"album artist") echo "ALBUMARTIST=$value" ;;
 			artist)                echo "ARTIST=$value" ;;
+			audio_album_peak)      echo "AUDIO_ALBUM_PEAK" ;;
+			audio_track_peak)      echo "AUDIO_TRACK_PEAK" ;;
 			catalog)               echo "LABELNO=$value" ;;
 			comment)               echo "DESCRIPTION=$value" ;;
 			composer)              echo "COMPOSER=$value" ;;
@@ -4441,10 +4445,7 @@ getInternalMD5 () {
 	sourceMD5=''
 	case "$file" in
 		*.flac) sourceMD5="$( metaflac --show-md5sum "$file" 2>/dev/null )" ;;
-
-		*.wv)
-			sourceMD5="$( wvunpack -f "$file" 2>/dev/null | cut -d ';' -f 7 )"
-			;;
+		*.wv) sourceMD5="$( wvunpack -f "$file" 2>/dev/null | cut -d ';' -f 7 )" ;;
 	esac
 }
 
