@@ -212,6 +212,7 @@ touchFiles () {
         echo
         echo "Touching directory for $lastCodec in $lastDir:"
         if [ -n "$linkDir" -a -d "$linkDir" ]; then
+          echo "Touching linked directory for $lastCodec in $linkDir:"
           caudec -Z -T -l "$linkDir" "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || ec=$Ex_Ko
         else
           caudec -Z -T "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || ec=$Ex_Ko
