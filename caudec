@@ -3985,8 +3985,21 @@ encode () {
 			fi
 
 			case $outputCodec in
-				WAV|AIFF|CAF) printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:WAV" "threads:$nDecodingThreads" ;;
-				*) printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:${outputCodec}" "threads:$nThreads" ;;
+				WAV|AIFF|CAF)
+					printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:WAV" "threads:$nDecodingThreads"
+					;;
+
+				WavPackHybrid)
+					if [ -n "$destLinkPath" ]; then
+						printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:${outputCodec}" "threads:$nThreads" "$destLinkPath"
+					else
+						printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:${outputCodec}" "threads:$nThreads"
+					fi
+					;;
+
+				*)
+					printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:${outputCodec}" "threads:$nThreads"
+					;;
 			esac
 		fi
 	else

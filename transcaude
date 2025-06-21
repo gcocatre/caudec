@@ -204,16 +204,24 @@ computeReplayGain () {
 }
 
 touchFiles () {
-  local status status_info status_data file message process_id
+  local linkDir="$1" status status_info status_data file message process_id
 
   case "$lastCodec" in
     FLAC|ALAC|WavPack*|lossyFLAC|lossyWV|OggVorbis|AAC|MonkeysAudio|MP3|Opus)
       if [ $Self_Verbose = true ]; then
         echo
         echo "Touching directory for $lastCodec in $lastDir:"
-        caudec -Z -T "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || ec=$Ex_Ko
+        if [ -n "$linkDir" -a -d "$linkDir" ]; then
+          caudec -Z -T -l "$linkDir" "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || ec=$Ex_Ko
+        else
+          caudec -Z -T "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || ec=$Ex_Ko
+        fi
       else
-        caudec -Z -T "$lastDir" 1>/dev/null 2> "${Self_Touch_Log}_${lastCodec}" || ec=$Ex_Ko
+        if [ -n "$linkDir" -a -d "$linkDir" ]; then
+          caudec -Z -T -l "$linkDir" "$lastDir" 1>/dev/null 2> "${Self_Touch_Log}_${lastCodec}" || ec=$Ex_Ko
+        else
+          caudec -Z -T "$lastDir" 1>/dev/null 2> "${Self_Touch_Log}_${lastCodec}" || ec=$Ex_Ko
+        fi
       fi
 
       if [ $Self_Verbose = false ]; then
@@ -245,20 +253,21 @@ fi
 
 if [ $ec -eq $Ex_Ok ]; then
   sort "$Self_Encoding_Log" > "${Self_Encoding_Log}2" && mv "${Self_Encoding_Log}2" "$Self_Encoding_Log"
-  echo "zzzzzzzz|encoding|zzzzzzzz|zzzzzzzz|zzzzzzzz|12345678" 1>> "$Self_Encoding_Log"
+  echo "zzzzzzzz|encoding|zzzzzzzz|zzzzzzzz||12345678" 1>> "$Self_Encoding_Log"
   OIFS="$IFS"
   IFS="|"
   declare -a files=()
   index=0
   lastCodec=""
   lastDir=""
+  lastMessage=""
   while read status status_info status_data file message process_id; do
     dir="$( dirname "$file" )"
     codec="$status_data"
     if [ -n "$lastCodec" -a -n "$lastDir" ]; then
       if [ "$codec" != "$lastCodec" -o "$dir" != "$lastDir" ]; then
         computeReplayGain
-        touchFiles
+        touchFiles "$lastMessage"
         unset files
         declare -a files=()
         index=0
@@ -272,6 +281,7 @@ if [ $ec -eq $Ex_Ok ]; then
     fi
     lastCodec="$codec"
     lastDir="$dir"
+    lastMessage="$message"
   done < <( grep -F "|encoding|" "$Self_Encoding_Log" 2>/dev/null )
   IFS="$OIFS"
 fi
