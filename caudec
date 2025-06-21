@@ -1295,17 +1295,17 @@ checkBinaries () {
 				*.flac) checkBinary 'metaflac' ;;
 				*.wv) checkBinary 'wvunpack' 'wvgain' 'wvtag' ;;
 				*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
-				*.opus) checkBinary 'opusinfo' 'opusgain' ;; # https://github.com/FrancisRussell/zoog
 				*.mp3) checkBinary 'ffprobe' 'mp3gain'; if [ $applyGain = false ]; then checkBinary 'eyeD3'; fi ;;
+				*.opus) checkBinary 'opusinfo' 'opusgain' ;; # https://github.com/FrancisRussell/zoog
 			esac
 		done
 	elif [ $reverseReplayGain = true ]; then
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
 				*.flac) checkBinary 'metaflac' ;;
-				*.wv) checkBinary 'wvgain' ;;
-				*.ogg) checkBinary 'vorbisgain' ;;
+				*.wv) checkBinary 'wvtag' ;;
 				*.ape) checkBinary 'APEv2' ;;
+				*.ogg) checkBinary 'vorbiscomment' ;;
 				*.mp3) checkBinary 'mp3gain' ;;
 			esac
 		done
@@ -4576,11 +4576,17 @@ computeHashes () {
 saveReplaygainToMP3 () {
 	local ec=$Ex_Ok
 
-	eyeD3 --quiet --to-v2.4 --user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
-		--user-text-frame="REPLAYGAIN_${gainType}_PEAK:${peak}" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
-
 	if [ $computeAudioPeaks = true -a -n "$peakDbfs" ]; then
-		eyeD3 --quiet --to-v2.4 --user-text-frame="AUDIO_${gainType}_PEAK:${peakDbfs} dBFS" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+		eyeD3 --quiet --to-v2.4 \
+			--user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
+			--user-text-frame="REPLAYGAIN_${gainType}_PEAK:${peak}" \
+			--user-text-frame="AUDIO_${gainType}_PEAK:${peakDbfs} dBFS" \
+			"$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+	else
+		eyeD3 --quiet --to-v2.4 \
+			--user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
+			--user-text-frame="REPLAYGAIN_${gainType}_PEAK:${peak}" \
+			"$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
 	fi
 
 	return $ec
@@ -4601,7 +4607,7 @@ saveGain () {
 
 	if [ $computeAudioPeaks = true ]; then
 		peakDbfs="$( computeGainFromPeak "$peak" )"
-		if [ "${peakDbfs:0:1}" != '-' -a "$peakDbfs" != "0.00" ]; then
+		if [ -n "$peakDbfs" -a "${peakDbfs:0:1}" != '-' -a "$peakDbfs" != "0.00" ]; then
 			peakDbfs="+${peakDbfs}"
 		fi
 	fi
@@ -4609,36 +4615,88 @@ saveGain () {
 	case "$destFile" in
 		*.flac)
 			if [ "$gainType" = 'ALBUM' ]; then
-				metaflac \
-					--remove-tag="REPLAYGAIN_ALBUM_GAIN" --remove-tag="REPLAYGAIN_ALBUM_PEAK" \
-					--set-tag="REPLAYGAIN_ALBUM_GAIN=${gain} dB" --set-tag="REPLAYGAIN_ALBUM_PEAK=${peak}" \
-					"$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
-			fi
-			if [ $computeAudioPeaks = true ]; then
-				metaflac --remove-tag="AUDIO_${gainType}_PEAK" --set-tag="AUDIO_${gainType}_PEAK=${peakDbfs} dBFS" \
-					"$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+				if [ $computeAudioPeaks = true -a -n "$peakDbfs" ]; then
+					metaflac \
+						--remove-tag="REPLAYGAIN_ALBUM_GAIN" \
+						--remove-tag="REPLAYGAIN_ALBUM_PEAK" \
+						--remove-tag="AUDIO_ALBUM_PEAK" \
+						--set-tag="REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
+						--set-tag="REPLAYGAIN_ALBUM_PEAK=${peak}" \
+						--set-tag="AUDIO_ALBUM_PEAK=${peakDbfs} dBFS" \
+						"$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+				else
+					metaflac \
+						--remove-tag="REPLAYGAIN_ALBUM_GAIN" \
+						--remove-tag="REPLAYGAIN_ALBUM_PEAK" \
+						--set-tag="REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
+						--set-tag="REPLAYGAIN_ALBUM_PEAK=${peak}" \
+						"$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+				fi
+			else
+				if [ $computeAudioPeaks = true -a -n "$peakDbfs" ]; then
+					metaflac \
+						--remove-tag="AUDIO_TRACK_PEAK" \
+						--set-tag="AUDIO_TRACK_PEAK=${peakDbfs} dBFS" \
+						"$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+				fi
 			fi
 			;;
 
 		*.wv)
 			if [ "$gainType" = 'ALBUM' ]; then
-				wvtag -w "replaygain_album_gain=${gain} dB" -w "replaygain_album_peak=${peak}" "$destFile" 1>/dev/null 2>/dev/null || ec=$Ex_Ko
-			fi
-			if [ $computeAudioPeaks = true ]; then
-				if [ "$gainType" = 'ALBUM' ]; then
-					wvtag -w "Audio_Album_Peak=" -w "Audio_Album_Peak=${peakDbfs} dBFS" "$destFile" 1>/dev/null 2>/dev/null || ec=$Ex_Ko
+				if [ $computeAudioPeaks = true -a -n "$peakDbfs" ]; then
+					wvtag \
+						-w "replaygain_album_gain=" \
+						-w "replaygain_album_peak=" \
+						-w "audio_album_peak=" \
+						-w "replaygain_album_gain=${gain} dB" \
+						-w "replaygain_album_peak=${peak}" \
+						-w "audio_album_peak=${peakDbfs} dBFS" \
+						"$destFile" 1>/dev/null 2>/dev/null || ec=$Ex_Ko
 				else
-					wvtag -w "Audio_Track_Peak=" -w "Audio_Track_Peak=${peakDbfs} dBFS" "$destFile" 1>/dev/null 2>/dev/null || ec=$Ex_Ko
+					wvtag \
+						-w "replaygain_album_gain=" \
+						-w "replaygain_album_peak=" \
+						-w "replaygain_album_gain=${gain} dB" \
+						-w "replaygain_album_peak=${peak}" \
+						"$destFile" 1>/dev/null 2>/dev/null || ec=$Ex_Ko
+				fi
+			else
+				if [ $computeAudioPeaks = true -a -n "$peakDbfs" ]; then
+					wvtag \
+						-w "audio_track_peak=" \
+						-w "audio_track_peak=${peakDbfs} dBFS" \
+						"$destFile" 1>/dev/null 2>/dev/null || ec=$Ex_Ko
 				fi
 			fi
 			;;
 
 		*.ogg)
 			if [ "$gainType" = 'ALBUM' ]; then
-				vorbiscomment -a -t "REPLAYGAIN_ALBUM_PEAK=${peak}" -t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
-			fi
-			if [ $computeAudioPeaks = true ]; then
-				vorbiscomment -a -d "AUDIO_${gainType}_PEAK" -t "AUDIO_${gainType}_PEAK=${peakDbfs} dBFS" "$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+				if [ $computeAudioPeaks = true -a -n "$peakDbfs" ]; then
+					vorbiscomment -a \
+						-d "REPLAYGAIN_ALBUM_PEAK" \
+						-d "REPLAYGAIN_ALBUM_GAIN" \
+						-d "AUDIO_ALBUM_PEAK" \
+						-t "REPLAYGAIN_ALBUM_PEAK=${peak}" \
+						-t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
+						-t "AUDIO_ALBUM_PEAK=${peakDbfs} dBFS" \
+						"$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+				else
+					vorbiscomment -a \
+						-d "REPLAYGAIN_ALBUM_PEAK" \
+						-d "REPLAYGAIN_ALBUM_GAIN" \
+						-t "REPLAYGAIN_ALBUM_PEAK=${peak}" \
+						-t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
+						"$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+				fi
+			else
+				if [ $computeAudioPeaks = true -a -n "$peakDbfs" ]; then
+					vorbiscomment -a \
+						-d "AUDIO_TRACK_PEAK" \
+						-t "AUDIO_TRACK_PEAK=${peakDbfs} dBFS" \
+						"$destFile" >/dev/null 2>> "$errorLogFile" || ec=$Ex_Ko
+				fi
 			fi
 			;;
 
@@ -4964,16 +5022,47 @@ reverseTrackGain () {
 
 	if [ -e "$sourceFile" ]; then
 		case "$sourceFile" in
-			*.flac) metaflac --remove-replay-gain "$sourceFile" 1>/dev/null 2>/dev/null ; ec=$? ;;
+			*.flac) metaflac \
+				--remove-tag="REPLAYGAIN_REFERENCE_LOUDNESS" \
+				--remove-tag="REPLAYGAIN_TRACK_GAIN" \
+				--remove-tag="REPLAYGAIN_TRACK_PEAK" \
+				--remove-tag="REPLAYGAIN_ALBUM_GAIN" \
+				--remove-tag="REPLAYGAIN_ALBUM_PEAK" \
+				--remove-tag="AUDIO_TRACK_PEAK" \
+				--remove-tag="AUDIO_ALBUM_PEAK" \
+				"$sourceFile" 1>/dev/null 2>/dev/null ; ec=$? ;;
 
-			*.wv) wvgain -c "$sourceFile" 1>/dev/null 2>/dev/null ; ec=$?
+			*.wv) wvtag \
+				-w "replaygain_reference_loudness=" \
+				-w "replaygain_track_gain=" \
+				-w "replaygain_track_peak=" \
+				-w "replaygain_album_gain=" \
+				-w "replaygain_album_peak=" \
+				-w "audio_track_peak=" \
+				-w "audio_album_peak=" \
+				"$sourceFile" 1>/dev/null 2>/dev/null ; ec=$?
 				;;
 
-			*.ape) APEv2 -z -r "Replaygain_Album_Peak" -r "Replaygain_Track_Peak" -r "Replaygain_Album_Gain" \
-				-r "Replaygain_Track_Gain" -r "Replaygain_Reference_Loudness" "$sourceFile" 1>/dev/null 2>/dev/null ; ec=$?
+			*.ape) APEv2 -z \
+				-r "Replaygain_Reference_Loudness" \
+				-r "Replaygain_Track_Gain" \
+				-r "Replaygain_Track_Peak" \
+				-r "Replaygain_Album_Gain" \
+				-r "Replaygain_Album_Peak" \
+				-r "Audio_Track_Peak" \
+				-r "Audio_Album_Peak" \
+				"$sourceFile" 1>/dev/null 2>/dev/null ; ec=$?
 				;;
 
-			*.ogg) vorbisgain -c "$sourceFile" 1>/dev/null 2>/dev/null ; ec=$?
+			*.ogg) vorbiscomment \
+				-d "REPLAYGAIN_REFERENCE_LOUDNESS" \
+				-d "REPLAYGAIN_TRACK_PEAK" \
+				-d "REPLAYGAIN_TRACK_GAIN" \
+				-d "REPLAYGAIN_ALBUM_PEAK" \
+				-d "REPLAYGAIN_ALBUM_GAIN" \
+				-d "AUDIO_TRACK_PEAK" \
+				-d "AUDIO_ALBUM_PEAK" \
+				"$sourceFile" 1>/dev/null 2>/dev/null; ec=$?
 				;;
 
 			*.mp3)
