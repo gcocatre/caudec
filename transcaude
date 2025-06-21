@@ -55,8 +55,7 @@ declare -r Ex_No_Perm=77      # permission denied
 declare -r Ex_Config_Err=78   # configuration error
 declare -r Ex_Interrupt=143   # user interruption (Ctrl+C)
 
-printUsage ()
-{
+printUsage () {
   echo "$Self_Name ${Self_Version}: transcode an album, compute ReplayGain and touch files
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
@@ -128,8 +127,7 @@ Self_Encoding_Log="${Self_Tmp_Dir}/encoding_log"
 Self_ReplayGain_Log="${Self_Tmp_Dir}/replay_gain_log"
 Self_Touch_Log="${Self_Tmp_Dir}/touch_log"
 
-outputWarningOrError ()
-{
+outputWarningOrError () {
   local fileName="${file##*/}"
 
   # status status_info status_data file message process_id
@@ -162,8 +160,7 @@ outputWarningOrError ()
 	esac
 }
 
-computeReplayGain ()
-{
+computeReplayGain () {
   local status status_info status_data file message process_id
 
   case "$lastCodec" in
@@ -206,8 +203,7 @@ computeReplayGain ()
   esac
 }
 
-touchFiles ()
-{
+touchFiles () {
   local status status_info status_data file message process_id
 
   case "$lastCodec" in
