@@ -1856,8 +1856,8 @@ vorbisCommentsToAPEv2 () {
 			album)                 echo "Album=$value" ;;
 			albumartist|"album artist") echo "Album Artist=$value" ;;
 			artist)                echo "Artist=$value" ;;
-			audio_album_peak)      echo "Audio Album Peak=$value" ;;
-			audio_track_peak)      echo "Audio Track Peak=$value" ;;
+			audio_album_peak)      echo "Audio_Album_Peak=$value" ;;
+			audio_track_peak)      echo "Audio_Track_Peak=$value" ;;
 			composer)              echo "Composer=$value" ;;
 			conductor)             echo "Conductor=$value" ;;
 			copyright)             echo "Copyright=$value" ;;
@@ -2131,8 +2131,8 @@ APEv2ToVorbisComments () {
 			album)                 echo "ALBUM=$value" ;;
 			albumartist|"album artist") echo "ALBUMARTIST=$value" ;;
 			artist)                echo "ARTIST=$value" ;;
-			"audio album peak")    echo "AUDIO_ALBUM_PEAK=$value" ;;
-			"audio track peak")    echo "AUDIO_TRACK_PEAK=$value" ;;
+			"audio_album_peak")    echo "AUDIO_ALBUM_PEAK=$value" ;;
+			"audio_track_peak")    echo "AUDIO_TRACK_PEAK=$value" ;;
 			catalog)               echo "LABELNO=$value" ;;
 			comment)               echo "DESCRIPTION=$value" ;;
 			composer)              echo "COMPOSER=$value" ;;
