@@ -4793,7 +4793,7 @@ computeGainFromPeak () {
 }
 
 computeTrackGain () {
-	local ec=$Ex_Ok line nLines=0 decimals trackGain trackPeak albumGain destTagFile clippingPreventionParam=""
+	local ec=$Ex_Ok line nLines=0 decimals trackGain trackPeak albumGain destTagFile clippingPreventionParam="" nThreads
 
 	if [ -e "$sourceFile" ]; then
 		case "$sourceFile" in
@@ -4813,7 +4813,14 @@ computeTrackGain () {
 
 			*.wv)
 				wvgain -c "$sourceFile" >/dev/null 2>/dev/null || ec=$Ex_Ko
-				wvgain -q -t "$sourceFile" >/dev/null 2>/dev/null || ec=$Ex_Ko
+				if [ $ec -eq $Ex_Ok ]; then
+					nThreads=$( getNumberOfAvailableThreads $index )
+					if [ $nThreads -gt 1 ]; then
+						wvgain -q -t "$sourceFile" >/dev/null 2>/dev/null || ec=$Ex_Ko
+					else
+						wvgain -q -1 "$sourceFile" >/dev/null 2>/dev/null || ec=$Ex_Ko
+					fi
+				fi
 				if [ $ec -eq $Ex_Ok ]; then
 					trackGain="$( wvtag -x "replaygain_track_gain" "$sourceFile" 2>/dev/null | cut -d '=' -f 2 | cut -d ' ' -f 1 | tr -d '+' )"
 					trackPeak="$( wvtag -x "replaygain_track_peak" "$sourceFile" 2>/dev/null | cut -d '=' -f 2 )"
