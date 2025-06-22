@@ -215,7 +215,7 @@ Global parameters:
 
 -------------------------------------------------------------------------------
 
-Applying gain after decoding and before encoding, with an upper limit of 0dBFS:
+Applying gain after decoding and before encoding:
 
   -G ARG    apply ReplayGain ('album' or 'track') if found in source file
             metadata. Note: it is possible to specify a preamp value with an
