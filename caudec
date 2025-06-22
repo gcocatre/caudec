@@ -1696,7 +1696,7 @@ getNumberOfAvailableThreads () {
 
 
 tagline () {
-	local IFS=' ' tags switch value pattern nLines ereg
+	local IFS=' ' tags switch value pattern nLines ereg=""
 	test -e "$destTagFile" || return
 
 	cp "$destTagFile" "${destTagFile}.${outputCodec}"
@@ -1706,15 +1706,15 @@ tagline () {
 		if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
 			for h in $hashes; do
 				case $h in
-					CRC32) ereg="${ereg}|CRC32=" ;;
-					MD5) ereg="${ereg}|MD5=" ;;
-					SHA1) ereg="${ereg}|SHA1=" ;;
-					SHA256) ereg="${ereg}|SHA256=" ;;
-					SHA512) ereg="${ereg}|SHA512=" ;;
+					CRC32) ereg="${ereg}|CRC32" ;;
+					MD5) ereg="${ereg}|MD5" ;;
+					SHA1) ereg="${ereg}|SHA1" ;;
+					SHA256) ereg="${ereg}|SHA256" ;;
+					SHA512) ereg="${ereg}|SHA512" ;;
 				esac
 			done
 			if [ -n "$ereg" ]; then
-				grep -iE "${ereg:1}" "$destTagFile" > "${destTagFile}.${outputCodec}"
+				grep -iE "^(${ereg:1})=" "$destTagFile" > "${destTagFile}.${outputCodec}"
 			else
 				rm -f "${destTagFile}.${outputCodec}" ; touch "${destTagFile}.${outputCodec}"
 			fi
@@ -1723,9 +1723,11 @@ tagline () {
 		case "$outputCodec" in
 			WavPackLossy|MP3|AAC|ALAC|OggVorbis|Opus)
 				if [ "$outputCodec" = 'WavPackLossy' ]; then
-					grep -viE "MD5=|CRC32=|SHA1=|SHA256=|SHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
+					grep -viE "^(MD5|CRC32|SHA1|SHA256|SHA512)=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 				else
-					grep -viE "replaygain_|audio_track_peak|audio_album_peak|MD5=|CRC32=|SHA1=|SHA256=|SHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
+					grep -viE \
+						"^(replaygain_[a-z0-9_]{1,}|r128_[a-z0-9_]{1,}|audio_track_peak|audio_album_peak|MD5|CRC32|SHA1|SHA256|SHA512)=" \
+						"${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 				fi
 				mv "${destTagFile}.${outputCodec}.tmp" "${destTagFile}.${outputCodec}"
 				for h in $hashes; do
@@ -1735,23 +1737,25 @@ tagline () {
 
 			FLAC|WavPack|WavPackHybrid|MonkeysAudio|ALAC)
 				if isWavProcessed ; then # SoX was used on the WAV file for resampling, applying gain, or converting to stereo
-					grep -viE "µµµCRC32=|µµµMD5=|µµµSHA1=|µµµSHA256=|µµµSHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
+					grep -viE "^µµµ(CRC32|MD5|SHA1|SHA256|SHA512)=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 					mv "${destTagFile}.${outputCodec}.tmp" "${destTagFile}.${outputCodec}"
 				else # no processing was done to the original WAV file
 					for h in $hashes; do
-						grep -viE "SOURCE${h}=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
+						grep -viE "^SOURCE${h}=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 						mv "${destTagFile}.${outputCodec}.tmp" "${destTagFile}.${outputCodec}"
 					done
 					if [ $gnused = true ]; then
-						$sedcmd -i'' -e 's@µµµCRC32=@SOURCECRC32=@i' -e 's@µµµMD5=@SOURCEMD5=@i' -e 's@µµµSHA1=@SOURCESHA1=@i' -e 's@µµµSHA256=@SOURCESHA256=@i' -e 's@µµµSHA512=@SOURCESHA512=@i' "${destTagFile}.${outputCodec}"
+						$sedcmd -i'' -e 's@µµµCRC32=@SOURCECRC32=@i' -e 's@µµµMD5=@SOURCEMD5=@i' -e 's@µµµSHA1=@SOURCESHA1=@i' \
+							-e 's@µµµSHA256=@SOURCESHA256=@i' -e 's@µµµSHA512=@SOURCESHA512=@i' "${destTagFile}.${outputCodec}"
 					else
-						$sedcmd -i '' -e 's@µµµCRC32=@SOURCECRC32=@i' -e 's@µµµMD5=@SOURCEMD5=@i' -e 's@µµµSHA1=@SOURCESHA1=@i' -e 's@µµµSHA256=@SOURCESHA256=@i' -e 's@µµµSHA512=@SOURCESHA512=@i' "${destTagFile}.${outputCodec}"
+						$sedcmd -i '' -e 's@µµµCRC32=@SOURCECRC32=@i' -e 's@µµµMD5=@SOURCEMD5=@i' -e 's@µµµSHA1=@SOURCESHA1=@i' \
+							-e 's@µµµSHA256=@SOURCESHA256=@i' -e 's@µµµSHA512=@SOURCESHA512=@i' "${destTagFile}.${outputCodec}"
 					fi
 				fi
 				;;
 
 			lossy*)
-				grep -viE "MD5=|CRC32=|SHA1=|SHA256=|SHA512=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
+				grep -viE "(MD5|CRC32|SHA1|SHA256|SHA512)=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 				mv "${destTagFile}.${outputCodec}.tmp" "${destTagFile}.${outputCodec}"
 				for h in $hashes; do
 					grep -i "SOURCE${h}=" "$destTagFile" >> "${destTagFile}.${outputCodec}"
@@ -1768,7 +1772,9 @@ tagline () {
 	fi
 
 	if isWavProcessed ; then # SoX was used on the WAV file for resampling, applying gain, or converting to stereo
-		grep -viE 'replaygain_|audio_track_peak|audio_album_peak' "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
+		grep -viE \
+			'^(replaygain_[a-z0-9_]{1,}|r128_[a-z0-9_]{1,}|audio_track_peak|audio_album_peak)=' \
+			"${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 		mv "${destTagFile}.${outputCodec}.tmp" "${destTagFile}.${outputCodec}"
 	fi
 
@@ -1850,8 +1856,8 @@ vorbisCommentsToAPEv2 () {
 			album)                 echo "Album=$value" ;;
 			albumartist|"album artist") echo "Album Artist=$value" ;;
 			artist)                echo "Artist=$value" ;;
-			audio_album_peak)      echo "Audio_Album_Peak" ;;
-			audio_track_peak)      echo "Audio_Track_Peak" ;;
+			audio_album_peak)      echo "Audio Album Peak=$value" ;;
+			audio_track_peak)      echo "Audio Track Peak=$value" ;;
 			composer)              echo "Composer=$value" ;;
 			conductor)             echo "Conductor=$value" ;;
 			copyright)             echo "Copyright=$value" ;;
@@ -2125,8 +2131,8 @@ APEv2ToVorbisComments () {
 			album)                 echo "ALBUM=$value" ;;
 			albumartist|"album artist") echo "ALBUMARTIST=$value" ;;
 			artist)                echo "ARTIST=$value" ;;
-			audio_album_peak)      echo "AUDIO_ALBUM_PEAK" ;;
-			audio_track_peak)      echo "AUDIO_TRACK_PEAK" ;;
+			"audio album peak")    echo "AUDIO_ALBUM_PEAK=$value" ;;
+			"audio track peak")    echo "AUDIO_TRACK_PEAK=$value" ;;
 			catalog)               echo "LABELNO=$value" ;;
 			comment)               echo "DESCRIPTION=$value" ;;
 			composer)              echo "COMPOSER=$value" ;;
@@ -2337,7 +2343,7 @@ processSourceTagFile () {
 		fi
 
 		if isWavProcessed ; then
-			ereg='^sourcecrc32=|^sourcemd5=|^sourcesha1=|^crc32=|^md5=|^sha1=|^µµµcrc32=|^µµµmd5=|^µµµsha1='
+			ereg='^(sourcecrc32|sourcemd5|sourcesha1|crc32|md5|sha1|µµµcrc32|µµµmd5|µµµsha1)='
 			grep -viE "$ereg" "$sourceTagFile" > "${sourceTagFile}.tmp" # purge former hash tags
 			mv -f "${sourceTagFile}.tmp" "$sourceTagFile"
 		fi
