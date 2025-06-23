@@ -1258,15 +1258,17 @@ You may find it at https://github.com/FrancisRussell/zoog"
 }
 
 checkMainBinaries () {
+	local ec=$Ex_Ok
+
 	if ! which 'which' >/dev/null 2>&1 ; then
 		printMessage 'warning' 'initialization' 'filesystem' "Binary \"which\" not found. Make sure it is in your \$PATH."
 		printMessage 'abort'
 		cleanExit $Ex_Os_File
 	fi
 
-	checkBinary 'bc' 'cut' "$datecmd" 'find' 'grep' 'head' 'mktemp' 'ps' "$sedcmd" 'sort' 'soxi' 'stat' 'tail' 'tr' 'uname' 'wc' 'xargs'
+	checkBinary 'bc' 'cut' "$datecmd" 'find' 'grep' 'head' 'mktemp' 'ps' "$sedcmd" 'sort' 'soxi' 'stat' 'tail' 'tr' 'uname' 'wc' 'xargs' || ec=$Ex_Ko
 
-	if [ $? -eq $Ex_Ko ]; then
+	if [ $ec -eq $Ex_Ko ]; then
 		printMessage 'abort'
 		cleanExit $Ex_Os_File
 	else
@@ -1516,7 +1518,7 @@ handleInstance () {
 }
 
 setupSwapDir () {
-	local index ec=1 copyLockFile fileMilliseconds
+	local index copyLockFile fileMilliseconds
 
 	if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
 
@@ -6285,8 +6287,8 @@ while getopts '2a:B:b:C:c:df:G:ghH:iKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 				preserveMetadata="${preserveMetadata}x${lastCodec}Y"
 			fi
 
-			grep -E "(WavPack.*WavPackLossy)|(WavPackLossy.*WavPack)" < <( echo "$outputCodecs" ) 1>/dev/null 2>/dev/null; rc=$?
-			if [ $rc -eq $Ex_Ok ]; then
+			grep -E "(WavPack.*WavPackLossy)|(WavPackLossy.*WavPack)" < <( echo "$outputCodecs" ) 1>/dev/null 2>/dev/null; ec=$?
+			if [ $ec -eq $Ex_Ok ]; then
 				printMessage 'error' 'usage' 'bad_value' "$Self_Name -c: don't specify both WavPack[*] and WavPackLossy; choose one or the other."
 				printMessage 'error' 'usage' 'bad_value' "$Self_Name -c: if you want both lossless and lossy WavPack, choose -c wvh (possibly with -l DIR)"
 				exit $Ex_Usage
