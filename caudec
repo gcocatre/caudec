@@ -4812,14 +4812,11 @@ computeTrackGain () {
 				;;
 
 			*.wv)
-				wvgain -c "$sourceFile" >/dev/null 2>/dev/null || ec=$Ex_Ko
-				if [ $ec -eq $Ex_Ok ]; then
-					nThreads=$( getNumberOfAvailableThreads $index )
-					if [ $nThreads -gt 1 ]; then
-						wvgain -q -t "$sourceFile" >/dev/null 2>/dev/null || ec=$Ex_Ko
-					else
-						wvgain -q -1 "$sourceFile" >/dev/null 2>/dev/null || ec=$Ex_Ko
-					fi
+				nThreads=$( getNumberOfAvailableThreads $index )
+				if [ $nThreads -gt 1 ]; then
+					wvgain -q -t "$sourceFile" >/dev/null 2>/dev/null || ec=$Ex_Ko
+				else
+					wvgain -q -1 "$sourceFile" >/dev/null 2>/dev/null || ec=$Ex_Ko
 				fi
 				if [ $ec -eq $Ex_Ok ]; then
 					trackGain="$( wvtag -x "replaygain_track_gain" "$sourceFile" 2>/dev/null | cut -d '=' -f 2 | cut -d ' ' -f 1 | tr -d '+' )"
@@ -4834,7 +4831,6 @@ computeTrackGain () {
 				;;
 
 			*.ogg)
-				vorbisgain -c "$sourceFile" 1>/dev/null 2>> "$errorLogFile"
 				vorbisgain "$sourceFile" 1>/dev/null 2>/dev/null || ec=$Ex_Ko
 				if [ $ec -eq $Ex_Ok ]; then
 					trackGain="$( vorbiscomment -l "$sourceFile" 2>/dev/null | grep -iE '^replaygain_track_gain=' 2>> "$errorLogFile" | cut -d '=' -f 2 | cut -d ' ' -f 1 | tr -d '+' )"
