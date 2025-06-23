@@ -111,16 +111,16 @@ done
 if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
 Self_Tmp_Dir="$( mktemp -d "${mktempDir}/${Self_Name}.XXXXXXXX" )"
 if [ ! -e "$Self_Tmp_Dir" ]; then
-  echo "$Self_Name: error: cannot create temporary directory" 1>&2; ec=$Ex_Cant_Create
-  exit $ec
+  echo "$Self_Name: error: cannot create temporary directory" 1>&2; exitCode=$Ex_Cant_Create
+  exit $exitCode
 elif [ ! -d "$Self_Tmp_Dir" ]; then
-  echo "$Self_Name: error: cannot create temporary directory" 1>&2; ec=$Ex_Cant_Create
+  echo "$Self_Name: error: cannot create temporary directory" 1>&2; exitCode=$Ex_Cant_Create
   rm -rf "$Self_Tmp_Dir"
-  exit $ec
+  exit $exitCode
 elif [ ! -w "$Self_Tmp_Dir" ]; then
-  echo "$Self_Name: error: temporary directory is not writable" 1>&2; ec=$Ex_No_Perm
+  echo "$Self_Name: error: temporary directory is not writable" 1>&2; exitCode=$Ex_No_Perm
   rm -rf "$Self_Tmp_Dir"
-  exit $ec
+  exit $exitCode
 fi
 
 Self_Encoding_Log="${Self_Tmp_Dir}/encoding_log"
@@ -161,7 +161,7 @@ outputWarningOrError () {
 }
 
 computeReplayGain () {
-  local status status_info status_data file message process_id
+  local exitCode=$Ex_Ok status status_info status_data file message process_id
 
   case "$lastCodec" in
     FLAC|WavPack*|lossyFLAC|lossyWV|OggVorbis|MP3|Opus)
@@ -171,15 +171,15 @@ computeReplayGain () {
       fi
       if [ "$lastCodec" = "MP3" ]; then
         if [ $Self_Verbose = true ]; then
-          caudec -Z -G album "${files[@]}" 2>"${Self_ReplayGain_Log}_${lastCodec}" || ec=$Ex_Ko
+          caudec -Z -G album "${files[@]}" 2>"${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -Z -G album "${files[@]}" 1>/dev/null 2>"${Self_ReplayGain_Log}_${lastCodec}" || ec=$Ex_Ko
+          caudec -Z -G album "${files[@]}" 1>/dev/null 2>"${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       else
         if [ $Self_Verbose = true ]; then
-          caudec -Z -g "${files[@]}" 2>"${Self_ReplayGain_Log}_${lastCodec}" || ec=$Ex_Ko
+          caudec -Z -g "${files[@]}" 2>"${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -Z -g "${files[@]}" 1>/dev/null 2>"${Self_ReplayGain_Log}_${lastCodec}" || ec=$Ex_Ko
+          caudec -Z -g "${files[@]}" 1>/dev/null 2>"${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       fi
 
@@ -187,6 +187,7 @@ computeReplayGain () {
         while read status status_info status_data file message process_id; do
           if [ "$status" != "success" ]; then
             outputWarningOrError
+            exitCode=$Ex_Ko
           fi
         done < <( grep -F "_gain|" "${Self_ReplayGain_Log}_${lastCodec}" 2>/dev/null )
       fi
@@ -198,13 +199,16 @@ computeReplayGain () {
         status="warning"
         message="Not computing ReplayGain for unsupported codec $lastCodec in $lastDir."
         outputWarningOrError
+        exitCode=$Ex_Ko
       fi
       ;;
   esac
+
+  return $exitCode
 }
 
 touchFiles () {
-  local linkDir="$1" status status_info status_data file message process_id
+  local exitCode=$Ex_Ok linkDir="$1" status status_info status_data file message process_id
 
   case "$lastCodec" in
     FLAC|ALAC|WavPack*|lossyFLAC|lossyWV|OggVorbis|AAC|MonkeysAudio|MP3|Opus)
@@ -213,15 +217,15 @@ touchFiles () {
         echo "Touching directory for $lastCodec in $lastDir:"
         if [ -n "$linkDir" -a -d "$linkDir" ]; then
           echo "Touching linked directory for $lastCodec in $linkDir:"
-          caudec -Z -T -l "$linkDir" "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || ec=$Ex_Ko
+          caudec -Z -T -l "$linkDir" "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -Z -T "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || ec=$Ex_Ko
+          caudec -Z -T "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       else
         if [ -n "$linkDir" -a -d "$linkDir" ]; then
-          caudec -Z -T -l "$linkDir" "$lastDir" 1>/dev/null 2> "${Self_Touch_Log}_${lastCodec}" || ec=$Ex_Ko
+          caudec -Z -T -l "$linkDir" "$lastDir" 1>/dev/null 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -Z -T "$lastDir" 1>/dev/null 2> "${Self_Touch_Log}_${lastCodec}" || ec=$Ex_Ko
+          caudec -Z -T "$lastDir" 1>/dev/null 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       fi
 
@@ -229,6 +233,7 @@ touchFiles () {
         while read status status_info status_data file message process_id; do
           if [ "$status" != "success" ]; then
             outputWarningOrError
+            exitCode=$Ex_Ko
           fi
         done < <( grep -F "|touch_file" "${Self_Touch_Log}_${lastCodec}" 2>/dev/null )
       fi
@@ -240,19 +245,22 @@ touchFiles () {
         status="warning"
         message="Not touching directory for unsupported codec $lastCodec in $lastDir."
         outputWarningOrError
+        exitCode=$Ex_Ko
       fi
       ;;
   esac
+
+  return $exitCode
 }
 
 if [ $Self_Verbose = true ]; then
   echo "Transcoding files:"
-  caudec -Z "$@" 2>"$Self_Encoding_Log"; ec=$?
+  caudec -Z "$@" 2>"$Self_Encoding_Log"; exitCode=$?
 else
-  caudec -Z "$@" 1>/dev/null 2>"$Self_Encoding_Log"; ec=$?
+  caudec -Z "$@" 1>/dev/null 2>"$Self_Encoding_Log"; exitCode=$?
 fi
 
-if [ $ec -eq $Ex_Ok ]; then
+if [ $exitCode -eq $Ex_Ok ]; then
   sort "$Self_Encoding_Log" > "${Self_Encoding_Log}2" && mv "${Self_Encoding_Log}2" "$Self_Encoding_Log"
   echo "zzzzzzzz|encoding|zzzzzzzz|zzzzzzzz||12345678" 1>> "$Self_Encoding_Log"
   OIFS="$IFS"
@@ -267,8 +275,8 @@ if [ $ec -eq $Ex_Ok ]; then
     codec="$status_data"
     if [ -n "$lastCodec" -a -n "$lastDir" ]; then
       if [ "$codec" != "$lastCodec" -o "$dir" != "$lastDir" ]; then
-        computeReplayGain
-        touchFiles "$lastMessage"
+        computeReplayGain || exitCode=$Ex_Ko
+        touchFiles "$lastMessage" || exitCode=$Ex_Ko
         unset files
         declare -a files=()
         index=0
@@ -279,6 +287,7 @@ if [ $ec -eq $Ex_Ok ]; then
       index=$(( index + 1 ))
     elif [ $Self_Verbose = false ]; then
       outputWarningOrError
+      exitCode=$Ex_Ko
     fi
     lastCodec="$codec"
     lastDir="$dir"
@@ -291,4 +300,4 @@ if [ $Self_Verbose = true ]; then
   echo
 fi
 rm -rf "$Self_Tmp_Dir"
-exit $ec
+exit $exitCode
