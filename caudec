@@ -4640,7 +4640,7 @@ saveReplaygainToMP3 () {
 }
 
 saveGain () {
-	local exitCode=$Ex_Ok gainType="$1" gainTypeText gain peak peakDbfs uGain mp3GainSteps
+	local exitCode=$Ex_Ok gainType="$1" gainTypeText gain peak peakDbfs uGain mp3GainSteps clippingPreventionParam=''
 
 	if [ "$gainType" = 'TRACK' ]; then
 		gain="$trackGain" peak="$trackPeak" uGain="$trackGain"
@@ -4755,8 +4755,11 @@ saveGain () {
 			if [ $applyGain = true ]; then
 				mp3GainSteps="$( echo "scale=3; $uGain / 1.5" | bc )" # MP3 gain steps are 1.5dB
 				mp3GainSteps="$( printf '%.0f' "$mp3GainSteps" )"
+				if [ $preventClipping = true ]; then
+					clippingPreventionParam="-k"
+				fi
 				mp3gain -s d "$destFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
-				mp3gain -c -g "$mp3GainSteps" "$destFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+				mp3gain -c $clippingPreventionParam -g "$mp3GainSteps" "$destFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			else
 				mp3gain -s d "$destFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				saveReplaygainToMP3 || exitCode=$Ex_Ko
