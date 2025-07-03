@@ -1929,8 +1929,15 @@ vorbisCommentsToEyeD3 () {
 			artist)                echo "--artist $value" ;;
 			composer)              echo "--composer $value" ;;
 			conductor)             echo "--text-frame=TPE3:$value" ;;
+
+			copyright)
+				echo "$value" | grep -E '^[0-9]{4} '
+				if [ $? -eq $Ex_Ok ]; then
+					echo "--text-frame=TCOP:$value"
+				fi
+				;;
+
 			date)                  printf -- '--release-year %.4s\n--release-date %.4s\n--orig-release-date %.4s\n--recording-date %.4s\n' "$value" "$value" "$value" "$value" ;;
-			# description)           echo "--tc $value" ;;
 			discnumber)            printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
 			disctotal|totaldiscs)  printf -- '--disc-total %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs" ;;
 			encoder|encoding)      continue ;;
@@ -1944,8 +1951,7 @@ vorbisCommentsToEyeD3 () {
 			title)                 echo "--title $value" ;;
 			tracknumber)           printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
 			tracktotal|totaltracks) printf -- '--track-total %g\n' "$totalTracks" ;;
-			# *)                     echo "--user-text-frame=${field}:${value}" ;;
-			*) continue ;;
+			*)                     echo "--user-text-frame=${field}:${value}" ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -1978,7 +1984,6 @@ vorbisCommentsToM4A () {
 					printf -- '-metadata disc=%g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
-			disctotal|totaldiscs)  continue ;;
 			encoder|encoding)      continue ;;
 			genre)                 echo "-metadata genre=$value" ;;
 			isrc)                  echo "-metadata isrc=$value" ;;
@@ -1991,8 +1996,6 @@ vorbisCommentsToM4A () {
 					printf -- '-metadata track=%g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
-			tracktotal|totaltracks) continue ;;
-			cdec|encoding|itunnorm|itunsmpb|tool) continue ;;
 			*) continue ;;
 		esac
 	done < "$sourceTagFile"
@@ -2020,6 +2023,7 @@ M4AToVorbisComments () {
 			copyright)             echo "COPYRIGHT=$value" ;;
 			date)                  printf 'DATE=%.4s\n' "$value" ;;
 			comment)               echo "DESCRIPTION=$value" ;;
+			encoder|encoding)      continue ;;
 			disc)                  printf 'DISCNUMBER=%g\n' "$( getTrackOrDiscNumber "$value" )" ;;
 			genre)                 echo "GENRE=$value" ;;
 			isrc)                  echo "ISRC=$value" ;;
@@ -2053,6 +2057,7 @@ M4AToAPEv2 () {
 					printf 'Disc=%g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
+			encoder|encoding)      continue ;;
 			genre)                 echo "Genre=$value" ;;
 			isrc)                  echo "ISRC=$value" ;;
 			title)                 echo "Title=$value" ;;
@@ -2088,6 +2093,13 @@ M4AToEyeD3 () {
 				;;
 			artist)                echo "--artist $value" ;;
 			composer)              echo "--composer $value" ;;
+			copyright)
+				echo "$value" | grep -E '^[0-9]{4} '
+				if [ $? -eq $Ex_Ok ]; then
+					echo "--text-frame=TCOP:$value"
+				fi
+				;;
+			encoder|encoding)      continue ;;
 			genre)                 echo "--genre $value" ;;
 			isrc)                  echo "--text-frame=TSRC:$value" ;;
 			disc)
@@ -2110,7 +2122,7 @@ M4AToEyeD3 () {
 				fi
 				;;
 			year)                  printf -- '--release-year %.4s\n--release-date %.4s\n--orig-release-date %.4s\n--recording-date %.4s\n' "$value" "$value" "$value" "$value" ;;
-			*) continue ;;
+			*)                     echo "--user-text-frame=${field}:${value}" ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -2192,6 +2204,12 @@ APEv2ToEyeD3 () {
 				;;
 			artist)                echo "--artist $value" ;;
 			composer)              echo "--composer $value" ;;
+			copyright)
+				echo "$value" | grep -E '^[0-9]{4} '
+				if [ $? -eq $Ex_Ok ]; then
+					echo "--text-frame=TCOP:$value"
+				fi
+				;;
 			conductor)             echo "--text-frame=TPE3:$value" ;;
 			encoder|encoding)      continue ;;
 			genre)                 echo "--genre $value" ;;
@@ -2220,8 +2238,7 @@ APEv2ToEyeD3 () {
 				fi
 				;;
 			year)                  printf -- '--release-year %.4s\n--release-date %.4s\n--orig-release-date %.4s\n--recording-date %.4s\n' "$value" "$value" "$value" "$value" ;;
-			# *)                     echo "--user-text-frame=${field}:${value}" ;;
-			*) continue ;;
+			*)                     echo "--user-text-frame=${field}:${value}" ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -2269,7 +2286,6 @@ APEv2ToM4A () {
 				fi
 				;;
 			year)                  printf -- '-metadata date=%.4s\n' "$value" ;;
-			cdec|encoding*|itunnorm|itunsmpb|tool) continue ;;
 			*) continue ;;
 		esac
 	done < "$sourceTagFile"
@@ -3486,7 +3502,7 @@ getEncoderVersions () {
 		case "$outputCodec" in
 			FLAC) flacVersion="$( flac --version | head -n 1 )"; flacVersion="${flacVersion##* }" ;;
 			MonkeysAudio) apeVersion="$( mac 2>&1 | grep -F '(c)' | tr -d ' ' | cut -d '(' -f 2 | cut -d ')' -f 1 )"; apeVersion="${apeVersion#v}" ;;
-			MP3) laSelf_Version="$( lame --version 2>/dev/null | grep -E 'LAME.*version' | cut -d 'v' -f 2 | cut -d '(' -f 1 | cut -d ' ' -f 2- )" ; laSelf_Version="${laSelf_Version% *}" ;;
+			MP3) lameVersion="$( lame --version 2>/dev/null | grep -E 'LAME.*version' | cut -d 'v' -f 2 | cut -d '(' -f 1 | cut -d ' ' -f 2- )" ; lameVersion="${lameVersion% *}" ;;
 			AAC) aacVersion="$( ffmpeg -version 2>/dev/null | grep -E '^ffmpeg version' | cut -d ' ' -f 3 )" ;;
 			ALAC) alacVersion="$( ffmpeg -version 2>/dev/null | grep -E '^ffmpeg version' | cut -d ' ' -f 3 )" ;;
 			Opus) opusVersion="$( opusenc --version 2>/dev/null | grep -F 'opusenc' )" ;;
@@ -3687,8 +3703,8 @@ copyOrLinkOtherFiles () {
 encode () {
 	local exitCode=$Ex_Ok nDecodingThreads=$1 nThreads=1
 	local pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses listOfOtherFiles
-	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag='' nChannels
-	local compression_param quality_arg
+	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag='' id3CompressionTag=''
+	local nChannels compression_param quality_arg
 
 	getFileProps "$sourceFile" "$outputCodec"
 	case "$outputCodec" in
@@ -3844,18 +3860,26 @@ encode () {
 				MP3_MODE='CBR' bitrate_MP3=320
 			fi
 			if [ "$MP3_MODE" = 'VBR' ]; then
+				if [ $tagCompressionSetting = true ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / VBR $compression_MP3"; fi
 				lame -S -V $compression_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			elif [ "$MP3_MODE" = 'ABR' ]; then
+				if [ $tagCompressionSetting = true ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / ABR $average_bitrate_MP3 kbps"; fi
 				lame -S --abr $average_bitrate_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			else
 				if [ $compression_MP3 -eq "insane" ]; then
+					if [ $tagCompressionSetting = true ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / CBR 320 kbps"; fi
 					lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				else
+					if [ $tagCompressionSetting = true ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / CBR $bitrate_MP3 kbps"; fi
 					lame -S -b $bitrate_MP3 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				fi
 			fi
 			if [ $exitCode -ne $Ex_Ko ]; then
-				printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+				if [ -n "$id3CompressionTag" ]; then
+					printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' --text-frame=TSSE:"$id3CompressionTag" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+				else
+					printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+				fi
 				importArtworkIntoMP3 || exitCode=$Ex_Ko
 			fi
 			;;
