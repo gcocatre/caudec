@@ -1864,7 +1864,7 @@ vorbisCommentsToAPEv2 () {
 			conductor)             echo "Conductor=$value" ;;
 			copyright)             echo "Copyright=$value" ;;
 			crc32)                 echo "CRC32=$value" ;;
-			date)                  printf 'Year=%.4s\n' "$value" ;;
+			date|year)             printf 'Year=%.4s\n' "$value" ;;
 			description|comment)   echo "Comment=$value" ;;
 			discnumber)
 				if [ -n "$totalDiscs" ]; then
@@ -1937,7 +1937,7 @@ vorbisCommentsToEyeD3 () {
 				fi
 				;;
 
-			date)                  printf -- '--release-year %.4s\n--release-date %.4s\n--orig-release-date %.4s\n--recording-date %.4s\n' "$value" "$value" "$value" "$value" ;;
+			date|year)             printf -- '--release-year %.4s\n--release-date %.4s\n--orig-release-date %.4s\n--recording-date %.4s\n' "$value" "$value" "$value" "$value" ;;
 			description|comment)   echo "--text-frame=COMM:$value" ;;
 			discnumber)            printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
 			disctotal|totaldiscs)  printf -- '--disc-total %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs" ;;
@@ -1976,7 +1976,7 @@ vorbisCommentsToM4A () {
 			artist)                echo "-metadata artist=$value" ;;
 			composer)              echo "-metadata composer=$value" ;;
 			copyright)             echo "-metadata copyright=$value" ;;
-			date)                  printf -- '-metadata date=%.4s\n' "$value" ;;
+			date|year)             printf -- '-metadata date=%.4s\n' "$value" ;;
 			description|comment)   echo "-metadata comment=$value" ;;
 			discnumber)
 				if [ -n "$totalDiscs" ]; then
@@ -2024,8 +2024,8 @@ M4AToVorbisComments () {
 			copyright)             echo "COPYRIGHT=$value" ;;
 			date|year)             printf 'DATE=%.4s\n' "$value" ;;
 			comment)               echo "DESCRIPTION=$value" ;;
-			encoder|encoding)      continue ;;
 			disc)                  printf 'DISCNUMBER=%g\n' "$( getTrackOrDiscNumber "$value" )" ;;
+			encoder|encoding)      continue ;;
 			genre)                 echo "GENRE=$value" ;;
 			isrc)                  echo "ISRC=$value" ;;
 			label)                 echo "ORGANIZATION=$value" ;;
@@ -2101,9 +2101,7 @@ M4AToEyeD3 () {
 					echo "--text-frame=TCOP:$value"
 				fi
 				;;
-			encoder|encoding)      continue ;;
-			genre)                 echo "--genre $value" ;;
-			isrc)                  echo "--text-frame=TSRC:$value" ;;
+			date|year)             printf -- '--release-year %.4s\n--release-date %.4s\n--orig-release-date %.4s\n--recording-date %.4s\n' "$value" "$value" "$value" "$value" ;;
 			disc)
 				case "$value" in
 					[0-9]*)
@@ -2114,6 +2112,9 @@ M4AToEyeD3 () {
 						;;
 				esac
 				;;
+			encoder|encoding)      continue ;;
+			genre)                 echo "--genre $value" ;;
+			isrc)                  echo "--text-frame=TSRC:$value" ;;
 			title)                 echo "--title $value" ;;
 			track)
 				if [ -n "$totalTracks" ]; then
@@ -2123,7 +2124,6 @@ M4AToEyeD3 () {
 					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
-			date|year)             printf -- '--release-year %.4s\n--release-date %.4s\n--orig-release-date %.4s\n--recording-date %.4s\n' "$value" "$value" "$value" "$value" ;;
 			*)                     echo "--user-text-frame=${field}:${value}" ;;
 		esac
 	done < "$sourceTagFile"
@@ -2180,7 +2180,7 @@ APEv2ToVorbisComments () {
 			subtitle)              echo "SUBTITLE=$value" ;;
 			title)                 echo "TITLE=$value" ;;
 			track)                 printf 'TRACKNUMBER=%g\n' "$( getTrackOrDiscNumber "$value" )" ;;
-			year)                  printf 'DATE=%.4s\n' "$value" ;;
+			year|date)             printf 'DATE=%.4s\n' "$value" ;;
 			*)                     echo "${field}=${value}" ;;
 		esac
 	done < "$sourceTagFile"
@@ -2240,7 +2240,7 @@ APEv2ToEyeD3 () {
 					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
-			year)                  printf -- '--release-year %.4s\n--release-date %.4s\n--orig-release-date %.4s\n--recording-date %.4s\n' "$value" "$value" "$value" "$value" ;;
+			year|date)             printf -- '--release-year %.4s\n--release-date %.4s\n--orig-release-date %.4s\n--recording-date %.4s\n' "$value" "$value" "$value" "$value" ;;
 			*)                     echo "--user-text-frame=${field}:${value}" ;;
 		esac
 	done < "$sourceTagFile"
@@ -2288,7 +2288,7 @@ APEv2ToM4A () {
 					printf '-metadata track=%g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
-			year)                  printf -- '-metadata date=%.4s\n' "$value" ;;
+			year|date)             printf -- '-metadata date=%.4s\n' "$value" ;;
 			*) continue ;;
 		esac
 	done < "$sourceTagFile"
