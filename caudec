@@ -1865,7 +1865,7 @@ vorbisCommentsToAPEv2 () {
 			copyright)             echo "Copyright=$value" ;;
 			crc32)                 echo "CRC32=$value" ;;
 			date)                  printf 'Year=%.4s\n' "$value" ;;
-			description)           echo "Comment=$value" ;;
+			description|comment)   echo "Comment=$value" ;;
 			discnumber)
 				if [ -n "$totalDiscs" ]; then
 					printf 'Disc=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
@@ -1938,6 +1938,7 @@ vorbisCommentsToEyeD3 () {
 				;;
 
 			date)                  printf -- '--release-year %.4s\n--release-date %.4s\n--orig-release-date %.4s\n--recording-date %.4s\n' "$value" "$value" "$value" "$value" ;;
+			description|comment)   echo "--text-frame=COMM:$value" ;;
 			discnumber)            printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
 			disctotal|totaldiscs)  printf -- '--disc-total %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs" ;;
 			encoder|encoding)      continue ;;
@@ -1976,7 +1977,7 @@ vorbisCommentsToM4A () {
 			composer)              echo "-metadata composer=$value" ;;
 			copyright)             echo "-metadata copyright=$value" ;;
 			date)                  printf -- '-metadata date=%.4s\n' "$value" ;;
-			description)           echo "-metadata comment=$value" ;;
+			description|comment)   echo "-metadata comment=$value" ;;
 			discnumber)
 				if [ -n "$totalDiscs" ]; then
 					printf -- '-metadata disc=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
@@ -2021,7 +2022,7 @@ M4AToVorbisComments () {
 			artist)                echo "ARTIST=$value" ;;
 			composer)              echo "COMPOSER=$value" ;;
 			copyright)             echo "COPYRIGHT=$value" ;;
-			date)                  printf 'DATE=%.4s\n' "$value" ;;
+			date|year)             printf 'DATE=%.4s\n' "$value" ;;
 			comment)               echo "DESCRIPTION=$value" ;;
 			encoder|encoding)      continue ;;
 			disc)                  printf 'DISCNUMBER=%g\n' "$( getTrackOrDiscNumber "$value" )" ;;
@@ -2030,7 +2031,7 @@ M4AToVorbisComments () {
 			label)                 echo "ORGANIZATION=$value" ;;
 			title)                 echo "TITLE=$value" ;;
 			track)                 printf -- 'TRACKNUMBER=%g\n' "$( getTrackOrDiscNumber "$value" )";;
-			*) continue ;;
+			*)                     echo "${field}=${value}" ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -2046,10 +2047,10 @@ M4AToAPEv2 () {
 			album)                 echo "Album=$value" ;;
 			album_artist)          echo "Album Artist=$value" ;;
 			artist)                echo "Artist=$value" ;;
+			comment)               echo "Comment=$value" ;;
 			composer)              echo "Composer=$value" ;;
 			copyright)             echo "Copyright=$value" ;;
-			date)                  printf 'Year=%.4s\n' "$value" ;;
-			comment)               echo "Comment=$value" ;;
+			date|year)             printf 'Year=%.4s\n' "$value" ;;
 			disc)
 				if [ -n "$totalDiscs" ]; then
 					printf 'Disc=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
@@ -2068,7 +2069,7 @@ M4AToAPEv2 () {
 					printf 'Track=%g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
-			*) continue ;;
+			*)                     echo "${field}=${value}" ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -2092,6 +2093,7 @@ M4AToEyeD3 () {
 				fi
 				;;
 			artist)                echo "--artist $value" ;;
+			comment)               echo "--text-frame=COMM:$value" ;;
 			composer)              echo "--composer $value" ;;
 			copyright)
 				echo "$value" | grep -E '^[0-9]{4} '
@@ -2121,7 +2123,7 @@ M4AToEyeD3 () {
 					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
-			year)                  printf -- '--release-year %.4s\n--release-date %.4s\n--orig-release-date %.4s\n--recording-date %.4s\n' "$value" "$value" "$value" "$value" ;;
+			date|year)             printf -- '--release-year %.4s\n--release-date %.4s\n--orig-release-date %.4s\n--recording-date %.4s\n' "$value" "$value" "$value" "$value" ;;
 			*)                     echo "--user-text-frame=${field}:${value}" ;;
 		esac
 	done < "$sourceTagFile"
@@ -2203,6 +2205,7 @@ APEv2ToEyeD3 () {
 				fi
 				;;
 			artist)                echo "--artist $value" ;;
+			comment)               echo "--text-frame=COMM:$value" ;;
 			composer)              echo "--composer $value" ;;
 			copyright)
 				echo "$value" | grep -E '^[0-9]{4} '
@@ -3089,6 +3092,10 @@ decode () {
 				ffmpeg -i "$copyFile" -threads ${nThreads} "$wavFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					ffmpeg -i "$copyFile" -f ffmetadata "$sourceTagFile" 2>> "$errorLogFile" || exitCode=$Ex_Ko
+					if [ $exitCode -eq $Ex_Ok ]; then
+						grep -ivE '^(;|major_brand=|minor_version=|compatible_brands=|encoder=)' "$sourceTagFile" > "${sourceTagFile}.tmp" 2>> "$errorLogFile"
+						mv "${sourceTagFile}.tmp" "$sourceTagFile" 2>> "$errorLogFile" || exitCode=$Ex_Ko
+					fi
 				fi
 				;;
 
