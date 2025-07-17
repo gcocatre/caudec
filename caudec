@@ -20,7 +20,7 @@
 
 declare -r Self_Name='caudec'
 declare -r Self_Called_As="${0##*/}"
-declare -r Self_Version='2.3.1'
+declare -r Self_Version='2.4.0'
 
 # Ex_Usage: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # Ex_Data_Err: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -349,6 +349,7 @@ Touching file times (mutually exclusive from all other actions):
 Information:
 
   -h        display this help and exit
+  -I        display channels, sample size and sampling rate
   -V        output version information and exit
 
 -------------------------------------------------------------------------------
@@ -376,7 +377,9 @@ Fields are separated with pipes ('|', Unicode: U+007C); pipe characters present
 in filenames or messages are replaced with the visually similar 'broken bar'
 sign ('¦', Unicode: U+00A6).
 
-status|status_info|status_data|file|message|process_id
+process_id|status|status_info|status_data|message|file
+
+process_id: identifier (PID) of the caudec process.
 
 status: one of info, success, error, warning, abort.
 
@@ -387,7 +390,7 @@ status_info: optional additional information about the status (usage,
 
 status_data: optional data about the status (hash type, hash value, hash error,
     gain value in dB, bitrate in bits per second, processing rate, version
-    status). Some status_data keywords:
+    status, file characteristics). Some status_data keywords:
     * filesystem (filesystem related error or information),
     * server (server related error or information),
     * command_line (command line related error or information),
@@ -397,20 +400,13 @@ status_data: optional data about the status (hash type, hash value, hash error,
     * no_hash (no hash metadata found),
     * no_hash_tool (no hashing tools available),
     * bad_internal_hash (internal MD5 hash is incorrect),
-    * user_agent (user agent sent to caudec's server),
-    * up_to_date (caudec is up to date),
-    * new_version_available (there's a new version of caudec available),
-    * running_newer_version (local copy of caudec is newer than the latest
-      available online)
-
-file: path of the file that is affected by the status (if applicable).
 
 message: optional human-readable information about the status.
 
-process_id: identifier (PID) of the caudec process."
+file: path of the file that is affected by the status (if applicable)."
 }
 
-# status;status_info;status_data;file;message;process_number
+# process_number;status;status_info;status_data;message;file
 getMachineParsableString () {
 	local pid=''
 
@@ -425,61 +421,63 @@ getMachineParsableString () {
 	msg="${msg//|/¦}"
 
 	case "$msgType" in
-		abort) str="$( printf "%s|%s|%s|%s|%s|%s\n" 'info' 'aborting' '' '' 'Aborting.' '' )" ;;
+		abort) str="$( printf "%s|%s|%s|%s|%s|%s\n" '0' "$msgType" 'aborting' '' 'Aborting.' '' )" ;;
 
 		info)
 			if [ -n "$bitrate" ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" 'info' "bitrate_${codec}" "$bitrate" '' "$msg" "$pid" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "bitrate_${codec}" "$bitrate" "$msg" '' )"
 			elif [ -n "$rate" ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" 'info' 'processing_rate' "$rate" '' "$msg" "$pid" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" 'processing_rate' "$rate" "$msg" '' )"
 			elif [ -n "$hashType" ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" 'info' "$hashType" "$statusData" "$file" '' "$pid" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$hashType" "$statusData" '' "$file" )"
 			else
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" 'info' "$statusInfo" "$statusData" '' "$msg" "$pid" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" '' )"
 			fi
 			;;
 
 		success)
 			if [ "$statusInfo" = 'track_gain' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$gain" "$file" '' "$pid" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$gain" '' "$file" )"
 			elif [ "$statusInfo" = 'album_gain' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$gain" "$file" "$msg" "$pid" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$gain" "$msg" "$file" )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$dateTime" "$file" "$msg" "$pid" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$dateTime" "$msg" "$file" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$albumTime" "$path" "$msg" "$pid" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$albumTime" "$path" "$msg" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$hashError" ]; then
-					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$hashError" "$file" '' "$pid" )"
+					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashError" '' "$file" )"
 				else
-					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$hashType" "$file" '' "$pid" )"
+					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashType" '' "$file" )"
 				fi
+			elif [ "$statusInfo" = 'characteristics' ]; then
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$characteristics" '' "$file" )"
 			else
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$statusData" "$file" "$msg" "$pid" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$file" )"
 			fi
 			;;
 
 		error)
 			if [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$hashError" ]; then
-					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$hashError" "$file" '' "$pid" )"
+					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashError" '' "$file" )"
 				else
-					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$hashType" "$file" '' "$pid" )"
+					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashType" '' "$file" )"
 				fi
 			elif [ "$statusInfo" = 'album_gain' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" '' '' "$msg" "$pid" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" '' '' "$msg" )"
 			else
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$statusData" "$file" "$msg" "$pid" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$file" )"
 			fi
 			;;
 
 		warning)
 			if [ "$statusInfo" = 'testing' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$hashError" "$file" "$msg" "$pid" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashError" "$msg" "$file" )"
 			elif [ -n "$hashError" ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$hashError" "$file" "$msg" "$pid" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashError" "$msg" "$file" )"
 			else
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$msgType" "$statusInfo" "$statusData" "$file" "$msg" "$pid" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$file" )"
 			fi
 			;;
 	esac
@@ -490,6 +488,8 @@ getMachineParsableString () {
 }
 
 getHumanReadableString () {
+	local data
+
 	case "$msgType" in
 		info)
 			if [ -n "$msg" ]; then
@@ -518,6 +518,14 @@ getHumanReadableString () {
 					fi
 				else
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$hashType" "$fileName" )"
+				fi
+			elif [ "$statusInfo" = 'characteristics' ]; then
+				data="${characteristics:2}"
+				data="${data//;/|}"
+				if [ "${characteristics:0:1}" = "1" ]; then
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}CD ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $p "${data}" "$fileName" )"
+				else
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bl}DM ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $p "${data}" "$fileName" )"
 				fi
 			elif [ -n "$file" ]; then # transcoding or hashing
 				if [ -n "$p" ]; then
@@ -553,6 +561,8 @@ getHumanReadableString () {
 				else
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$fileName" )"
 				fi
+			elif [ "$statusInfo" = 'characteristics' ]; then
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$characteristics" "$fileName" )"
 			elif [ -n "$file" ]; then
 				if [ -n "$msg" ]; then
 					if [ -n "$p" ]; then
@@ -617,7 +627,7 @@ printMessageToStdoutOrStderr () {
 printMessage () {
 	local msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo='' statusData=''
 	local file='' path='' fileDir='' msg='' p='' numberOfThreads='' hashType='' hashError='' gain='' bitrate='' rate=''
-	local codec='' outputCodec='' str=''
+	local codec='' outputCodec='' str='' characteristics=''
 
 	for a in "$@"; do
 		case "$a" in
@@ -627,7 +637,7 @@ printMessage () {
 			verbose) msgVerbose='verbose' ;;
 			debug) msgDebug='debug' statusInfo='debugging' ;;
 			stderr) msgOut='stderr' ;;
-			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|touch_file|touch_files|checking_version) statusInfo="$a" ;;
+			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|touch_file|touch_files|checking_version|characteristics) statusInfo="$a" ;;
 			unsupported|quota|bad_value|filesystem|command_line|internal|user_agent) statusData="$a" ;;
 			server|up_to_date|new_version_available|running_newer_version) statusData="$a" ;;
 			file:*) file="${a#file:}"; fileDir="$( dirname "$file" )"; fileName="$( basename "$file" )" ;;
@@ -641,6 +651,7 @@ printMessage () {
 			threads:[0-9]*) numberOfThreads="${a#threads:}" ;;
 			dateTime:[0-9]*) dateTime="${a#dateTime:}" ;;
 			albumTime:[0-9:]*) albumTime="${a#albumTime:}" ;;
+			characteristics:*) characteristics="${a#characteristics:}" ;;
 
 			CRC32|MD5|SHA1|SHA256|SHA512) hashType="$a" ;;
 			no_hash|no_hash_tool|bad_internal_hash) hashError="$a" ;;
@@ -1099,6 +1110,19 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 					esac
 				fi
 
+				if [ $showInformation = true ]; then
+					case "$inputFile" in
+						*.flac|*.wv|*.ape|*.m4a|*.mp3|*.ogg|*.opus) addToSourceFiles=true ;;
+						*)
+							if [ $ignoreUnsupportedFiles = true ]; then
+								continue
+							else
+								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
+							fi
+							;;
+					esac
+				fi
+
 				if [ $computeReplayGain = true ]; then
 					if [ $inputFileExtensionAreAllTheSame = false ]; then
 						printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension" ; exitCode=$Ex_Data_Err
@@ -1331,6 +1355,14 @@ checkBinaries () {
 				*.wv) checkBinary 'wvtag' 'wvunpack' ;;
 				*.ape) checkBinary 'mac' 'APEv2' 'ffprobe' ;;
 				*.mp3) checkBinary 'ffmpeg' ;;
+			esac
+		done
+	elif [ $showInformation = true ]; then
+		for sourceFile in "${sourceFiles[@]}" ; do
+			case "$sourceFile" in
+				*.flac) checkBinary 'metaflac' ;;
+				*.wv) checkBinary 'wvunpack' ;;
+				*) checkBinary 'ffprobe' ;;
 			esac
 		done
 	else # transcode
@@ -4627,6 +4659,92 @@ computeHashes () {
 	return $exitCode
 }
 
+showTrackInformation () {
+	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples cddaSamples sectorSize=588 isCd=0
+	local floatOrInt something rest
+
+	if [ -e "$sourceFile" ]; then
+		case "$sourceFile" in
+			*.flac)
+				read -d '\n' nChannels bitDepth samplingRate nSamples < <( metaflac --show-channels --show-bps --show-sample-rate --show-total-samples "$sourceFile" 2>/dev/null )
+				;;
+
+			*.wv)
+				line="$( wvunpack -f "$sourceFile" 2>/dev/null )"
+				OIFS="$IFS"
+				IFS=";"
+				read samplingRate bitDepth floatOrInt nChannels something nSamples rest <<< "$line"
+				IFS="$OIFS"
+				;;
+
+			*)
+				while read line; do
+					case $line in
+						channels*) nChannels="${line##*=}" ;;
+						sample_fmt*|bits_per_sample*)
+							if [ -z "$bitDepth" -o "$bitDepth" = "0" ]; then
+								bitDepth="${line##*=}"; bitDepth="$( echo "$bitDepth" | tr -cd [0-9] )"
+							fi
+							;;
+						sample_rate*) samplingRate="${line##*=}" ;;
+						duration_ts*) nSamples="${line##*=}" ;;
+					esac
+				done < <( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$sourceFile" 2>/dev/null )
+				;;
+
+			# *) printMessage 'warning' 'characteristics' 'unsupported' "file:${sourceFile}" $p 'unsupported format' ; return $Ex_Ko ;;
+		esac
+
+		if [ "$bitDepth" = "0" ]; then
+			bitDepth=".."
+		else
+			bitDepth="$( printf "%2s" "$bitDepth" )"
+		fi
+
+		case "$sourceFile" in
+			*.flac|*.wv|*.ape|*.m4a)
+				if [ -n "$nSamples" ]; then
+					multiples=$(( nSamples / sectorSize ))
+					cddaSamples=$(( multiples * sectorSize ))
+					if [ $nSamples -eq $cddaSamples -a "$nChannels" = "2" -a "$bitDepth" = "16" -a "$samplingRate" = "44100" ]; then
+						isCd=1
+					else
+						isCd=0
+					fi
+				fi
+				;;
+		esac
+	else
+		exitCode=$Ex_Ko
+	fi
+
+	if [ $exitCode -eq $Ex_Ok ]; then
+		printMessage 'success' "characteristics" "characteristics:${isCd};${nChannels};${bitDepth};${samplingRate}" "file:${sourceFile}" $p
+	else
+		printMessage 'error' 'characteristics' "characteristics:0;0;00;00000" "file:${sourceFile}" $p
+	fi
+	return $exitCode
+}
+
+showTracksInformation () {
+	local exitCode=$Ex_Ok index
+
+	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
+		sourceFile="${sourceFiles[$index]}"
+		sourceFilename="${sourceFile##*/}"
+		informationLockFile="${TDIR}/${index}"
+		wasProcessedFile="${TDIR}/WAS_PROCESSED.${index}"
+
+		if getLock "$informationLockFile"; then
+			showTrackInformation || exitCode=$Ex_Ko
+			touch "$wasProcessedFile"
+		fi
+	done
+
+	rm -f "${instanceDir}/process.${p}"
+	return $exitCode
+}
+
 saveReplaygainToMP3 () {
 	local exitCode=$Ex_Ok
 
@@ -6070,7 +6188,7 @@ bitDepth='' samplingRate='' preserveMetadata='' computeReplayGain=false reverseR
 applyGain=false applyGainType='' preamp='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human'
 checkFiles=false hashFiles=false touchFiles=false peakReference=0 allFilesAreOpus=true
-setArtworkParam=false copyFilesParam=false
+setArtworkParam=false copyFilesParam=false showInformation=false
 
 if [ "$Self_Called_As" = 'decaude' ]; then
 	lastCodec='WAV'
@@ -6222,7 +6340,7 @@ if [ -n "$copyOtherFilesForLossyByDefault" ]; then
 	setCodecOtherFiles "lossy" "$copyOtherFilesForLossyByDefault"
 fi
 
-while getopts '2a:B:b:C:c:df:G:ghH:iKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
+while getopts '2a:B:b:C:c:df:G:ghH:iIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 	case $o in
 # -----------------------------------------------------------------------------
 
@@ -6575,6 +6693,8 @@ while getopts '2a:B:b:C:c:df:G:ghH:iKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		h) printUsage; exit $Ex_Ok ;;
 
+		I) showInformation=true ;;
+
 		V) echo "$Self_Name $Self_Version"; exit $Ex_Ok ;;
 
 # -----------------------------------------------------------------------------
@@ -6629,7 +6749,7 @@ unset gotPCMCodecsOnly
 if [ -z "$hashes" ]; then hashFiles=false; fi
 
 # transcode, test, replaygain, touch, hash
-if [ -z "$outputCodecs" -a $checkFiles = false -a $computeReplayGain = false -a $reverseReplayGain = false -a $touchFiles = false -a $hashFiles = false ]; then
+if [ -z "$outputCodecs" -a $checkFiles = false -a $computeReplayGain = false -a $reverseReplayGain = false -a $touchFiles = false -a $hashFiles = false -a $showInformation = false ]; then
 	printMessage 'error' 'usage' 'command_line' "$Self_Name: no action specified"
 	exit $Ex_Usage
 fi
@@ -6654,7 +6774,7 @@ if [ -z "$outputCodecs" ]; then
 	fi
 fi
 
-# transcode (test, replaygain, touch, hash)
+# transcode (test, replaygain, touch, hash, information)
 if [ -n "$outputCodecs" ]; then
 	if [ $computeReplayGain = true -o $reverseReplayGain = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -c/-d and -g/-G are mutually exclusive. Try again with either one alone."
@@ -6672,9 +6792,13 @@ if [ -n "$outputCodecs" ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -c/-d and -t are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
+	if [ $showInformation = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -c/-d and -I are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
 fi
 
-# Test files (replaygain, touch, hash)
+# Test files (replaygain, touch, hash, information)
 if [ $checkFiles = true ]; then
 	if [ $computeReplayGain = true -o $reverseReplayGain = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -t and -g/-G are mutually exclusive. Try again with either one alone."
@@ -6688,9 +6812,13 @@ if [ $checkFiles = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -t and -H are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
+	if [ $showInformation = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -t and -I are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
 fi
 
-# ReplayGain (test, touch, hash)
+# ReplayGain (test, touch, hash, information)
 if [ $computeReplayGain = true -o $reverseReplayGain = true ]; then
 	if [ $checkFiles = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -g/-G and -t are mutually exclusive. Try again with either one alone."
@@ -6704,9 +6832,13 @@ if [ $computeReplayGain = true -o $reverseReplayGain = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -g/-G and -H are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
+	if [ $showInformation = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -g/-G and -I are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
 fi
 
-# Touch files (test, replaygain, hash)
+# Touch files (test, replaygain, hash, information)
 if [ $touchFiles = true ]; then
 	if [ $checkFiles = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -T and -t are mutually exclusive. Try again with either one alone."
@@ -6720,9 +6852,13 @@ if [ $touchFiles = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -T and -H are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
+	if [ $showInformation = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -T and -I are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
 fi
 
-# Hash files (test, replaygain, touch)
+# Hash files (test, replaygain, touch, information)
 if [ $hashFiles = true ]; then
 	if [ $checkFiles = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -H and -t are mutually exclusive. Try again with either one alone."
@@ -6734,6 +6870,30 @@ if [ $hashFiles = true ]; then
 	fi
 	if [ $touchFiles = true ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -H and -T are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ $showInformation = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -H and -I are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+fi
+
+# Show information (test, replaygain, touch, hash)
+if [ $showInformation = true ]; then
+	if [ $checkFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -I and -t are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ $computeReplayGain = true -o $reverseReplayGain = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -I and -g/-G are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ $touchFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -I and -T are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ $hashFiles = true ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -I and -H are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
 fi
@@ -6821,6 +6981,16 @@ elif [ $hashFiles = true ]; then
 	fi
 	for ((p=0; p < nProcesses; p++)); do
 		computeHashes &
+	done
+elif [ $showInformation = true ]; then
+	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
+	if [ $gnudate = true ]; then
+		time1="$( $datecmd '+%s.%N' )"
+	else
+		time1="$( $datecmd '+%s' ).0"
+	fi
+	for ((p=0; p < nProcesses; p++)); do
+		showTracksInformation &
 	done
 fi
 exitCode=$Ex_Ok ; for p in $( jobs -p ); do wait $p || exitCode=$Ex_Ko ; done

@@ -19,7 +19,7 @@
 # Global variables =============================================================
 
 declare -r Self_Name='transcaude'
-declare -r Self_Version='2.3.1'
+declare -r Self_Version='2.4.0'
 
 # Ex_Usage: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # Ex_Data_Err: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -156,7 +156,7 @@ Self_Touch_Log="${Self_Tmp_Dir}/touch_log"
 outputWarningOrError () {
   local fileName="${file##*/}"
 
-  # status status_info status_data file message process_id
+  # process_id|status|status_info|status_data|message|file
 	case "$status" in
 		error)
 			if [ "$status_info" = 'decoding' ]; then
@@ -210,7 +210,8 @@ computeReplayGain () {
       fi
 
       if [ $Self_Verbose = false ]; then
-        while read status status_info status_data file message process_id; do
+        # process_id|status|status_info|status_data|message|file
+        while read process_id status status_info status_data message file; do
           if [ "$status" != "success" ]; then
             outputWarningOrError
             exitCode=$Ex_Ko
@@ -256,7 +257,8 @@ touchFiles () {
       fi
 
       if [ $Self_Verbose = false ]; then
-        while read status status_info status_data file message process_id; do
+        # process_id|status|status_info|status_data|message|file
+        while read process_id status status_info status_data message file; do
           if [ "$status" != "success" ]; then
             outputWarningOrError
             exitCode=$Ex_Ko
@@ -288,7 +290,7 @@ fi
 
 if [ $exitCode -eq $Ex_Ok ]; then
   sort "$Self_Encoding_Log" > "${Self_Encoding_Log}2" && mv "${Self_Encoding_Log}2" "$Self_Encoding_Log"
-  echo "zzzzzzzz|encoding|zzzzzzzz|zzzzzzzz||12345678" 1>> "$Self_Encoding_Log"
+  echo "12345678|encoding|zzzzzzzz|zzzzzzzz|zzzzzzzz|" 1>> "$Self_Encoding_Log"
   OIFS="$IFS"
   IFS="|"
   declare -a files=()
@@ -296,7 +298,8 @@ if [ $exitCode -eq $Ex_Ok ]; then
   lastCodec=""
   lastDir=""
   lastMessage=""
-  while read status status_info status_data file message process_id; do
+  # process_id|status|status_info|status_data|message|file
+  while read process_id status status_info status_data message file; do
     dir="$( dirname "$file" )"
     codec="$status_data"
     if [ -n "$lastCodec" -a -n "$lastDir" ]; then
