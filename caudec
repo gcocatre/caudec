@@ -417,7 +417,6 @@ getMachineParsableString () {
 	fi
 
 	# replace pipes ('|', Unicode: U+007C) with 'broken bar' signs ('¦', Unicode: U+00A6)
-	file="${file//|/¦}"
 	msg="${msg//|/¦}"
 
 	case "$msgType" in

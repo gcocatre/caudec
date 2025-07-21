@@ -212,6 +212,7 @@ computeReplayGain () {
       if [ $Self_Verbose = false ]; then
         # processId|status|context|data|message|path
         while read processId status context data message path; do
+          msg="${msg//¦/|}"
           if [ "$status" != "success" ]; then
             outputWarningOrError
             exitCode=$Ex_Ko
@@ -259,6 +260,7 @@ touchFiles () {
       if [ $Self_Verbose = false ]; then
         # processId|status|context|data|message|path
         while read processId status context data message path; do
+          msg="${msg//¦/|}"
           if [ "$status" != "success" ]; then
             outputWarningOrError
             exitCode=$Ex_Ko
@@ -300,6 +302,7 @@ if [ $exitCode -eq $Ex_Ok ]; then
   lastMessage=""
   # processId|status|context|data|message|path
   while read processId status context data message path; do
+    msg="${msg//¦/|}"
     dir="$( dirname "$path" )"
     codec="$data"
     if [ -n "$lastCodec" -a -n "$lastDir" ]; then
