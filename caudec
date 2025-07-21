@@ -377,20 +377,20 @@ Fields are separated with pipes ('|', Unicode: U+007C); pipe characters present
 in filenames or messages are replaced with the visually similar 'broken bar'
 sign ('¦', Unicode: U+00A6).
 
-process_id|status|status_info|status_data|message|file
+processId|status|context|data|message|path
 
-process_id: identifier (PID) of the caudec process.
+processId: identifier (PID) of the caudec process.
 
 status: one of info, success, error, warning, abort.
 
-status_info: optional additional information about the status (usage,
+context: optional additional information about the status (usage,
     initialization, decoding, processing, encoding, testing, hashing, debugging,
     track_gain, album_gain, checking_version, aborting, hash_type,
     bitrate_codecName, processing_rate, touch_file, touch_files).
 
-status_data: optional data about the status (hash type, hash value, hash error,
+data: optional data about the status (hash type, hash value, hash error,
     gain value in dB, bitrate in bits per second, processing rate, version
-    status, file characteristics). Some status_data keywords:
+    status, file characteristics). Some data keywords:
     * filesystem (filesystem related error or information),
     * server (server related error or information),
     * command_line (command line related error or information),
@@ -406,7 +406,7 @@ message: optional human-readable information about the status.
 file: path of the file that is affected by the status (if applicable)."
 }
 
-# process_number;status;status_info;status_data;message;file
+# processId|status|context|data|message|path
 getMachineParsableString () {
 	local pid=''
 
@@ -426,8 +426,8 @@ getMachineParsableString () {
 		info)
 			if [ -n "$bitrate" ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "bitrate_${codec}" "$bitrate" "$msg" '' )"
-			elif [ -n "$rate" ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" 'processing_rate' "$rate" "$msg" '' )"
+			elif [ -n "$processingRate" ]; then
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" 'processing_rate' "$processingRate" "$msg" '' )"
 			elif [ -n "$hashType" ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$hashType" "$statusData" '' "$file" )"
 			else
@@ -500,45 +500,45 @@ getHumanReadableString () {
 
 		success)
 			if [ "$statusInfo" = 'track_gain' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%9s ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$gain dB" "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%9s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$gain dB" "$fileName" )"
 			elif [ "$statusInfo" = 'album_gain' ]; then
 				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}OK ${Clr_Rst}%9s ${Clr_Rst}%s\n" "$gain dB" 'Album gain' )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$dateTime" "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$dateTime" "$fileName" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
 				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}OK ${Clr_Rst}%10s ${Clr_Rst}%s\n" "$albumTime" "Album length" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$numberOfThreads" ]; then
 					if [ $numberOfThreads -lt 2 ]; then
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$numberOfThreads" "$hashType" "$fileName" )"
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$hashType" "$fileName" )"
 					elif [ $numberOfThreads -ge 2 -a $numberOfThreads -lt 4 ]; then
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_N_Gr}%2ux ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$numberOfThreads" "$hashType" "$fileName" )"
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_N_Gr}%2ux ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$hashType" "$fileName" )"
 					elif [ $numberOfThreads -ge 4 ]; then
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}%2ux ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$numberOfThreads" "$hashType" "$fileName" )"
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}%2ux ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$hashType" "$fileName" )"
 					fi
 				else
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$hashType" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hashType" "$fileName" )"
 				fi
 			elif [ "$statusInfo" = 'characteristics' ]; then
 				data="${characteristics:2}"
 				data="${data//;/|}"
 				if [ "${characteristics:0:1}" = "1" ]; then
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}CD ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $p "${data}" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}CD ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$fileName" )"
 				else
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bl}DM ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $p "${data}" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bl}DM ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$fileName" )"
 				fi
 			elif [ -n "$file" ]; then # transcoding or hashing
-				if [ -n "$p" ]; then
+				if [ -n "$processNumber" ]; then
 					if [ -n "$numberOfThreads" ]; then
 						if [ $numberOfThreads -lt 2 ]; then
-							str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$numberOfThreads" "$fileName" )"
+							str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$fileName" )"
 						elif [ $numberOfThreads -ge 2 -a $numberOfThreads -lt 4 ]; then
-							str="$( printf "${Clr_B_Bk}%2u ${Clr_N_Gr}%2ux ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$numberOfThreads" "$fileName" )"
+							str="$( printf "${Clr_B_Bk}%2u ${Clr_N_Gr}%2ux ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$fileName" )"
 						elif [ $numberOfThreads -ge 4 ]; then
-							str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}%2ux ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$numberOfThreads" "$fileName" )"
+							str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}%2ux ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$fileName" )"
 						fi
 					else
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$fileName" )"
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 					fi
 				else
 					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" "$fileName" )"
@@ -550,36 +550,36 @@ getHumanReadableString () {
 
 		error)
 			if [ "$statusInfo" = 'decoding' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}DC ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}DC ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'processing' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}PR ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}PR ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$hashType" ]; then
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$hashType" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hashType" "$fileName" )"
 				elif [ -n "$msg" ]; then
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $p "$fileName" "$msg" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $processNumber "$fileName" "$msg" )"
 				else
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 				fi
 			elif [ "$statusInfo" = 'characteristics' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$characteristics" "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$characteristics" "$fileName" )"
 			elif [ -n "$file" ]; then
 				if [ -n "$msg" ]; then
-					if [ -n "$p" ]; then
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $p "$fileName" "$msg" )"
+					if [ -n "$processNumber" ]; then
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $processNumber "$fileName" "$msg" )"
 					else
 						str="$( printf "${Clr_B_Bk} * ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}: %s\n" "$fileName" "$msg" )"
 					fi
 				else
-					if [ -n "$p" ]; then
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}\n" $p "$fileName" )"
+					if [ -n "$processNumber" ]; then
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 					else
 						str="$( printf "${Clr_B_Bk} * ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}\n" "$fileName" )"
 					fi
 				fi
 			elif [ -n "$msg" ]; then
-				if [ -n "$p" ]; then
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER${Clr_Rst}: %s\n" $p "$msg" )"
+				if [ -n "$processNumber" ]; then
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER${Clr_Rst}: %s\n" $processNumber "$msg" )"
 				else
 					str="$( printf "${Clr_B_Bk} * ${Clr_Ko}ER${Clr_Rst}: %s\n" "$msg" )"
 				fi
@@ -588,18 +588,18 @@ getHumanReadableString () {
 
 		warning)
 			if [ -n "$file" ]; then
-				if [ -n "$p" ]; then
+				if [ -n "$processNumber" ]; then
 					if [ -n "$numberOfThreads" ]; then
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $p "$numberOfThreads" "$fileName" "$msg" )"
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $processNumber "$numberOfThreads" "$fileName" "$msg" )"
 					else
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $p "$fileName" "$msg" )"
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $processNumber "$fileName" "$msg" )"
 					fi
 				else
 					str="$( printf "${Clr_B_Bk} * ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" "$fileName" "$msg" )"
 				fi
 			else
-				if [ -n "$p" ]; then
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Wg}WG${Clr_Rst}: %s\n" $p "$msg" )"
+				if [ -n "$processNumber" ]; then
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Wg}WG${Clr_Rst}: %s\n" $processNumber "$msg" )"
 				else
 					str="$( printf "${Clr_B_Bk} * ${Clr_Wg}WG${Clr_Rst}: %s\n" "$msg" )"
 				fi
@@ -626,7 +626,7 @@ printMessageToStdoutOrStderr () {
 
 printMessage () {
 	local msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo='' statusData=''
-	local file='' path='' fileDir='' msg='' p='' numberOfThreads='' hashType='' hashError='' gain='' bitrate='' rate=''
+	local file='' path='' fileDir='' msg='' p='' numberOfThreads='' hashType='' hashError='' gain='' bitrate='' processingRate=''
 	local codec='' outputCodec='' str='' characteristics=''
 
 	for a in "$@"; do
@@ -645,7 +645,7 @@ printMessage () {
 			outputCodec:*) statusData="${a#outputCodec:}" ;;
 			+*dB|-*dB) gain="${a% dB}" ;;
 			*bps) bitrate="${a%bps}" ;;
-			*x) rate="${a%x}" ;;
+			*x) processingRate="$a" ;;
 			bitrate_*) codec="${a#bitrate_}" ;;
 			[0-9]*) p="$a" ;;
 			threads:[0-9]*) numberOfThreads="${a#threads:}" ;;
@@ -1433,19 +1433,19 @@ checkBinaries () {
 }
 
 setNumberOfProcesses () {
-	local newNumberOfProcesses=$1 processNumber
+	local newNumberOfProcesses=$1 processIndex
 
-	for (( processNumber=0 ; processNumber < newNumberOfProcesses; processNumber++ )); do
-		touch "${instanceDir}/process.$processNumber" >/dev/null 2>&1
+	for (( processIndex=0 ; processIndex < newNumberOfProcesses; processIndex++ )); do
+		touch "${instanceDir}/process.$processIndex" >/dev/null 2>&1
 	done
 
 	if [ $newNumberOfProcesses -lt $nProcesses ]; then
-		for (( processNumber=newNumberOfProcesses ; processNumber < nProcesses; processNumber++ )); do
-			rm -f "${instanceDir}/process.$processNumber"
+		for (( processIndex=newNumberOfProcesses ; processIndex < nProcesses; processIndex++ )); do
+			rm -f "${instanceDir}/process.$processIndex"
 		done
 	elif [ $newNumberOfProcesses -gt $nProcesses ]; then
-		for (( processNumber=nProcesses ; processNumber < newNumberOfProcesses; processNumber++ )); do
-			touch "${instanceDir}/process.$processNumber" >/dev/null 2>&1
+		for (( processIndex=nProcesses ; processIndex < newNumberOfProcesses; processIndex++ )); do
+			touch "${instanceDir}/process.$processIndex" >/dev/null 2>&1
 		done
 	fi
 
@@ -3213,7 +3213,7 @@ decode () {
 		fi
 
 		if [ $applyGain = true -a -z "$gainValue" ]; then
-			printMessage 'warning' 'processing' "file:${sourceFile}" $p "threads:1" "no gain value"
+			printMessage 'warning' 'processing' "file:${sourceFile}" $processNumber "threads:1" "no gain value"
 		fi
 
 		nChannels=$( getNumberOfChannels "$wavFile" )
@@ -3249,7 +3249,7 @@ decode () {
 						if [ -n "$hline" ]; then
 							echo "SOURCEMD5=${hline}" > "$sourceMD5File"
 							if [ -n "$sourceMD5" -a "$sourceMD5" != "$hline" ]; then
-								printMessage 'warning' 'decoding' 'bad_internal_hash' $p "file:${sourceFile}" 'internal MD5 hash is incorrect (possible bug in the codec)!'
+								printMessage 'warning' 'decoding' 'bad_internal_hash' $processNumber "file:${sourceFile}" 'internal MD5 hash is incorrect (possible bug in the codec)!'
 								printMessage 'info' 'decoding' 'stderr' 'Please file a bug report: https://github.com/gcocatre/caudec/issues'
 							fi
 						fi
@@ -3378,7 +3378,7 @@ decode () {
 						if [ -n "$hline" ]; then
 							echo "MD5=${hline}" > "$losslessMD5File"
 							if [ "$wavProcessed" != 'true' -a -n "$sourceMD5" -a "$sourceMD5" != "$hline" ]; then
-								printMessage 'warning' 'decoding' 'bad_internal_hash' $p "file:${sourceFile}" 'internal MD5 hash is incorrect (possible bug in the codec)!'
+								printMessage 'warning' 'decoding' 'bad_internal_hash' $processNumber "file:${sourceFile}" 'internal MD5 hash is incorrect (possible bug in the codec)!'
 								printMessage 'info' 'decoding' 'stderr' 'Please file a bug report: https://github.com/gcocatre/caudec/issues'
 							fi
 						fi
@@ -3520,7 +3520,7 @@ encodeLossyWAV () {
 				chmod 0644 "$encodedFile"
 				rm -f "$destFile" >/dev/null 2>> "$errorLogFile"
 				cp -a "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
-				printMessage 'success' 'encoding' $p "outputCodec:${outputCodec}" "file:${destFile}"
+				printMessage 'success' 'encoding' $processNumber "outputCodec:${outputCodec}" "file:${destFile}"
 			fi
 		fi
 	else
@@ -3528,7 +3528,7 @@ encodeLossyWAV () {
 		rm -f "${TDIR}/lossy"*"_${index}" # delete all lossy* codec lock files
 		rm -f "${TDIR}/"*"_${index}_LOSSYWAV_NEEDED" # delete associated codec lock files
 		rm -f "${TDIR}/lossyWAV_${index}_WAV_NEEDED"
-		printMessage 'error' 'encoding' $p "file:${sourceFile}"
+		printMessage 'error' 'encoding' $processNumber "file:${sourceFile}"
 	fi
 
 	return $exitCode
@@ -4061,19 +4061,19 @@ encode () {
 
 			case $outputCodec in
 				WAV|AIFF|CAF)
-					printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:WAV" "threads:$nDecodingThreads"
+					printMessage 'success' "$statusInfo" "file:${destFile}" $processNumber "outputCodec:WAV" "threads:$nDecodingThreads"
 					;;
 
 				WavPackHybrid)
 					if [ -n "$destLinkPath" ]; then
-						printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:${outputCodec}" "threads:$nThreads" "$destLinkPath"
+						printMessage 'success' "$statusInfo" "file:${destFile}" $processNumber "outputCodec:${outputCodec}" "threads:$nThreads" "$destLinkPath"
 					else
-						printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:${outputCodec}" "threads:$nThreads"
+						printMessage 'success' "$statusInfo" "file:${destFile}" $processNumber "outputCodec:${outputCodec}" "threads:$nThreads"
 					fi
 					;;
 
 				*)
-					printMessage 'success' "$statusInfo" "file:${destFile}" $p "outputCodec:${outputCodec}" "threads:$nThreads"
+					printMessage 'success' "$statusInfo" "file:${destFile}" $processNumber "outputCodec:${outputCodec}" "threads:$nThreads"
 					;;
 			esac
 		fi
@@ -4451,7 +4451,7 @@ testFile () {
 				mac "$copyFile" -threads=$nThreads -V >/dev/null 2>&1; exitCode=$?
 				;;
 
-			*) printMessage 'warning' 'testing' 'unsupported' "file:${sourceFile}" $p 'unsupported format' ; return $Ex_Ko ;;
+			*) printMessage 'warning' 'testing' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format' ; return $Ex_Ko ;;
 		esac
 	else
 		exitCode=$Ex_Ko
@@ -4461,9 +4461,9 @@ testFile () {
 	if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' 'testing' $p "threads:$nThreads" "file:${sourceFile}"
+		printMessage 'success' 'testing' $processNumber "threads:$nThreads" "file:${sourceFile}"
 	else
-		printMessage 'error' 'testing' $p "file:${sourceFile}"
+		printMessage 'error' 'testing' $processNumber "file:${sourceFile}"
 	fi
 	return $exitCode
 }
@@ -4551,7 +4551,7 @@ computeHash () {
 				fi
 				;;
 
-			*) printMessage 'warning' 'hashing' 'unsupported' "file:${sourceFile}" $p 'unsupported format' ; return $Ex_Ko ;;
+			*) printMessage 'warning' 'hashing' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format' ; return $Ex_Ko ;;
 		esac
 
 		if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
@@ -4585,7 +4585,7 @@ computeHash () {
 						if [ -n "$hline" ]; then
 							echo "MD5=${hline}" >> "$sourceTagFile"
 							if [ -n "$sourceMD5" -a "$sourceMD5" != "$hline" ]; then
-								printMessage 'warning' 'hashing' 'bad_internal_hash' $p "file:${sourceFile}" 'internal MD5 hash is incorrect (possible bug in the codec)!'
+								printMessage 'warning' 'hashing' 'bad_internal_hash' $processNumber "file:${sourceFile}" 'internal MD5 hash is incorrect (possible bug in the codec)!'
 								printMessage 'info' 'hashing' 'stderr' 'Please file a bug report: https://github.com/gcocatre/caudec/issues'
 							fi
 						fi
@@ -4624,9 +4624,9 @@ computeHash () {
 	fi
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' 'hashing' $p "threads:$nThreads" "file:${sourceFile}"
+		printMessage 'success' 'hashing' $processNumber "threads:$nThreads" "file:${sourceFile}"
 	else
-		printMessage 'error' 'decoding' $p "file:${sourceFile}"
+		printMessage 'error' 'decoding' $processNumber "file:${sourceFile}"
 	fi
 	return $exitCode
 }
@@ -4692,7 +4692,7 @@ showTrackInformation () {
 				done < <( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$sourceFile" 2>/dev/null )
 				;;
 
-			# *) printMessage 'warning' 'characteristics' 'unsupported' "file:${sourceFile}" $p 'unsupported format' ; return $Ex_Ko ;;
+			# *) printMessage 'warning' 'characteristics' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format' ; return $Ex_Ko ;;
 		esac
 
 		if [ "$bitDepth" = "0" ]; then
@@ -5027,7 +5027,7 @@ computeTrackGain () {
 				fi
 				;;
 
-			*) printMessage 'warning' 'track_gain' 'unsupported' "file:${sourceFile}" $p 'unsupported format' ; return $Ex_Ko ;;
+			*) printMessage 'warning' 'track_gain' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format' ; return $Ex_Ko ;;
 		esac
 	else
 		exitCode=$Ex_Ko
@@ -5045,7 +5045,7 @@ computeTrackGain () {
 				if [ "${trackGain:0:1}" != '-' -a "${trackGain:0:1}" != '+' ]; then
 					trackGain="+${trackGain}"
 				fi
-				printMessage 'success' 'track_gain' $p "$trackGain dB" "file:${sourceFile}"
+				printMessage 'success' 'track_gain' $processNumber "$trackGain dB" "file:${sourceFile}"
 			fi
 		else
 			printMessage 'error' 'track_gain' "file:${sourceFile}" $p
@@ -5281,7 +5281,7 @@ reverseTrackGain () {
 				fi
 				;;
 
-			*) printMessage 'warning' 'track_gain' 'unsupported' "file:${sourceFile}" $p 'unsupported format' ; return $Ex_Ko ;;
+			*) printMessage 'warning' 'track_gain' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format' ; return $Ex_Ko ;;
 		esac
 	else
 		exitCode=$Ex_Ko
@@ -5289,7 +5289,7 @@ reverseTrackGain () {
 
 	if [ $exitCode -eq $Ex_Ok ]; then
 		if [ $verbose = true ]; then
-			printMessage 'success' 'track_gain' $p "-0 dB" "file:${sourceFile}"
+			printMessage 'success' 'track_gain' $processNumber "-0 dB" "file:${sourceFile}"
 		fi
 	else
 		printMessage 'error' 'track_gain' "file:${sourceFile}" $p
@@ -5380,9 +5380,9 @@ computeTrackDateTime () {
 	esac
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' 'touch_file' $p "dateTime:${trackYear}-${trackMonth}-${trackDay}" "file:${sourceFile}"
+		printMessage 'success' 'touch_file' $processNumber "dateTime:${trackYear}-${trackMonth}-${trackDay}" "file:${sourceFile}"
 	else
-		printMessage 'error' 'touch_file' $p "dateTime:${trackYear}-${trackMonth}-${trackDay}" "file:${sourceFile}"
+		printMessage 'error' 'touch_file' $processNumber "dateTime:${trackYear}-${trackMonth}-${trackDay}" "file:${sourceFile}"
 	fi
 
 	return $exitCode
@@ -5674,7 +5674,7 @@ getFileProps () {
 
 printMachineStats () {
 	local sourceCoverArtBytes audio_bytes_compressed=0 destExtension dest bcmd seconds slist
-	local bytes_compressed duration=0 rate=''
+	local bytes_compressed duration=0 processingRate=''
 
 	seconds="$( printf 'scale=6; %.6f - %.6f\n' "$time2" "$time1" | bc )"
 	if [ "$seconds" = '0' ]; then seconds='1'; fi # prevent division by 0 situations
@@ -5685,18 +5685,18 @@ printMachineStats () {
 
 	if [ "$duration" != '0' ]; then
 		duration="$( printf "%.0f" "$( echo "scale=3; $duration / 1000" | bc )" )"
-		rate="$( echo "scale=1; $duration / $seconds" | bc )"
+		processingRate="$( echo "scale=1; $duration / $seconds" | bc )"
 	fi
 
 	if [ -z "$outputCodecs" ]; then
-		if [ -n "$rate" ]; then
-			printMessage 'info' "${rate}x"
+		if [ -n "$processingRate" ]; then
+			printMessage 'info' "${processingRate}x"
 		fi
 		return
 	fi
 
-	if [ -n "$rate" ]; then
-		printMessage 'info' "${rate}x"
+	if [ -n "$processingRate" ]; then
+		printMessage 'info' "${processingRate}x"
 	fi
 
 	if [ "$outputCodecs" = 'WAV' ]; then return; fi
@@ -5750,7 +5750,7 @@ printMachineStats () {
 
 printHumanStats () {
 	local sourceFile sourceCoverArtBytes audio_bytes_compressed=0 destExtension dest bcmd seconds slist
-	local bytes_wav bytes_compressed imbsec ombsec mib_compressed ratio duration='0' rate='' readDuration
+	local bytes_wav bytes_compressed imbsec ombsec mib_compressed ratio duration='0' processingRate='' readDuration
 
 	seconds="$( printf 'scale=6; %.6f - %.6f\n' "$time2" "$time1" | bc )"
 	if [ "$seconds" = '0' ]; then seconds='1'; fi # prevent division by 0 situations
@@ -5761,7 +5761,7 @@ printHumanStats () {
 
 	if [ "$duration" != '0' ]; then
 		duration="$( printf "%.0f" "$( echo "scale=3; $duration / 1000" | bc )" )"
-		rate="$( echo "scale=1; $duration / $seconds" | bc )"
+		processingRate="$( echo "scale=1; $duration / $seconds" | bc )"
 	fi
 	printf "${Clr_B_Bk} * ${Clr_Rst}%.2f seconds" $seconds
 
@@ -5789,10 +5789,10 @@ printHumanStats () {
 	imbsec="$( echo "scale=3; $bytes_source / ($readDuration * 1000000)" | bc )"
 
 	if [ -z "$outputCodecs" ]; then
-		if [ -z "$rate" ]; then
+		if [ -z "$processingRate" ]; then
 			printf ' (read: %.1f MB/s)\n' "$imbsec"
 		else
-			printf ' (read: %.1f MB/s, rate: %sx)\n' "$imbsec" "$rate"
+			printf ' (read: %.1f MB/s, rate: %sx)\n' "$imbsec" "$processingRate"
 		fi
 		return
 	fi
@@ -6925,7 +6925,7 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for ((p=0; p < nProcesses; p++)); do
+	for ((processNumber=0; processNumber < nProcesses; processNumber++)); do
 		transcode &
 	done
 elif [ $checkFiles = true ]; then
@@ -6935,7 +6935,7 @@ elif [ $checkFiles = true ]; then
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for ((p=0; p < nProcesses; p++)); do
+	for ((processNumber=0; processNumber < nProcesses; processNumber++)); do
 		testFiles &
 	done
 elif [ $computeReplayGain = true ]; then
@@ -6945,7 +6945,7 @@ elif [ $computeReplayGain = true ]; then
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for ((p=0; p < nProcesses; p++)); do
+	for ((processNumber=0; processNumber < nProcesses; processNumber++)); do
 		computeTrackGains &
 	done
 elif [ $reverseReplayGain = true ]; then
@@ -6958,7 +6958,7 @@ elif [ $reverseReplayGain = true ]; then
 	if [ $allFilesAreOpus = true ]; then
 		reverseOpusTrackGains || exitCode=$Ex_Ko
 	else
-		for ((p=0; p < nProcesses; p++)); do
+		for ((processNumber=0; processNumber < nProcesses; processNumber++)); do
 			reverseTrackGains &
 		done
 	fi
@@ -6969,7 +6969,7 @@ elif [ $touchFiles = true ]; then
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for ((p=0; p < nProcesses; p++)); do
+	for ((processNumber=0; processNumber < nProcesses; processNumber++)); do
 		computeTrackDateTimes &
 	done
 elif [ $hashFiles = true ]; then
@@ -6979,7 +6979,7 @@ elif [ $hashFiles = true ]; then
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for ((p=0; p < nProcesses; p++)); do
+	for ((processNumber=0; processNumber < nProcesses; processNumber++)); do
 		computeHashes &
 	done
 elif [ $showInformation = true ]; then
@@ -6989,11 +6989,11 @@ elif [ $showInformation = true ]; then
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for ((p=0; p < nProcesses; p++)); do
+	for ((processNumber=0; processNumber < nProcesses; processNumber++)); do
 		showTracksInformation &
 	done
 fi
-exitCode=$Ex_Ok ; for p in $( jobs -p ); do wait $p || exitCode=$Ex_Ko ; done
+exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
 
 if [ $exitCode -eq $Ex_Ok ]; then
 	if [ $computeReplayGain = true ]; then

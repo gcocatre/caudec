@@ -154,16 +154,16 @@ Self_ReplayGain_Log="${Self_Tmp_Dir}/replay_gain_log"
 Self_Touch_Log="${Self_Tmp_Dir}/touch_log"
 
 outputWarningOrError () {
-  local fileName="${file##*/}"
+  local fileName="${path##*/}"
 
-  # process_id|status|status_info|status_data|message|file
+  # processId|status|context|data|message|path
 	case "$status" in
 		error)
-			if [ "$status_info" = 'decoding' ]; then
+			if [ "$context" = 'decoding' ]; then
 				str="$( printf "${Clr_B_Bk} * ${Clr_Ko}DC ${Clr_N_Cy}%s${Clr_Rst}\n" "$fileName" )"
-			elif [ "$status_info" = 'processing' ]; then
+			elif [ "$context" = 'processing' ]; then
 				str="$( printf "${Clr_B_Bk} * ${Clr_Ko}PR ${Clr_N_Cy}%s${Clr_Rst}\n" "$fileName" )"
-			elif [ -n "$file" ]; then
+			elif [ -n "$path" ]; then
 				if [ -n "$message" ]; then
 					str="$( printf "${Clr_B_Bk} * ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}: %s\n" "$fileName" "$message" )"
 				else
@@ -176,7 +176,7 @@ outputWarningOrError () {
 			;;
 
 		warning)
-			if [ -n "$file" ]; then
+			if [ -n "$path" ]; then
 				str="$( printf "${Clr_B_Bk} * ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" "$fileName" "$message" )"
 			else
 				str="$( printf "${Clr_B_Bk} * ${Clr_Wg}WG ${Clr_Rst}%s\n" "$message" )"
@@ -187,7 +187,7 @@ outputWarningOrError () {
 }
 
 computeReplayGain () {
-  local exitCode=$Ex_Ok status status_info status_data file message process_id
+  local exitCode=$Ex_Ok processId status context data message path
 
   case "$lastCodec" in
     FLAC|WavPack*|lossyFLAC|lossyWV|OggVorbis|MP3|Opus)
@@ -210,8 +210,8 @@ computeReplayGain () {
       fi
 
       if [ $Self_Verbose = false ]; then
-        # process_id|status|status_info|status_data|message|file
-        while read process_id status status_info status_data message file; do
+        # processId|status|context|data|message|path
+        while read processId status context data message path; do
           if [ "$status" != "success" ]; then
             outputWarningOrError
             exitCode=$Ex_Ko
@@ -235,7 +235,7 @@ computeReplayGain () {
 }
 
 touchFiles () {
-  local exitCode=$Ex_Ok linkDir="$1" status status_info status_data file message process_id
+  local exitCode=$Ex_Ok linkDir="$1" processId status context data message path
 
   case "$lastCodec" in
     FLAC|ALAC|WavPack*|lossyFLAC|lossyWV|OggVorbis|AAC|MonkeysAudio|MP3|Opus)
@@ -257,8 +257,8 @@ touchFiles () {
       fi
 
       if [ $Self_Verbose = false ]; then
-        # process_id|status|status_info|status_data|message|file
-        while read process_id status status_info status_data message file; do
+        # processId|status|context|data|message|path
+        while read processId status context data message path; do
           if [ "$status" != "success" ]; then
             outputWarningOrError
             exitCode=$Ex_Ko
@@ -298,10 +298,10 @@ if [ $exitCode -eq $Ex_Ok ]; then
   lastCodec=""
   lastDir=""
   lastMessage=""
-  # process_id|status|status_info|status_data|message|file
-  while read process_id status status_info status_data message file; do
-    dir="$( dirname "$file" )"
-    codec="$status_data"
+  # processId|status|context|data|message|path
+  while read processId status context data message path; do
+    dir="$( dirname "$path" )"
+    codec="$data"
     if [ -n "$lastCodec" -a -n "$lastDir" ]; then
       if [ "$codec" != "$lastCodec" -o "$dir" != "$lastDir" ]; then
         computeReplayGain || exitCode=$Ex_Ko
@@ -312,7 +312,7 @@ if [ $exitCode -eq $Ex_Ok ]; then
       fi
     fi
     if [ "$status" = "success" ]; then
-      files[$index]="$file"
+      files[$index]="$path"
       index=$(( index + 1 ))
     elif [ $Self_Verbose = false ]; then
       outputWarningOrError
