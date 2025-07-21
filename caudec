@@ -627,42 +627,42 @@ printMessageToStdoutOrStderr () {
 printMessage () {
 	local msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo='' statusData=''
 	local file='' path='' fileDir='' msg='' p='' numberOfThreads='' hashType='' hashError='' gain='' bitrate='' processingRate=''
-	local codec='' outputCodec='' str='' characteristics='' arg
+	local codec='' outputCodec='' str='' characteristics='' msgArg
 
-	for arg in "$@"; do
-		case "$arg" in
-			info) msgType="$arg" msgVerbose='verbose' ;;
-			success) msgType="$arg" msgVerbose='verbose' ;;
-			warning|error|abort) msgType="$arg" msgOut='stderr' ;;
+	for msgArg in "$@"; do
+		case "$msgArg" in
+			info) msgType="$msgArg" msgVerbose='verbose' ;;
+			success) msgType="$msgArg" msgVerbose='verbose' ;;
+			warning|error|abort) msgType="$msgArg" msgOut='stderr' ;;
 			verbose) msgVerbose='verbose' ;;
 			debug) msgDebug='debug' statusInfo='debugging' ;;
 			stderr) msgOut='stderr' ;;
-			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|touch_file|touch_files|characteristics) statusInfo="$arg" ;;
-			unsupported|quota|bad_value|filesystem|command_line|internal|user_agent) statusData="$arg" ;;
-			server|up_to_date|new_version_available|running_newer_version) statusData="$arg" ;;
-			file:*) file="${arg#file:}"; fileDir="$( dirname "$file" )"; fileName="$( basename "$file" )" ;;
-			path:*) path="${arg#path:}" ;;
-			outputCodec:*) statusData="${arg#outputCodec:}" ;;
-			+*dB|-*dB) gain="${arg% dB}" ;;
-			*bps) bitrate="${arg%bps}" ;;
-			*x) processingRate="$arg" ;;
-			bitrate_*) codec="${arg#bitrate_}" ;;
-			[0-9]*) p="$arg" ;;
-			threads:[0-9]*) numberOfThreads="${arg#threads:}" ;;
-			dateTime:[0-9]*) dateTime="${arg#dateTime:}" ;;
-			albumTime:[0-9:]*) albumTime="${arg#albumTime:}" ;;
-			characteristics:*) characteristics="${arg#characteristics:}" ;;
+			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|touch_file|touch_files|characteristics) statusInfo="$msgArg" ;;
+			unsupported|quota|bad_value|filesystem|command_line|internal|user_agent) statusData="$msgArg" ;;
+			server|up_to_date|new_version_available|running_newer_version) statusData="$msgArg" ;;
+			file:*) file="${msgArg#file:}"; fileDir="$( dirname "$file" )"; fileName="$( basename "$file" )" ;;
+			path:*) path="${msgArg#path:}" ;;
+			outputCodec:*) statusData="${msgArg#outputCodec:}" ;;
+			+*dB|-*dB) gain="${msgArg% dB}" ;;
+			*bps) bitrate="${msgArg%bps}" ;;
+			*x) processingRate="$msgArg" ;;
+			bitrate_*) codec="${msgArg#bitrate_}" ;;
+			[0-9]*) p="$msgArg" ;;
+			threads:[0-9]*) numberOfThreads="${msgArg#threads:}" ;;
+			dateTime:[0-9]*) dateTime="${msgArg#dateTime:}" ;;
+			albumTime:[0-9:]*) albumTime="${msgArg#albumTime:}" ;;
+			characteristics:*) characteristics="${msgArg#characteristics:}" ;;
 
-			CRC32|MD5|SHA1|SHA256|SHA512) hashType="$arg" ;;
-			no_hash|no_hash_tool|bad_internal_hash) hashError="$arg" ;;
+			CRC32|MD5|SHA1|SHA256|SHA512) hashType="$msgArg" ;;
+			no_hash|no_hash_tool|bad_internal_hash) hashError="$msgArg" ;;
 
-			CRC32=*) statusData="${arg#CRC32=}" ;;
-			MD5=*) statusData="${arg#MD5=}" ;;
-			SHA1=*) statusData="${arg#SHA1=}" ;;
-			SHA256=*) statusData="${arg#SHA256=}" ;;
-			SHA512=*) statusData="${arg#SHA512=}" ;;
+			CRC32=*) statusData="${msgArg#CRC32=}" ;;
+			MD5=*) statusData="${msgArg#MD5=}" ;;
+			SHA1=*) statusData="${msgArg#SHA1=}" ;;
+			SHA256=*) statusData="${msgArg#SHA256=}" ;;
+			SHA512=*) statusData="${msgArg#SHA512=}" ;;
 
-			*) msg="$arg" ;;
+			*) msg="$msgArg" ;;
 		esac
 	done
 
@@ -3743,7 +3743,7 @@ encode () {
 	local exitCode=$Ex_Ok nDecodingThreads=$1 nThreads=1
 	local pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses listOfOtherFiles
 	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag='' id3CompressionTag=''
-	local nChannels compression_param quality_arg
+	local nChannels compressionParam qualityArg
 
 	getFileProps "$sourceFile" "$outputCodec"
 	case "$outputCodec" in
@@ -3940,26 +3940,26 @@ encode () {
 				case "$aaclib" in
 					aac_at)
 						if [ "$AAC_MODE" = "ABR" -a -n "$average_bitrate_AAC" ]; then
-							compression_param="-aac_at_mode abr -b:a" quality_arg="${average_bitrate_AAC}k"
+							compressionParam="-aac_at_mode abr -b:a" qualityArg="${average_bitrate_AAC}k"
 						else
-							compression_param="-b:a" quality_arg="${bitrate_AAC}k"
+							compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
 						fi
-						# debug "aaclib [$aaclib] compression_param[$compression_param] quality_arg[$quality_arg]"
+						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
 						if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; exitCode=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$errorLogFile"; exitCode=$?
 						else
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; exitCode=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$errorLogFile"; exitCode=$?
 						fi
 						if [ $exitCode -ne $Ex_Ko ]; then exitCode=$Ex_Ok; break; fi
 						;;
 
 					libfdk_aac)
-						compression_param="-b:a" quality_arg="${bitrate_AAC}k"
-						# debug "aaclib [$aaclib] compression_param[$compression_param] quality_arg[$quality_arg]"
+						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
+						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
 						if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; exitCode=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$errorLogFile"; exitCode=$?
 						else
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; exitCode=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$errorLogFile"; exitCode=$?
 						fi
 						if [ $exitCode -ne $Ex_Ko ]; then exitCode=$Ex_Ok; break; fi
 						;;
@@ -3970,12 +3970,12 @@ encode () {
 								bitrate_AAC="$average_bitrate_AAC"
 							fi
 						fi
-						compression_param="-b:a" quality_arg="${bitrate_AAC}k"
-						# debug "aaclib [$aaclib] compression_param[$compression_param] quality_arg[$quality_arg]"
+						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
+						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
 						if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; exitCode=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$errorLogFile"; exitCode=$?
 						else
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compression_param $quality_arg >/dev/null 2>> "$errorLogFile"; exitCode=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$errorLogFile"; exitCode=$?
 						fi
 						if [ $exitCode -ne $Ex_Ko ]; then exitCode=$Ex_Ok; break; fi
 						;;
@@ -5673,8 +5673,8 @@ getFileProps () {
 }
 
 printMachineStats () {
-	local sourceCoverArtBytes audio_bytes_compressed=0 destExtension dest bcmd seconds slist
-	local bytes_compressed duration=0 processingRate=''
+	local sourceCoverArtBytes destExtension dest bcmd seconds slist
+	local bytesCompressed duration=0 processingRate=''
 
 	seconds="$( printf 'scale=6; %.6f - %.6f\n' "$time2" "$time1" | bc )"
 	if [ "$seconds" = '0' ]; then seconds='1'; fi # prevent division by 0 situations
@@ -5715,9 +5715,9 @@ printMachineStats () {
 	done
 
 	if [ $gnustat = true ]; then
-		bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
+		bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 	else
-		bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
+		bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
 	fi
 
 	for outputCodec in $outputCodecs; do
@@ -5733,15 +5733,15 @@ printMachineStats () {
 		done
 
 		if [ $gnustat = true ]; then
-			bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
+			bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 		else
-			bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
+			bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
 		fi
 
 
 		if [ $duration -gt 0 ]; then
-			bitrate_compressed="$( echo "scale=0; ($bytes_compressed * 8) / ${duration}" | bc )"
-			printMessage 'info' "bitrate_${outputCodec}" "${bitrate_compressed}bps"
+			bitrateCompressed="$( echo "scale=0; ($bytesCompressed * 8) / ${duration}" | bc )"
+			printMessage 'info' "bitrate_${outputCodec}" "${bitrateCompressed}bps"
 		fi
 	done
 
@@ -5749,8 +5749,9 @@ printMachineStats () {
 }
 
 printHumanStats () {
-	local sourceFile sourceCoverArtBytes audio_bytes_compressed=0 destExtension dest bcmd seconds slist
-	local bytes_wav bytes_compressed imbsec ombsec mib_compressed ratio duration='0' processingRate='' readDuration
+	local sourceFile sourceCoverArtBytes destExtension dest bcmd seconds slist
+	local bytesSource bytesWav bytesCompressed imbsec ombsec mibSource mibCompressed mibUncompressed bitrateCompressed
+	local ratio duration='0' processingRate='' readDuration
 
 	seconds="$( printf 'scale=6; %.6f - %.6f\n' "$time2" "$time1" | bc )"
 	if [ "$seconds" = '0' ]; then seconds='1'; fi # prevent division by 0 situations
@@ -5782,11 +5783,11 @@ printHumanStats () {
 	done
 
 	if [ $gnustat = true ]; then
-		bytes_source="$( { echo -n 'scale=0; 0'; printf "%s${slist}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
+		bytesSource="$( { echo -n 'scale=0; 0'; printf "%s${slist}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 	else
-		bytes_source="$( { echo -n 'scale=0; 0'; printf "%s${slist}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
+		bytesSource="$( { echo -n 'scale=0; 0'; printf "%s${slist}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
 	fi
-	imbsec="$( echo "scale=3; $bytes_source / ($readDuration * 1000000)" | bc )"
+	imbsec="$( echo "scale=3; $bytesSource / ($readDuration * 1000000)" | bc )"
 
 	if [ -z "$outputCodecs" ]; then
 		if [ -z "$processingRate" ]; then
@@ -5811,11 +5812,11 @@ printHumanStats () {
 	done
 
 	if [ $gnustat = true ]; then
-		bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
+		bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 	else
-		bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
+		bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
 	fi
-	ombsec="$( echo "scale=3; $bytes_compressed / ($seconds * 1000000)" | bc )"
+	ombsec="$( echo "scale=3; $bytesCompressed / ($seconds * 1000000)" | bc )"
 
 	if [ -n "$rate" ]; then
 		printf ' (read: %.1f MB/s, write: %.1f MB/s, rate: %sx)\n' "$imbsec" "$ombsec" "$rate"
@@ -5825,20 +5826,20 @@ printHumanStats () {
 
 	if [ "$outputCodecs" = 'WAV' ]; then return; fi
 
-	bytes_wav="$( { echo -n 'scale=0; 0' ; cat "${TDIR}/bytes" ; echo ; } | bc )"
-	mib_source="$( echo "scale=3; $bytes_source / 1048576" | bc )"
-	mib_uncompressed="$( echo "scale=3; $bytes_wav / 1048576" | bc )"
-	ratio="$( echo "scale=3; $bytes_source * 100 / $bytes_wav" | bc )"
+	bytesWav="$( { echo -n 'scale=0; 0' ; cat "${TDIR}/bytes" ; echo ; } | bc )"
+	mibSource="$( echo "scale=3; $bytesSource / 1048576" | bc )"
+	mibUncompressed="$( echo "scale=3; $bytesWav / 1048576" | bc )"
+	ratio="$( echo "scale=3; $bytesSource * 100 / $bytesWav" | bc )"
 
 	if [ $duration -gt 0 ]; then
-		bitrate_source="$( echo "scale=0; (${bytes_source} * 8) / ${duration} / 1000" | bc )"
+		bitrate_source="$( echo "scale=0; (${bytesSource} * 8) / ${duration} / 1000" | bc )"
 	else
 		bitrate_source='?'
 	fi
 
 	# each item is separated by 4 spaces
-	printf '\n%-15s    %6.1f MiB    %5.1f%%' 'WAV:' "$mib_uncompressed" '100'
-	printf '\n%-15s    %6.1f MiB    %5.1f%%    %4s kbps\n' 'Source:' "$mib_source" "$ratio" "$bitrate_source"
+	printf '\n%-15s    %6.1f MiB    %5.1f%%' 'WAV:' "$mibUncompressed" '100'
+	printf '\n%-15s    %6.1f MiB    %5.1f%%    %4s kbps\n' 'Source:' "$mibSource" "$ratio" "$bitrate_source"
 
 	for outputCodec in $outputCodecs; do
 		bcmd=''
@@ -5853,22 +5854,22 @@ printHumanStats () {
 		done
 
 		if [ $gnustat = true ]; then
-			bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
+			bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 		else
-			bytes_compressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
+			bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
 		fi
 
 		if [ $duration -gt 0 ]; then
-			bitrate_compressed="$( echo "scale=0; (${bytes_compressed} * 8) / ${duration} / 1000" | bc )"
+			bitrateCompressed="$( echo "scale=0; (${bytesCompressed} * 8) / ${duration} / 1000" | bc )"
 		else
-			bitrate_compressed='?'
+			bitrateCompressed='?'
 		fi
 
-		mib_compressed="$( echo "scale=3; $bytes_compressed / 1048576" | bc )"
-		ratio="$( echo "scale=3; $bytes_compressed * 100 / $bytes_wav" | bc )"
+		mibCompressed="$( echo "scale=3; $bytesCompressed / 1048576" | bc )"
+		ratio="$( echo "scale=3; $bytesCompressed * 100 / $bytesWav" | bc )"
 
 		# each item is separated by 4 spaces
-		printf '%-15s    %6.1f MiB    %5.1f%%    %4s kbps\n' "${outputCodecFullName}:"	$mib_compressed "$ratio" "$bitrate_compressed"
+		printf '%-15s    %6.1f MiB    %5.1f%%    %4s kbps\n' "${outputCodecFullName}:"	$mibCompressed "$ratio" "$bitrateCompressed"
 	done
 
 	return $Ex_Ok
