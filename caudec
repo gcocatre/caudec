@@ -627,42 +627,42 @@ printMessageToStdoutOrStderr () {
 printMessage () {
 	local msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo='' statusData=''
 	local file='' path='' fileDir='' msg='' p='' numberOfThreads='' hashType='' hashError='' gain='' bitrate='' processingRate=''
-	local codec='' outputCodec='' str='' characteristics=''
+	local codec='' outputCodec='' str='' characteristics='' arg
 
-	for a in "$@"; do
-		case "$a" in
-			info) msgType="$a" msgVerbose='verbose' ;;
-			success) msgType="$a" msgVerbose='verbose' ;;
-			warning|error|abort) msgType="$a" msgOut='stderr' ;;
+	for arg in "$@"; do
+		case "$arg" in
+			info) msgType="$arg" msgVerbose='verbose' ;;
+			success) msgType="$arg" msgVerbose='verbose' ;;
+			warning|error|abort) msgType="$arg" msgOut='stderr' ;;
 			verbose) msgVerbose='verbose' ;;
 			debug) msgDebug='debug' statusInfo='debugging' ;;
 			stderr) msgOut='stderr' ;;
-			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|touch_file|touch_files|checking_version|characteristics) statusInfo="$a" ;;
-			unsupported|quota|bad_value|filesystem|command_line|internal|user_agent) statusData="$a" ;;
-			server|up_to_date|new_version_available|running_newer_version) statusData="$a" ;;
-			file:*) file="${a#file:}"; fileDir="$( dirname "$file" )"; fileName="$( basename "$file" )" ;;
-			path:*) path="${a#path:}" ;;
-			outputCodec:*) statusData="${a#outputCodec:}" ;;
-			+*dB|-*dB) gain="${a% dB}" ;;
-			*bps) bitrate="${a%bps}" ;;
-			*x) processingRate="$a" ;;
-			bitrate_*) codec="${a#bitrate_}" ;;
-			[0-9]*) p="$a" ;;
-			threads:[0-9]*) numberOfThreads="${a#threads:}" ;;
-			dateTime:[0-9]*) dateTime="${a#dateTime:}" ;;
-			albumTime:[0-9:]*) albumTime="${a#albumTime:}" ;;
-			characteristics:*) characteristics="${a#characteristics:}" ;;
+			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|touch_file|touch_files|characteristics) statusInfo="$arg" ;;
+			unsupported|quota|bad_value|filesystem|command_line|internal|user_agent) statusData="$arg" ;;
+			server|up_to_date|new_version_available|running_newer_version) statusData="$arg" ;;
+			file:*) file="${arg#file:}"; fileDir="$( dirname "$file" )"; fileName="$( basename "$file" )" ;;
+			path:*) path="${arg#path:}" ;;
+			outputCodec:*) statusData="${arg#outputCodec:}" ;;
+			+*dB|-*dB) gain="${arg% dB}" ;;
+			*bps) bitrate="${arg%bps}" ;;
+			*x) processingRate="$arg" ;;
+			bitrate_*) codec="${arg#bitrate_}" ;;
+			[0-9]*) p="$arg" ;;
+			threads:[0-9]*) numberOfThreads="${arg#threads:}" ;;
+			dateTime:[0-9]*) dateTime="${arg#dateTime:}" ;;
+			albumTime:[0-9:]*) albumTime="${arg#albumTime:}" ;;
+			characteristics:*) characteristics="${arg#characteristics:}" ;;
 
-			CRC32|MD5|SHA1|SHA256|SHA512) hashType="$a" ;;
-			no_hash|no_hash_tool|bad_internal_hash) hashError="$a" ;;
+			CRC32|MD5|SHA1|SHA256|SHA512) hashType="$arg" ;;
+			no_hash|no_hash_tool|bad_internal_hash) hashError="$arg" ;;
 
-			CRC32=*) statusData="${a#CRC32=}" ;;
-			MD5=*) statusData="${a#MD5=}" ;;
-			SHA1=*) statusData="${a#SHA1=}" ;;
-			SHA256=*) statusData="${a#SHA256=}" ;;
-			SHA512=*) statusData="${a#SHA512=}" ;;
+			CRC32=*) statusData="${arg#CRC32=}" ;;
+			MD5=*) statusData="${arg#MD5=}" ;;
+			SHA1=*) statusData="${arg#SHA1=}" ;;
+			SHA256=*) statusData="${arg#SHA256=}" ;;
+			SHA512=*) statusData="${arg#SHA512=}" ;;
 
-			*) msg="$a" ;;
+			*) msg="$arg" ;;
 		esac
 	done
 
