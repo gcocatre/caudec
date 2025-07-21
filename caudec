@@ -374,8 +374,8 @@ printMachineSyntax () {
 -------------------------------------------------------------------------------
 
 Fields are separated with pipes ('|', Unicode: U+007C); pipe characters present
-in filenames or messages are replaced with the visually similar 'broken bar'
-sign ('¦', Unicode: U+00A6).
+in messages are replaced with the visually similar 'broken bar' sign ('¦',
+Unicode: U+00A6).
 
 processId|status|context|data|message|path
 
