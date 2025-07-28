@@ -324,6 +324,7 @@ Decoding parameters (all mutually exlusive from each other and other actions):
   -H HASH   compute hash of raw PCM (CRC32, MD5, SHA1, SHA256 or SHA512,
             FLAC, WavPack, Monkey's Audio and lossyFLAC, lossyWV only)
   -H ^HASH  do NOT compute HASH even if it's in caudecrc
+  -H int    show internal hash, if available
 
 -------------------------------------------------------------------------------
 
@@ -530,6 +531,8 @@ getHumanReadableString () {
 				else
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bl}DM ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$fileName" )"
 				fi
+			elif [ "$statusInfo" = 'hashing' -a -n "$statusData" ]; then
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${statusData}" "$fileName" )"
 			elif [ -n "$file" ]; then # transcoding or hashing
 				if [ -n "$processNumber" ]; then
 					if [ -n "$numberOfThreads" ]; then
@@ -646,6 +649,7 @@ printMessage () {
 			file:*) file="${msgArg#file:}"; fileDir="$( dirname "$file" )"; fileName="$( basename "$file" )" ;;
 			path:*) path="${msgArg#path:}" ;;
 			outputCodec:*) statusData="${msgArg#outputCodec:}" ;;
+			hash:*) statusData="${msgArg#hash:}" ;;
 			+*dB|-*dB) gain="${msgArg% dB}" ;;
 			*bps) bitrate="${msgArg%bps}" ;;
 			*x) processingRate="$msgArg" ;;
@@ -1028,7 +1032,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for reading (permission denied).' ; exitCode=$Ex_No_Input
 		elif [ ! -w "$inputFile" -a $computeReplayGain = true ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
-		elif [ ! -w "$inputFile" -a $hashFiles = true ]; then
+		elif [ ! -w "$inputFile" -a $hashFiles = true -a "$hashes" != "internal" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
 		elif [ ! -w "$inputFile" -a $touchFiles = true ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'refusing to touch file that is read-only.' ; exitCode=$Ex_Cant_Create
@@ -1100,7 +1104,18 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 				esac
 
 			else # actions other than transcoding
-				if [ $checkFiles = true -o $hashFiles = true ]; then
+				if [ $hashFiles = true -a "$hashes" = "internal" ]; then
+					case "$inputFile" in
+						*.flac|*.wv) addToSourceFiles=true ;;
+						*)
+							if [ $ignoreUnsupportedFiles = true ]; then
+								continue
+							else
+								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
+							fi
+							;;
+					esac
+				elif [ $checkFiles = true -o $hashFiles = true ]; then
 					case "$inputFile" in
 						*.flac|*.wv|*.ape) addToSourceFiles=true ;;
 						*)
@@ -1401,25 +1416,34 @@ checkBinaries () {
 	done
 
 	if [ -n "$hashes" ]; then
-		checkBinary 'sox'
-		if [ "$OS" = 'Linux' ]; then
-			for hash in $hashes; do
-				case $hash in
-					CRC32) checkBinary 'cksfv' 'mkfifo' ;;
-					MD5) checkBinary 'md5sum' ;;
-					SHA1) checkBinary 'sha1sum' ;;
-					SHA256) checkBinary 'sha256sum' ;;
-					SHA512) checkBinary 'sha512sum' ;;
+		if [ "$hashes" = "internal" ]; then
+			for sourceFile in "${sourceFiles[@]}" ; do
+				case "$sourceFile" in
+					*.flac) checkBinary 'metaflac' ;;
+					*.wv) checkBinary 'wvunpack' ;;
 				esac
 			done
 		else
-			for hash in $hashes; do
-				case $hash in
-					CRC32) checkBinary 'cksfv' 'mkfifo' ;;
-					MD5) checkBinary 'md5' ;;
-					SHA1|SHA256|SHA512) checkBinary 'shasum' ;;
-				esac
-			done
+			checkBinary 'sox'
+			if [ "$OS" = 'Linux' ]; then
+				for hash in $hashes; do
+					case $hash in
+						CRC32) checkBinary 'cksfv' 'mkfifo' ;;
+						MD5) checkBinary 'md5sum' ;;
+						SHA1) checkBinary 'sha1sum' ;;
+						SHA256) checkBinary 'sha256sum' ;;
+						SHA512) checkBinary 'sha512sum' ;;
+					esac
+				done
+			else
+				for hash in $hashes; do
+					case $hash in
+						CRC32) checkBinary 'cksfv' 'mkfifo' ;;
+						MD5) checkBinary 'md5' ;;
+						SHA1|SHA256|SHA512) checkBinary 'shasum' ;;
+					esac
+				done
+			fi
 		fi
 	fi
 
@@ -4588,7 +4612,7 @@ computeHash () {
 				fi
 				;;
 
-			*) printMessage 'warning' 'hashing' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format' ; return $Ex_Ko ;;
+			*) printMessage 'warning' 'hashing' '' 'unsupported format' "file:${sourceFile}" $processNumber ; return $Ex_Ko ;;
 		esac
 
 		if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
@@ -4661,9 +4685,30 @@ computeHash () {
 	fi
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' 'hashing' $processNumber "threads:$nThreads" "file:${sourceFile}"
+		printMessage 'success' 'hashing' "file:${sourceFile}" $processNumber "threads:$nThreads"
 	else
-		printMessage 'error' 'decoding' $processNumber "file:${sourceFile}"
+		printMessage 'error' 'decoding' "file:${sourceFile}" $processNumber
+	fi
+	return $exitCode
+}
+
+showInternalHash () {
+	local exitCode=$Ex_Ok hash
+
+	if [ -e "$sourceFile" ]; then
+		case "$sourceFile" in
+			*.flac) hash="$( metaflac --show-md5sum "$sourceFile" )" ;;
+			*.wv) hash="$( wvunpack -f7 "$sourceFile" 2>/dev/null )" ;;
+			*) printMessage 'warning' 'hashing' '' 'unsupported format' "file:${sourceFile}" $processNumber ; return $Ex_Ko ;;
+		esac
+	else
+		exitCode=$Ex_Ko
+	fi
+
+	if [ $exitCode -eq $Ex_Ok -a -n "$hash" ]; then
+		printMessage 'success' 'hashing' "hash:$hash" "file:${sourceFile}" "threads:1" $processNumber
+	else
+		printMessage 'error' 'hashing' "" "file doesn't have an internal hash" "file:${sourceFile}" $p
 	fi
 	return $exitCode
 }
@@ -4682,12 +4727,16 @@ computeHashes () {
 		wasProcessedFile="${TDIR}/WAS_PROCESSED.${index}"
 
 		if getLock "$hashingLockFile"; then
-			prepareSource || exitCode=$Ex_Ko
-			if [ $exitCode -eq $Ex_Ok ]; then
-				computeHash || exitCode=$Ex_Ko
+			if [ "$hashes" = "internal" ]; then
+				showInternalHash || exitCode=$Ex_Ko
+			else
+				prepareSource || exitCode=$Ex_Ko
+				if [ $exitCode -eq $Ex_Ok ]; then
+					computeHash || exitCode=$Ex_Ko
+				fi
+				if [ -e "$wavFile" ]; then rm -f "$wavFile" >/dev/null 2>&1; fi
+				if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
 			fi
-			if [ -e "$wavFile" ]; then rm -f "$wavFile" >/dev/null 2>&1; fi
-			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
 			touch "$wasProcessedFile"
 		fi
 	done
@@ -6684,19 +6733,23 @@ while getopts '2a:B:b:C:c:df:G:ghH:iIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 		t) checkFiles=true ;;
 
 		H)
-			case "$OPTARG" in
-				crc32|CRC32)   hashes="${hashes}CRC32 "  ;;
-				md5|MD5)   hashes="${hashes}MD5 "  ;;
-				sha1|SHA1) hashes="${hashes}SHA1 " ;;
-				sha256|SHA256) hashes="${hashes}SHA256 " ;;
-				sha512|SHA512) hashes="${hashes}SHA512 " ;;
-				^crc32|^CRC32)   hashes="${hashes//CRC32/}"  ;;
-				^md5|^MD5)   hashes="${hashes//MD5/}"  ;;
-				^sha1|^SHA1) hashes="${hashes//SHA1/}" ;;
-				^sha256|^SHA256) hashes="${hashes//SHA256/}" ;;
-				^sha512|^SHA512) hashes="${hashes//SHA512/}" ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -H: hash algorithm must be one of CRC32, MD5, SHA1, SHA256 or SHA512" ; exit $Ex_Usage ;;
-			esac
+			if [ "$OPTARG" = "int" -o "$OPTARG" = "internal" ]; then
+				hashes="internal"
+			elif [ "$hashes" != "internal" ]; then
+				case "$OPTARG" in
+					crc32|CRC32) hashes="${hashes}CRC32 "  ;;
+					md5|MD5) hashes="${hashes}MD5 "  ;;
+					sha1|SHA1) hashes="${hashes}SHA1 " ;;
+					sha256|SHA256) hashes="${hashes}SHA256 " ;;
+					sha512|SHA512) hashes="${hashes}SHA512 " ;;
+					^crc32|^CRC32) hashes="${hashes//CRC32/}"  ;;
+					^md5|^MD5) hashes="${hashes//MD5/}"  ;;
+					^sha1|^SHA1) hashes="${hashes//SHA1/}" ;;
+					^sha256|^SHA256) hashes="${hashes//SHA256/}" ;;
+					^sha512|^SHA512) hashes="${hashes//SHA512/}" ;;
+					*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -H: hash algorithm must be one of 'int', CRC32, MD5, SHA1, SHA256 or SHA512" ; exit $Ex_Usage ;;
+				esac
+			fi
 			hashFiles=true
 			;;
 
@@ -6793,21 +6846,25 @@ fi
 if [ $gotPCMCodecsOnly = true ]; then
 	hashes=''
 else
-	hashCRC32=false hashMD5=false hashSHA1=false hashSHA256=false hashSHA512=false
-	hashes="${hashes//  / }"
-	if [ "${hashes:0:1}" = ' ' ]; then hashes="${hashes:1}"; fi
-	hashes="${hashes% }"
-	newHashes=''
-	for h in $hashes; do
-		case "$h" in
-			CRC32) if [ $hashCRC32 = false ]; then newHashes="${newHashes}${h} "; hashCRC32=true; fi ;;
-			MD5) if [ $hashMD5 = false ]; then newHashes="${newHashes}${h} "; hashMD5=true; fi ;;
-			SHA1) if [ $hashSHA1 = false ]; then newHashes="${newHashes}${h} "; hashSHA1=true; fi ;;
-			SHA256) if [ $hashSHA256 = false ]; then newHashes="${newHashes}${h} "; hashSHA256=true; fi ;;
-			SHA512) if [ $hashSHA512 = false ]; then newHashes="${newHashes}${h} "; hashSHA512=true; fi ;;
-		esac
-	done
-	hashes="${newHashes% }"
+	if [ "$hashes" = "internal" ]; then
+		hashFiles=true
+	else
+		hashCRC32=false hashMD5=false hashSHA1=false hashSHA256=false hashSHA512=false
+		hashes="${hashes//  / }"
+		if [ "${hashes:0:1}" = ' ' ]; then hashes="${hashes:1}"; fi
+		hashes="${hashes% }"
+		newHashes=''
+		for h in $hashes; do
+			case "$h" in
+				CRC32) if [ $hashCRC32 = false ]; then newHashes="${newHashes}${h} "; hashCRC32=true; fi ;;
+				MD5) if [ $hashMD5 = false ]; then newHashes="${newHashes}${h} "; hashMD5=true; fi ;;
+				SHA1) if [ $hashSHA1 = false ]; then newHashes="${newHashes}${h} "; hashSHA1=true; fi ;;
+				SHA256) if [ $hashSHA256 = false ]; then newHashes="${newHashes}${h} "; hashSHA256=true; fi ;;
+				SHA512) if [ $hashSHA512 = false ]; then newHashes="${newHashes}${h} "; hashSHA512=true; fi ;;
+			esac
+		done
+		hashes="${newHashes% }"
+	fi
 fi
 unset gotPCMCodecsOnly
 if [ -z "$hashes" ]; then hashFiles=false; fi

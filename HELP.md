@@ -138,6 +138,7 @@ Decoding parameters (all mutually exlusive from each other and other actions):
   -H HASH   compute hash of raw PCM (CRC32, MD5, SHA1, SHA256 or SHA512,
             FLAC, WavPack, Monkey's Audio and lossyFLAC, lossyWV only)
   -H ^HASH  do NOT compute HASH even if it's in caudecrc
+  -H int    show internal hash, if available
 
 -------------------------------------------------------------------------------
 
