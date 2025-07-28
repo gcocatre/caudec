@@ -281,12 +281,15 @@ Encoding parameters (mutually exclusive from all other actions):
             to embed the same file for all supported codecs specified by -c,
             or specify -a after -c to embed cover art only for that codec,
             if supported. FILE must be a filename and that file must be
-            located in the source directory.
+            located in the source directory. If FILE is an empty string,
+            no artwork will be embedded, not even the source file's
+            embedded artwork.
 
   -f ARG    copy certain files to the output directory. ARG may be a 'all',
             a comma separated list of files, and / or file extensions preceded
             by a dot. If ARG is a list of files, they must be filenames and
-            those files must be located in the source directory.
+            those files must be located in the source directory. If ARG is
+            an empty string, no files will be copied.
 
   -k        keep existing destination files (don't overwrite them)
   -K        keep existing destination files if they're newer than their source
@@ -2721,7 +2724,13 @@ importArtworkIntoFLAC () {
 }
 
 genOpusArtworkCommandLine () {
-	local exitCode=$Ex_Ok picBasename="" picType description='' descFile='' pattern cmdline=''
+	local exitCode=$Ex_Ok picBasename="" picType description='' descFile='' pattern cmdline='' doEmbedCoverArt="true"
+
+	doEmbedCoverArt="$( shouldEmbedCoverArt "Opus" )"
+	if [ "$doEmbedCoverArt" = "false" ]; then
+		echo "$cmdline"
+		return 0
+	fi
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -3742,9 +3751,10 @@ encode () {
 	local exitCode=$Ex_Ok nDecodingThreads=$1 nThreads=1
 	local pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses listOfOtherFiles
 	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag='' id3CompressionTag=''
-	local nChannels compressionParam qualityArg
+	local nChannels compressionParam qualityArg coverArtFile='' doEmbedCoverArt="true"
 
 	getFileProps "$sourceFile" "$outputCodec"
+	doEmbedCoverArt="$( shouldEmbedCoverArt "$outputCodec" )"
 	case "$outputCodec" in
 		WAV)
 			if [ $sourceIsLossyWAV = true ]; then
@@ -3767,7 +3777,7 @@ encode () {
 		ALAC)
 			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt"
 			nThreads=$( getNumberOfAvailableThreads $index )
-			if [ -z "$sourceCoverArtFile" ]; then
+			if [ "$doEmbedCoverArt" = "true" -a -z "$sourceCoverArtFile" ]; then
 				for f in "${SWAPDIR}/picture-${index}-"*_*; do
 					if [ ! -e "$f" ]; then continue; fi
 					picType="${f#*_}"; picType="${picType%.*}"
@@ -3776,7 +3786,7 @@ encode () {
 					esac
 				done
 			fi
-			if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
+			if [ "$doEmbedCoverArt" = "true" -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
 				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a alac >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			else
 				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a alac >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
@@ -3789,8 +3799,10 @@ encode () {
 			if [ $keepWavMetadata = true ]; then kfm='--keep-foreign-metadata' ; fi
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / FLAC $flacVersion / -$compression_FLAC"; fi
 			nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
-			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P 4096 $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
-			importArtworkIntoFLAC || exitCode=$Ex_Ko
+			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P 4096 $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+			if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
+				importArtworkIntoFLAC || exitCode=$Ex_Ko
+			fi
 			;;
 
 		MonkeysAudio)
@@ -3801,7 +3813,9 @@ encode () {
 				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$Self_Name $Self_Version / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
 				printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-				importArtworkIntoAPEv2 || exitCode=$Ex_Ko
+				if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
+					importArtworkIntoAPEv2 || exitCode=$Ex_Ko
+				fi
 			fi
 			;;
 
@@ -3816,7 +3830,9 @@ encode () {
 				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 					importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-					importArtworkIntoAPEv2 || exitCode=$Ex_Ko
+					if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
+						importArtworkIntoAPEv2 || exitCode=$Ex_Ko
+					fi
 				fi
 			fi
 			;;
@@ -3841,7 +3857,9 @@ encode () {
 			printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -c${compression_WavPack} -b${average_bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 				importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-				importArtworkIntoAPEv2 || exitCode=$Ex_Ko
+				if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
+					importArtworkIntoAPEv2 || exitCode=$Ex_Ko
+				fi
 			fi
 			;;
 
@@ -3868,7 +3886,9 @@ encode () {
 				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -$compression_WavPack -b${average_bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 					importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-					importArtworkIntoAPEv2 || exitCode=$Ex_Ko
+					if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
+						importArtworkIntoAPEv2 || exitCode=$Ex_Ko
+					fi
 				fi
 			fi
 			;;
@@ -3877,8 +3897,10 @@ encode () {
 			destExtension='lossy.flac'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt"
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 			nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
-			printf -- "--totally-silent`tagline -T`\x00%s" "$lossywavFile" | xargs -0 flac -j $nThreads -P 4096 -5 -b 512 --keep-foreign-metadata -o "$encodedFile" >/dev/null 2>> "$errorLogFile" &&
-			importArtworkIntoFLAC || exitCode=$Ex_Ko
+			printf -- "--totally-silent`tagline -T`\x00%s" "$lossywavFile" | xargs -0 flac -j $nThreads -P 4096 -5 -b 512 --keep-foreign-metadata -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+			if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
+				importArtworkIntoFLAC || exitCode=$Ex_Ko
+			fi
 			;;
 
 		lossyWV)
@@ -3888,7 +3910,9 @@ encode () {
 			printf -- "-q`tagline -w`\x00%s" "$lossywavFile" | xargs -0 wavpack -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 				importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-				importArtworkIntoAPEv2 || exitCode=$Ex_Ko
+				if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
+					importArtworkIntoAPEv2 || exitCode=$Ex_Ko
+				fi
 			fi
 			;;
 
@@ -3918,13 +3942,15 @@ encode () {
 				else
 					printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				fi
-				importArtworkIntoMP3 || exitCode=$Ex_Ko
+				if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
+					importArtworkIntoMP3 || exitCode=$Ex_Ko
+				fi
 			fi
 			;;
 
 		AAC)
 			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt" aaclibs=("aac_at" "libfdk_aac" "aac") aaclib=""
-			if [ -z "$sourceCoverArtFile" ]; then
+			if [ "$doEmbedCoverArt" = "true" -a -z "$sourceCoverArtFile" ]; then
 				for f in "${SWAPDIR}/picture-${index}-"*_*; do
 					if [ ! -e "$f" ]; then continue; fi
 					picType="${f#*_}"; picType="${picType%.*}"
@@ -3944,7 +3970,7 @@ encode () {
 							compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
 						fi
 						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
-						if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
+						if [ "$doEmbedCoverArt" = "true" -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
 							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$errorLogFile"; exitCode=$?
 						else
 							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$errorLogFile"; exitCode=$?
@@ -3955,7 +3981,7 @@ encode () {
 					libfdk_aac)
 						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
 						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
-						if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
+						if [ "$doEmbedCoverArt" = "true" -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
 							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$errorLogFile"; exitCode=$?
 						else
 							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$errorLogFile"; exitCode=$?
@@ -3971,7 +3997,7 @@ encode () {
 						fi
 						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
 						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
-						if [ -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
+						if [ "$doEmbedCoverArt" = "true" -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
 							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$errorLogFile"; exitCode=$?
 						else
 							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$errorLogFile"; exitCode=$?
@@ -6104,6 +6130,20 @@ getCodecCoverArtFile () {
 	esac
 
 	echo "$coverArtFile"
+}
+
+shouldEmbedCoverArt () {
+	local outputCodec="$1" coverArtFile=""
+
+
+	if [ $setArtworkParam = true ]; then
+		coverArtFile="$( getCodecCoverArtFile "$outputCodec" )"
+		if [ -z "$coverArtFile" ]; then
+			echo "false"
+		fi
+	fi
+
+	echo "true"
 }
 
 getNumberOfCpuCores () {
