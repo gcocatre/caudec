@@ -4776,7 +4776,11 @@ showTrackInformation () {
 						channels*) nChannels="${line##*=}" ;;
 						sample_fmt*|bits_per_sample*)
 							if [ -z "$bitDepth" -o "$bitDepth" = "0" ]; then
-								bitDepth="${line##*=}"; bitDepth="$( echo "$bitDepth" | tr -cd [0-9] )"
+								bitDepth="${line##*=}"
+								if [ "${bitDepth:0:1}" = "f" ]; then
+									floatStr=".0"
+								fi
+								bitDepth="$( echo "$bitDepth" | tr -cd [0-9] )"
 							fi
 							;;
 						sample_rate*) samplingRate="${line##*=}" ;;
