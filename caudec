@@ -4750,7 +4750,7 @@ computeHashes () {
 }
 
 showTrackInformation () {
-	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples cddaSamples sectorSize=588 mediaType="unknown"
+	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples cddaSamples sectorSize=588 mediaType
 	local floatOrInt something rest hash="00000000000000000000000000000000"
 
 	if [ -e "$sourceFile" ]; then
@@ -4797,7 +4797,7 @@ showTrackInformation () {
 					if [ $nSamples -eq $cddaSamples -a "$nChannels" = "2" -a "$bitDepth" = "16" -a "$samplingRate" = "44100" ]; then
 						mediaType="CDDA"
 					else
-						mediaType="unknown"
+						mediaType="non-CDDA"
 					fi
 				fi
 				;;
