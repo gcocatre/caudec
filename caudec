@@ -1666,7 +1666,7 @@ getNumberOfChannels () {
 	case "$file" in
 		*.wav|*.aiff|*.caf) numberOfChannels="$( soxi -c "$file" 2>/dev/null )" ;;
 		*.flac) numberOfChannels="$( metaflac --show-channels "$file" 2>/dev/null )" ;;
-		*.wv) numberOfChannels="$( wvunpack -f "$file" 2>/dev/null | cut -d ";" -f 4 )" ;;
+		*.wv) numberOfChannels="$( wvunpack -f4 "$file" 2>/dev/null )" ;;
 		*.ogg) numberOfChannels="$( ogginfo "$file" 2>/dev/null | grep -E "^Channels:" | tr -cd "0-9" )" ;;
 		*.opus) numberOfChannels="$( opusinfo "$file" | grep -F "Channels: " | tr -cd "0-9" )" ;;
 		*.mp3) numberOfChannels="$( soxi -c "$file" 2>/dev/null | tr -cd "0-9" )" ;;
@@ -4515,7 +4515,7 @@ getInternalMD5 () {
 	sourceMD5=''
 	case "$file" in
 		*.flac) sourceMD5="$( metaflac --show-md5sum "$file" 2>/dev/null )" ;;
-		*.wv) sourceMD5="$( wvunpack -f "$file" 2>/dev/null | cut -d ';' -f 7 )" ;;
+		*.wv) sourceMD5="$( wvunpack -f7 "$file" 2>/dev/null )" ;;
 	esac
 }
 
