@@ -4751,19 +4751,19 @@ computeHashes () {
 
 showTrackInformation () {
 	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples cddaSamples sectorSize=588 mediaType="unknown"
-	local floatOrInt something rest
+	local floatOrInt something rest hash="00000000000000000000000000000000"
 
 	if [ -e "$sourceFile" ]; then
 		case "$sourceFile" in
 			*.flac)
-				read -d '\n' nChannels bitDepth samplingRate nSamples < <( metaflac --show-channels --show-bps --show-sample-rate --show-total-samples "$sourceFile" 2>/dev/null )
+				read -d '\n' nChannels bitDepth samplingRate nSamples hash < <( metaflac --show-channels --show-bps --show-sample-rate --show-total-samples --show-md5sum "$sourceFile" 2>/dev/null )
 				;;
 
 			*.wv)
 				line="$( wvunpack -f "$sourceFile" 2>/dev/null )"
 				OIFS="$IFS"
 				IFS=";"
-				read samplingRate bitDepth floatOrInt nChannels something nSamples rest <<< "$line"
+				read samplingRate bitDepth floatOrInt nChannels something nSamples hash rest <<< "$line"
 				IFS="$OIFS"
 				;;
 
@@ -4781,8 +4781,6 @@ showTrackInformation () {
 					esac
 				done < <( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$sourceFile" 2>/dev/null )
 				;;
-
-			# *) printMessage 'warning' 'characteristics' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format' ; return $Ex_Ko ;;
 		esac
 
 		if [ "$bitDepth" = "0" ]; then
@@ -4809,9 +4807,9 @@ showTrackInformation () {
 	fi
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth};${samplingRate}" "mediaType:${mediaType}" "file:${sourceFile}" $p
+		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth};${samplingRate};${hash}" "mediaType:${mediaType}" "file:${sourceFile}" $p
 	else
-		printMessage 'error' 'characteristics' "characteristics:0;00;00000" "mediaType:${mediaType}" "file:${sourceFile}" $p
+		printMessage 'error' 'characteristics' "characteristics:0;00;00000;${hash}" "mediaType:${mediaType}" "file:${sourceFile}" $p
 	fi
 	return $exitCode
 }
