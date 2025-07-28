@@ -432,6 +432,8 @@ getMachineParsableString () {
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "bitrate_${codec}" "$bitrate" "$msg" '' )"
 			elif [ -n "$processingRate" ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" 'processing_rate' "$processingRate" "$msg" '' )"
+			elif [ "$statusInfo" = 'hashing' -a -n "$statusData" ]; then
+			str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "hash" "$statusData" "$msg" "$file" )"
 			elif [ -n "$hashType" ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$hashType" "$statusData" '' "$file" )"
 			else
@@ -496,7 +498,9 @@ getHumanReadableString () {
 
 	case "$msgType" in
 		info)
-			if [ -n "$msg" ]; then
+			if [ "$statusInfo" = 'hashing' -a -n "$statusData" ]; then
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}%s ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$msg" "${statusData}" "$fileName" )"
+			elif [ -n "$msg" ]; then
 				str="$( printf "${Clr_B_Bk} * ${Clr_Rst}%s\n" "$msg" )"
 			fi ;;
 
@@ -531,8 +535,6 @@ getHumanReadableString () {
 				else
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bl}DM ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$fileName" )"
 				fi
-			elif [ "$statusInfo" = 'hashing' -a -n "$statusData" ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${statusData}" "$fileName" )"
 			elif [ -n "$file" ]; then # transcoding or hashing
 				if [ -n "$processNumber" ]; then
 					if [ -n "$numberOfThreads" ]; then
@@ -632,8 +634,8 @@ printMessageToStdoutOrStderr () {
 
 printMessage () {
 	local msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo='' statusData=''
-	local file='' path='' fileDir='' msg='' p='' numberOfThreads='' hashType='' hashError='' gain='' bitrate='' processingRate=''
-	local codec='' outputCodec='' str='' characteristics='' msgArg
+	local file='' path='' fileDir='' msg='' p='' numberOfThreads='' hashType='' hashError='' gain='' bitrate=''
+	local codec='' outputCodec='' str='' characteristics='' processingRate='' msgArg
 
 	for msgArg in "$@"; do
 		case "$msgArg" in
@@ -650,6 +652,7 @@ printMessage () {
 			path:*) path="${msgArg#path:}" ;;
 			outputCodec:*) statusData="${msgArg#outputCodec:}" ;;
 			hash:*) statusData="${msgArg#hash:}" ;;
+			hashType:*) msg="${msgArg#hashType:}" ;;
 			+*dB|-*dB) gain="${msgArg% dB}" ;;
 			*bps) bitrate="${msgArg%bps}" ;;
 			*x) processingRate="$msgArg" ;;
@@ -4706,7 +4709,7 @@ showInternalHash () {
 	fi
 
 	if [ $exitCode -eq $Ex_Ok -a -n "$hash" ]; then
-		printMessage 'success' 'hashing' "hash:$hash" "file:${sourceFile}" "threads:1" $processNumber
+		printMessage 'info' 'hashing' "hash:$hash" "hashType:MD5" "file:${sourceFile}" "threads:1" $processNumber
 	else
 		printMessage 'error' 'hashing' "" "file doesn't have an internal hash" "file:${sourceFile}" $p
 	fi
@@ -6733,7 +6736,7 @@ while getopts '2a:B:b:C:c:df:G:ghH:iIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 		t) checkFiles=true ;;
 
 		H)
-			if [ "$OPTARG" = "int" -o "$OPTARG" = "internal" ]; then
+			if [ "$OPTARG" = "i" -o "$OPTARG" = "int" -o "$OPTARG" = "internal" ]; then
 				hashes="internal"
 			elif [ "$hashes" != "internal" ]; then
 				case "$OPTARG" in
