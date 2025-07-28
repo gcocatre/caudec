@@ -4751,7 +4751,7 @@ computeHashes () {
 
 showTrackInformation () {
 	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples cddaSamples sectorSize=588 mediaType
-	local floatOrInt something rest hash="00000000000000000000000000000000"
+	local floatOrInt floatStr="" something rest hash="00000000000000000000000000000000"
 
 	if [ -e "$sourceFile" ]; then
 		case "$sourceFile" in
@@ -4765,6 +4765,9 @@ showTrackInformation () {
 				IFS=";"
 				read samplingRate bitDepth floatOrInt nChannels something nSamples hash rest <<< "$line"
 				IFS="$OIFS"
+				if [ "$floatOrInt" = "float" ]; then
+					floatStr=".0"
+				fi
 				;;
 
 			*)
@@ -4807,7 +4810,7 @@ showTrackInformation () {
 	fi
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth};${samplingRate};${hash}" "mediaType:${mediaType}" "file:${sourceFile}" $p
+		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth}${floatStr};${samplingRate};${hash}" "mediaType:${mediaType}" "file:${sourceFile}" $p
 	else
 		printMessage 'error' 'characteristics' "characteristics:0;00;00000;${hash}" "mediaType:${mediaType}" "file:${sourceFile}" $p
 	fi
