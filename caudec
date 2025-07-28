@@ -457,7 +457,7 @@ getMachineParsableString () {
 					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashType" '' "$file" )"
 				fi
 			elif [ "$statusInfo" = 'characteristics' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$characteristics" '' "$file" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$characteristics" "$msg" "$file" )"
 			else
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$file" )"
 			fi
@@ -528,12 +528,12 @@ getHumanReadableString () {
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hashType" "$fileName" )"
 				fi
 			elif [ "$statusInfo" = 'characteristics' ]; then
-				data="${characteristics:2}"
+				data="${characteristics}"
 				data="${data//;/|}"
-				if [ "${characteristics:0:1}" = "1" ]; then
+				if [ "${msg}" = "CDDA" ]; then
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}CD ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$fileName" )"
 				else
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bl}DM ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bl}OM ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$fileName" )"
 				fi
 			elif [ -n "$file" ]; then # transcoding or hashing
 				if [ -n "$processNumber" ]; then
@@ -662,6 +662,7 @@ printMessage () {
 			dateTime:[0-9]*) dateTime="${msgArg#dateTime:}" ;;
 			albumTime:[0-9:]*) albumTime="${msgArg#albumTime:}" ;;
 			characteristics:*) characteristics="${msgArg#characteristics:}" ;;
+			mediaType:*) msg="${msgArg#mediaType:}" ;;
 
 			CRC32|MD5|SHA1|SHA256|SHA512) hashType="$msgArg" ;;
 			no_hash|no_hash_tool|bad_internal_hash) hashError="$msgArg" ;;
@@ -4749,7 +4750,7 @@ computeHashes () {
 }
 
 showTrackInformation () {
-	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples cddaSamples sectorSize=588 isCd=0
+	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples cddaSamples sectorSize=588 mediaType="unknown"
 	local floatOrInt something rest
 
 	if [ -e "$sourceFile" ]; then
@@ -4796,9 +4797,9 @@ showTrackInformation () {
 					multiples=$(( nSamples / sectorSize ))
 					cddaSamples=$(( multiples * sectorSize ))
 					if [ $nSamples -eq $cddaSamples -a "$nChannels" = "2" -a "$bitDepth" = "16" -a "$samplingRate" = "44100" ]; then
-						isCd=1
+						mediaType="CDDA"
 					else
-						isCd=0
+						mediaType="unknown"
 					fi
 				fi
 				;;
@@ -4808,9 +4809,9 @@ showTrackInformation () {
 	fi
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' "characteristics" "characteristics:${isCd};${nChannels};${bitDepth};${samplingRate}" "file:${sourceFile}" $p
+		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth};${samplingRate}" "mediaType:${mediaType}" "file:${sourceFile}" $p
 	else
-		printMessage 'error' 'characteristics' "characteristics:0;0;00;00000" "file:${sourceFile}" $p
+		printMessage 'error' 'characteristics' "characteristics:0;00;00000" "mediaType:${mediaType}" "file:${sourceFile}" $p
 	fi
 	return $exitCode
 }
