@@ -1,5 +1,5 @@
 ```
-caudec 2.4.0: multiprocess audio converter
+caudec 3.0.0: multiprocess audio converter
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
@@ -95,12 +95,16 @@ Encoding parameters (mutually exclusive from all other actions):
             to embed the same file for all supported codecs specified by -c,
             or specify -a after -c to embed cover art only for that codec,
             if supported. FILE must be a filename and that file must be
-            located in the source directory.
+            located in the source directory. If FILE is an empty string,
+            no artwork will be embedded, not even the source file's
+            embedded artwork.
 
   -f ARG    copy certain files to the output directory. ARG may be a 'all',
             a comma separated list of files, and / or file extensions preceded
             by a dot. If ARG is a list of files, they must be filenames and
-            those files must be located in the source directory.
+            those files must be located in the source directory. If ARG is
+            an empty string, no files will be copied, not even APEv2 embedded
+            binaries.
 
   -k        keep existing destination files (don't overwrite them)
   -K        keep existing destination files if they're newer than their source
