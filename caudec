@@ -4751,19 +4751,19 @@ computeHashes () {
 
 showTrackInformation () {
 	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples cddaSamples sectorSize=588 mediaType
-	local floatOrInt floatStr="" something rest hash="00000000000000000000000000000000" bitrate=0
+	local floatOrInt floatStr="" something rest bitrate=0
 
 	if [ -e "$sourceFile" ]; then
 		case "$sourceFile" in
 			*.flac)
-				read -d '\n' nChannels bitDepth samplingRate nSamples hash < <( metaflac --show-channels --show-bps --show-sample-rate --show-total-samples --show-md5sum "$sourceFile" 2>/dev/null )
+				read -d '\n' nChannels bitDepth samplingRate nSamples rest < <( metaflac --show-channels --show-bps --show-sample-rate --show-total-samples --show-md5sum "$sourceFile" 2>/dev/null )
 				;;
 
 			*.wv)
 				line="$( wvunpack -f "$sourceFile" 2>/dev/null )"
 				OIFS="$IFS"
 				IFS=";"
-				read samplingRate bitDepth floatOrInt nChannels something nSamples hash rest <<< "$line"
+				read samplingRate bitDepth floatOrInt nChannels something nSamples rest <<< "$line"
 				IFS="$OIFS"
 
 				# FIXME
@@ -4826,9 +4826,9 @@ showTrackInformation () {
 	esac
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth}${floatStr};${samplingRate};${bitrate};${hash}" "mediaType:${mediaType}" "file:${sourceFile}" $p
+		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth}${floatStr};${samplingRate};${bitrate}" "mediaType:${mediaType}" "file:${sourceFile}" $p
 	else
-		printMessage 'error' 'characteristics' "characteristics:0;00;00000;0;${hash}" "mediaType:${mediaType}" "file:${sourceFile}" $p
+		printMessage 'error' 'characteristics' "characteristics:0;00;00000;0" "mediaType:${mediaType}" "file:${sourceFile}" $p
 	fi
 	return $exitCode
 }
