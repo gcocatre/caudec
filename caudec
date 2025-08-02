@@ -5797,13 +5797,13 @@ printMachineStats () {
 
 	if [ -z "$outputCodecs" ]; then
 		if [ -n "$processingRate" ]; then
-			printMessage 'info' "${processingRate}x"
+			printMessage 'info' "${processingRate} x"
 		fi
 		return
 	fi
 
 	if [ -n "$processingRate" ]; then
-		printMessage 'info' "${processingRate}x"
+		printMessage 'info' "${processingRate} x"
 	fi
 
 	if [ "$outputCodecs" = 'WAV' ]; then return; fi
@@ -5900,7 +5900,7 @@ printHumanStats () {
 		if [ -z "$processingRate" ]; then
 			printf ' (read: %.1f MB/s)\n' "$imbsec"
 		else
-			printf ' (read: %.1f MB/s, rate: %sx)\n' "$imbsec" "$processingRate"
+			printf ' (read: %.1f MB/s, rate: %s x)\n' "$imbsec" "$processingRate"
 		fi
 		return
 	fi
@@ -5925,8 +5925,8 @@ printHumanStats () {
 	fi
 	ombsec="$( echo "scale=3; $bytesCompressed / ($seconds * 1000000)" | bc )"
 
-	if [ -n "$rate" ]; then
-		printf ' (read: %.1f MB/s, write: %.1f MB/s, rate: %sx)\n' "$imbsec" "$ombsec" "$rate"
+	if [ -n "$processingRate" ]; then
+		printf ' (read: %.1f MB/s, write: %.1f MB/s, rate: %s x)\n' "$imbsec" "$ombsec" "$processingRate"
 	else
 		printf ' (read: %.1f MB/s, write: %.1f MB/s)\n' "$imbsec" "$ombsec"
 	fi
