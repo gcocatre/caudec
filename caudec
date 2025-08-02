@@ -4794,7 +4794,7 @@ showTrackInformation () {
 		esac
 
 		if [ "$bitDepth" = "0" ]; then
-			bitDepth=".."
+			bitDepth="NA"
 		else
 			bitDepth="$( printf "%2s" "$bitDepth" )"
 		fi
