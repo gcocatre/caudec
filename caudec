@@ -1382,7 +1382,7 @@ checkBinaries () {
 	elif [ $showInformation = true ]; then
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
-				*.flac) checkBinary 'metaflac' ;;
+				*.flac) checkBinary 'metaflac' 'ffprobe' ;;
 				*.wv) checkBinary 'wvunpack' ;;
 				*) checkBinary 'ffprobe' ;;
 			esac
@@ -4751,7 +4751,7 @@ computeHashes () {
 
 showTrackInformation () {
 	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples cddaSamples sectorSize=588 mediaType
-	local floatOrInt floatStr="" something rest hash="00000000000000000000000000000000"
+	local floatOrInt floatStr="" something rest hash="00000000000000000000000000000000" bitrate=0
 
 	if [ -e "$sourceFile" ]; then
 		case "$sourceFile" in
@@ -4765,9 +4765,11 @@ showTrackInformation () {
 				IFS=";"
 				read samplingRate bitDepth floatOrInt nChannels something nSamples hash rest <<< "$line"
 				IFS="$OIFS"
-				if [ "$floatOrInt" = "float" ]; then
-					floatStr=".0"
-				fi
+
+				# FIXME
+				# if [ "$floatOrInt" = "float" ]; then
+				# 	floatStr=".0"
+				# fi
 				;;
 
 			*)
@@ -4777,9 +4779,10 @@ showTrackInformation () {
 						sample_fmt*|bits_per_sample*)
 							if [ -z "$bitDepth" -o "$bitDepth" = "0" ]; then
 								bitDepth="${line##*=}"
-								if [ "${bitDepth:0:1}" = "f" -o "${bitDepth:0:1}" = "d" ]; then
-									floatStr=".0"
-								fi
+								# FIXME
+								# if [ "${bitDepth:0:1}" = "f" -o "${bitDepth:0:1}" = "d" ]; then
+								# 	floatStr=".0"
+								# fi
 								bitDepth="$( echo "$bitDepth" | tr -cd [0-9] )"
 							fi
 							;;
@@ -4813,10 +4816,19 @@ showTrackInformation () {
 		exitCode=$Ex_Ko
 	fi
 
+	case "$sourceFile" in
+		*.wv) bitrate="$( wvunpack -s "$sourceFile" 2>/dev/null | grep -iE '^ave bitrate:' | tr -cd [0-9] )000" ;;
+		*) bitrate="$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | grep -E '^format.bit_rate=' | tr -cd [0-9] )" ;;
+	esac
+	case "$bitrate" in
+		[0-9]*) true ;;
+		"000"|*) bitrate=0 ;;
+	esac
+
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth}${floatStr};${samplingRate};${hash}" "mediaType:${mediaType}" "file:${sourceFile}" $p
+		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth}${floatStr};${samplingRate};${bitrate};${hash}" "mediaType:${mediaType}" "file:${sourceFile}" $p
 	else
-		printMessage 'error' 'characteristics' "characteristics:0;00;00000;${hash}" "mediaType:${mediaType}" "file:${sourceFile}" $p
+		printMessage 'error' 'characteristics' "characteristics:0;00;00000;0;${hash}" "mediaType:${mediaType}" "file:${sourceFile}" $p
 	fi
 	return $exitCode
 }
