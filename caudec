@@ -431,7 +431,7 @@ getMachineParsableString () {
 			if [ -n "$bitrate" ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "bitrate_${codec}" "$bitrate" "$msg" '' )"
 			elif [ -n "$processingRate" ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" 'processing_rate' "$processingRate" "$msg" '' )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" 'processing_rate' "${processingRate%% x}" "$msg" '' )"
 			elif [ "$statusInfo" = 'hashing' -a -n "$statusData" ]; then
 			str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "hash" "$statusData" "$msg" "$file" )"
 			elif [ -n "$hashType" ]; then
