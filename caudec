@@ -4082,7 +4082,7 @@ encode () {
 		if ! mkdir -p "$destPath" >/dev/null 2>&1 ; then
 			exitCode=$Ex_Ko
 		fi
-		if [ -n "$destLinkPath" ]; then
+		if [ "$outputCodec" = "WavPackHybrid" -a -n "$destLinkPath" ]; then
 			if ! mkdir -p "$destLinkPath" >/dev/null 2>&1 ; then
 				exitCode=$Ex_Ko
 			fi
