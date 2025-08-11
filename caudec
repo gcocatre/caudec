@@ -930,9 +930,9 @@ cleanExit () {
 
 	rm -rf "$instanceDir"
 	cleanUpInstances
-	ls -d "${Self_Pid_Dir}"/instance.* >/dev/null 2>&1 || rm -rf "$Self_Io_Dir"
+	# ls -d "${Self_Pid_Dir}"/instance.* >/dev/null 2>&1 || rm -rf "$Self_Io_Dir"
 
-	rm -rf "$Self_Pid_Dir" >/dev/null 2>&1
+	# rm -rf "$Self_Pid_Dir" >/dev/null 2>&1
 
 	exit $1
 }
@@ -1515,7 +1515,7 @@ cleanUpInstances () {
 }
 
 handleInstance () {
-	local nRunningProcesses=0 nAvailableProcesses=$nProcesses pid
+	local nRunningInstances=0 nAvailableProcesses=$nProcesses pid
 
 	if [ -e "$Self_Pid_Dir" ]; then
 		cleanUpInstances
@@ -1553,27 +1553,9 @@ handleInstance () {
 	touch "$errorLogFile"
 	echo "$$" > "${instanceDir}/PID"
 
-	nInstances=$( find "$Self_Pid_Dir" -type d -name 'instance.*' 2>/dev/null | wc -l | tr -cd '0-9' )
-	if [ $nInstances -le $maxInstances ]; then
-		nRunningProcesses="$( getNumberOfCaudecProcesses )"
-		nAvailableProcesses=$(( maxProcesses - nRunningProcesses ))
-		if [ $nAvailableProcesses -eq 0 ]; then
-			printMessage 'warning' 'usage' 'quota' "There are too many caudec processes already running."
-			printMessage 'abort'
-			cleanExit $Ex_Temp_Fail
-		elif [ $nProcesses -gt $nAvailableProcesses ]; then
-			printMessage 'warning' 'usage' 'quota' 'verbose' "Number of processes reduced to $nAvailableProcesses in order to stay within limits."
-			setNumberOfProcesses $nAvailableProcesses
-		else
-			setNumberOfProcesses $nProcesses
-		fi
-		return 0
-	else
-		if [ $maxInstances -eq 1 ]; then
-			printMessage 'warning' 'usage' 'quota' "Another instance of caudec is already running."
-		else
-			printMessage 'warning' 'usage' 'quota' "Too many instances of caudec are already running."
-		fi
+	nRunningInstances="$( getNumberOfCaudecInstances )"
+	if [ $nRunningInstances -gt $maxInstances ]; then
+		printMessage 'warning' 'usage' 'quota' "Too many instances of caudec are already running."
 		printMessage 'info' 'stderr' "You might want to increase the 'maxInstances' value in /etc/caudecrc or ~/.caudecrc."
 		printMessage 'abort'
 		cleanExit $Ex_Temp_Fail
@@ -1707,6 +1689,16 @@ getNumberOfChannels () {
 
 	if [ -z "$numberOfChannels" ]; then numberOfChannels=0; fi
 	echo "$numberOfChannels"
+}
+
+getNumberOfCaudecInstances () {
+	local n=0
+
+	n=$( find "$Self_Pid_Dir" -type d -name 'instance.*' 2>/dev/null | wc -l | tr -cd '0-9' )
+	case "$n" in
+		[0-9]*) echo $n ;;
+		*) echo 0 ;;
+	esac
 }
 
 getNumberOfCaudecProcesses () {
