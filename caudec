@@ -4809,7 +4809,7 @@ showTrackInformation () {
 	fi
 
 	case "$sourceFile" in
-		*wv)
+		*.wv)
 			if [ -f "${sourceFile}c" ]; then
 				if [ $gnustat = true ]; then
 					bytesLossy="$( $statcmd -L --printf "%s" "$sourceFile" 2>/dev/null )"
