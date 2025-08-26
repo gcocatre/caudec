@@ -4809,7 +4809,7 @@ showTrackInformation () {
 	fi
 
 	case "$sourceFile" in
-		*.wv) bitrate="$( wvunpack -s "$sourceFile" 2>/dev/null | grep -iE '^ave bitrate:' | tr -cd [0-9] )000" ;;
+		*.wv) bitrate="$( wvunpack -f "$sourceFile" 2>/dev/null | cut -d ';' -f 6 )" ;;
 		*) bitrate="$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | grep -E '^format.bit_rate=' | tr -cd [0-9] )" ;;
 	esac
 	case "$bitrate" in
