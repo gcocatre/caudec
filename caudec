@@ -914,21 +914,21 @@ cleanExit () {
 		fi
 	fi
 
-	if [ -n "$SWAPDIR" ]; then
-		rm -rf "$SWAPDIR"
-		swapDirBasename="$( basename "$SWAPDIR" )"
+	if [ -n "$Self_Swap_Dir" ]; then
+		rm -rf "$Self_Swap_Dir"
+		swapDirBasename="$( basename "$Self_Swap_Dir" )"
 		rm "${Self_Pid_Dir}"/"${swapDirBasename}"
 	fi
-	test -n "$TDIR" && rm -rf "$TDIR"
+	test -n "$Self_Ctrl_Dir" && rm -rf "$Self_Ctrl_Dir"
 
-	for f in "$instanceDir"/ioLockFiles/* ; do
+	for f in "$Self_Instance_Dir"/ioLockFiles/* ; do
 		if [ -e "$f" ]; then
 			echo '' > "${Self_Io_Dir}/${f##*/}.lock" 2>/dev/null
 			mv "${Self_Io_Dir}/${f##*/}.lock" "${Self_Io_Dir}/${f##*/}" >/dev/null 2>&1
 		fi
 	done
 
-	rm -rf "$instanceDir"
+	rm -rf "$Self_Instance_Dir"
 	cleanUpInstances
 	# ls -d "${Self_Pid_Dir}"/instance.* >/dev/null 2>&1 || rm -rf "$Self_Io_Dir"
 
@@ -1467,16 +1467,16 @@ setNumberOfProcesses () {
 	local newNumberOfProcesses=$1 processIndex
 
 	for (( processIndex=0 ; processIndex < newNumberOfProcesses; processIndex++ )); do
-		touch "${instanceDir}/process.$processIndex" >/dev/null 2>&1
+		touch "${Self_Instance_Dir}/process.$processIndex" >/dev/null 2>&1
 	done
 
 	if [ $newNumberOfProcesses -lt $nProcesses ]; then
 		for (( processIndex=newNumberOfProcesses ; processIndex < nProcesses; processIndex++ )); do
-			rm -f "${instanceDir}/process.$processIndex"
+			rm -f "${Self_Instance_Dir}/process.$processIndex"
 		done
 	elif [ $newNumberOfProcesses -gt $nProcesses ]; then
 		for (( processIndex=nProcesses ; processIndex < newNumberOfProcesses; processIndex++ )); do
-			touch "${instanceDir}/process.$processIndex" >/dev/null 2>&1
+			touch "${Self_Instance_Dir}/process.$processIndex" >/dev/null 2>&1
 		done
 	fi
 
@@ -1517,6 +1517,8 @@ cleanUpInstances () {
 handleInstance () {
 	local nRunningInstances=0 nAvailableProcesses=$nProcesses pid
 
+	if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
+
 	if [ -e "$Self_Pid_Dir" ]; then
 		cleanUpInstances
 	else
@@ -1537,21 +1539,38 @@ handleInstance () {
 		mkdir -m 0777 -p "$Self_Io_Dir" >/dev/null 2>&1
 	fi
 
-	instanceDir="$( TMPDIR="$Self_Pid_Dir" mktemp -d "${Self_Pid_Dir}/instance.XXXXXXXX" 2>/dev/null )"
-	if [ -z "$instanceDir" ]; then
+	Self_Instance_Dir="$( TMPDIR="$Self_Pid_Dir" mktemp -d "${Self_Pid_Dir}/${Self_Name}_instance.XXXXXXXX" 2>/dev/null )"
+	if [ -z "$Self_Instance_Dir" ]; then
 		printMessage 'warning' 'initialization' 'filesystem' "path:${Self_Pid_Dir}" "mktemp failed to create a directory (do you have write permissions?)."
 		printMessage 'abort'
 		cleanExit $Ex_Os_Err
-	elif [ ! -w "$instanceDir" ]; then
-		printMessage 'warning' 'initialization' 'filesystem' "path:${instanceDir}" "directory is not writable (permission denied)."
+	elif [ ! -w "$Self_Instance_Dir" ]; then
+		printMessage 'warning' 'initialization' 'filesystem' "path:${Self_Instance_Dir}" "directory is not writable (permission denied)."
 		printMessage 'abort'
 		cleanExit $Ex_No_Perm
 	fi
-	chmod 0775 "$instanceDir"
-	mkdir -m 0775 "${instanceDir}/ioLockFiles"
-	errorLogFile="${instanceDir}/errors.log"
+	chmod 0775 "$Self_Instance_Dir"
+	mkdir -m 0775 "${Self_Instance_Dir}/ioLockFiles"
+	errorLogFile="${Self_Instance_Dir}/errors.log"
 	touch "$errorLogFile"
-	echo "$$" > "${instanceDir}/PID"
+	echo "$$" > "${Self_Instance_Dir}/PID"
+
+	randomSuffix="${Self_Instance_Dir##*.}"
+
+	Self_Ctrl_Dir="${Self_Pid_Dir}/${Self_Name}_control.${randomSuffix}"
+	mkdir -m 0777 -p "$Self_Ctrl_Dir" >/dev/null 2>&1
+
+	if [ -z "$Self_Ctrl_Dir" ]; then
+		printMessage 'warning' 'initialization' 'filesystem' "path:${Self_Pid_Dir}" "mktemp failed to create a directory (do you have write permissions?)."
+		printMessage 'abort'
+		cleanExit $Ex_Os_Err
+	elif [ ! -w "$Self_Ctrl_Dir" ]; then
+		printMessage 'warning' 'initialization' 'filesystem' "path:${Self_Ctrl_Dir}" "directory is not writable (permission denied)."
+		printMessage 'abort'
+		cleanExit $Ex_No_Perm
+	fi
+
+	chmod 0775 "$Self_Ctrl_Dir"
 
 	nRunningInstances="$( getNumberOfCaudecInstances )"
 	if [ $nRunningInstances -gt $maxInstances ]; then
@@ -1564,8 +1583,6 @@ handleInstance () {
 
 setupSwapDir () {
 	local index copyLockFile fileMilliseconds
-
-	if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
 
 	if [ -n "$CAUDECDIR" ]; then
 		if [ "$CAUDECDIR" != '/' ]; then
@@ -1605,36 +1622,35 @@ setupSwapDir () {
 		cleanExit $Ex_No_Perm
 	fi
 
-	TDIR="$( TMPDIR="$mktempDir" mktemp -d "${mktempDir}/${Self_Name}.XXXXXXXX" 2>/dev/null )"
+	Self_Swap_Dir="${mktempDir}/${Self_Name}_swap.${randomSuffix}"
+	mkdir -m 0777 -p "$Self_Swap_Dir" >/dev/null 2>&1
 
-	if [ -z "$TDIR" ]; then
+	if [ -z "$Self_Swap_Dir" ]; then
 		printMessage 'warning' 'initialization' 'filesystem' "path:${mktempDir}" "mktemp failed to create a directory (do you have write permissions?)."
 		printMessage 'abort'
 		cleanExit $Ex_Os_Err
-	elif [ ! -w "$TDIR" ]; then
-		printMessage 'warning' 'initialization' 'filesystem' "path:${TDIR}" "directory is not writable (permission denied)."
+	elif [ ! -w "$Self_Swap_Dir" ]; then
+		printMessage 'warning' 'initialization' 'filesystem' "path:${Self_Swap_Dir}" "directory is not writable (permission denied)."
 		printMessage 'abort'
 		cleanExit $Ex_No_Perm
 	fi
 
-	chmod 0775 "$TDIR"
+	chmod 0775 "$Self_Swap_Dir"
 
 	# FIXME STAT: for some reason, gstat -c doesn't work here on macOS
 	# if [ $gnustat = true ]; then
-	# 	TDEV="$( $statcmd -c '%d' "$TDIR" )"
+	# 	TDEV="$( $statcmd -c '%d' "$Self_Ctrl_Dir" )"
 	# else
-	# 	TDEV="$( $statcmd -f '%d' "$TDIR" )"
+	# 	TDEV="$( $statcmd -f '%d' "$Self_Ctrl_Dir" )"
 	# fi
 
 	if [ "$OS" = 'Linux' ]; then
-		TDEV="$( stat -c '%d' "$TDIR" )"
+		TDEV="$( stat -c '%d' "$Self_Ctrl_Dir" )"
 	else
-		TDEV="$( stat -f '%d' "$TDIR" )"
+		TDEV="$( stat -f '%d' "$Self_Ctrl_Dir" )"
 	fi
-	echo "$TDEV" > "${instanceDir}/tdev"
-	echo "$TDIR" > "${instanceDir}/tdir"
-
-	SWAPDIR="$TDIR"
+	echo "$TDEV" > "${Self_Instance_Dir}/tdev"
+	echo "$Self_Ctrl_Dir" > "${Self_Instance_Dir}/tdir"
 
 	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
 		if [ "$OS" = 'Linux' ]; then
@@ -1646,32 +1662,32 @@ setupSwapDir () {
 			touch "$copyLockFile"
 		fi
 
-		touch "${TDIR}/${index}"
+		touch "${Self_Ctrl_Dir}/${index}"
 
 		fileMilliseconds="$( getFileMilliseconds "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
-		echo "$fileMilliseconds $index" > "${TDIR}/inputMilliseconds_${index}"
+		echo "$fileMilliseconds $index" > "${Self_Ctrl_Dir}/inputMilliseconds_${index}"
 
 		if [ $nLossyWAV -ge 1 ]; then
-			touch "${TDIR}/lossyWAV_${index}"
-			touch "${TDIR}/lossyWAV_${index}_WAV_NEEDED"
+			touch "${Self_Ctrl_Dir}/lossyWAV_${index}"
+			touch "${Self_Ctrl_Dir}/lossyWAV_${index}_WAV_NEEDED"
 		fi
 
 		for outputCodec in $outputCodecs; do
-			touch "${TDIR}/${outputCodec}_${index}"
+			touch "${Self_Ctrl_Dir}/${outputCodec}_${index}"
 			if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' ]; then
-				touch "${TDIR}/${outputCodec}_${index}_LOSSYWAV_NEEDED"
-				touch "${TDIR}/lossyWAV_${index}_WAV_NEEDED"
+				touch "${Self_Ctrl_Dir}/${outputCodec}_${index}_LOSSYWAV_NEEDED"
+				touch "${Self_Ctrl_Dir}/lossyWAV_${index}_WAV_NEEDED"
 			else
-				touch "${TDIR}/${outputCodec}_${index}_WAV_NEEDED"
+				touch "${Self_Ctrl_Dir}/${outputCodec}_${index}_WAV_NEEDED"
 			fi
 		done
 	done
 
-	sort -n "${TDIR}/inputMilliseconds_"* > "${TDIR}/millisecondsAndFileNumbers"
+	sort -n "${Self_Ctrl_Dir}/inputMilliseconds_"* > "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
 
-	echo -n "0" > "${TDIR}/readTimes"
-	touch "${TDIR}/transcodingErrorFiles"
-	ln -s "$SWAPDIR" "$Self_Pid_Dir"
+	echo -n "0" > "${Self_Ctrl_Dir}/readTimes"
+	touch "${Self_Ctrl_Dir}/transcodingErrorFiles"
+	ln -s "$Self_Swap_Dir" "$Self_Pid_Dir"
 }
 
 getNumberOfChannels () {
@@ -1712,7 +1728,7 @@ getNumberOfCaudecProcesses () {
 }
 
 getNumberOfProcessedFiles () {
-	ls -1 "${TDIR}/WAS_PROCESSED".* 2>/dev/null | wc -l | tr -cd '[:digit:]'
+	ls -1 "${Self_Ctrl_Dir}/WAS_PROCESSED".* 2>/dev/null | wc -l | tr -cd '[:digit:]'
 }
 
 getNumberOfAvailableThreads () {
@@ -1730,17 +1746,17 @@ getNumberOfAvailableThreads () {
 	fi
 
 	while read milliseconds number; do
-		test -e "${TDIR}/WAS_PROCESSED.${number}" &>/dev/null && continue
+		test -e "${Self_Ctrl_Dir}/WAS_PROCESSED.${number}" &>/dev/null && continue
 		nMillisecondsLeft=$(( nMillisecondsLeft + milliseconds ))
-	done < "${TDIR}/millisecondsAndFileNumbers"
+	done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
 
 	while read milliseconds number; do
-		test -e "${TDIR}/WAS_PROCESSED.${number}" &>/dev/null && continue
+		test -e "${Self_Ctrl_Dir}/WAS_PROCESSED.${number}" &>/dev/null && continue
 		if [ "$number" = "$index" ]; then
 			nThreads="$( printf "%.0f" "$( echo "scale=3; $maxProcessesSetByUser * $milliseconds / $nMillisecondsLeft" | bc )" )"
 			break
 		fi
-	done < "${TDIR}/millisecondsAndFileNumbers"
+	done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
 
 	if [ $nThreads -lt 1 ]; then
 		nThreads=1
@@ -2530,7 +2546,7 @@ sanitizeApeTags () {
 }
 
 convertTags () {
-	destTagFile="${TDIR}/${index}.${2}.txt"
+	destTagFile="${Self_Ctrl_Dir}/${index}.${2}.txt"
 	test -e "$sourceTagFile" || return
 	test -e "$destTagFile" && return
 	shopt -qs nocasematch
@@ -2607,11 +2623,11 @@ extractFlacArtwork () {
 		esac
 		pattern="x${outputCodec}Y"
 		if [ "$preserveMetadata" != "${preserveMetadata//$pattern/@}" ]; then
-			metaflac --list "$copyFile" 2>> "$errorLogFile" | grep -vE '[0-9A-F]{8}:' > "${TDIR}/${index}.flist" 2>/dev/null
+			metaflac --list "$copyFile" 2>> "$errorLogFile" | grep -vE '[0-9A-F]{8}:' > "${Self_Ctrl_Dir}/${index}.flist" 2>/dev/null
 			if [ $gnused = true ]; then
-				$sedcmd -i'' -e 's@METADATA block #@\nMETADATA block #@' "${TDIR}/${index}.flist" # binary data can screw up the 'METADATA block #' line
+				$sedcmd -i'' -e 's@METADATA block #@\nMETADATA block #@' "${Self_Ctrl_Dir}/${index}.flist" # binary data can screw up the 'METADATA block #' line
 			else
-				$sedcmd -i '' -e 's@METADATA block #@\nMETADATA block #@' "${TDIR}/${index}.flist" # binary data can screw up the 'METADATA block #' line
+				$sedcmd -i '' -e 's@METADATA block #@\nMETADATA block #@' "${Self_Ctrl_Dir}/${index}.flist" # binary data can screw up the 'METADATA block #' line
 			fi
 			while read line; do
 				if [ "${line:0:16}" = 'METADATA block #' ]; then
@@ -2629,18 +2645,18 @@ extractFlacArtwork () {
 				elif [ "${line:0:12}" = 'description:' -a $withinPictureBlock = true ]; then
 					description="${line/description: /}"
 					if [ "$description" != 'description:' ]; then
-						echo "$description" > "${SWAPDIR}/picture-${index}-${picNumber}.txt"
+						echo "$description" > "${Self_Swap_Dir}/picture-${index}-${picNumber}.txt"
 					fi
-					metaflac --block-number=$blockNumber --export-picture-to="${SWAPDIR}/picture-${index}-${picNumber}_${picType}.${picExt}" "$copyFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+					metaflac --block-number=$blockNumber --export-picture-to="${Self_Swap_Dir}/picture-${index}-${picNumber}_${picType}.${picExt}" "$copyFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 					if [ $exitCode -eq $Ex_Ok ]; then
 						((picNumber++))
 					else
-						rm -rf "${SWAPDIR}/picture-${index}-${picNumber}_${picType}.${picExt}" "${SWAPDIR}/picture-${index}-${picNumber}.txt" >/dev/null 2>> "$errorLogFile"
+						rm -rf "${Self_Swap_Dir}/picture-${index}-${picNumber}_${picType}.${picExt}" "${Self_Swap_Dir}/picture-${index}-${picNumber}.txt" >/dev/null 2>> "$errorLogFile"
 					fi
 					withinPictureBlock=false
 				fi
-			done < "${TDIR}/${index}.flist"
-			rm -f "${TDIR}/${index}.flist" >/dev/null 2>&1
+			done < "${Self_Ctrl_Dir}/${index}.flist"
+			rm -f "${Self_Ctrl_Dir}/${index}.flist" >/dev/null 2>&1
 			return $exitCode
 		fi
 	done
@@ -2658,7 +2674,7 @@ extractAPEv2Artwork () {
 		if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then continue; fi
 
 		for fieldName in 'other' 'icon' 'other icon' 'front' 'back' 'leaflet' 'media' 'lead artist' 'artist' 'conductor' 'band' 'composer' 'lyricist' 'recording location' 'during recording' 'during performance' 'video' 'a bright colored fish' 'illustration' 'band logo' 'publisher logo'; do
-			argString="${argString}\\x00-d\\x00cover art (${fieldName})=${SWAPDIR}/picture-${index}-${picNumber}_${picType}."
+			argString="${argString}\\x00-d\\x00cover art (${fieldName})=${Self_Swap_Dir}/picture-${index}-${picNumber}_${picType}."
 			((picType++))
 			((picNumber++))
 		done
@@ -2699,15 +2715,15 @@ extractAPEv2Binaries () {
 importCoverArt () {
 	local exitCode=$Ex_Ok userSpecifiedArtwork
 
-	for f in "${SWAPDIR}/picture-3-"*_*; do
+	for f in "${Self_Swap_Dir}/picture-3-"*_*; do
 		userSpecifiedArtwork="$( getCodecCoverArtFile "$outputCodec" )"
 		if [ -n $userSpecifiedArtwork ]; then
 			userSpecifiedArtwork="${sourceDirname}/${userSpecifiedArtwork}"
 			if [ -f "$userSpecifiedArtwork" -a -r "$userSpecifiedArtwork" ]; then
-				echo "" > "${SWAPDIR}/picture-${index}-3.txt"
+				echo "" > "${Self_Swap_Dir}/picture-${index}-3.txt"
 				picExt="${userSpecifiedArtwork##*.}"
 				picType=3
-				swapFilePath="${SWAPDIR}/picture-${index}-0_${picType}.${picExt}"
+				swapFilePath="${Self_Swap_Dir}/picture-${index}-0_${picType}.${picExt}"
 				rm -f "$swapFilePath" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					cp -f "$userSpecifiedArtwork" "$swapFilePath" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
@@ -2729,7 +2745,7 @@ importArtworkIntoFLAC () {
 
 	importCoverArt || exitCode=$Ex_Ko
 
-	for f in "${SWAPDIR}/picture-${index}-"*_*; do
+	for f in "${Self_Swap_Dir}/picture-${index}-"*_*; do
 		if [ ! -e "$f" ]; then
 			continue
 		fi
@@ -2761,7 +2777,7 @@ genOpusArtworkCommandLine () {
 
 	importCoverArt || exitCode=$Ex_Ko
 
-	for f in "${SWAPDIR}/picture-${index}-"*_*; do
+	for f in "${Self_Swap_Dir}/picture-${index}-"*_*; do
 		if [ ! -e "$f" ]; then continue; fi
 		picBasename="$( basename "$f" )"
 		picType="${picBasename#*_}"; picType="${picType%.*}"; descFile="${f%_*}.txt"
@@ -2785,7 +2801,7 @@ importArtworkIntoAPEv2 () {
 
 	importCoverArt || exitCode=$Ex_Ko
 
-	for f in "${SWAPDIR}/picture-${index}-"*_*; do
+	for f in "${Self_Swap_Dir}/picture-${index}-"*_*; do
 		if [ ! -e "$f" ]; then continue; fi
 		picBasename="$( basename "$f" )"
 		picType="${picBasename#*_}"; picType="${picType%.*}"
@@ -2860,7 +2876,7 @@ importArtworkIntoMP3 () {
 	importCoverArt || exitCode=$Ex_Ko
 
 	which 'eyeD3' >/dev/null 2>&1 || return $Ex_Ok
-	for f in "${SWAPDIR}/picture-${index}-"*_*; do
+	for f in "${Self_Swap_Dir}/picture-${index}-"*_*; do
 		if [ ! -e "$f" ]; then continue; fi
 		((n++))
 		picBasename="$( basename "$f" )"
@@ -2909,7 +2925,7 @@ computeCRC32 () {
 		earg='-e unsigned-integer -b 16'
 	fi
 
-	fifo="${TDIR}/${index}.fifo"
+	fifo="${Self_Ctrl_Dir}/${index}.fifo"
 	if [ ! -e "$fifo" ]; then mkfifo "$fifo" >/dev/null 2>> "$errorLogFile" ; fi
 	sox $earg "$hfile" -t raw "$fifo" 2>> "$errorLogFile" &
 	dgst="$( cksfv -b "$fifo" 2>> "$errorLogFile" | grep -Fv ';' )"
@@ -3362,8 +3378,8 @@ decode () {
 
 	if [ $exitCode -ne $Ex_Ok ]; then
 		rm -f "$wavFile" "$copyFile" "${copyFile}c" "$lossywavFile" "$resampledWavFile" # in case it exists
-		rm -f "${TDIR}/"*"_${index}" # delete all codec lock files
-		rm -f "${TDIR}/"*"_${index}_WAV_NEEDED" # delete associated lock files
+		rm -f "${Self_Ctrl_Dir}/"*"_${index}" # delete all codec lock files
+		rm -f "${Self_Ctrl_Dir}/"*"_${index}_WAV_NEEDED" # delete associated lock files
 		if [ $exitCode -eq $Ex_Io_Err ]; then
 			printMessage 'error' 'processing' "file:${sourceFile}" $p
 		elif [ $exitCode -ne $Ex_Ok ]; then
@@ -3373,9 +3389,9 @@ decode () {
 	fi
 
 	if [ $gnustat = true ]; then
-		$statcmd -L --printf ' + %s' "$wavFile" >> "${TDIR}/bytes" 2>> "$errorLogFile"
+		$statcmd -L --printf ' + %s' "$wavFile" >> "${Self_Ctrl_Dir}/bytes" 2>> "$errorLogFile"
 	else
-		$statcmd -L -n -f ' + %z' "$wavFile" >> "${TDIR}/bytes" 2>> "$errorLogFile"
+		$statcmd -L -n -f ' + %z' "$wavFile" >> "${Self_Ctrl_Dir}/bytes" 2>> "$errorLogFile"
 	fi
 
 	if [ $hasLossless = true ]; then
@@ -3491,7 +3507,7 @@ encodeLossyWAV () {
 
 	if [ $exitCode -eq $Ex_Ok ]; then
 		if [ ! -e "$lossywavFile" ]; then
-			cd "$SWAPDIR"
+			cd "$Self_Swap_Dir"
 			lossywav "${index}.wav" -q $compression_lossyWAV >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			cd "$OLDPWD"
 		fi
@@ -3554,9 +3570,9 @@ encodeLossyWAV () {
 		fi
 	else
 		rm -f "$lossywavFile" # delete lossyWAV file if it exists
-		rm -f "${TDIR}/lossy"*"_${index}" # delete all lossy* codec lock files
-		rm -f "${TDIR}/"*"_${index}_LOSSYWAV_NEEDED" # delete associated codec lock files
-		rm -f "${TDIR}/lossyWAV_${index}_WAV_NEEDED"
+		rm -f "${Self_Ctrl_Dir}/lossy"*"_${index}" # delete all lossy* codec lock files
+		rm -f "${Self_Ctrl_Dir}/"*"_${index}_LOSSYWAV_NEEDED" # delete associated codec lock files
+		rm -f "${Self_Ctrl_Dir}/lossyWAV_${index}_WAV_NEEDED"
 		printMessage 'error' 'encoding' $processNumber "file:${sourceFile}"
 	fi
 
@@ -3787,20 +3803,20 @@ encode () {
 			;;
 
 		AIFF)
-			destExtension='aiff'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}"
+			destExtension='aiff'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}"
 			sox "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			;;
 
 		CAF)
-			destExtension='caf'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}"
+			destExtension='caf'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}"
 			sox "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			;;
 
 		ALAC)
-			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt"
+			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.m4a.txt"
 			nThreads=$( getNumberOfAvailableThreads $index )
 			if [ "$doEmbedCoverArt" = "true" -a -z "$sourceCoverArtFile" ]; then
-				for f in "${SWAPDIR}/picture-${index}-"*_*; do
+				for f in "${Self_Swap_Dir}/picture-${index}-"*_*; do
 					if [ ! -e "$f" ]; then continue; fi
 					picType="${f#*_}"; picType="${picType%.*}"
 					case $picType in
@@ -3816,7 +3832,7 @@ encode () {
 			;;
 
 		FLAC)
-			destExtension='flac'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt" kfm=''
+			destExtension='flac'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.vc.txt" kfm=''
 			# Kohlrabi is a very cool dude
 			if [ $keepWavMetadata = true ]; then kfm='--keep-foreign-metadata' ; fi
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / FLAC $flacVersion / -$compression_FLAC"; fi
@@ -3828,7 +3844,7 @@ encode () {
 			;;
 
 		MonkeysAudio)
-			destExtension='ape'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt"
+			destExtension='ape'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.ape.txt"
 			nThreads=$( getNumberOfAvailableThreads $index )
 			mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 -threads=${nThreads} >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
@@ -3844,7 +3860,7 @@ encode () {
 			;;
 
 		WavPack)
-			destExtension='wv'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt" kfm='-r'
+			destExtension='wv'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.ape.txt" kfm='-r'
 			if [ -e "${destFile}c" ]; then
 				printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$Self_Name -c wv: correction files are present. Please delete them and try again." ; exitCode=$Ex_Ko
 			else
@@ -3864,7 +3880,7 @@ encode () {
 			;;
 
 		WavPackHybrid)
-			destExtension='wv'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt" kfm='-r'
+			destExtension='wv'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.ape.txt" kfm='-r'
 			if [ $keepWavMetadata = true ]; then kfm=''; fi
 			# WavPack Hybrid only supports multithreading for files with more than 2 channels
 			nChannels=$( getNumberOfChannels "$wavFile" )
@@ -3892,7 +3908,7 @@ encode () {
 			;;
 
 		WavPackLossy)
-			destExtension='wv'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt" kfm='-r'
+			destExtension='wv'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.ape.txt" kfm='-r'
 			if [ -e "${destFile}c" ]; then
 				printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$Self_Name -c wv: correction files are present. Please delete them and try again." ; exitCode=$Ex_Ko
 			else
@@ -3924,7 +3940,7 @@ encode () {
 			;;
 
 		lossyFLAC)
-			destExtension='lossy.flac'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt"
+			destExtension='lossy.flac'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.vc.txt"
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 			nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
 			printf -- "--totally-silent`tagline -T`\x00%s" "$lossywavFile" | xargs -0 flac -j $nThreads -P 4096 -5 -b 512 --keep-foreign-metadata -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
@@ -3934,7 +3950,7 @@ encode () {
 			;;
 
 		lossyWV)
-			destExtension='lossy.wv'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.ape.txt"
+			destExtension='lossy.wv'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.ape.txt"
 			if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 			# Using --merge-blocks for encoding lossyWV can only use a single thread
 			printf -- "-q`tagline -w`\x00%s" "$lossywavFile" | xargs -0 wavpack -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
@@ -3949,7 +3965,7 @@ encode () {
 			;;
 
 		MP3)
-			destExtension='mp3'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.mp3.txt"
+			destExtension='mp3'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.mp3.txt"
 			if [ "$compression_MP3" = '320' ]; then
 				MP3_MODE='CBR' bitrate_MP3=320
 			fi
@@ -3981,9 +3997,9 @@ encode () {
 			;;
 
 		AAC)
-			destExtension='m4a'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.m4a.txt" aaclibs=("aac_at" "libfdk_aac" "aac") aaclib=""
+			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.m4a.txt" aaclibs=("aac_at" "libfdk_aac" "aac") aaclib=""
 			if [ "$doEmbedCoverArt" = "true" -a -z "$sourceCoverArtFile" ]; then
-				for f in "${SWAPDIR}/picture-${index}-"*_*; do
+				for f in "${Self_Swap_Dir}/picture-${index}-"*_*; do
 					if [ ! -e "$f" ]; then continue; fi
 					picType="${f#*_}"; picType="${picType%.*}"
 					case $picType in
@@ -4042,7 +4058,7 @@ encode () {
 			;;
 
 		OggVorbis)
-			destExtension='ogg'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt"
+			destExtension='ogg'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.vc.txt"
 			if [ "$OggVorbis_MODE" = 'VBR' ]; then
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / oggenc $oggencVersion / -q $compression_OggVorbis"; fi
 				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc -q $compression_OggVorbis -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
@@ -4056,7 +4072,7 @@ encode () {
 			;;
 
 		Opus)
-			destExtension='opus'; encodedFile="${SWAPDIR}/${index}-${outputCodec}.${destExtension}" destTagFile="${TDIR}/${index}.vc.txt"
+			destExtension='opus'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.vc.txt"
 			if [ "$Opus_MODE" = 'VBR' ]; then
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / $opusVersion / $compression_Opus kbps (VBR)"; fi
 				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --vbr --bitrate $compression_Opus >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
@@ -4168,7 +4184,7 @@ prepareSource () {
 		until test $copyDone = true; do
 			# if test -f "$copyLockFile" && mv "$copyLockFile" "${copyLockFile}.lock" >/dev/null 2>&1; then
 			if getAndRenameLock "$copyLockFile" "${copyLockFile}.lock"; then
-				touch "${instanceDir}/ioLockFiles/${copyLockFile##*/}"
+				touch "${Self_Instance_Dir}/ioLockFiles/${copyLockFile##*/}"
 				echo "$$" > "${copyLockFile}.lock"
 
 				if [ $gnudate = true ]; then
@@ -4182,7 +4198,7 @@ prepareSource () {
 
 				echo '' > "${copyLockFile}.lock" 2>/dev/null
 				mv "${copyLockFile}.lock" "$copyLockFile" >/dev/null 2>&1 &&
-				rm -f "${instanceDir}/ioLockFiles/${copyLockFile##*/}" >/dev/null 2>&1
+				rm -f "${Self_Instance_Dir}/ioLockFiles/${copyLockFile##*/}" >/dev/null 2>&1
 				copyDone=true
 
 				if [ -n "$cptimer1" ]; then
@@ -4191,7 +4207,7 @@ prepareSource () {
 					fi
 					if [ -n "$cptimer2" ]; then
 						cpseconds="$( printf 'scale=6; %.6f - %.6f\n' "$cptimer2" "$cptimer1" | bc )"
-						echo -n " + $cpseconds" >> "${TDIR}/readTimes"
+						echo -n " + $cpseconds" >> "${Self_Ctrl_Dir}/readTimes"
 					fi
 				fi
 			else
@@ -4230,7 +4246,7 @@ prepareSource () {
 }
 
 addTranscodingErrorFile () {
-	echo "$1" >> "${TDIR}/transcodingErrorFiles"
+	echo "$1" >> "${Self_Ctrl_Dir}/transcodingErrorFiles"
 }
 
 transcode () {
@@ -4241,32 +4257,33 @@ transcode () {
 		allDone=true
 		while read milliseconds index; do
 			getFileProps "${sourceFiles[$index]}"
-			copyFile="${SWAPDIR}/${index}.${sourceFilename}"
+			copyFile="${Self_Swap_Dir}/${index}.${sourceFilename}"
 
-			transcodingLockFile="${TDIR}/${index}"
-			wasProcessedFile="${TDIR}/WAS_PROCESSED.${index}"
-			decodingLockFile="${TDIR}/DECODING_${index}"
-			wavFile="${SWAPDIR}/${index}.wav"
-			resampledWavFile="${SWAPDIR}/${index}_resampled.wav"
-			lossywavFile="${SWAPDIR}/${index}.lossy.wav"
-			wavProcessedStatusFile="${TDIR}/${index}.wavProcessed"
-			sourceTagFile="${TDIR}/${index}.txt"
-			apeBinariesDir="${TDIR}/${index}.apeBinariesDir"
-			sourceCRC32File="${TDIR}/${index}.sourceCRC32"
-			sourceMD5File="${TDIR}/${index}.sourceMD5"
-			sourceSHA1File="${TDIR}/${index}.sourceSHA1"
-			sourceSHA256File="${TDIR}/${index}.sourceSHA256"
-			sourceSHA512File="${TDIR}/${index}.sourceSHA512"
-			losslessCRC32File="${TDIR}/${index}.losslessCRC32"
-			losslessMD5File="${TDIR}/${index}.losslessMD5"
-			losslessSHA1File="${TDIR}/${index}.losslessSHA1"
-			losslessSHA256File="${TDIR}/${index}.losslessSHA256"
-			losslessSHA512File="${TDIR}/${index}.losslessSHA512"
-			lossywavCRC32File="${TDIR}/${index}.lossywavCRC32"
-			lossywavMD5File="${TDIR}/${index}.lossywavMD5"
-			lossywavSHA1File="${TDIR}/${index}.lossywavSHA1"
-			lossywavSHA256File="${TDIR}/${index}.lossywavSHA256"
-			lossywavSHA512File="${TDIR}/${index}.lossywavSHA512"
+			wavFile="${Self_Swap_Dir}/${index}.wav"
+			apeBinariesDir="${Self_Swap_Dir}/${index}.apeBinariesDir"
+			lossywavFile="${Self_Swap_Dir}/${index}.lossy.wav"
+			resampledWavFile="${Self_Swap_Dir}/${index}_resampled.wav"
+
+			transcodingLockFile="${Self_Ctrl_Dir}/${index}"
+			wasProcessedFile="${Self_Ctrl_Dir}/WAS_PROCESSED.${index}"
+			decodingLockFile="${Self_Ctrl_Dir}/DECODING_${index}"
+			wavProcessedStatusFile="${Self_Ctrl_Dir}/${index}.wavProcessed"
+			sourceTagFile="${Self_Ctrl_Dir}/${index}.txt"
+			sourceCRC32File="${Self_Ctrl_Dir}/${index}.sourceCRC32"
+			sourceMD5File="${Self_Ctrl_Dir}/${index}.sourceMD5"
+			sourceSHA1File="${Self_Ctrl_Dir}/${index}.sourceSHA1"
+			sourceSHA256File="${Self_Ctrl_Dir}/${index}.sourceSHA256"
+			sourceSHA512File="${Self_Ctrl_Dir}/${index}.sourceSHA512"
+			losslessCRC32File="${Self_Ctrl_Dir}/${index}.losslessCRC32"
+			losslessMD5File="${Self_Ctrl_Dir}/${index}.losslessMD5"
+			losslessSHA1File="${Self_Ctrl_Dir}/${index}.losslessSHA1"
+			losslessSHA256File="${Self_Ctrl_Dir}/${index}.losslessSHA256"
+			losslessSHA512File="${Self_Ctrl_Dir}/${index}.losslessSHA512"
+			lossywavCRC32File="${Self_Ctrl_Dir}/${index}.lossywavCRC32"
+			lossywavMD5File="${Self_Ctrl_Dir}/${index}.lossywavMD5"
+			lossywavSHA1File="${Self_Ctrl_Dir}/${index}.lossywavSHA1"
+			lossywavSHA256File="${Self_Ctrl_Dir}/${index}.lossywavSHA256"
+			lossywavSHA512File="${Self_Ctrl_Dir}/${index}.lossywavSHA512"
 
 			# if test -e "$transcodingLockFile" && mv "$transcodingLockFile" "$decodingLockFile" 2>/dev/null; then
 			if getAndRenameLock "$transcodingLockFile" "$decodingLockFile"; then
@@ -4285,7 +4302,7 @@ transcode () {
 				continue # skip to next track
 			fi
 
-			lossywavLockFile="${TDIR}/lossyWAV_${index}"
+			lossywavLockFile="${Self_Ctrl_Dir}/lossyWAV_${index}"
 			lossywavEncodingLockFile="${lossywavLockFile}_encoding"
 			if [ $nLossyWAV -ge 1 ]; then
 				# if test -e "$lossywavLockFile" && mv "$lossywavLockFile" "$lossywavEncodingLockFile" 2>/dev/null ; then
@@ -4294,8 +4311,8 @@ transcode () {
 					encodeLossyWAV || exitCode=$Ex_Ko
 					if [ $exitCode -ne $Ex_Ok ]; then addTranscodingErrorFile "$sourceFile" ; fi
 					rm -f "$lossywavEncodingLockFile" "${lossywavLockFile}_WAV_NEEDED"
-					ls "${TDIR}/"*"_${index}_WAV_NEEDED" >/dev/null 2>&1 || rm -f "$wavFile"
-					ls "${TDIR}/"*"_${index}_LOSSYWAV_NEEDED" >/dev/null 2>&1 || rm -f "$lossywavFile"
+					ls "${Self_Ctrl_Dir}/"*"_${index}_WAV_NEEDED" >/dev/null 2>&1 || rm -f "$wavFile"
+					ls "${Self_Ctrl_Dir}/"*"_${index}_LOSSYWAV_NEEDED" >/dev/null 2>&1 || rm -f "$lossywavFile"
 				fi
 			fi
 
@@ -4307,17 +4324,17 @@ transcode () {
 						continue
 					fi
 				fi
-				encodingLockFile="${TDIR}/${outputCodec}_${index}"
+				encodingLockFile="${Self_Ctrl_Dir}/${outputCodec}_${index}"
 				# if test -e "$encodingLockFile" && unlink "$encodingLockFile" 2>/dev/null; then
 				if test -e "$encodingLockFile" && getLock "$encodingLockFile"; then
 					allDone=false
 					encode $nDecodingThreads || exitCode=$Ex_Ko
 					if [ $exitCode -ne $Ex_Ok ]; then addTranscodingErrorFile "$sourceFile" ; fi
 					rm -f "${encodingLockFile}_WAV_NEEDED"
-					ls "${TDIR}/"*"_${index}_WAV_NEEDED" >/dev/null 2>&1 || rm -f "$wavFile"
+					ls "${Self_Ctrl_Dir}/"*"_${index}_WAV_NEEDED" >/dev/null 2>&1 || rm -f "$wavFile"
 					if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' ]; then
 						rm -f "${encodingLockFile}_LOSSYWAV_NEEDED"
-						ls "${TDIR}/"*"_${index}_LOSSYWAV_NEEDED" >/dev/null 2>&1 || rm -f "$lossywavFile"
+						ls "${Self_Ctrl_Dir}/"*"_${index}_LOSSYWAV_NEEDED" >/dev/null 2>&1 || rm -f "$lossywavFile"
 					fi
 
 					copyOrLinkOtherFiles "$outputCodec"
@@ -4330,21 +4347,21 @@ transcode () {
 			done
 
 			# FIXME: this mysteriously causes some random picture not to be copied (race condition?)
-			# if ! ls "${TDIR}/"*"_${index}_LOSSYWAV_NEEDED" >/dev/null 2>&1 ; then
-			# 	if ! ls "${TDIR}/"*"_${index}_WAV_NEEDED" >/dev/null 2>&1 ; then
-			# 		ls "${SWAPDIR}/picture-${index}"* >/dev/null 2>&1 &&
-			# 		rm -f "${SWAPDIR}/picture-${index}"* >/dev/null 2>&1
+			# if ! ls "${Self_Ctrl_Dir}/"*"_${index}_LOSSYWAV_NEEDED" >/dev/null 2>&1 ; then
+			# 	if ! ls "${Self_Ctrl_Dir}/"*"_${index}_WAV_NEEDED" >/dev/null 2>&1 ; then
+			# 		ls "${Self_Swap_Dir}/picture-${index}"* >/dev/null 2>&1 &&
+			# 		rm -f "${Self_Swap_Dir}/picture-${index}"* >/dev/null 2>&1
 			# 		if [ -e "$apeBinariesDir" ]; then
 			# 			rm -rf "$apeBinariesDir"
 			# 		fi
 			# 	fi
 			# fi
 		chmod u+rwX "$destPath" "${destPath}"/* 2>> "$errorLogFile" # FIXME chmod u=rw,go=r
-		done < "${TDIR}/millisecondsAndFileNumbers"
+		done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
 		sleep 0.1 # make sure idling processes don't hog the CPU
 	done
 
-	rm -f "${instanceDir}/process.${p}"
+	rm -f "${Self_Instance_Dir}/process.${p}"
 	return $exitCode
 }
 
@@ -4548,11 +4565,11 @@ testFiles () {
 	while read milliseconds index; do
 		sourceFile="${sourceFiles[$index]}"
 		sourceFilename="${sourceFile##*/}"
-		copyFile="${SWAPDIR}/${index}.${sourceFilename}"
-		wavFile="${SWAPDIR}/${index}.wav"
-		sourceTagFile="${TDIR}/${index}.txt"
-		testingLockFile="${TDIR}/${index}"
-		wasProcessedFile="${TDIR}/WAS_PROCESSED.${index}"
+		copyFile="${Self_Swap_Dir}/${index}.${sourceFilename}"
+		wavFile="${Self_Swap_Dir}/${index}.wav"
+		sourceTagFile="${Self_Ctrl_Dir}/${index}.txt"
+		testingLockFile="${Self_Ctrl_Dir}/${index}"
+		wasProcessedFile="${Self_Ctrl_Dir}/WAS_PROCESSED.${index}"
 
 		if getLock "$testingLockFile"; then
 			prepareSource &&
@@ -4561,9 +4578,9 @@ testFiles () {
 			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
 			touch "$wasProcessedFile"
 		fi
-	done < "${TDIR}/millisecondsAndFileNumbers"
+	done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
 
-	rm -f "${instanceDir}/process.${p}"
+	rm -f "${Self_Instance_Dir}/process.${p}"
 	return $exitCode
 }
 
@@ -4664,13 +4681,13 @@ computeHash () {
 		if [ $exitCode -eq $Ex_Ok ]; then
 			case "$copyFile" in
 				*.flac)
-					destTagFile="${TDIR}/${index}.vc.txt" outputCodec="FLAC"
+					destTagFile="${Self_Ctrl_Dir}/${index}.vc.txt" outputCodec="FLAC"
 					cp "$sourceTagFile" "$destTagFile" >/dev/null 2>&1 &&
 					printf -- "--no-utf8-convert`tagline --set-tag`\x00%s" "$sourceFile" | xargs -0 metaflac --remove-all-tags >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 					;;
 
 				*.wv|*.ape)
-					destTagFile="${TDIR}/${index}.ape.txt" outputCodec="WavPack"
+					destTagFile="${Self_Ctrl_Dir}/${index}.ape.txt" outputCodec="WavPack"
 					cp "$sourceTagFile" "$destTagFile" >/dev/null 2>&1 &&
 					printf -- "-z`tagline -t`\x00%s" "$sourceFile" | xargs -0 APEv2 >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 					;;
@@ -4715,12 +4732,12 @@ computeHashes () {
 	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
 		sourceFile="${sourceFiles[$index]}"
 		sourceFilename="${sourceFile##*/}"
-		sourceTagFile="${TDIR}/${index}.txt"
-		sourceMD5File="${TDIR}/${index}.md5"
-		copyFile="${SWAPDIR}/${index}.${sourceFilename}"
-		wavFile="${SWAPDIR}/${index}.wav"
-		hashingLockFile="${TDIR}/${index}"
-		wasProcessedFile="${TDIR}/WAS_PROCESSED.${index}"
+		sourceTagFile="${Self_Ctrl_Dir}/${index}.txt"
+		sourceMD5File="${Self_Ctrl_Dir}/${index}.md5"
+		copyFile="${Self_Swap_Dir}/${index}.${sourceFilename}"
+		wavFile="${Self_Swap_Dir}/${index}.wav"
+		hashingLockFile="${Self_Ctrl_Dir}/${index}"
+		wasProcessedFile="${Self_Ctrl_Dir}/WAS_PROCESSED.${index}"
 
 		if getLock "$hashingLockFile"; then
 			if [ "$hashes" = "internal" ]; then
@@ -4737,7 +4754,7 @@ computeHashes () {
 		fi
 	done
 
-	rm -f "${instanceDir}/process.${p}"
+	rm -f "${Self_Instance_Dir}/process.${p}"
 	return $exitCode
 }
 
@@ -4845,8 +4862,8 @@ showTracksInformation () {
 	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
 		sourceFile="${sourceFiles[$index]}"
 		sourceFilename="${sourceFile##*/}"
-		informationLockFile="${TDIR}/${index}"
-		wasProcessedFile="${TDIR}/WAS_PROCESSED.${index}"
+		informationLockFile="${Self_Ctrl_Dir}/${index}"
+		wasProcessedFile="${Self_Ctrl_Dir}/WAS_PROCESSED.${index}"
 
 		if getLock "$informationLockFile"; then
 			showTrackInformation || exitCode=$Ex_Ko
@@ -4854,7 +4871,7 @@ showTracksInformation () {
 		fi
 	done
 
-	rm -f "${instanceDir}/process.${p}"
+	rm -f "${Self_Instance_Dir}/process.${p}"
 	return $exitCode
 }
 
@@ -5043,7 +5060,7 @@ getFileMilliseconds () {
 getMillisecondsByFileIndex () {
 	local index="$1" fileIndex
 
-	read trackMilliseconds fileIndex < "${TDIR}/inputMilliseconds_${index}"
+	read trackMilliseconds fileIndex < "${Self_Ctrl_Dir}/inputMilliseconds_${index}"
 	if [ -n "$trackMilliseconds" ]; then
 		echo $trackMilliseconds
 	else
@@ -5175,18 +5192,18 @@ computeTrackGains () {
 		destFile="$sourceFile"
 		sourceFilename="${sourceFile##*/}"
 		sourceFileExt="${sourceFile##*.}"
-		gainLockFile="${TDIR}/${index}"
-		wasProcessedFile="${TDIR}/WAS_PROCESSED.${index}"
-		trackGainFile="${TDIR}/${index}.trackgain"
-		trackPeakFile="${TDIR}/${index}.trackpeak"
+		gainLockFile="${Self_Ctrl_Dir}/${index}"
+		wasProcessedFile="${Self_Ctrl_Dir}/WAS_PROCESSED.${index}"
+		trackGainFile="${Self_Ctrl_Dir}/${index}.trackgain"
+		trackPeakFile="${Self_Ctrl_Dir}/${index}.trackpeak"
 
 		if getLock "$gainLockFile"; then
 			computeTrackGain || exitCode=$Ex_Ko
 			touch "$wasProcessedFile"
 		fi
-	done < "${TDIR}/millisecondsAndFileNumbers"
+	done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
 
-	rm -f "${instanceDir}/process.${p}"
+	rm -f "${Self_Instance_Dir}/process.${p}"
 	return $exitCode
 }
 
@@ -5198,8 +5215,8 @@ computeAlbumGain () {
 	local trackGainFile trackPeakFile albumPeak albumAudioPeak albumGain
 
 	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
-		trackGainFile="${TDIR}/${index}.trackgain"
-		trackPeakFile="${TDIR}/${index}.trackpeak"
+		trackGainFile="${Self_Ctrl_Dir}/${index}.trackgain"
+		trackPeakFile="${Self_Ctrl_Dir}/${index}.trackpeak"
 		trackGain="$( cat "$trackGainFile" )"
 		trackMilliseconds="$( getMillisecondsByFileIndex "$index" )"
 		trackSeconds="$( printf "%.0f" "$( echo "scale=3; $trackMilliseconds / 1000" | bc )" )"
@@ -5207,13 +5224,13 @@ computeAlbumGain () {
 			trackSeconds=1
 		fi
 		for (( secondsIndex=0; secondsIndex < trackSeconds; secondsIndex++ )); do
-			echo "$trackGain" >> "${TDIR}/trackgains"
+			echo "$trackGain" >> "${Self_Ctrl_Dir}/trackgains"
 			((increment++))
 		done
-		cat "$trackPeakFile" >> "${TDIR}/trackpeaks" 2>/dev/null
+		cat "$trackPeakFile" >> "${Self_Ctrl_Dir}/trackpeaks" 2>/dev/null
 	done
 
-	albumPeak="$( sort -n "${TDIR}/trackpeaks" 2>/dev/null | tail -n 1 )"
+	albumPeak="$( sort -n "${Self_Ctrl_Dir}/trackpeaks" 2>/dev/null | tail -n 1 )"
 	if [ -z "$albumPeak" ]; then
 		return $Ex_Ko
 	fi
@@ -5231,13 +5248,13 @@ computeAlbumGain () {
 			albumGain="-0"
 		fi
 	else
-		sort -n "${TDIR}/trackgains" > "${TDIR}/trackgains.tmp" 2>/dev/null
-		mv "${TDIR}/trackgains.tmp" "${TDIR}/trackgains"
+		sort -n "${Self_Ctrl_Dir}/trackgains" > "${Self_Ctrl_Dir}/trackgains.tmp" 2>/dev/null
+		mv "${Self_Ctrl_Dir}/trackgains.tmp" "${Self_Ctrl_Dir}/trackgains"
 
 		# By using PINK_REF_COMPLEMENT instead of PINK_REF, running 'head' MIGHT be slightly faster than
 		# running 'tail' with PINK_REF because 'head' will output fewer lines than 'tail'.
 		rank="$( printf "%.0f" "$( echo "scale=5; ((${PINK_REF_COMPLEMENT} / 100) * $increment + (1 / 2)) / 1" | bc 2>> "$errorLogFile" )" )"
-		albumGain="$( head -n $rank "${TDIR}/trackgains" 2>/dev/null | tail -n 1 )"
+		albumGain="$( head -n $rank "${Self_Ctrl_Dir}/trackgains" 2>/dev/null | tail -n 1 )"
 		if [ -z "$albumGain" ]; then
 			printMessage 'error' 'album_gain' "Album gain"
 			return $Ex_Ko
@@ -5415,14 +5432,14 @@ reverseTrackGains () {
 
 	while read milliseconds index; do
 		sourceFile="${sourceFiles[$index]}"
-		gainLockFile="${TDIR}/${index}"
+		gainLockFile="${Self_Ctrl_Dir}/${index}"
 
 		if getLock "$gainLockFile"; then
 			reverseTrackGain || exitCode=$Ex_Ko
 		fi
-	done < "${TDIR}/millisecondsAndFileNumbers"
+	done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
 
-	rm -f "${instanceDir}/process.${p}"
+	rm -f "${Self_Instance_Dir}/process.${p}"
 	return $exitCode
 }
 
@@ -5507,9 +5524,9 @@ computeTrackDateTimes () {
 	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
 		sourceFile="${sourceFiles[$index]}"
 		sourceFilename="${sourceFile##*/}"
-		sourceTagFile="${TDIR}/${index}.txt"
-		touchLockFile="${TDIR}/${index}"
-		wasProcessedFile="${TDIR}/WAS_PROCESSED.${index}"
+		sourceTagFile="${Self_Ctrl_Dir}/${index}.txt"
+		touchLockFile="${Self_Ctrl_Dir}/${index}"
+		wasProcessedFile="${Self_Ctrl_Dir}/WAS_PROCESSED.${index}"
 
 		if getLock "$touchLockFile"; then
 			prepareSource &&
@@ -5518,7 +5535,7 @@ computeTrackDateTimes () {
 		fi
 	done
 
-	rm -f "${instanceDir}/process.${p}"
+	rm -f "${Self_Instance_Dir}/process.${p}"
 	return $exitCode
 }
 
@@ -5594,7 +5611,7 @@ touchAllFiles () {
 			sourceDirname="$( dirname "$sourceFile" )"
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
-			sourceTagFile="${TDIR}/${index}.txt"
+			sourceTagFile="${Self_Ctrl_Dir}/${index}.txt"
 
 			case "$sourceFile" in
 				*.flac|*ogg|*m4a|*.wv|*.ape|*.mp3|*.opus)
@@ -5794,7 +5811,7 @@ printMachineStats () {
 
 	while read fileMilliseconds index; do
 		duration=$(( duration + fileMilliseconds ))
-	done < "${TDIR}/millisecondsAndFileNumbers"
+	done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
 
 	if [ "$duration" != '0' ]; then
 		duration="$( printf "%.0f" "$( echo "scale=3; $duration / 1000" | bc )" )"
@@ -5871,7 +5888,7 @@ printHumanStats () {
 
 	while read fileMilliseconds index; do
 		duration=$(( duration + fileMilliseconds ))
-	done < "${TDIR}/millisecondsAndFileNumbers"
+	done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
 
 	if [ "$duration" != '0' ]; then
 		duration="$( printf "%.0f" "$( echo "scale=3; $duration / 1000" | bc )" )"
@@ -5879,7 +5896,7 @@ printHumanStats () {
 	fi
 	printf "${Clr_B_Bk} * ${Clr_Rst}%.2f seconds" $seconds
 
-	readDuration="$( { echo -n 'scale=6; ' ; cat "${TDIR}/readTimes" ; echo ; } | bc )"
+	readDuration="$( { echo -n 'scale=6; ' ; cat "${Self_Ctrl_Dir}/readTimes" ; echo ; } | bc )"
 	if [ "$readDuration" = '0' ]; then # prevent division by 0 situations
 		if [ "$seconds" = '0' ]; then
 			readDuration='1'
@@ -5939,7 +5956,7 @@ printHumanStats () {
 
 	if [ "$outputCodecs" = 'WAV' ]; then return; fi
 
-	bytesWav="$( { echo -n 'scale=0; 0' ; cat "${TDIR}/bytes" ; echo ; } | bc )"
+	bytesWav="$( { echo -n 'scale=0; 0' ; cat "${Self_Ctrl_Dir}/bytes" ; echo ; } | bc )"
 	mibSource="$( echo "scale=3; $bytesSource / 1048576" | bc )"
 	mibUncompressed="$( echo "scale=3; $bytesWav / 1048576" | bc )"
 	ratio="$( echo "scale=3; $bytesSource * 100 / $bytesWav" | bc )"
