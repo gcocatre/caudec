@@ -4815,8 +4815,8 @@ showTrackInformation () {
 					bytesLossy="$( $statcmd -L --printf "%s" "$sourceFile" 2>/dev/null )"
 					bytesLossless="$( $statcmd -L --printf "%s" "${sourceFile}c" 2>/dev/null )"
 				else
-					bytesLossy="$( $statcmd -L -n -f "%s" "$sourceFile" 2>/dev/null )"
-					bytesLossless="$( $statcmd -L -n -f "%s" "${sourceFile}c" 2>/dev/null )"
+					bytesLossy="$( $statcmd -L -n -f "%z" "$sourceFile" 2>/dev/null )"
+					bytesLossless="$( $statcmd -L -n -f "%z" "${sourceFile}c" 2>/dev/null )"
 				fi
 				bitrate="$( printf "%.0f" "$( echo "scale=3; ($bytesLossy + $bytesLossless) * 8 * $samplingRate / $nSamples" | bc )" )"
 			else
