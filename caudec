@@ -4743,7 +4743,7 @@ computeHashes () {
 
 showTrackInformation () {
 	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples cddaSamples sectorSize=588 mediaType
-	local floatOrInt floatStr="" something rest bitrate=0
+	local floatOrInt floatStr="" something rest bitrate=0 bytesLossy bytesLossless
 
 	if [ -e "$sourceFile" ]; then
 		case "$sourceFile" in
@@ -4808,7 +4808,24 @@ showTrackInformation () {
 		exitCode=$Ex_Ko
 	fi
 
-	bitrate="$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | grep -E '^format.bit_rate=' | tr -cd [0-9] )"
+	case "$sourceFile" in
+		*wv)
+			if [ -f "${sourceFile}c" ]; then
+				if [ $gnustat = true ]; then
+					bytesLossy="$( $statcmd -L --printf "%s" "$sourceFile" 2>/dev/null )"
+					bytesLossless="$( $statcmd -L --printf "%s" "${sourceFile}c" 2>/dev/null )"
+				else
+					bytesLossy="$( $statcmd -L -n -f "%s" "$sourceFile" 2>/dev/null )"
+					bytesLossless="$( $statcmd -L -n -f "%s" "${sourceFile}c" 2>/dev/null )"
+				fi
+				bitrate="$( printf "%.0f" "$( echo "scale=3; ($bytesLossy + $bytesLossless) * 8 * $samplingRate / $nSamples" | bc )" )"
+			else
+				bitrate="$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | grep -E '^format.bit_rate=' | tr -cd [0-9] )"
+			fi
+		;;
+
+		*) bitrate="$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | grep -E '^format.bit_rate=' | tr -cd [0-9] )" ;;
+	esac
 	case "$bitrate" in
 		[0-9]*) true ;;
 		"000"|*) bitrate=0 ;;
