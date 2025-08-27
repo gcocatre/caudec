@@ -1555,9 +1555,19 @@ handleInstance () {
 	touch "$errorLogFile"
 	echo "$$" > "${Self_Instance_Dir}/PID"
 
-	randomSuffix="${Self_Instance_Dir##*.}"
+	Self_Random_Suffix="${Self_Instance_Dir##*.}"
 
-	Self_Ctrl_Dir="${Self_Pid_Dir}/${Self_Name}_control.${randomSuffix}"
+	nRunningInstances="$( getNumberOfCaudecInstances )"
+	if [ $nRunningInstances -gt $maxInstances ]; then
+		printMessage 'warning' 'usage' 'quota' "Too many instances of caudec are already running."
+		printMessage 'info' 'stderr' "You might want to increase the 'maxInstances' value in /etc/caudecrc or ~/.caudecrc."
+		printMessage 'abort'
+		cleanExit $Ex_Temp_Fail
+	fi
+}
+
+setupControlDir () {
+	Self_Ctrl_Dir="${Self_Pid_Dir}/${Self_Name}_control.${Self_Random_Suffix}"
 	mkdir -m 0777 -p "$Self_Ctrl_Dir" >/dev/null 2>&1
 
 	if [ -z "$Self_Ctrl_Dir" ]; then
@@ -1572,13 +1582,47 @@ handleInstance () {
 
 	chmod 0775 "$Self_Ctrl_Dir"
 
-	nRunningInstances="$( getNumberOfCaudecInstances )"
-	if [ $nRunningInstances -gt $maxInstances ]; then
-		printMessage 'warning' 'usage' 'quota' "Too many instances of caudec are already running."
-		printMessage 'info' 'stderr' "You might want to increase the 'maxInstances' value in /etc/caudecrc or ~/.caudecrc."
-		printMessage 'abort'
-		cleanExit $Ex_Temp_Fail
+	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
+		touch "${Self_Ctrl_Dir}/${index}"
+
+		fileMilliseconds="$( getFileMilliseconds "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
+		echo "$fileMilliseconds $index" > "${Self_Ctrl_Dir}/inputMilliseconds_${index}"
+
+		if [ $nLossyWAV -ge 1 ]; then
+			touch "${Self_Ctrl_Dir}/lossyWAV_${index}"
+			touch "${Self_Ctrl_Dir}/lossyWAV_${index}_WAV_NEEDED"
+		fi
+
+		for outputCodec in $outputCodecs; do
+			touch "${Self_Ctrl_Dir}/${outputCodec}_${index}"
+			if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' ]; then
+				touch "${Self_Ctrl_Dir}/${outputCodec}_${index}_LOSSYWAV_NEEDED"
+				touch "${Self_Ctrl_Dir}/lossyWAV_${index}_WAV_NEEDED"
+			else
+				touch "${Self_Ctrl_Dir}/${outputCodec}_${index}_WAV_NEEDED"
+			fi
+		done
+	done
+
+	echo -n "0" > "${Self_Ctrl_Dir}/readTimes"
+	touch "${Self_Ctrl_Dir}/transcodingErrorFiles"
+
+	# FIXME STAT: for some reason, gstat -c doesn't work here on macOS
+	# if [ $gnustat = true ]; then
+	# 	TDEV="$( $statcmd -c '%d' "$Self_Ctrl_Dir" )"
+	# else
+	# 	TDEV="$( $statcmd -f '%d' "$Self_Ctrl_Dir" )"
+	# fi
+
+	if [ "$OS" = 'Linux' ]; then
+		TDEV="$( stat -c '%d' "$Self_Ctrl_Dir" )"
+	else
+		TDEV="$( stat -f '%d' "$Self_Ctrl_Dir" )"
 	fi
+	echo "$TDEV" > "${Self_Instance_Dir}/tdev"
+	echo "$Self_Ctrl_Dir" > "${Self_Instance_Dir}/tdir"
+
+	sort -n "${Self_Ctrl_Dir}/inputMilliseconds_"* > "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
 }
 
 setupSwapDir () {
@@ -1622,7 +1666,7 @@ setupSwapDir () {
 		cleanExit $Ex_No_Perm
 	fi
 
-	Self_Swap_Dir="${mktempDir}/${Self_Name}_swap.${randomSuffix}"
+	Self_Swap_Dir="${mktempDir}/${Self_Name}_swap.${Self_Random_Suffix}"
 	mkdir -m 0777 -p "$Self_Swap_Dir" >/dev/null 2>&1
 
 	if [ -z "$Self_Swap_Dir" ]; then
@@ -1637,21 +1681,6 @@ setupSwapDir () {
 
 	chmod 0775 "$Self_Swap_Dir"
 
-	# FIXME STAT: for some reason, gstat -c doesn't work here on macOS
-	# if [ $gnustat = true ]; then
-	# 	TDEV="$( $statcmd -c '%d' "$Self_Ctrl_Dir" )"
-	# else
-	# 	TDEV="$( $statcmd -f '%d' "$Self_Ctrl_Dir" )"
-	# fi
-
-	if [ "$OS" = 'Linux' ]; then
-		TDEV="$( stat -c '%d' "$Self_Ctrl_Dir" )"
-	else
-		TDEV="$( stat -f '%d' "$Self_Ctrl_Dir" )"
-	fi
-	echo "$TDEV" > "${Self_Instance_Dir}/tdev"
-	echo "$Self_Ctrl_Dir" > "${Self_Instance_Dir}/tdir"
-
 	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
 		if [ "$OS" = 'Linux' ]; then
 			copyLockFile="${Self_Io_Dir}/$( stat -c '%d' "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
@@ -1661,32 +1690,8 @@ setupSwapDir () {
 		if [ ! -e "${copyLockFile}.lock" ]; then
 			touch "$copyLockFile"
 		fi
-
-		touch "${Self_Ctrl_Dir}/${index}"
-
-		fileMilliseconds="$( getFileMilliseconds "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
-		echo "$fileMilliseconds $index" > "${Self_Ctrl_Dir}/inputMilliseconds_${index}"
-
-		if [ $nLossyWAV -ge 1 ]; then
-			touch "${Self_Ctrl_Dir}/lossyWAV_${index}"
-			touch "${Self_Ctrl_Dir}/lossyWAV_${index}_WAV_NEEDED"
-		fi
-
-		for outputCodec in $outputCodecs; do
-			touch "${Self_Ctrl_Dir}/${outputCodec}_${index}"
-			if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' ]; then
-				touch "${Self_Ctrl_Dir}/${outputCodec}_${index}_LOSSYWAV_NEEDED"
-				touch "${Self_Ctrl_Dir}/lossyWAV_${index}_WAV_NEEDED"
-			else
-				touch "${Self_Ctrl_Dir}/${outputCodec}_${index}_WAV_NEEDED"
-			fi
-		done
 	done
 
-	sort -n "${Self_Ctrl_Dir}/inputMilliseconds_"* > "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
-
-	echo -n "0" > "${Self_Ctrl_Dir}/readTimes"
-	touch "${Self_Ctrl_Dir}/transcodingErrorFiles"
 	ln -s "$Self_Swap_Dir" "$Self_Pid_Dir"
 }
 
@@ -7081,7 +7086,7 @@ declare -a sourceFiles=()
 numberOfInputFiles=0
 numberOfSourceFiles=0
 
-getInputFiles && checkInputFiles && checkBinaries && handleInstance && setupSwapDir
+getInputFiles && checkInputFiles && checkBinaries && handleInstance && setupControlDir && setupSwapDir
 
 for signal in INT TERM ABRT PIPE; do
 	trap "cleanAbort" $signal
