@@ -20,7 +20,7 @@
 
 declare -r Self_Name='caudec'
 declare -r Self_Called_As="${0##*/}"
-declare -r Self_Version='2.3.1'
+declare -r Self_Version='2.3.2'
 
 # Ex_Usage: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # Ex_Data_Err: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -4450,7 +4450,7 @@ getAndRenameLock () {
 	if [ "$OS" = 'Darwin' ]; then
 		lockf -k -s -n -t 1 "$lockFileOne" mv "$lockFileOne" "$lockFileTwo" &>/dev/null
 	else
-		test -e "$lockFileOne" && mv "$lockFileTwo" 2>/dev/null  # FIXME LOCKING
+		test -e "$lockFileOne" && mv "$lockFileOne" "$lockFileTwo" 2>/dev/null  # FIXME LOCKING
 	fi
 }
 
