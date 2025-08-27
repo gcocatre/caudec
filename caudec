@@ -4567,7 +4567,7 @@ getAndRenameLock () {
 	if [ "$OS" = 'Darwin' ]; then
 		lockf -k -s -n -t 1 "$lockFileOne" mv "$lockFileOne" "$lockFileTwo" &>/dev/null
 	else
-		test -e "$lockFileOne" && mv "$lockFileTwo" 2>/dev/null  # FIXME LOCKING
+		test -e "$lockFileOne" && mv "$lockFileOne" "$lockFileTwo" 2>/dev/null  # FIXME LOCKING
 	fi
 }
 
