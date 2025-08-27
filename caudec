@@ -4251,7 +4251,7 @@ addTranscodingErrorFile () {
 
 transcode () {
 	local exitCode=$Ex_Ok lastCodec="${outputCodecs##* }" allDone=false copyDone=false encodingDone=false lsec=0
-	local milliseconds index nDecodingThreads=1
+	local milliseconds index nDecodingThreads=1 allCodecsDone=false
 
 	until test $allDone = true; do
 		allDone=true
@@ -4342,9 +4342,20 @@ transcode () {
 						copyOrLinkOtherFiles "WavPackLossy"
 					fi
 
-					touch "$wasProcessedFile"
+					allCodecsDone=true
+					for outputCodec in $outputCodecs; do
+						encodingLockFile="${Self_Ctrl_Dir}/${outputCodec}_${index}"
+						if [ -e "$encodingLockFile" ]; then
+							allCodecsDone=false
+							break
+						fi
+					done
+					if [ $allCodecsDone = true ]; then
+						touch "$wasProcessedFile"
+					fi
 				fi
 			done
+
 
 			# FIXME: this mysteriously causes some random picture not to be copied (race condition?)
 			# if ! ls "${Self_Ctrl_Dir}/"*"_${index}_LOSSYWAV_NEEDED" >/dev/null 2>&1 ; then
@@ -4358,7 +4369,7 @@ transcode () {
 			# fi
 		chmod u+rwX "$destPath" "${destPath}"/* 2>> "$errorLogFile" # FIXME chmod u=rw,go=r
 		done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
-		sleep 0.1 # make sure idling processes don't hog the CPU
+		sleep 0.05 # make sure idling processes don't hog the CPU
 	done
 
 	rm -f "${Self_Instance_Dir}/process.${p}"
