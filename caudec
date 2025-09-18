@@ -255,7 +255,7 @@ Encoding parameters (mutually exclusive from all other actions):
 
   -c CODEC  use specified CODEC: wav, aiff, caf,
             flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
-            lossyWAV, lossyFLAC, lossyWV, ape (Monkey's Audio), alac (m4a),
+            lossyFLAC, lossyWV, ape (Monkey's Audio), alac (m4a),
             aac (m4a), mp3, ogg / vorbis, opus.
 
   -C CODEC  use specified CODEC, but discard existing metadata
@@ -720,7 +720,7 @@ getCompressionSetting () {
 			esac
 			;;
 
-		lossyWAV|lossyFLAC|lossyWV)
+		lossyFLAC|lossyWV)
 			if [ -z "$value" ]; then value="S"; fi
 			case "$value" in
 				x|p|c|s|h|e|i) compression_lossyWAV="$( echo "$value" | tr '[:lower:]' '[:upper:]' )" ;;
@@ -1415,7 +1415,6 @@ checkBinaries () {
 			FLAC) checkBinary 'flac' ;;
 			WavPack|WavPackHybrid|WavPackLossy) checkBinary 'wavpack' 'APEv2' ;;
 			MonkeysAudio) checkBinary 'mac' 'APEv2' ;;
-			lossyWAV) checkBinary 'lossywav' 'sox' ;;
 			lossyFLAC) checkBinary 'lossywav' 'sox' 'flac' ;;
 			lossyWV) checkBinary 'lossywav' 'sox' 'wavpack' 'APEv2' ;;
 			OggVorbis) checkBinary 'oggenc' ;;
@@ -1815,7 +1814,7 @@ tagline () {
 				done
 				;;
 
-			FLAC|WavPack|WavPackHybrid|MonkeysAudio|ALAC)
+			FLAC|WavPack|WavPackHybrid|MonkeysAudio|ALAC|lossyFLAC|lossyWV)
 				if isWavProcessed ; then # SoX was used on the WAV file for resampling, applying gain, or converting to stereo
 					grep -viE "^µµµ(CRC32|MD5|SHA1|SHA256|SHA512)=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 					mv "${destTagFile}.${outputCodec}.tmp" "${destTagFile}.${outputCodec}"
@@ -1832,21 +1831,6 @@ tagline () {
 							-e 's@µµµSHA256=@SOURCESHA256=@i' -e 's@µµµSHA512=@SOURCESHA512=@i' "${destTagFile}.${outputCodec}"
 					fi
 				fi
-				;;
-
-			lossy*)
-				grep -viE "(MD5|CRC32|SHA1|SHA256|SHA512)=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
-				mv "${destTagFile}.${outputCodec}.tmp" "${destTagFile}.${outputCodec}"
-				for h in $hashes; do
-					grep -i "SOURCE${h}=" "$destTagFile" >> "${destTagFile}.${outputCodec}"
-					case "$h" in
-						CRC32) if [ -f "$lossywavCRC32File" ]; then cat "$lossywavCRC32File" >> "${destTagFile}.${outputCodec}" ; fi ;;
-						MD5) if [ -f "$lossywavMD5File" ]; then cat "$lossywavMD5File" >> "${destTagFile}.${outputCodec}" ; fi ;;
-						SHA1) if [ -f "$lossywavSHA1File" ]; then cat "$lossywavSHA1File" >> "${destTagFile}.${outputCodec}" ; fi ;;
-						SHA256) if [ -f "$lossywavSHA256File" ]; then cat "$lossywavSHA256File" >> "${destTagFile}.${outputCodec}" ; fi ;;
-						SHA512) if [ -f "$lossywavSHA512File" ]; then cat "$lossywavSHA512File" >> "${destTagFile}.${outputCodec}" ; fi ;;
-					esac
-				done
 				;;
 		esac
 	fi
@@ -3515,7 +3499,7 @@ getEncoderVersions () {
 				wavpackVersion="${wavpackVersion##* }"
 				;;
 
-			lossy*)
+			lossyFLAC|lossyWV)
 				lossywavVersion="$( lossywav -v 2>/dev/null | grep -F 'lossyWAV' | tr -d '\r\n' )" # recent lossyWAV
 				if [ -z "$lossywavVersion" ]; then
 					lossywavVersion="$( lossywav -v 2>&1 | grep -F 'lossyWAV' | tr -d '\r\n' )" # old lossyWAV
@@ -4206,11 +4190,6 @@ transcode () {
 			losslessSHA1File="${Self_Ctrl_Dir}/${index}.losslessSHA1"
 			losslessSHA256File="${Self_Ctrl_Dir}/${index}.losslessSHA256"
 			losslessSHA512File="${Self_Ctrl_Dir}/${index}.losslessSHA512"
-			lossywavCRC32File="${Self_Ctrl_Dir}/${index}.lossywavCRC32"
-			lossywavMD5File="${Self_Ctrl_Dir}/${index}.lossywavMD5"
-			lossywavSHA1File="${Self_Ctrl_Dir}/${index}.lossywavSHA1"
-			lossywavSHA256File="${Self_Ctrl_Dir}/${index}.lossywavSHA256"
-			lossywavSHA512File="${Self_Ctrl_Dir}/${index}.lossywavSHA512"
 
 			# if test -e "$transcodingLockFile" && mv "$transcodingLockFile" "$decodingLockFile" 2>/dev/null; then
 			if getAndRenameLock "$transcodingLockFile" "$decodingLockFile"; then
@@ -5622,7 +5601,6 @@ getCodecExtension () {
 		WavPackHybrid) ext='wv' ;;
 		MonkeysAudio)  ext='ape' ;;
 		WavPackLossy)  ext='wv' ;;
-		lossyWAV)      ext='lossy.wav' ;;
 		lossyFLAC)     ext='lossy.flac' ;;
 		lossyWV)       ext='lossy.wv' ;;
 		OggVorbis)     ext='ogg' ;;
@@ -5647,7 +5625,6 @@ getCodecFullName () {
 		WavPackHybrid) codecFullName='WavPack Hybrid' ;;
 		MonkeysAudio)  codecFullName="Monkey's Audio" ;;
 		WavPackLossy)  codecFullName='WavPack Lossy' ;;
-		lossyWAV)      codecFullName='lossyWAV' ;;
 		lossyFLAC)     codecFullName='lossyFLAC' ;;
 		lossyWV)       codecFullName='lossyWV' ;;
 		OggVorbis)     codecFullName='Ogg Vorbis' ;;
@@ -5939,7 +5916,6 @@ setDestDir () {
 
 			WavPackLossy) dir_WavPackLossy="$codecDestDir" ;;
 			MonkeysAudio) dir_MonkeysAudio="$codecDestDir" ;;
-			lossyWAV) dir_lossyWAV="$codecDestDir" ;;
 			lossyFLAC) dir_lossyFLAC="$codecDestDir" ;;
 			lossyWV) dir_lossyWV="$codecDestDir" ;;
 			MP3) dir_MP3="$codecDestDir" ;;
@@ -5961,7 +5937,6 @@ setDestDir () {
 
 			WavPackLossy) copyPath_WavPackLossy="$copyPath" ;;
 			MonkeysAudio) copyPath_MonkeysAudio="$copyPath" ;;
-			lossyWAV) copyPath_lossyWAV="$copyPath" ;;
 			lossyFLAC) copyPath_lossyFLAC="$copyPath" ;;
 			lossyWV) copyPath_lossyWV="$copyPath" ;;
 			MP3) copyPath_MP3="$copyPath" ;;
@@ -5986,7 +5961,6 @@ getDestDir () {
 		MonkeysAudio) codecDestDir="$dir_MonkeysAudio" ;;
 
 		WavPackLossy) codecDestDir="$dir_WavPackLossy" ;;
-		lossyWAV) codecDestDir="$dir_lossyWAV" ;;
 		lossyFLAC) codecDestDir="$dir_lossyFLAC" ;;
 		lossyWV) codecDestDir="$dir_lossyWV" ;;
 		MP3) codecDestDir="$dir_MP3" ;;
@@ -6016,7 +5990,6 @@ copyPathOrNot () {
 
 		WavPackLossy) copyPath="$copyPath_WavPackLossy" ;;
 		MonkeysAudio) copyPath="$copyPath_MonkeysAudio" ;;
-		lossyWAV) copyPath="$copyPath_lossyWAV" ;;
 		lossyFLAC) copyPath="$copyPath_lossyFLAC" ;;
 		lossyWV) copyPath="$copyPath_lossyWV" ;;
 		MP3) copyPath="$copyPath_MP3" ;;
@@ -6054,7 +6027,6 @@ setCodecOtherFiles () {
 			MonkeysAudio) copyOtherFiles_MonkeysAudio="$pattern" ;;
 
 			WavPackLossy) copyOtherFiles_WavPackLossy="$pattern" ;;
-			lossyWAV) copyOtherFiles_lossyWAV="$pattern" ;;
 			lossyFLAC) copyOtherFiles_lossyFLAC="$pattern" ;;
 			lossyWV) copyOtherFiles_lossyWV="$pattern" ;;
 			MP3) copyOtherFiles_MP3="$pattern" ;;
@@ -6079,7 +6051,6 @@ getCodecOtherFiles () {
 		MonkeysAudio) otherFilesPattern="$copyOtherFiles_MonkeysAudio" ;;
 
 		WavPackLossy) otherFilesPattern="$copyOtherFiles_WavPackLossy" ;;
-		lossyWAV) otherFilesPattern="$copyOtherFiles_lossyWAV" ;;
 		lossyFLAC) otherFilesPattern="$copyOtherFiles_lossyFLAC" ;;
 		lossyWV) otherFilesPattern="$copyOtherFiles_lossyWV" ;;
 		MP3) otherFilesPattern="$copyOtherFiles_MP3" ;;
@@ -6113,7 +6084,6 @@ setCodecCoverArtFile () {
 			MonkeysAudio) coverArtFile_MonkeysAudio="$coverArtFile" ;;
 
 			WavPackLossy) coverArtFile_WavPackLossy="$coverArtFile" ;;
-			lossyWAV) coverArtFile_lossyWAV="$coverArtFile" ;;
 			lossyFLAC) coverArtFile_lossyFLAC="$coverArtFile" ;;
 			lossyWV) coverArtFile_lossyWV="$coverArtFile" ;;
 			MP3) coverArtFile_MP3="$coverArtFile" ;;
@@ -6138,7 +6108,6 @@ getCodecCoverArtFile () {
 		MonkeysAudio) coverArtFile="$coverArtFile_MonkeysAudio" ;;
 
 		WavPackLossy) coverArtFile="$coverArtFile_WavPackLossy" ;;
-		lossyWAV) coverArtFile="$coverArtFile_lossyWAV" ;;
 		lossyFLAC) coverArtFile="$coverArtFile_lossyFLAC" ;;
 		lossyWV) coverArtFile="$coverArtFile_lossyWV" ;;
 		MP3) coverArtFile="$coverArtFile_MP3" ;;
@@ -6265,7 +6234,7 @@ esac
 maxProcessesSetByUser=$nProcesses
 
 losslessCodecsString="WAV AIFF CAF FLAC ALAC WavPack WavPackHybrid MonkeysAudio"
-lossyCodecsString="WavPackLossy lossyWAV lossyFLAC lossyWV MP3 AAC OggVorbis Opus"
+lossyCodecsString="WavPackLossy lossyFLAC lossyWV MP3 AAC OggVorbis Opus"
 allCodecsString="${losslessCodecsString} ${lossyCodecsString}"
 
 # Set default values
@@ -6512,7 +6481,6 @@ while getopts '2a:B:b:C:c:df:G:ghH:iIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 				wvl)                 lastCodec='WavPackLossy' ;;
 				aac)                 lastCodec='AAC' ;;
 				ape)                 lastCodec='MonkeysAudio' ;;
-				lossyWAV|lossywav)   lastCodec='lossyWAV' ;;
 				lossyFLAC|lossyflac) lastCodec='lossyFLAC' ;;
 				lossyWV|lossywv)     lastCodec='lossyWV' ;;
 				mp3)                 lastCodec='MP3' ;;
@@ -6547,7 +6515,7 @@ while getopts '2a:B:b:C:c:df:G:ghH:iIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 			case "$lastCodec" in
 				AAC) getCompressionSetting 'AAC' "$OPTARG" ;;
 				FLAC) getCompressionSetting 'FLAC' "$OPTARG" ;;
-				lossyWAV|lossyFLAC|lossyWV) getCompressionSetting 'lossyWAV' "$OPTARG" ;;
+				lossyFLAC|lossyWV) getCompressionSetting 'lossyWAV' "$OPTARG" ;;
 				MonkeysAudio) getCompressionSetting 'MonkeysAudio' "$OPTARG" ;;
 				MP3) getCompressionSetting 'MP3' "$OPTARG" ; MP3_MODE='VBR' ;;
 				OggVorbis) getCompressionSetting 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='VBR' ;;
