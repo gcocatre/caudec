@@ -1415,9 +1415,9 @@ checkBinaries () {
 			FLAC) checkBinary 'flac' ;;
 			WavPack|WavPackHybrid|WavPackLossy) checkBinary 'wavpack' 'APEv2' ;;
 			MonkeysAudio) checkBinary 'mac' 'APEv2' ;;
-			lossyWAV) checkBinary 'lossywav' ;;
-			lossyFLAC) checkBinary 'lossywav' 'flac' ;;
-			lossyWV) checkBinary 'lossywav' 'wavpack' 'APEv2' ;;
+			lossyWAV) checkBinary 'lossywav' 'sox' ;;
+			lossyFLAC) checkBinary 'lossywav' 'sox' 'flac' ;;
+			lossyWV) checkBinary 'lossywav' 'sox' 'wavpack' 'APEv2' ;;
 			OggVorbis) checkBinary 'oggenc' ;;
 			MP3) checkBinary 'lame' 'eyeD3' ;;
 			AAC|ALAC) checkBinary 'ffmpeg' ;;
@@ -1600,19 +1600,9 @@ setupControlDir () {
 		fileMilliseconds="$( getFileMilliseconds "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
 		echo "$fileMilliseconds $index" > "${Self_Ctrl_Dir}/inputMilliseconds_${index}"
 
-		if [ $nLossyWAV -ge 1 ]; then
-			touch "${Self_Ctrl_Dir}/lossyWAV_${index}"
-			touch "${Self_Ctrl_Dir}/lossyWAV_${index}_WAV_NEEDED"
-		fi
-
 		for outputCodec in $outputCodecs; do
 			touch "${Self_Ctrl_Dir}/${outputCodec}_${index}"
-			if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' ]; then
-				touch "${Self_Ctrl_Dir}/${outputCodec}_${index}_LOSSYWAV_NEEDED"
-				touch "${Self_Ctrl_Dir}/lossyWAV_${index}_WAV_NEEDED"
-			else
-				touch "${Self_Ctrl_Dir}/${outputCodec}_${index}_WAV_NEEDED"
-			fi
+			touch "${Self_Ctrl_Dir}/${outputCodec}_${index}_WAV_NEEDED"
 		done
 	done
 
@@ -3508,94 +3498,6 @@ decode () {
 	return $exitCode
 }
 
-encodeLossyWAV () {
-	local exitCode=$Ex_Ok overwriteLossyWAV=true
-
-	encodedFile="$lossywavFile"
-
-	if [ $copyLossyWAV = true ]; then
-		getFileProps "$sourceFile" 'lossyWAV'
-		if [ $copyPath = "true" ]; then
-			if ! mkdir -p "$destPath" >/dev/null 2>&1 ; then
-				exitCode=$Ex_Ko
-			fi
-		fi
-	fi
-
-	if [ $exitCode -eq $Ex_Ok ]; then
-		if [ ! -e "$lossywavFile" ]; then
-			cd "$Self_Swap_Dir"
-			lossywav "${index}.wav" -q $compression_lossyWAV >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
-			cd "$OLDPWD"
-		fi
-	fi
-
-	if [ $exitCode -eq $Ex_Ok ]; then
-		for outputCodec in $outputCodecs; do
-			case "$outputCodec" in
-				lossyFLAC|lossyWV)
-					for h in $hashes; do
-						case $h in
-							CRC32)
-								hline="$( computeCRC32 "$lossywavFile" )"
-								test -n "$hline" && echo "CRC32=$hline" > "$lossywavCRC32File"
-								;;
-
-							MD5)
-								hline="$( computeMD5 "$lossywavFile" )"
-								test -n "$hline" && echo "MD5=$hline" > "$lossywavMD5File"
-								;;
-
-							SHA1)
-								hline="$( computeSHA "$lossywavFile" "$h" )"
-								test -n "$hline" && echo "SHA1=$hline" > "$lossywavSHA1File"
-								;;
-
-							SHA256)
-								hline="$( computeSHA "$lossywavFile" "$h" )"
-								test -n "$hline" && echo "SHA256=$hline" > "$lossywavSHA256File"
-								;;
-
-							SHA512)
-								hline="$( computeSHA "$lossywavFile" "$h" )"
-								test -n "$hline" && echo "SHA512=$hline" > "$lossywavSHA512File"
-								;;
-						esac
-					done
-					break
-					;;
-			esac
-		done
-
-		if [ $copyLossyWAV = true ]; then
-			overwriteLossyWAV=true
-			if [ -e "$destFile" ]; then
-				if [ $keepExistingFiles = true ]; then
-					overwriteLossyWAV=false
-				elif [ $keepNewerFiles = true ]; then
-					if isFileNewer "$destFile" "$sourceFile"; then
-						overwriteLossyWAV=false
-					fi
-				fi
-			fi
-			if [ $overwriteLossyWAV = true ]; then
-				chmod 0644 "$encodedFile"
-				rm -f "$destFile" >/dev/null 2>> "$errorLogFile"
-				cp -a "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
-				printMessage 'success' 'encoding' $processNumber "outputCodec:${outputCodec}" "file:${destFile}"
-			fi
-		fi
-	else
-		rm -f "$lossywavFile" # delete lossyWAV file if it exists
-		rm -f "${Self_Ctrl_Dir}/lossy"*"_${index}" # delete all lossy* codec lock files
-		rm -f "${Self_Ctrl_Dir}/"*"_${index}_LOSSYWAV_NEEDED" # delete associated codec lock files
-		rm -f "${Self_Ctrl_Dir}/lossyWAV_${index}_WAV_NEEDED"
-		printMessage 'error' 'encoding' $processNumber "file:${sourceFile}"
-	fi
-
-	return $exitCode
-}
-
 getEncoderVersions () {
 	local outputCodec oggencPath vorbisPrefix libvorbisVersion
 
@@ -3958,9 +3860,13 @@ encode () {
 
 		lossyFLAC)
 			destExtension='lossy.flac'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.vc.txt"
+			namedPipe="${Self_Swap_Dir}/lossyWAV-pipe-${index}.wav"
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
-			nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
-			printf -- "--totally-silent`tagline -T`\x00%s" "$lossywavFile" | xargs -0 flac -j $nThreads -P 4096 -5 -b 512 --keep-foreign-metadata -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+			nThreads=1
+			mkfifo "$namedPipe"
+			sox "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale 0.25 --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
+			printf -- "--totally-silent`tagline -T`\x00%s" "$namedPipe" | xargs -0 flac -j 1 -P 4096 -5 -b 512 -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+			rm -f "$namedPipe"
 			if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 				importArtworkIntoFLAC || exitCode=$Ex_Ko
 			fi
@@ -3968,9 +3874,13 @@ encode () {
 
 		lossyWV)
 			destExtension='lossy.wv'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.ape.txt"
+			namedPipe="${Self_Swap_Dir}/lossyWAV-pipe-${index}.wav"
+			nThreads=1
 			if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
-			# Using --merge-blocks for encoding lossyWV can only use a single thread
-			printf -- "-q`tagline -w`\x00%s" "$lossywavFile" | xargs -0 wavpack -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+			mkfifo "$namedPipe"
+			sox "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale 0.25 --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
+			printf -- "-q`tagline -w`\x00%s" "$namedPipe" | xargs -0 wavpack --threads=1 -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+			rm -f "$namedPipe"
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 				if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then
 					importBinariesIntoAPEv2 || exitCode=$Ex_Ko
@@ -4319,28 +4229,7 @@ transcode () {
 				continue # skip to next track
 			fi
 
-			lossywavLockFile="${Self_Ctrl_Dir}/lossyWAV_${index}"
-			lossywavEncodingLockFile="${lossywavLockFile}_encoding"
-			if [ $nLossyWAV -ge 1 ]; then
-				# if test -e "$lossywavLockFile" && mv "$lossywavLockFile" "$lossywavEncodingLockFile" 2>/dev/null ; then
-				if getAndRenameLock "$lossywavLockFile" "$lossywavEncodingLockFile"; then
-					allDone=false
-					encodeLossyWAV || exitCode=$Ex_Ko
-					if [ $exitCode -ne $Ex_Ok ]; then addTranscodingErrorFile "$sourceFile" ; fi
-					rm -f "$lossywavEncodingLockFile" "${lossywavLockFile}_WAV_NEEDED"
-					ls "${Self_Ctrl_Dir}/"*"_${index}_WAV_NEEDED" >/dev/null 2>&1 || rm -f "$wavFile"
-					ls "${Self_Ctrl_Dir}/"*"_${index}_LOSSYWAV_NEEDED" >/dev/null 2>&1 || rm -f "$lossywavFile"
-				fi
-			fi
-
 			for outputCodec in $outputCodecs; do
-				test "$outputCodec" = 'lossyWAV' && continue
-				if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' ]; then
-					if [ -e "$lossywavEncodingLockFile" ]; then # lossyWAV encoding in progress, skip to next codec
-						allDone=false
-						continue
-					fi
-				fi
 				encodingLockFile="${Self_Ctrl_Dir}/${outputCodec}_${index}"
 				# if test -e "$encodingLockFile" && unlink "$encodingLockFile" 2>/dev/null; then
 				if test -e "$encodingLockFile" && getLock "$encodingLockFile"; then
@@ -4349,10 +4238,6 @@ transcode () {
 					if [ $exitCode -ne $Ex_Ok ]; then addTranscodingErrorFile "$sourceFile" ; fi
 					rm -f "${encodingLockFile}_WAV_NEEDED"
 					ls "${Self_Ctrl_Dir}/"*"_${index}_WAV_NEEDED" >/dev/null 2>&1 || rm -f "$wavFile"
-					if [ "$outputCodec" = 'lossyFLAC' -o "$outputCodec" = 'lossyWV' ]; then
-						rm -f "${encodingLockFile}_LOSSYWAV_NEEDED"
-						ls "${Self_Ctrl_Dir}/"*"_${index}_LOSSYWAV_NEEDED" >/dev/null 2>&1 || rm -f "$lossywavFile"
-					fi
 
 					copyOrLinkOtherFiles "$outputCodec"
 					if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
@@ -4379,14 +4264,10 @@ transcode () {
 			# fi
 
 			# FIXME: this mysteriously causes some random picture not to be copied (race condition?)
-			# if ! ls "${Self_Ctrl_Dir}/"*"_${index}_LOSSYWAV_NEEDED" >/dev/null 2>&1 ; then
-			# 	if ! ls "${Self_Ctrl_Dir}/"*"_${index}_WAV_NEEDED" >/dev/null 2>&1 ; then
-			# 		ls "${Self_Swap_Dir}/picture-${index}"* >/dev/null 2>&1 &&
-			# 		rm -f "${Self_Swap_Dir}/picture-${index}"* >/dev/null 2>&1
-			# 		if [ -e "$apeBinariesDir" ]; then
-			# 			rm -rf "$apeBinariesDir"
-			# 		fi
-			# 	fi
+			# ls "${Self_Swap_Dir}/picture-${index}"* >/dev/null 2>&1 &&
+			# rm -f "${Self_Swap_Dir}/picture-${index}"* >/dev/null 2>&1
+			# if [ -e "$apeBinariesDir" ]; then
+			# 	rm -rf "$apeBinariesDir"
 			# fi
 		chmod u+rwX "$destPath" "${destPath}"/* 2>> "$errorLogFile" # FIXME chmod u=rw,go=r
 		done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
@@ -6390,7 +6271,6 @@ allCodecsString="${losslessCodecsString} ${lossyCodecsString}"
 # Set default values
 outputCodecs='' lastCodec='' nCodecs=0 copyWAV=false verbose=true
 defaultDestDir="$PWD" linkDir='' gotLinkedDir=false
-nLossyWAV=0 copyLossyWAV=false
 bitDepth='' samplingRate='' preserveMetadata='' computeReplayGain=false reverseReplayGain=false
 applyGain=false applyGainType='' preamp='' convertToStereo='false'
 keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='human'
@@ -6632,9 +6512,9 @@ while getopts '2a:B:b:C:c:df:G:ghH:iIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 				wvl)                 lastCodec='WavPackLossy' ;;
 				aac)                 lastCodec='AAC' ;;
 				ape)                 lastCodec='MonkeysAudio' ;;
-				lossyWAV|lossywav)   lastCodec='lossyWAV'; ((nLossyWAV++)) ; copyLossyWAV=true ;;
-				lossyFLAC|lossyflac) lastCodec='lossyFLAC'; ((nLossyWAV++)) ;;
-				lossyWV|lossywv)     lastCodec='lossyWV'; ((nLossyWAV++)) ;;
+				lossyWAV|lossywav)   lastCodec='lossyWAV' ;;
+				lossyFLAC|lossyflac) lastCodec='lossyFLAC' ;;
+				lossyWV|lossywv)     lastCodec='lossyWV' ;;
 				mp3)                 lastCodec='MP3' ;;
 				ogg|vorbis)          lastCodec='OggVorbis' ;;
 				opus)                lastCodec='Opus' ;;
