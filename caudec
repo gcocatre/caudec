@@ -921,12 +921,14 @@ cleanExit () {
 	fi
 	test -n "$Self_Ctrl_Dir" && rm -rf "$Self_Ctrl_Dir"
 
-	for f in "$Self_Instance_Dir"/ioLockFiles/* ; do
-		if [ -e "$f" ]; then
-			echo '' > "${Self_Io_Dir}/${f##*/}.lock" 2>/dev/null
-			mv "${Self_Io_Dir}/${f##*/}.lock" "${Self_Io_Dir}/${f##*/}" >/dev/null 2>&1
-		fi
-	done
+	if [ $preloadSources = true ]; then
+		for f in "$Self_Instance_Dir"/ioLockFiles/* ; do
+			if [ -e "$f" ]; then
+				echo '' > "${Self_Io_Dir}/${f##*/}.lock" 2>/dev/null
+				mv "${Self_Io_Dir}/${f##*/}.lock" "${Self_Io_Dir}/${f##*/}" >/dev/null 2>&1
+			fi
+		done
+	fi
 
 	rm -rf "$Self_Instance_Dir"
 	cleanUpInstances
@@ -1248,29 +1250,33 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 }
 
 checkOutputDirectories () {
-	local outputCodec codecFullName codecDestDir
+	local exitCode=$Ex_Ok outputCodec codecFullName codecDestDir
 
 	for outputCodec in $outputCodecs; do
 		codecFullName="$( getCodecFullName "$outputCodec" )"
 		codecDestDir="$( getDestDir "$outputCodec" )"
 		if [ ! -e "$codecDestDir" ]; then
 			if ! mkdir -p "$codecDestDir" >/dev/null 2>&1 ; then
-				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name -O/P: failed to create directory, do you have write permissions? ($codecFullName)" ; exit $Ex_Cant_Create
+				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name -O/P: failed to create directory, do you have write permissions? ($codecFullName)" ; exitCode=$Ex_Cant_Create
 			fi
 		elif [ ! -d "$codecDestDir" ]; then
 			if [ "$codecDestDir" = "$defaultDestDir" ]; then
-				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name: not a directory ($codecFullName)." ; exit $Ex_Cant_Create
+				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name: not a directory ($codecFullName)." ; exitCode=$Ex_Cant_Create
 			else
-				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name -O/P: not a directory ($codecFullName)" ; exit $Ex_Cant_Create
+				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name -O/P: not a directory ($codecFullName)" ; exitCode=$Ex_Cant_Create
 			fi
 		elif [ ! -w "$codecDestDir" ]; then
 			if [ "$codecDestDir" = "$defaultDestDir" ]; then
-				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name: permission denied, not writable ($codecFullName)" ; exit $Ex_Cant_Create
+				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name: permission denied, not writable ($codecFullName)" ; exitCode=$Ex_Cant_Create
 			else
-				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name -O/P: permission denied, not writable ($codecFullName)" ; exit $Ex_Cant_Create
+				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name -O/P: permission denied, not writable ($codecFullName)" ; exitCode=$Ex_Cant_Create
 			fi
 		fi
 	done
+
+	if [ $exitCode != $Ex_Ok ]; then
+		cleanExit
+	fi
 }
 
 checkBinary () {
@@ -1507,11 +1513,13 @@ cleanUpInstances () {
 		fi
 	done
 
-	for f in "${Self_Io_Dir}"/*.lock ; do
-		if [ -f "$f" ]; then
-			cleanUpCopyLockFile "${f%.lock}"
-		fi
-	done
+	if [ $preloadSources = true ]; then
+		for f in "${Self_Io_Dir}"/*.lock ; do
+			if [ -f "$f" ]; then
+				cleanUpCopyLockFile "${f%.lock}"
+			fi
+		done
+	fi
 }
 
 handleInstance () {
@@ -1535,8 +1543,10 @@ handleInstance () {
 		cleanExit $Ex_No_Perm
 	fi
 
-	if [ ! -d "$Self_Io_Dir" ]; then
-		mkdir -m 0777 -p "$Self_Io_Dir" >/dev/null 2>&1
+	if [ $preloadSources = true ]; then
+		if [ ! -d "$Self_Io_Dir" ]; then
+			mkdir -m 0777 -p "$Self_Io_Dir" >/dev/null 2>&1
+		fi
 	fi
 
 	Self_Instance_Dir="$( TMPDIR="$Self_Pid_Dir" mktemp -d "${Self_Pid_Dir}/${Self_Name}_instance.XXXXXXXX" 2>/dev/null )"
@@ -1567,6 +1577,8 @@ handleInstance () {
 }
 
 setupControlDir () {
+	local index outputCodec
+
 	Self_Ctrl_Dir="${Self_Pid_Dir}/${Self_Name}_control.${Self_Random_Suffix}"
 	mkdir -m 0777 -p "$Self_Ctrl_Dir" >/dev/null 2>&1
 
@@ -1667,7 +1679,7 @@ setupSwapDir () {
 	fi
 
 	Self_Swap_Dir="${mktempDir}/${Self_Name}_swap.${Self_Random_Suffix}"
-	mkdir -m 0777 -p "$Self_Swap_Dir" >/dev/null 2>&1
+	mkdir -m 0775 -p "$Self_Swap_Dir" >/dev/null 2>&1
 
 	if [ -z "$Self_Swap_Dir" ]; then
 		printMessage 'warning' 'initialization' 'filesystem' "path:${mktempDir}" "mktemp failed to create a directory (do you have write permissions?)."
@@ -1679,18 +1691,18 @@ setupSwapDir () {
 		cleanExit $Ex_No_Perm
 	fi
 
-	chmod 0775 "$Self_Swap_Dir"
-
-	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
-		if [ "$OS" = 'Linux' ]; then
-			copyLockFile="${Self_Io_Dir}/$( stat -c '%d' "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
-		else
-			copyLockFile="${Self_Io_Dir}/$( stat -f '%d' "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
-		fi
-		if [ ! -e "${copyLockFile}.lock" ]; then
-			touch "$copyLockFile"
-		fi
-	done
+	if [ $preloadSources = true ]; then
+		for ((index=0; index < ${#sourceFiles[@]}; index++)); do
+			if [ "$OS" = 'Linux' ]; then
+				copyLockFile="${Self_Io_Dir}/$( stat -c '%d' "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
+			else
+				copyLockFile="${Self_Io_Dir}/$( stat -f '%d' "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
+			fi
+			if [ ! -e "${copyLockFile}.lock" ]; then
+				touch "$copyLockFile"
+			fi
+		done
+	fi
 
 	ln -s "$Self_Swap_Dir" "$Self_Pid_Dir"
 }
@@ -4361,6 +4373,10 @@ transcode () {
 				fi
 			done
 
+			# FIXME
+			# if [ $allCodecsDone = true ]; then
+			# 	rm -rf "$apeBinariesDir" "${Self_Swap_Dir}/picture-${index}"* >/dev/null 2>&1
+			# fi
 
 			# FIXME: this mysteriously causes some random picture not to be copied (race condition?)
 			# if ! ls "${Self_Ctrl_Dir}/"*"_${index}_LOSSYWAV_NEEDED" >/dev/null 2>&1 ; then
@@ -6301,6 +6317,24 @@ getNumberOfCpuCores () {
 	echo $totalNumberOfCores
 }
 
+startTimer () {
+	if [ $gnudate = true ]; then
+		timerStart="$( $datecmd '+%s.%N' )"
+	else
+		timerStart="$( $datecmd '+%s' ).0"
+	fi
+}
+
+endTimer () {
+	if [ $gnudate = true ]; then
+		timerEnd="$( $datecmd '+%s.%N' )"
+	else
+		timerEnd="$( $datecmd '+%s' ).0"
+	fi
+	timerSeconds="$( printf "%1.3f" "$( echo "scale=6; $timerEnd - $timerStart" | bc )" )"
+	debug ">>> $1 → $timerSeconds seconds"
+}
+
 # main() =======================================================================
 
 if [ -n "$LC_ALL" ]; then
@@ -7086,7 +7120,29 @@ declare -a sourceFiles=()
 numberOfInputFiles=0
 numberOfSourceFiles=0
 
-getInputFiles && checkInputFiles && checkBinaries && handleInstance && setupControlDir && setupSwapDir
+# startTimer
+getInputFiles
+# endTimer "getInputFiles()"
+
+# startTimer
+checkInputFiles
+# endTimer "checkInputFiles()"
+
+# startTimer
+checkBinaries
+# endTimer "checkBinaries()"
+
+# startTimer
+handleInstance
+# endTimer "handleInstance()"
+
+# startTimer
+setupControlDir
+# endTimer "setupControlDir()"
+
+# startTimer
+setupSwapDir
+# endTimer "setupSwapDir()"
 
 for signal in INT TERM ABRT PIPE; do
 	trap "cleanAbort" $signal
