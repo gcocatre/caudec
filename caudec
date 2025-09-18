@@ -3846,10 +3846,10 @@ encode () {
 			destExtension='lossy.flac'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.vc.txt"
 			namedPipe="${Self_Swap_Dir}/lossyWAV-pipe-${index}.wav"
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
-			nThreads=1
+			nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
 			mkfifo "$namedPipe"
 			sox "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale 0.25 --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
-			printf -- "--totally-silent`tagline -T`\x00%s" "$namedPipe" | xargs -0 flac -j 1 -P 4096 -5 -b 512 -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+			printf -- "--totally-silent`tagline -T`\x00%s" "$namedPipe" | xargs -0 flac -j $nThreads -P 4096 -8 -e -p -b 512 -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			rm -f "$namedPipe"
 			if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 				importArtworkIntoFLAC || exitCode=$Ex_Ko
@@ -3859,11 +3859,11 @@ encode () {
 		lossyWV)
 			destExtension='lossy.wv'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.ape.txt"
 			namedPipe="${Self_Swap_Dir}/lossyWAV-pipe-${index}.wav"
-			nThreads=1
+			nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
 			if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 			mkfifo "$namedPipe"
 			sox "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale 0.25 --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
-			printf -- "-q`tagline -w`\x00%s" "$namedPipe" | xargs -0 wavpack --threads=1 -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+			printf -- "-q`tagline -w`\x00%s" "$namedPipe" | xargs -0 wavpack --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			rm -f "$namedPipe"
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 				if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then
