@@ -736,6 +736,8 @@ getCompressionSetting () {
 			esac
 
 			case "$compression_lossyWAV" in
+				U|D) lossyWAV_scale="0.125" ;; # lossyWAV 1.5.0
+				Q|A) lossyWAV_scale="0.25" ;;  # lossyWAV 1.5.0
 				X|P|C|S) lossyWAV_scale="0.5" ;;
 				H|E|I) lossyWAV_scale="1" ;;
 			esac
@@ -3143,8 +3145,8 @@ decode () {
 				wvunpack -q $kfm -m --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
-					extractAPEv2Binaries
 					extractAPEv2Artwork
+					extractAPEv2Binaries
 				fi
 				;;
 
@@ -3154,8 +3156,8 @@ decode () {
 				mac "$copyFile" "$wavFile" -d -threads=$nThreads >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
-					extractAPEv2Binaries
 					extractAPEv2Artwork
+					extractAPEv2Binaries
 				fi
 				;;
 
@@ -3777,11 +3779,11 @@ encode () {
 				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack"; fi
 				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
-					if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then
-						importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-					fi
 					if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 						importArtworkIntoAPEv2 || exitCode=$Ex_Ko
+					fi
+					if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then
+						importBinariesIntoAPEv2 || exitCode=$Ex_Ko
 					fi
 				fi
 			fi
@@ -6139,6 +6141,10 @@ shouldEmbedCoverArt () {
 
 shouldEmbedBinaries () {
 	local outputCodec="$1" otherFiles=""
+
+	# FIXME: implement a new -F parameter
+	echo "false"
+	return
 
 	if [ $copyFilesParam = true ]; then
 		otherFiles="$( getCodecOtherFiles "$outputCodec" )"
