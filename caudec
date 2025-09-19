@@ -3146,7 +3146,7 @@ decode () {
 				if [ $exitCode -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
 					extractAPEv2Artwork
-					extractAPEv2Binaries
+					# extractAPEv2Binaries FIXME
 				fi
 				;;
 
@@ -3157,7 +3157,7 @@ decode () {
 				if [ $exitCode -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
 					extractAPEv2Artwork
-					extractAPEv2Binaries
+					# extractAPEv2Binaries FIXME
 				fi
 				;;
 
@@ -3698,11 +3698,12 @@ encode () {
 	local exitCode=$Ex_Ok nDecodingThreads=$1 nThreads=1
 	local pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses listOfOtherFiles
 	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag='' id3CompressionTag=''
-	local nChannels compressionParam qualityArg coverArtFile='' doEmbedCoverArt="true" doEmbedBinaries="true"
+	local nChannels compressionParam qualityArg coverArtFile='' doEmbedCoverArt="true"
+	# local doEmbedBinaries="true" # FIXME with a new -F parameter
 
 	getFileProps "$sourceFile" "$outputCodec"
 	doEmbedCoverArt="$( shouldEmbedCoverArt "$outputCodec" )"
-	doEmbedBinaries="$( shouldEmbedBinaries "$outputCodec" )"
+	# doEmbedBinaries="$( shouldEmbedBinaries "$outputCodec" )" # FIXME with a new -F parameter
 	case "$outputCodec" in
 		WAV)
 			if [ $sourceIsLossyWAV = true ]; then
@@ -3760,12 +3761,12 @@ encode () {
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$Self_Name $Self_Version / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
 				printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
-				if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then
-					importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-				fi
 				if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 					importArtworkIntoAPEv2 || exitCode=$Ex_Ko
 				fi
+				# if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then # FIXME with a -F parameter
+				# 	importBinariesIntoAPEv2 || exitCode=$Ex_Ko
+				# fi
 			fi
 			;;
 
@@ -3782,9 +3783,9 @@ encode () {
 					if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 						importArtworkIntoAPEv2 || exitCode=$Ex_Ko
 					fi
-					if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then
-						importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-					fi
+					# if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then # FIXME with a -F parameter
+					# 	importBinariesIntoAPEv2 || exitCode=$Ex_Ko
+					# fi
 				fi
 			fi
 			;;
@@ -3808,12 +3809,12 @@ encode () {
 			fi
 			printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -c${compression_WavPack} -b${average_bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
-				if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then
-					importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-				fi
 				if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 					importArtworkIntoAPEv2 || exitCode=$Ex_Ko
 				fi
+				# if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then # FIXME with a -F parameter
+				# 	importBinariesIntoAPEv2 || exitCode=$Ex_Ko
+				# fi
 			fi
 			;;
 
@@ -3839,12 +3840,12 @@ encode () {
 				fi
 				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -$compression_WavPack -b${average_bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
-					if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then
-						importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-					fi
 					if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 						importArtworkIntoAPEv2 || exitCode=$Ex_Ko
 					fi
+					# if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then # FIXME with a -F parameter
+					# 	importBinariesIntoAPEv2 || exitCode=$Ex_Ko
+					# fi
 				fi
 			fi
 			;;
@@ -3873,12 +3874,12 @@ encode () {
 			printf -- "-q`tagline -w`\x00%s" "$namedPipe" | xargs -0 wavpack --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			rm -f "$namedPipe"
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
-				if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then
-					importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-				fi
 				if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 					importArtworkIntoAPEv2 || exitCode=$Ex_Ko
 				fi
+				# if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then # FIXME with a -F parameter
+				# 	importBinariesIntoAPEv2 || exitCode=$Ex_Ko
+				# fi
 			fi
 			;;
 
@@ -6143,7 +6144,7 @@ shouldEmbedBinaries () {
 	local outputCodec="$1" otherFiles=""
 
 	# FIXME: implement a new -F parameter
-	echo "false"
+	echo "true"
 	return
 
 	if [ $copyFilesParam = true ]; then
