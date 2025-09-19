@@ -1422,8 +1422,8 @@ checkBinaries () {
 			FLAC) checkBinary 'flac' ;;
 			WavPack|WavPackHybrid|WavPackLossy) checkBinary 'wavpack' 'APEv2' ;;
 			MonkeysAudio) checkBinary 'mac' 'APEv2' ;;
-			lossyFLAC) checkBinary 'lossywav' 'sox' 'flac' ;;
-			lossyWV) checkBinary 'lossywav' 'sox' 'wavpack' 'APEv2' ;;
+			lossyFLAC) checkBinary 'lossywav' 'sox' 'soxi' 'flac' ;;
+			lossyWV) checkBinary 'lossywav' 'sox' 'soxi' 'wavpack' 'APEv2' ;;
 			OggVorbis) checkBinary 'oggenc' ;;
 			MP3) checkBinary 'lame' 'eyeD3' ;;
 			AAC|ALAC) checkBinary 'ffmpeg' ;;
@@ -3698,7 +3698,7 @@ encode () {
 	local exitCode=$Ex_Ok nDecodingThreads=$1 nThreads=1
 	local pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses listOfOtherFiles
 	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag='' id3CompressionTag=''
-	local nChannels compressionParam qualityArg coverArtFile='' doEmbedCoverArt="true"
+	local nChannels compressionParam qualityArg coverArtFile='' doEmbedCoverArt="true" bitsPerSample
 	# local doEmbedBinaries="true" # FIXME with a new -F parameter
 
 	getFileProps "$sourceFile" "$outputCodec"
@@ -3855,8 +3855,13 @@ encode () {
 			namedPipe="${Self_Swap_Dir}/lossyWAV-pipe-${index}.wav"
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 			nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
+			bitsPerSample="$( soxi -b "$wavFile" 2>/dev/null )"
 			mkfifo "$namedPipe"
-			sox "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
+			if [ -n "$bitsPerSample" -a $bitsPerSample -lt 24 ]; then
+				sox "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
+			else
+				lossywav "$wavFile" -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
+			fi
 			printf -- "--totally-silent`tagline -T`\x00%s" "$namedPipe" | xargs -0 flac -j $nThreads -P 4096 -8 -b 512 -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			rm -f "$namedPipe"
 			if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
