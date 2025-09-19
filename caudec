@@ -3874,8 +3874,13 @@ encode () {
 			namedPipe="${Self_Swap_Dir}/lossyWAV-pipe-${index}.wav"
 			nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
 			if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
+			bitsPerSample="$( soxi -b "$wavFile" 2>/dev/null )"
 			mkfifo "$namedPipe"
-			sox "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
+			if [ -n "$bitsPerSample" -a $bitsPerSample -lt 24 ]; then
+				sox "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
+			else
+				lossywav "$wavFile" -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
+			fi
 			printf -- "-q`tagline -w`\x00%s" "$namedPipe" | xargs -0 wavpack --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			rm -f "$namedPipe"
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
