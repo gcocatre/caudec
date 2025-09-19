@@ -3858,7 +3858,7 @@ encode () {
 			bitsPerSample="$( soxi -b "$wavFile" 2>/dev/null )"
 			mkfifo "$namedPipe"
 			if [ -n "$bitsPerSample" -a $bitsPerSample -lt 24 ]; then
-				sox "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
+				sox "$wavFile" -b 24 -D -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
 			else
 				lossywav "$wavFile" -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
 			fi
@@ -3877,7 +3877,7 @@ encode () {
 			bitsPerSample="$( soxi -b "$wavFile" 2>/dev/null )"
 			mkfifo "$namedPipe"
 			if [ -n "$bitsPerSample" -a $bitsPerSample -lt 24 ]; then
-				sox "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
+				sox "$wavFile" -b 24 -D -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
 			else
 				lossywav "$wavFile" -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
 			fi
