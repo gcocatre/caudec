@@ -734,6 +734,11 @@ getCompressionSetting () {
 				insane) compression_lossyWAV='I' ;;
 				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $codec must be one of X, P, C, S, H, E, I, or one of extraportable, portable, economic, standard, high, extreme or insane" ; exit $Ex_Usage ;;
 			esac
+
+			case "$compression_lossyWAV" in
+				X|P|C|S) lossyWAV_scale="0.5" ;;
+				H|E|I) lossyWAV_scale="1" ;;
+			esac
 			;;
 
 		MonkeysAudio)
@@ -3848,8 +3853,8 @@ encode () {
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 			nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
 			mkfifo "$namedPipe"
-			sox "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale 0.25 --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
-			printf -- "--totally-silent`tagline -T`\x00%s" "$namedPipe" | xargs -0 flac -j $nThreads -P 4096 -8 -e -p -b 512 -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+			sox "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
+			printf -- "--totally-silent`tagline -T`\x00%s" "$namedPipe" | xargs -0 flac -j $nThreads -P 4096 -8 -b 512 -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			rm -f "$namedPipe"
 			if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 				importArtworkIntoFLAC || exitCode=$Ex_Ko
@@ -3862,7 +3867,7 @@ encode () {
 			nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
 			if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 			mkfifo "$namedPipe"
-			sox "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale 0.25 --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
+			sox "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
 			printf -- "-q`tagline -w`\x00%s" "$namedPipe" | xargs -0 wavpack --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			rm -f "$namedPipe"
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
@@ -6259,7 +6264,8 @@ fi
 
 getCompressionSetting 'AAC' "$compression_AAC" 'caudecrc'
 getCompressionSetting 'FLAC' "$compression_FLAC" 'caudecrc'
-getCompressionSetting 'lossyWAV' "$compression_lossyWAV" 'caudecrc'
+getCompressionSetting 'lossyFLAC' "$compression_lossyWAV" 'caudecrc'
+getCompressionSetting 'lossyWV' "$compression_lossyWAV" 'caudecrc'
 getCompressionSetting 'MonkeysAudio' "$compression_MonkeysAudio" 'caudecrc'
 getCompressionSetting 'MP3' "$compression_MP3" 'caudecrc'
 getCompressionSetting 'OggVorbis' "$compression_OggVorbis" 'caudecrc'
@@ -6515,7 +6521,7 @@ while getopts '2a:B:b:C:c:df:G:ghH:iIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 			case "$lastCodec" in
 				AAC) getCompressionSetting 'AAC' "$OPTARG" ;;
 				FLAC) getCompressionSetting 'FLAC' "$OPTARG" ;;
-				lossyFLAC|lossyWV) getCompressionSetting 'lossyWAV' "$OPTARG" ;;
+				lossyFLAC|lossyWV) getCompressionSetting "$lastCodec" "$OPTARG" ;;
 				MonkeysAudio) getCompressionSetting 'MonkeysAudio' "$OPTARG" ;;
 				MP3) getCompressionSetting 'MP3' "$OPTARG" ; MP3_MODE='VBR' ;;
 				OggVorbis) getCompressionSetting 'OggVorbis' "$OPTARG" ; OggVorbis_MODE='VBR' ;;
