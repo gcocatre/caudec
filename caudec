@@ -1807,7 +1807,7 @@ tagline () {
 		fi
 
 		case "$outputCodec" in
-			WavPackLossy|MP3|AAC|ALAC|OggVorbis|Opus)
+			lossyFLAC|lossyWV|WavPackLossy|MP3|AAC|ALAC|OggVorbis|Opus)
 				if [ "$outputCodec" = 'WavPackLossy' ]; then
 					grep -viE "^(MD5|CRC32|SHA1|SHA256|SHA512)=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 				else
@@ -1821,7 +1821,7 @@ tagline () {
 				done
 				;;
 
-			FLAC|WavPack|WavPackHybrid|MonkeysAudio|ALAC|lossyFLAC|lossyWV)
+			FLAC|WavPack|WavPackHybrid|MonkeysAudio|ALAC)
 				if isWavProcessed ; then # SoX was used on the WAV file for resampling, applying gain, or converting to stereo
 					grep -viE "^µµµ(CRC32|MD5|SHA1|SHA256|SHA512)=" "${destTagFile}.${outputCodec}" > "${destTagFile}.${outputCodec}.tmp"
 					mv "${destTagFile}.${outputCodec}.tmp" "${destTagFile}.${outputCodec}"
