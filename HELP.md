@@ -69,8 +69,16 @@ Encoding parameters (mutually exclusive from all other actions):
 
   -c CODEC  use specified CODEC: wav, aiff, caf,
             flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
-            lossyWAV, lossyFLAC, lossyWV, ape (Monkey's Audio), alac (m4a),
+            lossyFLAC, lossyWV, ape (Monkey's Audio), alac (m4a),
             aac (m4a), mp3, ogg / vorbis, opus.
+
+            IMPORTANT NOTE: when encoding to lossyFLAC/WV with a quality setting
+            of 'S' or lower, the input is upscaled to 24 bit and the signal is
+            scaled down by lossyWAV (volume reduction) in order to improve
+            quality and compression. It is thus strongly advised to run
+            'caudec -g' on the resulting files in order to compute ReplayGain
+            values that will bring back the volume to a normal level.
+            The 'transcaude' utility will do that automatically.
 
   -C CODEC  use specified CODEC, but discard existing metadata
 
