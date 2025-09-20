@@ -3862,7 +3862,7 @@ encode () {
 			else
 				lossywav "$wavFile" -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
 			fi
-			printf -- "--totally-silent`tagline -T`\x00%s" "$namedPipe" | xargs -0 flac -j $nThreads -P 4096 -8 -b 512 -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+			printf -- "--totally-silent`tagline -T`\x00%s" "$namedPipe" | xargs -0 flac -j $nThreads -P 4096 -${compression_FLAC} -b 512 -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			rm -f "$namedPipe"
 			if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 				importArtworkIntoFLAC || exitCode=$Ex_Ko
@@ -3881,7 +3881,7 @@ encode () {
 			else
 				lossywav "$wavFile" -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
 			fi
-			printf -- "-q`tagline -w`\x00%s" "$namedPipe" | xargs -0 wavpack --threads=$nThreads -m -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+			printf -- "-q`tagline -w`\x00%s" "$namedPipe" | xargs -0 wavpack --threads=$nThreads -m -${compression_WavPack} -o "$encodedFile" --blocksize=512 --merge-blocks --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			rm -f "$namedPipe"
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 				if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
