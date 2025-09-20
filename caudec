@@ -654,8 +654,7 @@ printMessage () {
 			debug) msgDebug='debug' statusInfo='debugging' ;;
 			stderr) msgOut='stderr' ;;
 			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|touch_file|touch_files|characteristics) statusInfo="$msgArg" ;;
-			unsupported|quota|bad_value|filesystem|command_line|internal|user_agent) statusData="$msgArg" ;;
-			server|up_to_date|new_version_available|running_newer_version) statusData="$msgArg" ;;
+			unsupported|quota|bad_value|filesystem|command_line|internal) statusData="$msgArg" ;;
 			file:*) file="${msgArg#file:}"; fileDir="$( dirname "$file" )"; fileName="$( basename "$file" )" ;;
 			path:*) path="${msgArg#path:}" ;;
 			outputCodec:*) statusData="${msgArg#outputCodec:}" ;;
