@@ -3771,9 +3771,9 @@ encode () {
 				if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 					importArtworkIntoAPEv2 || exitCode=$Ex_Ko
 				fi
-				# if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then # FIXME with a -F parameter
-				# 	importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-				# fi
+				if [ $exitCode -eq $Ex_Ok ]; then # FIXME with a -F parameter
+					importBinariesIntoAPEv2 || exitCode=$Ex_Ko
+				fi
 			fi
 			;;
 
@@ -3790,9 +3790,9 @@ encode () {
 					if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 						importArtworkIntoAPEv2 || exitCode=$Ex_Ko
 					fi
-					# if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then # FIXME with a -F parameter
-					# 	importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-					# fi
+					if [ $exitCode -eq $Ex_Ok ]; then # FIXME with a -F parameter
+						importBinariesIntoAPEv2 || exitCode=$Ex_Ko
+					fi
 				fi
 			fi
 			;;
@@ -3819,9 +3819,9 @@ encode () {
 				if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 					importArtworkIntoAPEv2 || exitCode=$Ex_Ko
 				fi
-				# if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then # FIXME with a -F parameter
-				# 	importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-				# fi
+				if [ $exitCode -eq $Ex_Ok ]; then # FIXME with a -F parameter
+					importBinariesIntoAPEv2 || exitCode=$Ex_Ko
+				fi
 			fi
 			;;
 
@@ -3850,9 +3850,9 @@ encode () {
 					if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 						importArtworkIntoAPEv2 || exitCode=$Ex_Ko
 					fi
-					# if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then # FIXME with a -F parameter
-					# 	importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-					# fi
+					if [ $exitCode -eq $Ex_Ok ]; then # FIXME with a -F parameter
+						importBinariesIntoAPEv2 || exitCode=$Ex_Ko
+					fi
 				fi
 			fi
 			;;
@@ -3894,9 +3894,9 @@ encode () {
 				if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 					importArtworkIntoAPEv2 || exitCode=$Ex_Ko
 				fi
-				# if [ $exitCode -eq $Ex_Ok -a "$doEmbedBinaries" = "true" ]; then # FIXME with a -F parameter
-				# 	importBinariesIntoAPEv2 || exitCode=$Ex_Ko
-				# fi
+				if [ $exitCode -eq $Ex_Ok ]; then # FIXME with a -F parameter
+					importBinariesIntoAPEv2 || exitCode=$Ex_Ko
+				fi
 			fi
 			;;
 
