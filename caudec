@@ -2669,7 +2669,7 @@ extractFlacArtwork () {
 }
 
 extractAPEv2Artwork () {
-	local exitCode=$Ex_Ok picNumber=0 picExt='' picType=0 picTypeText='' pattern otherType='' argString='' fieldName=''
+	local picNumber=0 picExt='' picType=0 picTypeText='' pattern otherType='' argString='' fieldName=''
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
@@ -2683,14 +2683,12 @@ extractAPEv2Artwork () {
 			((picType++))
 			((picNumber++))
 		done
-		echo -en "-z${argString}\x00${copyFile}" | xargs -0 APEv2 >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
-		return $exitCode
+		echo -en "-z${argString}\x00${copyFile}" | xargs -0 APEv2 >/dev/null 2>> "$errorLogFile"
 	done
-	return $exitCode
 }
 
 extractAPEv2Binaries () {
-	local exitCode=$Ex_Ok pattern argString='' fieldName='' b=0
+	local pattern argString='' fieldName='' b=0
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
@@ -2706,15 +2704,13 @@ extractAPEv2Binaries () {
 				done < <( APEv2 -z "$copyFile" 2>/dev/null | grep -F '=data:' 2>/dev/null | cut -d '=' -f 1 2>/dev/null )
 
 				if [ -n "$argString" ]; then
-					echo -en "-z${argString}\x00${copyFile}" | xargs -0 APEv2 >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+					echo -en "-z${argString}\x00${copyFile}" | xargs -0 APEv2 >/dev/null 2>> "$errorLogFile"
 				fi
-				return $exitCode
 				;;
 
 			*) continue ;;
 		esac
 	done
-	return $exitCode
 }
 
 importCoverArt () {
@@ -2729,10 +2725,8 @@ importCoverArt () {
 				picExt="${userSpecifiedArtwork##*.}"
 				picType=3
 				swapFilePath="${Self_Swap_Dir}/picture-${index}-0_${picType}.${picExt}"
-				rm -f "$swapFilePath" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
-				if [ $exitCode -eq $Ex_Ok ]; then
-					cp -f "$userSpecifiedArtwork" "$swapFilePath" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
-				fi
+				rm -f "$swapFilePath" >/dev/null 2>> "$errorLogFile"
+				cp -f "$userSpecifiedArtwork" "$swapFilePath" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			fi
 		fi
 	done
@@ -3135,9 +3129,11 @@ decode () {
 					flac -s -d -o "$wavFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				fi
 				if [ $exitCode -eq $Ex_Ok ]; then
-					metaflac --no-utf8-convert --export-tags-to="$sourceTagFile" "$copyFile" >/dev/null 2>> "$errorLogFile" &&
-					extractFlacArtwork || exitCode=$Ex_Ko
-					if [ -e "$sourceTagFile" ]; then
+					metaflac --no-utf8-convert --export-tags-to="$sourceTagFile" "$copyFile" >/dev/null 2>> "$errorLogFile"  || exitCode=$Ex_Ko
+					if [ $exitCode -eq $Ex_Ok ]; then
+						extractFlacArtwork || exitCode=$Ex_Ko
+					fi
+					if [ $exitCode -eq $Ex_Ok -a -e "$sourceTagFile" ]; then
 						grep -iv 'WAVEFORMATEXTENSIBLE_CHANNEL_MASK=' "$sourceTagFile" > "${sourceTagFile}.tmp"
 						mv "${sourceTagFile}.tmp" "$sourceTagFile"
 					fi
@@ -3153,7 +3149,8 @@ decode () {
 				if [ $exitCode -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
 					extractAPEv2Artwork
-					# extractAPEv2Binaries FIXME
+					extractAPEv2Binaries
+					fi
 				fi
 				;;
 
@@ -3164,7 +3161,7 @@ decode () {
 				if [ $exitCode -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
 					extractAPEv2Artwork
-					# extractAPEv2Binaries FIXME
+					extractAPEv2Binaries
 				fi
 				;;
 
