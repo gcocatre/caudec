@@ -3150,7 +3150,6 @@ decode () {
 					APEv2 -z "$copyFile" 2>> "$errorLogFile" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
 					extractAPEv2Artwork
 					extractAPEv2Binaries
-					fi
 				fi
 				;;
 
