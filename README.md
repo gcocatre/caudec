@@ -91,6 +91,8 @@ $ d -d "The Dave Brubeck Quartet/Time Out [1959]"
 drwxr-xr-x 10 user group 320 1959-01-01 00:38:22 'The Dave Brubeck Quartet/Time Out [1959]'
 ```
 
+In order to prevent `transcaude` from touching files, set `transcaudeTouchFiles="false"` in caudecrc.
+
 #### Batch transcoding an entire FLAC music collection to Ogg Vorbis, using a `for` loop:
 
 ```
