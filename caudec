@@ -19,6 +19,7 @@
 # Global variables =============================================================
 
 declare -r Self_Name='caudec'
+declare -r Self_Decode_Name='decaude'
 declare -r Self_Called_As="${0##*/}"
 declare -r Self_Version='3.0.1'
 
@@ -175,17 +176,17 @@ debug () {
 }
 
 printUsage () {
-	if [ "$Self_Called_As" = 'decaude' ]; then
-		echo "caudec ${Self_Version}: multiprocess audio converter
+	if [ "$Self_Called_As" = "$Self_Decode_Name" ]; then
+		echo "$Self_Name ${Self_Version}: multiprocess audio converter
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
-Usage: decaude FILES
-Decodes FILES to WAV (same as 'caudec -d' and 'caudec -c wav').
+Usage: $Self_Decode_Name FILES
+Decodes FILES to WAV (same as '$Self_Name -d' and '$Self_Name -c wav').
 Instead of multiple files, one or more directories may be specified.
-See also: caudec -h"
+See also: $Self_Name -h"
 	else
-		echo "caudec ${Self_Version}: multiprocess audio converter
+		echo "$Self_Name ${Self_Version}: multiprocess audio converter
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
@@ -6232,7 +6233,7 @@ keepExistingFiles=false keepNewerFiles=false macHasVerify=false outputMode='huma
 checkFiles=false hashFiles=false touchFiles=false peakReference=0 allFilesAreOpus=true
 setArtworkParam=false copyFilesParam=false showInformation=false
 
-if [ "$Self_Called_As" = 'decaude' ]; then
+if [ "$Self_Called_As" = "$Self_Decode_Name" ]; then
 	lastCodec='WAV'
 	outputCodecs="$outputCodecs $lastCodec"
 	((nCodecs++))
@@ -6430,7 +6431,7 @@ while getopts '2a:B:b:C:c:df:G:ghH:iIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 			;;
 
 		r)
-			if [ -n "$lastCodec" -a "$Self_Called_As" != 'decaude' ]; then
+			if [ -n "$lastCodec" -a "$Self_Called_As" != "$Self_Decode_Name" ]; then
 				printMessage 'error' 'usage' 'command_line' "$Self_Name -r: parameter must be given before -c" ; exit $Ex_Usage
 			fi
 			case "$OPTARG" in
