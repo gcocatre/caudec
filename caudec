@@ -4145,6 +4145,7 @@ prepareSource () {
 	if [ $exitCode -ne $Ex_Ok ]; then
 		rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1
 	fi
+
 	return $exitCode
 }
 
@@ -4154,7 +4155,7 @@ addTranscodingErrorFile () {
 
 transcode () {
 	local exitCode=$Ex_Ok lastCodec="${outputCodecs##* }" allDone=false copyDone=false encodingDone=false lsec=0
-	local milliseconds index nDecodingThreads=1 allCodecsDone=false
+	local milliseconds index nDecodingThreads=1 allCodecsDone=false encodingLockFile
 
 	until test $allDone = true; do
 		allDone=true
@@ -4234,13 +4235,7 @@ transcode () {
 			# 	rm -rf "$apeBinariesDir" "${Self_Swap_Dir}/picture-${index}"* >/dev/null 2>&1
 			# fi
 
-			# FIXME: this mysteriously causes some random picture not to be copied (race condition?)
-			# ls "${Self_Swap_Dir}/picture-${index}"* >/dev/null 2>&1 &&
-			# rm -f "${Self_Swap_Dir}/picture-${index}"* >/dev/null 2>&1
-			# if [ -e "$apeBinariesDir" ]; then
-			# 	rm -rf "$apeBinariesDir"
-			# fi
-		chmod u+rwX "$destPath" "${destPath}"/* 2>> "$errorLogFile" # FIXME chmod u=rw,go=r
+			chmod u+rwX "$destPath" "${destPath}"/* 2>> "$errorLogFile" # FIXME chmod u=rw,go=r
 		done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
 		sleep 0.05 # make sure idling processes don't hog the CPU
 	done
