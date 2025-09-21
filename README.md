@@ -11,7 +11,7 @@ It leverages multi-core CPUs and runs multiple processes concurrently (one per f
 ## Features
 
 * **Supported input formats** / codecs: WAV, AIFF, CAF, FLAC, WavPack, Monkey's Audio, ALAC.
-* **Supported output formats** / codecs: all of the above, as well as LossyWAV / LossyFLAC / LossyWV, MP3, AAC (.m4a), Ogg Vorbis, Opus.
+* **Supported output formats** / codecs: all of the above, as well as LossyWAV / LossyFLAC, MP3, AAC (.m4a), Ogg Vorbis, Opus.
 * **Supported platforms**: macOS, Linux.
 * Transcoding to several different codecs at once is possible. In that case, decoding of input files is done only once.
 * Metadata is preserved (as much as possible) from one codec to another.

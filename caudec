@@ -297,8 +297,7 @@ Encoding parameters (mutually exclusive from all other actions):
             a comma separated list of files, and / or file extensions preceded
             by a dot. If ARG is a list of files, they must be filenames and
             those files must be located in the source directory. If ARG is
-            an empty string, no files will be copied, not even APEv2 embedded
-            binaries.
+            an empty string, no files will be copied.
 
   -k        keep existing destination files (don't overwrite them)
   -K        keep existing destination files if they're newer than their source
