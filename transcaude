@@ -190,7 +190,7 @@ computeReplayGain () {
   local exitCode=$Ex_Ok processId status context data message path
 
   case "$lastCodec" in
-    FLAC|WavPack*|lossyFLAC|lossyWV|OggVorbis|MP3|Opus)
+    FLAC|WavPack*|lossyFLAC|OggVorbis|MP3|Opus)
       if [ $Self_Verbose = true ]; then
         echo
         echo "Computing ReplayGain for $lastCodec in $lastDir:"
@@ -239,7 +239,7 @@ touchFiles () {
   local exitCode=$Ex_Ok linkDir="$1" processId status context data message path
 
   case "$lastCodec" in
-    FLAC|ALAC|WavPack*|lossyFLAC|lossyWV|OggVorbis|AAC|MonkeysAudio|MP3|Opus)
+    FLAC|ALAC|WavPack*|lossyFLAC|OggVorbis|AAC|MonkeysAudio|MP3|Opus)
       if [ $Self_Verbose = true ]; then
         echo
         echo "Touching directory for $lastCodec in $lastDir:"
