@@ -81,6 +81,18 @@ Clr_B_Cy="\\033[1;36m" # bright cyan
 Clr_N_Wh="\\033[0;37m" # bright gray
 Clr_B_Wh="\\033[1;37m" # white
 
+if [ -r '/etc/caudecrc' ]; then
+	. '/etc/caudecrc'
+fi
+
+if [ -r "${HOME}/.caudecrc" ]; then
+	. "${HOME}/.caudecrc"
+fi
+
+if [ "$transcaudeTouchFiles" != "false" ]; then
+  transcaudeTouchFiles="true"
+fi
+
 printUsage () {
   echo "$Self_Name ${Self_Version}: transcode an album, compute ReplayGain and touch files
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
@@ -308,7 +320,9 @@ if [ $exitCode -eq $Ex_Ok ]; then
     if [ -n "$lastCodec" -a -n "$lastDir" ]; then
       if [ "$codec" != "$lastCodec" -o "$dir" != "$lastDir" ]; then
         computeReplayGain || exitCode=$Ex_Ko
-        touchFiles "$lastMessage" || exitCode=$Ex_Ko
+        if [ "$transcaudeTouchFiles" = "true" ]; then
+          touchFiles "$lastMessage" || exitCode=$Ex_Ko
+        fi
         unset files
         declare -a files=()
         index=0
