@@ -4234,7 +4234,9 @@ transcode () {
 			# 	rm -rf "$apeBinariesDir" "${Self_Swap_Dir}/picture-${index}"* >/dev/null 2>&1
 			# fi
 
-			chmod u+rwX "$destPath" "${destPath}"/* 2>> "$errorLogFile" # FIXME chmod u=rw,go=r
+			if [ -n "$destPath" -a -d "$destPath" -a -w "$destPath" ]; then
+				chmod u+rwX "$destPath" "${destPath}"/* 2>/dev/null
+			fi
 		done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
 		sleep 0.05 # make sure idling processes don't hog the CPU
 	done
