@@ -3771,8 +3771,9 @@ encode () {
 				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$Self_Name $Self_Version / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
 				printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$errorLogFile"
 				if [ "$doEmbedCoverArt" = "true" ]; then
-					importArtworkIntoAPEv2 && importBinariesIntoAPEv2
+					importArtworkIntoAPEv2
 				fi
+				importBinariesIntoAPEv2 # FIXME with a new -F parameter
 			fi
 			;;
 
@@ -3787,8 +3788,9 @@ encode () {
 				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 					if [ "$doEmbedCoverArt" = "true" ]; then
-						importArtworkIntoAPEv2 && importBinariesIntoAPEv2
+						importArtworkIntoAPEv2
 					fi
+					importBinariesIntoAPEv2 # FIXME with a new -F parameter
 				fi
 			fi
 			;;
@@ -3813,8 +3815,9 @@ encode () {
 			printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -c${compression_WavPack} -b${average_bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 				if [ "$doEmbedCoverArt" = "true" ]; then
-					importArtworkIntoAPEv2 && importBinariesIntoAPEv2
+					importArtworkIntoAPEv2
 				fi
+				importBinariesIntoAPEv2 # FIXME with a new -F parameter
 			fi
 			;;
 
@@ -3841,8 +3844,9 @@ encode () {
 				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -$compression_WavPack -b${average_bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 					if [ "$doEmbedCoverArt" = "true" ]; then
-						importArtworkIntoAPEv2 && importBinariesIntoAPEv2
+						importArtworkIntoAPEv2
 					fi
+					importBinariesIntoAPEv2 # FIXME with a new -F parameter
 				fi
 			fi
 			;;
