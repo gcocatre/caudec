@@ -69,10 +69,10 @@ Encoding parameters (mutually exclusive from all other actions):
 
   -c CODEC  use specified CODEC: wav, aiff, caf,
             flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
-            lossyFLAC, lossyWV, ape (Monkey's Audio), alac (m4a),
-            aac (m4a), mp3, ogg / vorbis, opus.
+            lossyFLAC, ape (Monkey's Audio), alac (m4a), aac (m4a), mp3,
+            ogg / vorbis, opus.
 
-            IMPORTANT NOTE: when encoding to lossyFLAC/WV with a quality setting
+            IMPORTANT NOTE: when encoding to lossyFLAC with a quality setting
             of 'S' or lower, the input is upscaled to 24 bit and the signal is
             scaled down by lossyWAV (volume reduction) in order to improve
             quality and compression. It is thus strongly advised to run
@@ -144,7 +144,7 @@ Decoding parameters (all mutually exlusive from each other and other actions):
   -d        decode to WAV (input: AIFF, CAF, FLAC, WavPack, Monkey's Audio)
   -t        test file integrity
   -H HASH   compute hash of raw PCM (CRC32, MD5, SHA1, SHA256 or SHA512,
-            FLAC, WavPack, Monkey's Audio and lossyFLAC, lossyWV only)
+            FLAC, WavPack, Monkey's Audio and lossyFLAC only)
   -H ^HASH  do NOT compute HASH even if it's in caudecrc
   -H i[nt]  show internal hash, if available
 
