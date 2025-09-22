@@ -37,7 +37,7 @@ alongside caudec, which is equivalent to 'caudec -d' (for decoding).
 
 ### Examples
 
-caudec is meant to be used on one album at a time. Depending on how you've decided to organize your music collection, these examples can give you an idea of what to do. Assuming your directory structure is `[Artist]/[Album]/[Track]*`:
+caudec is meant to be used on one album at a time. Depending on how you've decided to organize your music collection, these examples can give you an idea of what to do. In all of these, the source codec doesn't matter, as long as it's a lossless codec, or lossyFLAC. Assuming your directory structure is `[Artist]/[Album]/[Track]*`:
 
 #### Transcoding an ALAC album to FLAC while creating a mirrored directory structure in `~/Music/FLAC/`:
 
@@ -118,7 +118,62 @@ $ cd ~/Music/FLAC
 transcaude -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "Artist/Album"/*.flac
 ```
 
-`transcaude` is a small utility that uses `caudec` to transcode an album, then compute ReplayGain and touch files (when the output format is compatible). It does all 3 caudec commands in the previous example, in one fell swoop. Since it invokes `caudec`, multiple codecs may be specified at once.
+`transcaude` is a small utility that uses `caudec` to transcode an album, then compute ReplayGain and touch files (when the output format is compatible). It does all 3 caudec commands in the previous example, in one fell swoop. Since it invokes `caudec`, multiple codecs may be specified at once:
+
+#### Transcoding an album to both FLAC and Ogg Vorbis, using `transcaude`:
+
+```
+$ cd ~/Music/WavPack
+transcaude -c flac -q 8 -P ~/Music/flac -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "Artist/Album"/*.wv
+```
+
+#### Specifying source directories instead of source files, and use default compression settings:
+
+Set `ignoreUnsupportedFiles=true` in `~/.caudecrc`, and set the appropriate `compression_*` / `bitrate_` / `average_bitrate_*` values to your liking:
+
+```
+ignoreUnsupportedFiles=true
+compression_FLAC=8
+compression_OggVorbis=5
+```
+
+```
+$ caudec -c flac -P ~/Music/FLAC/ "Miles Davis/Bitches Brew [1970]"
+```
+
+```
+$ transcaude -c flac -P ~/Music/FLAC/ -c vorbis -P ~/Music/OggVorbis "Miles Davis/Bitches Brew [1970]"
+```
+
+#### Specifying default target directories for lossless and lossy:
+
+```
+defaultLosslessDestination="${HOME}/Music/FLAC"
+defaultLossyDestination="${HOME}/Music/OggVorbis"
+```
+
+```
+$ transcaude -c flac -c vorbis "Miles Davis/Bitches Brew [1970]"
+```
+
+#### Hard linking WavPack lossy files when transcoding to WavPack Hybrid:
+
+```
+$ transcaude -c wvh -P ~/Music/lossless -L ~/Music/lossy "Miles Davis/Bitches Brew [1970]"
+```
+
+If you'd like to hard link lossy *.wv files automatically via `~/.caudecrc`:
+
+```
+defaultLosslessDestination="${HOME}/Music/lossless"
+defaultLinkedDestination="${HOME}/Music/lossy"
+```
+
+```
+$ transcaude -c wvh "Miles Davis/Bitches Brew [1970]"
+```
+
+There, `~/Music/lossless` would contain both *.wv and *.wvc files, while `~/Music/lossy` would only contain hard linked *.wv files, which can be conveniently transfered to an external device (e.g. a portable player), and which wouldn't take additional storage space.
 
 ## Requirements
 
