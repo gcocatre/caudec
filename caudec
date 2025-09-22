@@ -1174,7 +1174,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 						printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension" ; exitCode=$Ex_Data_Err
 					else
 						case "$inputFile" in
-							*.flac|*.wv|*.ogg|*.opus|*.mp3)
+							*.flac|*.wv|*.ape|*.ogg|*.opus|*.mp3)
 								nChannels="$( getNumberOfChannels "$inputFile" )"
 								if [ $nChannels -le 2 ]; then
 									addToSourceFiles=true
@@ -1370,6 +1370,7 @@ checkBinaries () {
 			case "$sourceFile" in
 				*.flac) checkBinary 'metaflac' ;;
 				*.wv) checkBinary 'wvunpack' 'wvgain' 'wvtag' ;;
+				*.ape) checkBinary 'rsgain' 'APEv2' ;;
 				*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
 				*.mp3) checkBinary 'ffprobe' 'mp3gain'; if [ $applyGain = false ]; then checkBinary 'eyeD3'; fi ;;
 				*.opus) checkBinary 'opusinfo' 'opusgain' ;; # https://github.com/FrancisRussell/zoog
@@ -4870,6 +4871,35 @@ saveGain () {
 			fi
 			;;
 
+		*.ape)
+			if [ "$gainType" = 'ALBUM' ]; then
+				if [ $computeAudioPeaks = true -a -n "$peakDbfs" ]; then
+					APEv2 \
+						-r "REPLAYGAIN_ALBUM_GAIN" \
+						-r "REPLAYGAIN_ALBUM_PEAK" \
+						-r "AUDIO_ALBUM_PEAK" \
+						-t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
+						-t "REPLAYGAIN_ALBUM_PEAK=${peak}" \
+						-t "AUDIO_ALBUM_PEAK=${peakDbfs} dBFS" \
+						"$destFile" 1>/dev/null 2>/dev/null || exitCode=$Ex_Ko
+				else
+					APEv2 \
+						-r "REPLAYGAIN_ALBUM_GAIN" \
+						-r "REPLAYGAIN_ALBUM_PEAK" \
+						-t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
+						-t "REPLAYGAIN_ALBUM_PEAK=${peak}" \
+						"$destFile" 1>/dev/null 2>/dev/null || exitCode=$Ex_Ko
+				fi
+			else
+				if [ $computeAudioPeaks = true -a -n "$peakDbfs" ]; then
+					APEv2 \
+						-r "AUDIO_TRACK_PEAK" \
+						-t "AUDIO_TRACK_PEAK=${peakDbfs} dBFS" \
+						"$destFile" 1>/dev/null 2>/dev/null || exitCode=$Ex_Ko
+				fi
+			fi
+			;;
+
 		*.ogg)
 			if [ "$gainType" = 'ALBUM' ]; then
 				if [ $computeAudioPeaks = true -a -n "$peakDbfs" ]; then
@@ -4970,7 +5000,8 @@ computeGainFromPeak () {
 }
 
 computeTrackGain () {
-	local exitCode=$Ex_Ok line nLines=0 decimals trackGain trackPeak albumGain destTagFile clippingPreventionParam="" nThreads
+	local exitCode=$Ex_Ok line nLines=0 decimals trackGain trackPeak albumGain destTagFile clippingPreventionParam=""
+	local nThreads line
 
 	if [ -e "$sourceFile" ]; then
 		case "$sourceFile" in
@@ -4998,6 +5029,26 @@ computeTrackGain () {
 				if [ $exitCode -eq $Ex_Ok ]; then
 					trackGain="$( wvtag -x "replaygain_track_gain" "$sourceFile" 2>/dev/null | cut -d '=' -f 2 | cut -d ' ' -f 1 | tr -d '+' )"
 					trackPeak="$( wvtag -x "replaygain_track_peak" "$sourceFile" 2>/dev/null | cut -d '=' -f 2 )"
+				fi
+				if [ -n "$trackGain" -a -n "$trackPeak" ]; then
+					echo "$trackGain" > "$trackGainFile"
+					echo "$trackPeak" > "$trackPeakFile"
+				else
+					exitCode=$Ex_Ko
+				fi
+				;;
+
+			*.ape)
+				rsgain custom -q -s i "$sourceFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+				if [ $exitCode -eq $Ex_Ok ]; then
+					shopt -qs nocasematch
+					while read line; do
+						case "$line" in
+							replaygain_track_gain=*) trackGain="$( echo "$line" | cut -d '=' -f 2 | cut -d ' ' -f 1 | tr -d '+' )" ;;
+							replaygain_track_peak=*) trackPeak="$( echo "$line" | cut -d '=' -f 2 )" ;;
+						esac
+					done < <( APEv2 -z "$sourceFile" 2>> "$errorLogFile" | grep -iE '^replaygain_track_(gain|peak)' 2>/dev/null )
+					shopt -qu nocasematch
 				fi
 				if [ -n "$trackGain" -a -n "$trackPeak" ]; then
 					echo "$trackGain" > "$trackGainFile"
