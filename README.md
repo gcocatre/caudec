@@ -138,7 +138,7 @@ compression_OggVorbis=5
 ```
 
 ```
-$ caudec -c flac -P ~/Music/FLAC/ "Miles Davis/Bitches Brew [1970]"
+$ caudec -c flac -P ~/Music/FLAC/ -c vorbis -P ~/Music/OggVorbis "Miles Davis/Bitches Brew [1970]"
 ```
 
 ```
@@ -153,10 +153,18 @@ defaultLossyDestination="${HOME}/Music/OggVorbis"
 ```
 
 ```
+$ caudec -c flac -c vorbis "Miles Davis/Bitches Brew [1970]"
+```
+
+```
 $ transcaude -c flac -c vorbis "Miles Davis/Bitches Brew [1970]"
 ```
 
 #### Hard linking WavPack lossy files when transcoding to WavPack Hybrid:
+
+```
+$ caudec -c wvh -P ~/Music/lossless -L ~/Music/lossy "Miles Davis/Bitches Brew [1970]"
+```
 
 ```
 $ transcaude -c wvh -P ~/Music/lossless -L ~/Music/lossy "Miles Davis/Bitches Brew [1970]"
@@ -170,10 +178,14 @@ defaultLinkedDestination="${HOME}/Music/lossy"
 ```
 
 ```
+$ caudec -c wvh "Miles Davis/Bitches Brew [1970]"
+```
+
+```
 $ transcaude -c wvh "Miles Davis/Bitches Brew [1970]"
 ```
 
-There, `~/Music/lossless` would contain both *.wv and *.wvc files, while `~/Music/lossy` would only contain hard linked *.wv files, which can be conveniently transfered to an external device (e.g. a portable player), and which wouldn't take additional storage space.
+There, `~/Music/lossless` would contain both *.wv and *.wvc files, while `~/Music/lossy` would only contain hard linked *.wv files, which could be conveniently transfered to an external device (e.g. a portable player), and which wouldn't take additional storage space.
 
 ## Requirements
 
