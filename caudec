@@ -1026,7 +1026,8 @@ getInputFiles () {
 }
 
 checkInputFiles () {
-	local exitCode=$Ex_Ok inputFile inputDirName commonFileExtension="" inputFileExtension="" inputFileExtensionAreAllTheSame=true refDn cdpath pdpath
+	local exitCode=$Ex_Ok inputFile inputDirName commonFileExtension="" inputFileExtension=""
+	local inputCodecsAreAllTheSame=true refDn cdpath pdpath
 	local index=0 addToSourceFiles errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
 	local dateSourceFile dateSourceFile outputCodec copyPath codec
 
@@ -1044,12 +1045,19 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 	fi
 
 	for inputFile in "${inputFiles[@]}" ; do
+
+		# For ReplayGain
 		inputFileExtension="${inputFile##*.}"
-		if [ -z "$commonFileExtension" ]; then
-			commonFileExtension="$inputFileExtension"
-		elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
-			inputFileExtensionAreAllTheSame=false
-		fi
+		case "$inputFileExtension" in
+			flac|wv|ape|ogg|opus|mp3)
+				if [ -z "$commonFileExtension" ]; then
+					commonFileExtension="$inputFileExtension"
+				elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
+					inputCodecsAreAllTheSame=false
+				fi
+				;;
+		esac
+
 		addToSourceFiles=false
 		inputDirName="$( dirname "$inputFile" )"
 		if [ ! -e "$inputFile" ]; then
@@ -1170,7 +1178,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 				fi
 
 				if [ $computeReplayGain = true ]; then
-					if [ $inputFileExtensionAreAllTheSame = false ]; then
+					if [ $inputCodecsAreAllTheSame = false ]; then
 						printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension" ; exitCode=$Ex_Data_Err
 					else
 						case "$inputFile" in
@@ -1199,7 +1207,7 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 				fi
 
 				if [ $reverseReplayGain = true ]; then
-					if [ $inputFileExtensionAreAllTheSame = false ]; then
+					if [ $inputCodecsAreAllTheSame = false ]; then
 						printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension" ; exitCode=$Ex_Data_Err
 					else
 						case "$inputFile" in
