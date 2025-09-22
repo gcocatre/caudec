@@ -26,9 +26,9 @@ bitrate_OggVorbis=96 # 32-500, used with OggVorbis_MODE='CBR'
 average_bitrate_OggVorbis=96 # 32-500, used with OggVorbis_MODE='ABR'
 OggVorbis_MODE='VBR' # 'VBR' (variable bitrate), 'ABR' (average bitrate) or 'CBR' (constant bitrate)
 
-compression_Opus=96 # 6-320, used with Opus_MODE='VBR'
-bitrate_Opus=96 # 6-320, used with Opus_MODE='CBR'
-average_bitrate_Opus=96 # 6-320, used with Opus_Mode='ABR'
+compression_Opus=96 # 6-512, used with Opus_MODE='VBR'
+bitrate_Opus=96 # 6-512, used with Opus_MODE='CBR'
+average_bitrate_Opus=96 # 6-512, used with Opus_Mode='ABR'
 Opus_MODE='VBR' # 'VBR' (variable bitrate), 'ABR' (average bitrate) or 'CBR' (constant bitrate)
 
 # When using transcaude, give files a timestamp that matches the music's release date and duration times
