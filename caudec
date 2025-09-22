@@ -451,7 +451,7 @@ getMachineParsableString () {
 
 		success)
 			if [ "$statusInfo" = 'track_gain' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$gain" '' "$file" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$gain" "$msg" "$file" )"
 			elif [ "$statusInfo" = 'album_gain' ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$gain" "$msg" "$file" )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
@@ -5130,7 +5130,7 @@ computeTrackGain () {
 				if [ "${trackGain:0:1}" != '-' -a "${trackGain:0:1}" != '+' ]; then
 					trackGain="+${trackGain}"
 				fi
-				printMessage 'success' 'track_gain' $processNumber "$trackGain dB" "file:${sourceFile}"
+				printMessage 'success' 'track_gain' $processNumber "$trackGain dB" "Track gain: $trackGain dB" "file:${sourceFile}"
 			fi
 		else
 			printMessage 'error' 'track_gain' "file:${sourceFile}" $p
