@@ -28,10 +28,10 @@ To install caudec when no package is available for your distribution, run:
 
 `sudo ./install.sh [ --prefix=/some/custom/path ]`
 
-That script will install caudec in /usr/local by default, or in the directory
+That script will install caudec in `/usr/local` by default, or in the directory
 specified with --prefix. A default configuration file will be installed as
-/etc/caudecrc, or ~/.caudecrc. An additional 'decaude' link will be installed
-alongside caudec, which is equivalent to 'caudec -d' (for decoding).
+`/etc/caudecrc`, or `~/.caudecrc`. An additional `decaude` link will be installed
+alongside caudec, which is equivalent to `caudec -d` (for decoding).
 
 ## Usage
 
@@ -125,7 +125,7 @@ $ cd ~/Music/WavPack
 transcaude -c flac -q 8 -P ~/Music/flac -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "Artist/Album"/*.wv
 ```
 
-In order to prevent `transcaude` from touching files, set `transcaudeTouchFiles="false"` in caudecrc.
+In order to prevent `transcaude` from touching files, set `transcaudeTouchFiles="false"` in `~/.caudecrc`.
 
 #### Specifying source directories instead of source files, and use default compression settings:
 
