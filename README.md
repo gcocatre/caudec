@@ -91,8 +91,6 @@ $ d -d "The Dave Brubeck Quartet/Time Out [1959]"
 drwxr-xr-x 10 user group 320 1959-01-01 00:38:22 'The Dave Brubeck Quartet/Time Out [1959]'
 ```
 
-In order to prevent `transcaude` from touching files, set `transcaudeTouchFiles="false"` in caudecrc.
-
 #### Batch transcoding an entire FLAC music collection to Ogg Vorbis, using a `for` loop:
 
 ```
@@ -126,6 +124,8 @@ transcaude -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "Artist/Album"/*.fl
 $ cd ~/Music/WavPack
 transcaude -c flac -q 8 -P ~/Music/flac -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "Artist/Album"/*.wv
 ```
+
+In order to prevent `transcaude` from touching files, set `transcaudeTouchFiles="false"` in caudecrc.
 
 #### Specifying source directories instead of source files, and use default compression settings:
 
