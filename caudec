@@ -3881,7 +3881,7 @@ encode () {
 			else
 				lossywav "$wavFile" -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$errorLogFile" > "$namedPipe" &
 			fi
-			printf -- "--totally-silent`tagline -T`\x00%s" "$namedPipe" | xargs -0 flac -j $nThreads -P 4096 -8 -e -p -b 512 -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+			printf -- "--totally-silent`tagline -T`\x00%s" "$namedPipe" | xargs -0 flac -j $nThreads -P 4096 -5 -e -p -b 512 -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			rm -f "$namedPipe"
 			if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 				importArtworkIntoFLAC || exitCode=$Ex_Ko
