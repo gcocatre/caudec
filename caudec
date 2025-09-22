@@ -1391,8 +1391,8 @@ checkBinaries () {
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
 				*.flac) checkBinary 'flac' 'metaflac' ;;
-				*.wv) checkBinary 'wvunpack' 'APEv2' ;;
-				*.ape) checkBinary 'mac' 'APEv2' ;;
+				*.wv) checkBinary 'wvunpack' ;;
+				*.ape) checkBinary 'mac' ;;
 			esac
 		done
 	elif [ $touchFiles = true ]; then
