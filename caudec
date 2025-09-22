@@ -4875,26 +4875,37 @@ saveGain () {
 			if [ "$gainType" = 'ALBUM' ]; then
 				if [ $computeAudioPeaks = true -a -n "$peakDbfs" ]; then
 					APEv2 \
-						-r "REPLAYGAIN_ALBUM_GAIN" \
-						-r "REPLAYGAIN_ALBUM_PEAK" \
-						-r "AUDIO_ALBUM_PEAK" \
-						-t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
-						-t "REPLAYGAIN_ALBUM_PEAK=${peak}" \
-						-t "AUDIO_ALBUM_PEAK=${peakDbfs} dBFS" \
+						-r "replaygain_album_gain" \
+						-r "replaygain_album_peak" \
+						-r "audio_album_peak" \
+						-t "replaygain_album_gain=${gain} dB" \
+						-t "replaygain_album_peak=${peak}" \
+						-t "audio_album_peak=${peakDbfs} dBFS" \
 						"$destFile" 1>/dev/null 2>/dev/null || exitCode=$Ex_Ko
 				else
 					APEv2 \
-						-r "REPLAYGAIN_ALBUM_GAIN" \
-						-r "REPLAYGAIN_ALBUM_PEAK" \
-						-t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
-						-t "REPLAYGAIN_ALBUM_PEAK=${peak}" \
+						-r "replaygain_album_gain" \
+						-r "replaygain_album_peak" \
+						-t "replaygain_album_gain=${gain} dB" \
+						-t "replaygain_album_peak=${peak}" \
 						"$destFile" 1>/dev/null 2>/dev/null || exitCode=$Ex_Ko
 				fi
 			else
 				if [ $computeAudioPeaks = true -a -n "$peakDbfs" ]; then
 					APEv2 \
-						-r "AUDIO_TRACK_PEAK" \
-						-t "AUDIO_TRACK_PEAK=${peakDbfs} dBFS" \
+						-r "replaygain_track_gain" \
+						-r "replaygain_track_peak" \
+						-t "replaygain_track_gain=${gain} dB" \
+						-t "replaygain_track_peak=${peak}" \
+						-r "audio_track_peak" \
+						-t "audio_track_peak=${peakDbfs} dBFS" \
+						"$destFile" 1>/dev/null 2>/dev/null || exitCode=$Ex_Ko
+				else
+					APEv2 \
+						-r "replaygain_track_gain" \
+						-r "replaygain_track_peak" \
+						-t "replaygain_track_gain=${gain} dB" \
+						-t "replaygain_track_peak=${peak}" \
 						"$destFile" 1>/dev/null 2>/dev/null || exitCode=$Ex_Ko
 				fi
 			fi
