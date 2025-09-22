@@ -4679,7 +4679,7 @@ showTrackInformation () {
 				while read line; do
 					case $line in
 						channels*) nChannels="${line##*=}" ;;
-						sample_fmt*|bits_per_sample*)
+						bits_per_raw_sample*|bits_per_sample*)
 							if [ -z "$bitDepth" -o "$bitDepth" = "0" ]; then
 								bitDepth="${line##*=}"
 								# FIXME
@@ -4696,7 +4696,7 @@ showTrackInformation () {
 				;;
 		esac
 
-		if [ "$bitDepth" = "0" ]; then
+		if [ -z "$bitDepth" -o "$bitDepth" = "0" ]; then
 			bitDepth="NA"
 		else
 			bitDepth="$( printf "%2s" "$bitDepth" )"
