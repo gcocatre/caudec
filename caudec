@@ -4438,7 +4438,10 @@ testFile () {
 				wvunpack --threads=$nThreads -qmv "$copyFile" >/dev/null 2>&1; exitCode=$?
 				;;
 
-			*.ape) mac "$copyFile" -V >/dev/null 2>&1; exitCode=$? ;;
+			*.ape)
+				nThreads=$( getNumberOfAvailableThreads $index )
+				mac "$copyFile" -V -threads=$nThreads >/dev/null 2>&1; exitCode=$?
+				;;
 
 			*) printMessage 'warning' 'testing' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format' ; return $Ex_Ko ;;
 		esac
