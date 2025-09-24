@@ -1789,8 +1789,8 @@ getNumberOfAvailableThreads () {
 	while read milliseconds number; do
 		test -e "${Self_Ctrl_Dir}/WAS_PROCESSED.${number}" &>/dev/null && continue
 		if [ "$number" = "$index" ]; then
-			# +0.5 to round up any n value over n.001 even though printf "%.0f" already rounds up anything over n.5
-			nThreads="$( printf "%.0f" "$( echo "scale=3; $maxProcessesSetByUser * $milliseconds / $nMillisecondsLeft + 0.5" | bc )" )"
+			# +0.3 to round up any n value over n.2 even though printf "%.0f" already rounds up anything over n.5
+			nThreads="$( printf "%.0f" "$( echo "scale=3; $maxProcessesSetByUser * $milliseconds / $nMillisecondsLeft + 0.3" | bc )" )"
 			break
 		fi
 	done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
