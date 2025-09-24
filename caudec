@@ -977,7 +977,7 @@ getInputFiles () {
 		declare -a inputFilesAndDirs=()
 		while read line; do
 			inputFilesAndDirs[index]="$line"
-			index=$(( index + 1 ))
+			(( index++ ))
 		done < <( find "$inputDir" -type f 2>/dev/null | sort -u 2>/dev/null )
 		index=0
 	fi
@@ -989,14 +989,14 @@ getInputFiles () {
 					while IFS= read -d $'\0' -r file ; do
 						if [ -f "$file" -a -r "$file" ]; then
 							inputFiles[$index]="$file"
-							((index++))
+							(( index++ ))
 						fi
 					done < <(find "$fileOrDir" -type f -regex '.*\.\(wav\|aiff\|caf\|flac\|wv\|ape\|mp3\|m4a\|ogg\|opus\)$' -print0 2>/dev/null)
 				else
 					while IFS= read -d $'\0' -r file ; do
 						if [ -f "$file" -a -r "$file" ]; then
 							inputFiles[$index]="$file"
-							((index++))
+							(( index++ ))
 						fi
 					done < <(find -E "$fileOrDir" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null)
 				fi
@@ -1005,7 +1005,7 @@ getInputFiles () {
 			fi
 		else
 			inputFiles[$index]="$fileOrDir"
-			((index++))
+			(( index++ ))
 		fi
 	done
 
@@ -1242,14 +1242,14 @@ do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; do
 						*.wvc) continue ;;
 					esac
 					sourceFiles[$index]="$inputFile"
-					((index++))
+					(( index++ ))
 				fi
 			fi
 		fi
 
 		if [ $addToSourceFiles = true ]; then
 			sourceFiles[$index]="$inputFile"
-			((index++))
+			(( index++ ))
 		fi
 	done
 
@@ -1623,7 +1623,7 @@ setupControlDir () {
 
 	chmod 0775 "$Self_Ctrl_Dir"
 
-	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
+	for (( index=0; index < ${#sourceFiles[@]}; index++ )); do
 		touch "${Self_Ctrl_Dir}/${index}"
 
 		fileMilliseconds="$( getFileMilliseconds "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
@@ -1711,7 +1711,7 @@ setupSwapDir () {
 	fi
 
 	if [ $preloadSources = true ]; then
-		for ((index=0; index < ${#sourceFiles[@]}; index++)); do
+		for (( index=0; index < ${#sourceFiles[@]}; index++ )); do
 			if [ "$OS" = 'Linux' ]; then
 				copyLockFile="${Self_Io_Dir}/$( stat -c '%d' "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
 			else
@@ -1764,18 +1764,20 @@ getNumberOfCaudecProcesses () {
 }
 
 getNumberOfProcessedFiles () {
-	ls -1 "${Self_Ctrl_Dir}/WAS_PROCESSED".* 2>/dev/null | wc -l | tr -cd '[:digit:]'
+	local numberOfProcessedFiles
+	numberOfProcessedFiles="$( ls -1 "${Self_Ctrl_Dir}/WAS_PROCESSED".* 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
+	echo $(( numberOfProcessedFiles * nCodecs ))
 }
 
 getNumberOfAvailableThreads () {
-	local n=$1 maxThreads="$2" nProcessedFiles=0 nUnprocessedFiles nAvailableProcesses nMillisecondsLeft=0 nThreads=1
+	local n=$1 maxThreads="$2" nProcessedFiles nAvailableProcesses nMillisecondsLeft=0 nThreads=1
 
 	if [ -z "$maxThreads" ]; then
 		maxThreads=999999
 	fi
 
 	nProcessedFiles="$( getNumberOfProcessedFiles )"
-	nAvailableProcesses=$(( maxProcessesSetByUser - ( numberOfSourceFiles - 1 - nProcessedFiles ) ))
+	nAvailableProcesses=$(( maxProcessesSetByUser - ( numberOfOutputFiles - nProcessedFiles ) ))
 	if [ $nAvailableProcesses -lt 2 ]; then
 		echo 1
 		return
@@ -2671,7 +2673,7 @@ extractFlacArtwork () {
 					fi
 					metaflac --block-number=$blockNumber --export-picture-to="${Self_Swap_Dir}/picture-${index}-${picNumber}_${picType}.${picExt}" "$copyFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 					if [ $exitCode -eq $Ex_Ok ]; then
-						((picNumber++))
+						(( picNumber++ ))
 					else
 						rm -rf "${Self_Swap_Dir}/picture-${index}-${picNumber}_${picType}.${picExt}" "${Self_Swap_Dir}/picture-${index}-${picNumber}.txt" >/dev/null 2>> "$errorLogFile"
 					fi
@@ -2698,8 +2700,8 @@ extractAPEv2Artwork () {
 
 		for fieldName in 'other' 'icon' 'other icon' 'front' 'back' 'leaflet' 'media' 'lead artist' 'artist' 'conductor' 'band' 'composer' 'lyricist' 'recording location' 'during recording' 'during performance' 'video' 'a bright colored fish' 'illustration' 'band logo' 'publisher logo'; do
 			argString="${argString}\\x00-d\\x00cover art (${fieldName})=${Self_Swap_Dir}/picture-${index}-${picNumber}_${picType}."
-			((picType++))
-			((picNumber++))
+			(( picType++ ))
+			(( picNumber++ ))
 		done
 		if [ -n "$argString" ]; then
 			echo -en "-z${argString}\x00${copyFile}" | xargs -0 APEv2 >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
@@ -2710,7 +2712,7 @@ extractAPEv2Artwork () {
 }
 
 extractAPEv2Binaries () {
-	local exitCode=$Ex_Ok pattern argString='' fieldName='' b=0
+	local exitCode=$Ex_Ok pattern argString='' fieldName='' binaryIndex=0
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
@@ -2720,9 +2722,9 @@ extractAPEv2Binaries () {
 
 				if [ ! -d "$apeBinariesDir" ]; then mkdir -p "$apeBinariesDir" >/dev/null 2>&1 ; fi
 				while read fieldName; do
-					echo "$fieldName" > "${apeBinariesDir}/${b}.txt" 2>/dev/null
-					argString="${argString}\\x00-d\\x00${fieldName}=${apeBinariesDir}/${b}.bin"
-					((b++))
+					echo "$fieldName" > "${apeBinariesDir}/${binaryIndex}.txt" 2>/dev/null
+					argString="${argString}\\x00-d\\x00${fieldName}=${apeBinariesDir}/${binaryIndex}.bin"
+					( (binaryIndex++ ))
 				done < <( APEv2 -z "$copyFile" 2>/dev/null | grep -F '=data:' 2>/dev/null | cut -d '=' -f 1 2>/dev/null )
 
 				if [ -n "$argString" ]; then
@@ -2891,7 +2893,7 @@ importBinariesIntoAPEv2 () {
 }
 
 importArtworkIntoMP3 () {
-	local exitCode=$Ex_Ok picBasename="" picType picTypeText pattern descFile description='' n=0
+	local exitCode=$Ex_Ok picBasename="" picType picTypeText pattern descFile description='' pictureFile pictureIndex=0
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -2901,11 +2903,11 @@ importArtworkIntoMP3 () {
 	importCoverArt || exitCode=$Ex_Ko
 
 	which 'eyeD3' >/dev/null 2>&1 || return $Ex_Ok
-	for f in "${Self_Swap_Dir}/picture-${index}-"*_*; do
-		if [ ! -e "$f" ]; then continue; fi
-		((n++))
-		picBasename="$( basename "$f" )"
-		picType="${picBasename#*_}"; picType="${picType%.*}"; descFile="${f%_*}.txt"
+	for pictureFile in "${Self_Swap_Dir}/picture-${index}-"*_*; do
+		if [ ! -e "$pictureFile" ]; then continue; fi
+		(( pictureIndex++ ))
+		picBasename="$( basename "$pictureFile" )"
+		picType="${picBasename#*_}"; picType="${picType%.*}"; descFile="${pictureFile%_*}.txt"
 		case $picType in
 			0) picTypeText='OTHER' ;;
 			1) picTypeText='ICON' ;;
@@ -2935,7 +2937,7 @@ importArtworkIntoMP3 () {
 			description="$( cat "$descFile" 2>> "$errorLogFile" )"; description="${description//|//}" # replace | with /
 		fi
 		if [ -z "$description" ]; then
-			description="${picTypeText}_${n}" # add a number to make it unique
+			description="${picTypeText}_${pictureIndex}" # add a number to make it unique
 		fi
 		eyeD3 --quiet --to-v2.4 --add-image="${f}:${picTypeText}:${description}" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 	done
@@ -4156,10 +4158,10 @@ prepareSource () {
 			else
 				if [ $attemptNumber -ge 100 ]; then
 					cleanUpCopyLockFile "$copyLockFile"
-					n=0
+					attemptNumber=0
 				else
 					sleep 0.1
-					((n++))
+					(( attemptNumber++ ))
 				fi
 			fi
 		done
@@ -4625,7 +4627,7 @@ showInternalHash () {
 computeHashes () {
 	local exitCode=$Ex_Ok index
 
-	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
+	for (( index=0; index < ${#sourceFiles[@]}; index++ )); do
 		sourceFile="${sourceFiles[$index]}"
 		sourceFilename="${sourceFile##*/}"
 		sourceTagFile="${Self_Ctrl_Dir}/${index}.txt"
@@ -4755,7 +4757,7 @@ showTrackInformation () {
 showTracksInformation () {
 	local exitCode=$Ex_Ok index
 
-	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
+	for (( index=0; index < ${#sourceFiles[@]}; index++ )); do
 		sourceFile="${sourceFiles[$index]}"
 		sourceFilename="${sourceFile##*/}"
 		informationLockFile="${Self_Ctrl_Dir}/${index}"
@@ -5168,10 +5170,10 @@ computeAlbumGain () {
 	# This is a very fast way of computing the album gain, but it is also less precise than the official implementation.
 	# A comparison between gains on 754 albums revealed max differences ranging from -2.06 dB to +1.50 dB.
 	# PINK_REF="64.82" is from flac/src/share/replaygain_analysis/replaygain_analysis.c
-	local exitCode=$Ex_Ok PINK_REF_COMPLEMENT="35.18" index processIndex secondsIndex rank trackGain trackSeconds=1 increment=0
-	local trackGainFile trackPeakFile albumPeak albumAudioPeak albumGain
+	local exitCode=$Ex_Ok PINK_REF_COMPLEMENT="35.18" index processIndex secondsIndex rank trackGain trackSeconds=1
+	local increment=0 trackGainFile trackPeakFile albumPeak albumAudioPeak albumGain
 
-	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
+	for (( index=0; index < ${#sourceFiles[@]}; index++ )); do
 		trackGainFile="${Self_Ctrl_Dir}/${index}.trackgain"
 		trackPeakFile="${Self_Ctrl_Dir}/${index}.trackpeak"
 		trackGain="$( cat "$trackGainFile" )"
@@ -5182,7 +5184,7 @@ computeAlbumGain () {
 		fi
 		for (( secondsIndex=0; secondsIndex < trackSeconds; secondsIndex++ )); do
 			echo "$trackGain" >> "${Self_Ctrl_Dir}/trackgains"
-			((increment++))
+			(( increment++ ))
 		done
 		cat "$trackPeakFile" >> "${Self_Ctrl_Dir}/trackpeaks" 2>/dev/null
 	done
@@ -5224,7 +5226,7 @@ computeAlbumGain () {
 		fi
 	fi
 
-	for ((index=0, processIndex=0; index < ${#sourceFiles[@]}; index++, processIndex++)); do
+	for (( index=0, processIndex=0; index < ${#sourceFiles[@]}; index++, processIndex++ )); do
 		if [ $processIndex -lt $nProcesses ]; then
 			destFile="${sourceFiles[$index]}"
 			saveGain 'ALBUM' &
@@ -5478,7 +5480,7 @@ computeTrackDateTime () {
 computeTrackDateTimes () {
 	local exitCode=$Ex_Ok index
 
-	for ((index=0; index < ${#sourceFiles[@]}; index++)); do
+	for (( index=0; index < ${#sourceFiles[@]}; index++ )); do
 		sourceFile="${sourceFiles[$index]}"
 		sourceFilename="${sourceFile##*/}"
 		sourceTagFile="${Self_Ctrl_Dir}/${index}.txt"
@@ -5511,34 +5513,34 @@ touchAllFiles () {
 	audioFiles=()
 	otherFiles=()
 
-	for ((index=0, dirIndex=0; index < ${#sourceFiles[@]}; index++)); do
+	for (( index=0, dirIndex=0; index < ${#sourceFiles[@]}; index++ )); do
 		sourceFile="${sourceFiles[$index]}"
 		sourceDirname="$( dirname "$sourceFile" )"
 		curDir="$( readlink -f "$sourceDirname" )"
 		if [ "$curDir" != "$lastDir" ]; then
 			discDirs[$dirIndex]="$curDir"
-			dirIndex=$(( dirIndex + 1 ))
+			(( dirIndex++ ))
 			lastDir="$curDir"
 		fi
 	done
 
-	for ((dirIndex=0; dirIndex < ${#discDirs[@]}; dirIndex++)); do
+	for (( dirIndex=0; dirIndex < ${#discDirs[@]}; dirIndex++ )); do
 		curDir="${discDirs[$dirIndex]}"
 		trackMilliseconds=0
 		touchString="${trackDate}0000.00"
 		discSeconds=0
 		linkPath=""
 
-		for ((index=0, audioFileIndex=0, otherFileIndex=0; index < ${#sourceFiles[@]}; index++)); do
+		for (( index=0, audioFileIndex=0, otherFileIndex=0; index < ${#sourceFiles[@]}; index++ )); do
 			sourceFile="${sourceFiles[$index]}"
 			sourceDirname="$( dirname "$sourceFile" )"
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			case "$sourceFile" in
-				*.flac|*ogg|*.m4a|*.wv|*.ape|*.mp3|*.opus) audioFiles[$audioFileIndex]="$sourceFile" ; audioFileIndex=$(( audioFileIndex + 1 )) ;;
+				*.flac|*ogg|*.m4a|*.wv|*.ape|*.mp3|*.opus) audioFiles[$audioFileIndex]="$sourceFile" ; (( audioFileIndex++ )) ;;
 				*.wvc) continue ;; # will be touched when the matching .wv file is touched
 				*.aiff|*.caf) continue ;; # unsupported audio files
-				*) otherFiles[$otherFileIndex]="$sourceFile" ; otherFileIndex=$(( otherFileIndex + 1 )) ;; # all non-audio files
+				*) otherFiles[$otherFileIndex]="$sourceFile" ; (( otherFileIndex++ )) ;; # all non-audio files
 			esac
 		done
 
@@ -5563,7 +5565,7 @@ touchAllFiles () {
 			fi
 		done
 
-		for ((index=0; index < ${#sourceFiles[@]}; index++)); do
+		for (( index=0; index < ${#sourceFiles[@]}; index++ )); do
 			sourceFile="${sourceFiles[$index]}"
 			sourceDirname="$( dirname "$sourceFile" )"
 			dirPath="$( readlink -f "$sourceDirname" )"
@@ -5617,7 +5619,7 @@ touchAllFiles () {
 	done
 
 	if [ ${#discDirs[@]} -gt 1 ]; then
-		for ((dirIndex=0; dirIndex < ${#discDirs[@]}; dirIndex++)); do
+		for (( dirIndex=0; dirIndex < ${#discDirs[@]}; dirIndex++ )); do
 			curDir="${discDirs[$dirIndex]}"
 			curLinkedDir="${linkedDiscDirs[$dirIndex]}"
 			albumDir="$( dirname "$curDir" )"
@@ -6308,7 +6310,7 @@ setArtworkParam=false copyFilesParam=false showInformation=false
 if [ "$Self_Called_As" = "$Self_Decode_Name" ]; then
 	lastCodec='WAV'
 	outputCodecs="$outputCodecs $lastCodec"
-	((nCodecs++))
+	(( nCodecs++ ))
 	copyWAV=true
 fi
 
@@ -6547,7 +6549,7 @@ while getopts '2a:B:b:C:c:df:G:ghH:iIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 				*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -c: invalid codec (try $Self_Name -h)" ; exit $Ex_Usage ;;
 			esac
 
-			outputCodecs="$outputCodecs $lastCodec"; ((nCodecs++))
+			outputCodecs="$outputCodecs $lastCodec"; (( nCodecs++ ))
 			if [ "$o" = 'c' ]; then
 				preserveMetadata="${preserveMetadata}x${lastCodec}Y"
 			fi
@@ -6728,7 +6730,11 @@ while getopts '2a:B:b:C:c:df:G:ghH:iIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 # -----------------------------------------------------------------------------
 
-		d) lastCodec='WAV'; outputCodecs="$outputCodecs $lastCodec"; ((nCodecs++)); copyWAV=true ;;
+		d)
+			if [ "$Self_Called_As" != "$Self_Decode_Name" ]; then
+				lastCodec='WAV'; outputCodecs="$outputCodecs $lastCodec"; copyWAV=true
+			fi
+			;;
 
 		t) checkFiles=true ;;
 
@@ -7050,6 +7056,8 @@ setupControlDir
 setupSwapDir
 # endTimer "setupSwapDir()"
 
+numberOfOutputFiles=$(( numberOfSourceFiles * nCodecs ))
+
 for signal in INT TERM ABRT PIPE; do
 	trap "cleanAbort" $signal
 done
@@ -7061,14 +7069,14 @@ fi
 if [ $nCodecs -gt 0 ]; then # action: transcode files
 	checkOutputDirectories
 
-	nJobs=$(( numberOfSourceFiles * nCodecs ))
+	nJobs=$numberOfOutputFiles
 	if [ $nProcesses -gt $nJobs ]; then setNumberOfProcesses $nJobs ; fi
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for ((processNumber=0; processNumber < nProcesses; processNumber++)); do
+	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		transcode &
 	done
 elif [ $checkFiles = true ]; then
@@ -7078,7 +7086,7 @@ elif [ $checkFiles = true ]; then
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for ((processNumber=0; processNumber < nProcesses; processNumber++)); do
+	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		testFiles &
 	done
 elif [ $computeReplayGain = true ]; then
@@ -7088,7 +7096,7 @@ elif [ $computeReplayGain = true ]; then
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for ((processNumber=0; processNumber < nProcesses; processNumber++)); do
+	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		computeTrackGains &
 	done
 elif [ $reverseReplayGain = true ]; then
@@ -7101,7 +7109,7 @@ elif [ $reverseReplayGain = true ]; then
 	if [ $allFilesAreOpus = true ]; then
 		reverseOpusTrackGains || exitCode=$Ex_Ko
 	else
-		for ((processNumber=0; processNumber < nProcesses; processNumber++)); do
+		for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 			reverseTrackGains &
 		done
 	fi
@@ -7112,7 +7120,7 @@ elif [ $touchFiles = true ]; then
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for ((processNumber=0; processNumber < nProcesses; processNumber++)); do
+	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		computeTrackDateTimes &
 	done
 elif [ $hashFiles = true ]; then
@@ -7122,7 +7130,7 @@ elif [ $hashFiles = true ]; then
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for ((processNumber=0; processNumber < nProcesses; processNumber++)); do
+	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		computeHashes &
 	done
 elif [ $showInformation = true ]; then
@@ -7132,7 +7140,7 @@ elif [ $showInformation = true ]; then
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for ((processNumber=0; processNumber < nProcesses; processNumber++)); do
+	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		showTracksInformation &
 	done
 fi
