@@ -1789,7 +1789,7 @@ getNumberOfAvailableThreads () {
 	while read milliseconds number; do
 		test -e "${Self_Ctrl_Dir}/WAS_PROCESSED.${number}" &>/dev/null && continue
 		if [ "$number" = "$index" ]; then
-			nThreads="$( printf "%.0f" "$( echo "scale=3; $maxProcessesSetByUser * $milliseconds / $nMillisecondsLeft" | bc )" )"
+			nThreads="$( printf "%.0f" "$( echo "scale=3; $maxProcessesSetByUser * $milliseconds / $nMillisecondsLeft + 0.5" | bc )" )"
 			break
 		fi
 	done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
