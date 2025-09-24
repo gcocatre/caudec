@@ -4278,7 +4278,6 @@ transcode () {
 				chmod u+rwX "$destPath" "${destPath}"/* 2>/dev/null
 			fi
 		done < "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
-		if [ "$allDone" = "true" ]; then break; fi
 		sleep 0.05 # make sure idling processes don't hog the CPU
 	done
 
