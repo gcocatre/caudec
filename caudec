@@ -4085,16 +4085,16 @@ encode () {
 getLock () {
 	local lockFile="$1"
 	if [ "$OS" = 'Darwin' ]; then
-		lockf -s -n -t 1 "$lockFile" test -e "$lockFile" &>/dev/null
+		test -e "$lockFile" && lockf -s -n -t 1 "$lockFile" test -e "$lockFile" &>/dev/null
 	else
-		unlink "$lockFile" 2>/dev/null # FIXME LOCKING
+		test -e "$lockFile" && unlink "$lockFile" 2>/dev/null # FIXME LOCKING
 	fi
 }
 
 getAndRenameLock () {
 	local lockFileOne="$1" lockFileTwo="$2"
 	if [ "$OS" = 'Darwin' ]; then
-		lockf -k -s -n -t 1 "$lockFileOne" mv "$lockFileOne" "$lockFileTwo" &>/dev/null
+		test -e "$lockFileOne" && lockf -k -s -n -t 1 "$lockFileOne" mv "$lockFileOne" "$lockFileTwo" &>/dev/null
 	else
 		test -e "$lockFileOne" && mv "$lockFileOne" "$lockFileTwo" 2>/dev/null  # FIXME LOCKING
 	fi
@@ -4103,7 +4103,7 @@ getAndRenameLock () {
 cleanUpCopyLockFile () {
 	local copyLockFile="$1" pid
 
-	if [ -f "${copyLockFile}.lock" ]; then
+	if [ -e "${copyLockFile}.lock" ]; then
 		pid="$( cat "${copyLockFile}.lock" )"
 		if [ -n "$pid" ]; then
 			if ! isProcessRunning $pid ; then
