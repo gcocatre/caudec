@@ -207,6 +207,9 @@ Global parameters:
 
   -s        be silent, only print errors
 
+  -S ARG    strategy for processing tracks in the given order (default: 't'):
+            'l' / 'longest', 's' / 'shortest', 't' / 'track'
+
   -z        produce machine-parsable output; must be the first parameter on the
             command line to take effect. Run 'caudec -z' on its own to print
             a description of the syntax.
@@ -1653,7 +1656,16 @@ setupControlDir () {
 	echo "$TDEV" > "${Self_Instance_Dir}/tdev"
 	echo "$Self_Ctrl_Dir" > "${Self_Instance_Dir}/tdir"
 
-	sort -n "${Self_Ctrl_Dir}/inputMilliseconds_"* > "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
+	case "$orderStrategy" in
+		longest) sort -n -r "${Self_Ctrl_Dir}/inputMilliseconds_"* > "${Self_Ctrl_Dir}/millisecondsAndFileNumbers" ;;
+		shortest) sort -n "${Self_Ctrl_Dir}/inputMilliseconds_"* > "${Self_Ctrl_Dir}/millisecondsAndFileNumbers" ;;
+		track)
+			cat "${Self_Ctrl_Dir}/inputMilliseconds_0" > "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
+			for (( index=1; index < ${#sourceFiles[@]}; index++ )); do
+				cat "${Self_Ctrl_Dir}/inputMilliseconds_${index}" >> "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
+			done
+			;;
+	esac
 }
 
 setupSwapDir () {
@@ -6294,6 +6306,11 @@ case "$maxProcesses" in
 esac
 maxProcessesSetByUser=$nProcesses
 
+case "$orderStrategy" in
+	longest|shortest|track) true ;;
+	*) orderStrategy="track" ;;
+esac
+
 losslessCodecsString="WAV AIFF CAF FLAC ALAC WavPack WavPackHybrid MonkeysAudio"
 lossyCodecsString="WavPackLossy lossyFLAC MP3 AAC OggVorbis Opus"
 allCodecsString="${losslessCodecsString} ${lossyCodecsString}"
@@ -6479,6 +6496,15 @@ while getopts '2a:B:b:C:c:df:G:ghH:iIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 		i) ignoreUnsupportedFiles=true ;;
 
 		s) verbose=false ;;
+
+		S)
+			case "$OPTARG" in
+				s|shortest) orderStrategy="shortest" ;;
+				l|longest) orderStrategy="longest" ;;
+				t|track) orderStrategy="track" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -S: the order strategy must be either 'l' / 'longest', 's' / 'shortest' or 't' / 'track'" ; exit $Ex_Usage ;;
+			esac
+			;;
 
 		z) outputMode='machine' ;;
 
