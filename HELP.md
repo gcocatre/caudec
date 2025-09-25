@@ -20,8 +20,8 @@ Global parameters:
 
   -s        be silent, only print errors
 
-  -S ARG    strategy for processing tracks in the given order (default: 't'):
-            'l' / 'longest', 's' / 'shortest', 't' / 'track'
+  -S ARG    strategy for processing tracks in the given order (default: 'n'):
+            'l' / 'longest', 's' / 'shortest', 'n' / 'none'
 
   -z        produce machine-parsable output; must be the first parameter on the
             command line to take effect. Run 'caudec -z' on its own to print
