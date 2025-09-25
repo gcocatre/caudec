@@ -1789,7 +1789,7 @@ getNumberOfAvailableThreads () {
 	fi
 
 	nProcessedFiles="$( getNumberOfProcessedFiles )"
-	nAvailableProcesses=$(( maxProcessesSetByUser - ( numberOfOutputFiles - nProcessedFiles ) ))
+	nAvailableProcesses=$(( maxProcessesSetByUser - ( numberOfOutputFiles - nProcessedFiles ) + 1 ))
 	if [ $nAvailableProcesses -lt 2 ]; then
 		echo 1
 		return
