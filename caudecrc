@@ -70,7 +70,7 @@ maxInputFiles=100 # raise a warning and exit if the number of input files is hig
 preloadSources=false # cache source files to temporary directory (e.g. a fast SSD) before processing them
 
 # strategy for processing files in order of duration: "longest", "shortest" or "track":
-orderStrategy='longest'
+orderStrategy='track'
 
 preventClipping=true # reduce volume to prevent clipping, when resampling or applying gain
 computeAudioPeaks=false # when computing ReplayGain, also include audio peaks in dBFS
