@@ -3884,12 +3884,13 @@ encode () {
 			fi
 			;;
 
+		# encodeLossyFLAC
 		lossyFLAC)
 			destExtension='lossy.flac'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.vc.txt"
 			namedPipe="${Self_Swap_Dir}/lossyWAV-pipe-${index}.wav"
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 			# nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
-			nThreads=1
+			nThreads=1 # flac -5 -e -p is slower than lossyWAV
 			bitsPerSample="$( soxi -b "$wavFile" 2>/dev/null )"
 			mkfifo "$namedPipe"
 			if [ -n "$bitsPerSample" -a $bitsPerSample -lt 24 ]; then
