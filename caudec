@@ -3315,7 +3315,7 @@ decode () {
 		fi
 		for outputCodec in $outputCodecs; do
 			case "$outputCodec" in
-				lossy*|*Vorbis|Opus|WavPackLossy|MP3|AAC) hasLossy=true ;;
+				lossyFLAC|OggVorbis|Opus|WavPackLossy|MP3|AAC) hasLossy=true ;;
 				FLAC|WavPack|WavPackHybrid|MonkeysAudio|ALAC) hasLossless=true ;;
 			esac
 		done
