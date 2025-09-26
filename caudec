@@ -994,7 +994,7 @@ getInputFiles () {
 							inputFiles[$index]="$file"
 							(( index++ ))
 						fi
-					done < <(find "$fileOrDir" -type f -regex '.*\.\(wav\|aiff\|caf\|flac\|wv\|ape\|mp3\|m4a\|ogg\|opus\)$' -print0 2>/dev/null)
+					done < <(find "$fileOrDir" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null)
 				else
 					while IFS= read -d $'\0' -r file ; do
 						if [ -f "$file" -a -r "$file" ]; then
