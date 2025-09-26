@@ -987,6 +987,7 @@ getInputFiles () {
 
 	for fileOrDir in "${inputFilesAndDirs[@]}"; do
 		if [ -d "$fileOrDir" ]; then
+			{
 			if [ -r "$fileOrDir" ]; then
 				if [ "$OS" = 'Linux' ]; then
 					while IFS= read -d $'\0' -r file ; do
@@ -1005,6 +1006,12 @@ getInputFiles () {
 				fi
 			else
 				printMessage 'warning' 'usage' 'filesystem' "path:${fileOrDir}" 'directory is not readable (permission denied).' ; exitCode=$Ex_No_Input
+			fi
+			} 2>/dev/null || exitCode=$Ex_Ko
+			if [ $exitCode -ne $Ex_Ok ]; then
+				printMessage 'warning' 'usage' 'filesystem' "the operating system cannot handle this many files." ; exitCode=$Ex_No_Input
+				printMessage 'abort' 'verbose'
+				cleanExit $exitCode
 			fi
 		else
 			inputFiles[$index]="$fileOrDir"
@@ -1038,12 +1045,6 @@ checkInputFiles () {
 	if [ $numberOfInputFiles -gt $maxInputFiles ]; then
 		printMessage 'warning' 'usage' 'quota' "the number of input files ($numberOfInputFiles) is greater than maxInputFiles=${maxInputFiles}."
 		printMessage 'abort'
-		if [ "$outputMode" != 'machine' ]; then
-			echo 1>&2
-			echo "If you're processing multiple directories, try running caudec in a loop:
-find * -type f -name '*.flac' -exec dirname '{}' ';' | sort -u | while read d;
-do echo \"\$d\"; caudec -s -K -P /some/destination/dir -c ogg \"\$d\"/*.flac; done" 1>&2
-		fi
 		cleanExit $Ex_Usage
 	fi
 
