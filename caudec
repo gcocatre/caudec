@@ -4263,10 +4263,8 @@ transcode () {
 				# if test -e "$encodingLockFile" && unlink "$encodingLockFile" 2>/dev/null; then
 				if test -e "$encodingLockFile" && getLock "$encodingLockFile"; then
 					allDone=false
-					if [ "$outputCodec" != "WAV" ]; then
-						encode $nDecodingThreads || exitCode=$Ex_Ko
-						if [ $exitCode -ne $Ex_Ok ]; then addTranscodingErrorFile "$sourceFile" ; fi
-					fi
+					encode $nDecodingThreads || exitCode=$Ex_Ko
+					if [ $exitCode -ne $Ex_Ok ]; then addTranscodingErrorFile "$sourceFile" ; fi
 					rm -f "${encodingLockFile}_WAV_NEEDED"
 					ls "${Self_Ctrl_Dir}/"*"_${index}_WAV_NEEDED" >/dev/null 2>&1 || rm -f "$wavFile"
 
