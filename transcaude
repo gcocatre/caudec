@@ -19,7 +19,7 @@
 # Global variables =============================================================
 
 declare -r Self_Name='transcaude'
-declare -r Self_Version='3.2.1'
+declare -r Self_Version='3.2.2'
 
 # Ex_Usage: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # Ex_Data_Err: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -110,6 +110,8 @@ Global parameters:
   -h        display this help and exit
   -V        output version information and exit
 
+  -R        do not compute ReplayGain to lossless targets (useful if you know
+            that your lossless source already has ReplayGain data)
   -s        be silent, only print errors
 
 -------------------------------------------------------------------------------
@@ -139,8 +141,16 @@ if [ "$1" = "-V" ]; then
 fi
 
 Self_Verbose=true
-if [ "$1" = "-s" ]; then
-  Self_Verbose=false ; shift
+computeLosslessReplayGain=true
+
+if [ "$1" = "-s" -a "$2" = "-R" ]; then
+  Self_Verbose=false computeLosslessReplayGain=false ; shift 2
+elif [ "$1" = "-R" -a "$2" = "-s" ]; then
+  Self_Verbose=false computeLosslessReplayGain=false ; shift 2
+elif [ "$1" = "-s" ]; then
+  Self_Verbose=false ; shift 1
+elif [ "$1" = "-R" ]; then
+  computeLosslessReplayGain=false ; shift 1
 fi
 
 for arg in "$@"; do
@@ -324,7 +334,14 @@ if [ $exitCode -eq $Ex_Ok ]; then
     codec="$data"
     if [ -n "$lastCodec" -a -n "$lastDir" ]; then
       if [ "$codec" != "$lastCodec" -o "$dir" != "$lastDir" ]; then
-        computeReplayGain || exitCode=$Ex_Ko
+        if [ "$computeLosslessReplayGain" = "false" ]; then
+          case "$lastCodec" in
+            FLAC|WavPack*|lossyFLAC|MonkeysAudio) true ;;
+            *) computeReplayGain || exitCode=$Ex_Ko ;;
+          esac
+        else
+          computeReplayGain || exitCode=$Ex_Ko
+        fi
         if [ "$transcaudeTouchFiles" = "true" ]; then
           touchFiles "$lastMessage" || exitCode=$Ex_Ko
         fi
