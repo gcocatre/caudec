@@ -187,6 +187,20 @@ $ transcaude -c wvh "Miles Davis/Bitches Brew [1970]"
 
 There, `~/Music/lossless` would contain both *.wv and *.wvc files, while `~/Music/lossy` would only contain hard linked *.wv files, which could be conveniently transfered to an external device (e.g. a portable player), and which wouldn't take additional storage space.
 
+#### Transcoding multiple albums using `transcaude`:
+
+```
+$ transcaude -i -c flac -P ~/Transcoded/FLAC -c vorbis -P ~/Transcoded/Vorbis "Pink Floyd"/*
+```
+
+Here we specify a list of directories instead of a list of files (with `-i`, but that can be replaced with setting `ignoreUnsupportedFiles=true` in `~/.caudecrc`), which will reduce the number of arguments, the maximum of which is limited by not only `maxInputFiles` in `~/.caudecrc`, but also by the operating system's limitation.
+
+If your number of albums (i.e. the number of directories passed to the `transcaude` command) is lower than either limit, you can transcode your entire library in one go:
+
+```
+$ transcaude -c flac -P ~/Transcoded/FLAC -c vorbis -P ~/Transcoded/Vorbis ~Music/*
+```
+
 ## Requirements
 
 caudec uses common UNIX tools (bc, cut, date/gdate, find, grep, head, mktemp, ps, sed/gsed, sort, stat, tail, tr, uname, wc, xargs), as well as the following software (most of them available via **Homebrew** on macOS):
