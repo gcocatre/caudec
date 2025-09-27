@@ -91,24 +91,6 @@ $ d -d "The Dave Brubeck Quartet/Time Out [1959]"
 drwxr-xr-x 10 user group 320 1959-01-01 00:38:22 'The Dave Brubeck Quartet/Time Out [1959]'
 ```
 
-#### Batch transcoding an entire FLAC music collection to Ogg Vorbis, using a `for` loop:
-
-```
-$ cd ~/Music/FLAC
-$ for d in */*; do \
-echo "$d"; \
-caudec -s -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "$d"/*.flac && \
-caudec -s -g ~/Music/OggVorbis/"$d"/*.ogg && \
-caudec -s -T ~/Music/OggVorbis/"$d"/*; \
-done
-```
-
-With the `-s` parameter used above, caudec will only display errors, making them easier to spot.
-
-* The first caudec command will transcode FLAC files to OggVorbis and copy each album's `folder.jpg` file (if present) to the destination directory.
-* If it succeeds (`&&`), it will compute ReplayGain on the transcoded files. Using that command is a personal choice and not mandatory if you don't care about ReplayGain.
-* If it succeeds again, it will 'touch' the transcoded files (as shown before). Using that command is optional as well.
-
 #### Transcoding an album to Ogg Vorbis, using `transcaude`:
 
 ```
@@ -116,7 +98,9 @@ $ cd ~/Music/FLAC
 transcaude -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "Artist/Album"/*.flac
 ```
 
-`transcaude` is a small utility that uses `caudec` to transcode an album, then compute ReplayGain and touch files (when the output format is compatible). It does all 3 caudec commands in the previous example, in one fell swoop. Since it invokes `caudec`, multiple codecs may be specified at once:
+`transcaude` is a small utility that uses `caudec` to transcode an album, then compute ReplayGain and touch files (when the output format is compatible). It does all 3 caudec commands in the previous example, in one fell swoop. In order to prevent `transcaude` from touching files, set `transcaudeTouchFiles="false"` in `~/.caudecrc`.
+
+Since it invokes `caudec`, multiple codecs may be specified at once:
 
 #### Transcoding an album to both FLAC and Ogg Vorbis, using `transcaude`:
 
@@ -124,8 +108,6 @@ transcaude -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "Artist/Album"/*.fl
 $ cd ~/Music/WavPack
 transcaude -c flac -q 8 -P ~/Music/flac -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "Artist/Album"/*.wv
 ```
-
-In order to prevent `transcaude` from touching files, set `transcaudeTouchFiles="false"` in `~/.caudecrc`.
 
 #### Specifying source directories instead of source files, and use default compression settings:
 
@@ -210,6 +192,8 @@ $ for d in ~/Music/*; do
   transcaude -i -c flac -P ~/Transcoded/FLAC -c vorbis -P ~/Transcoded/Vorbis "$d"
 done
 ```
+
+Use `transcaude -s` in order to be silent and only display errors.
 
 ## Requirements
 

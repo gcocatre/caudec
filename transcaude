@@ -118,15 +118,21 @@ For more help, see the online documentation:
 https://github.com/gcocatre/caudec"
 }
 
+debug () {
+	local str="$1"
+	echo -e "${Clr_Wg}>>> DEBUG:${Clr_Rst} $str" 1>&2
+}
 
 if [ $# -eq 0 ]; then
   printUsage
   exit $Ex_Usage
 fi
+
 if [ "$1" = "-h" ]; then
   printUsage
   exit $Ex_Ok
 fi
+
 if [ "$1" = "-V" ]; then
   echo "$Self_Name $Self_Version"
   exit $Ex_Ok
@@ -134,8 +140,7 @@ fi
 
 Self_Verbose=true
 if [ "$1" = "-s" ]; then
-  Self_Verbose=false
-  shift
+  Self_Verbose=false ; shift
 fi
 
 for arg in "$@"; do
@@ -331,7 +336,7 @@ if [ $exitCode -eq $Ex_Ok ]; then
     if [ "$status" = "success" ]; then
       files[$index]="$path"
       index=$(( index + 1 ))
-    elif [ $Self_Verbose = false ]; then
+    elif [ $Self_Verbose = false -a -n "$path" ]; then
       outputWarningOrError
       exitCode=$Ex_Ko
     fi
