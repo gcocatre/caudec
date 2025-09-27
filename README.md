@@ -98,7 +98,7 @@ $ cd ~/Music/FLAC
 transcaude -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "Artist/Album"/*.flac
 ```
 
-`transcaude` is a small utility that uses `caudec` to transcode an album, then compute ReplayGain and touch files (when the output format is compatible). It does all 3 caudec commands in the previous example, in one fell swoop. In order to prevent `transcaude` from touching files, set `transcaudeTouchFiles="false"` in `~/.caudecrc`.
+`transcaude` is a small utility that uses `caudec` to transcode an album, then compute ReplayGain and touch files (when the output format is compatible). It does all 3 caudec commands in the previous example, in one fell swoop. In order to prevent `transcaude` from touching files, set `transcaudeTouchFiles="false"` in `~/.caudecrc`. You may also tell it to only compute ReplayGain values from lossless to lossy with the `-R` parameter.
 
 Since it invokes `caudec`, multiple codecs may be specified at once:
 
@@ -106,7 +106,7 @@ Since it invokes `caudec`, multiple codecs may be specified at once:
 
 ```
 $ cd ~/Music/WavPack
-transcaude -c flac -q 8 -P ~/Music/flac -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "Artist/Album"/*.wv
+transcaude -c flac -q 8 -P ~/Music/FLAC -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "Artist/Album"/*.wv
 ```
 
 #### Specifying source directories instead of source files, and use default compression settings:
@@ -172,24 +172,16 @@ There, `~/Music/lossless` would contain both *.wv and *.wvc files, while `~/Musi
 #### Transcoding multiple albums using `transcaude`:
 
 ```
-$ transcaude -i -c flac -P ~/Transcoded/FLAC -c vorbis -P ~/Transcoded/Vorbis "Pink Floyd"/*
+$ transcaude -i -c flac -P ~/Music/FLAC -c vorbis -P ~/Music/OggVorbis "Pink Floyd"/*
 ```
 
-Here we specify a list of directories instead of a list of files (with `-i`, but that can be replaced with setting `ignoreUnsupportedFiles=true` in `~/.caudecrc`), which will reduce the number of arguments, the maximum of which is limited by not only `maxInputFiles` in `~/.caudecrc`, but also by the operating system's limitation.
+Here we specify a list of (album) directories instead of a list of files (with `-i`, but that can be replaced with setting `ignoreUnsupportedFiles=true` in `~/.caudecrc`).
 
-If your number of albums (i.e. the number of directories passed to the `transcaude` command) is lower than either limit, you can transcode your entire library in one go:
-
-```
-$ transcaude -i -c flac -P ~/Transcoded/FLAC -c vorbis -P ~/Transcoded/Vorbis ~/Music/*
-```
-
-Using `transcaude` for that is important because it will only count the number of directories as the number of command line arguments, and loop over each directory, whereas `caudec` will process all files of all directories in one go (which would likely exceed the limit of command line arguments and return an error.)
-
-**If the number of albums is greater than either limit**, an alternative is to loop over each artist's root directory:
+When transcoding an entire library, loop over artist or album directories in order to avoid hitting the operating system limit of how many files can be specified in a single command (e.g. 1000):
 
 ```
 $ for d in ~/Music/*; do
-  transcaude -i -c flac -P ~/Transcoded/FLAC -c vorbis -P ~/Transcoded/Vorbis "$d"
+  transcaude -i -c flac -P ~/Transcoded/FLAC -c vorbis -P ~/Transcoded/OggVorbis "$d"
 done
 ```
 
