@@ -3143,13 +3143,28 @@ isWavProcessed () {
 decode () {
 	local exitCode=$Ex_Ok sourceTagFormat hline
 	local soxGuard='' sourceMD5='' kfm='' nChannels=2 gaincmd='' ratecmd='' bitdepthcmd='' dithercmd='' gainPeak=''
+	local gotWavOutputCodec=false destFileTargetPath copyFileTargetPath
 
 	isWavProcessed 'false'
 	if [ -e "$copyFile" ]; then
 		case "$sourceExtension" in
 			wav)
 				sourceTagFormat='vc'
-				mv "$copyFile" "$wavFile" >/dev/null 2>&1 || exitCode=$Ex_Ko
+				if [ -L "$copyFile" ]; then
+					echo "$outputCodecs" | grep -iE "(^WAV$)|(^WAV )|( WAV )|( WAV$)" >/dev/null 2>&1 && gotWavOutputCodec=true
+					if [ "$gotWavOutputCodec" = "true" ]; then
+						getFileProps "$sourceFile" "WAV"
+						destFileTargetPath="$( readlink -f "$destFile" )"
+						copyFileTargetPath="$( readlink -f "$copyFile" )"
+						if [ "$destFileTargetPath" = "$copyFileTargetPath" ]; then
+							cp "$sourceFile" "$wavFile" >/dev/null 2>&1 && rm -f "$copyFile" || exitCode=$Ex_Ko
+						else
+							mv "$copyFile" "$wavFile" >/dev/null 2>&1 || exitCode=$Ex_Ko
+						fi
+					fi
+				else
+					mv "$copyFile" "$wavFile" >/dev/null 2>&1 || exitCode=$Ex_Ko
+				fi
 				touch "$sourceTagFile"
 				;;
 
@@ -3221,7 +3236,7 @@ decode () {
 		esac
 
 		if [ $sourceIsLossyWAV = true ]; then
-			if [ ! -h "$lossywavFile" ]; then
+			if [ ! -L "$lossywavFile" ]; then
 				ln -s "${index}.wav" "$lossywavFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			fi
 		fi
@@ -4051,13 +4066,8 @@ encode () {
 			if [ -e "${encodedFile}c" ]; then # WavPack Hybrid correction files
 				chmod 0644 "${encodedFile}c"
 			fi
-			if [ "$outputCodecs" = 'WAV' ]; then
-				mv "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
-			elif [ -L "$encodedFile" -o "$outputCodec" = 'WAV' ]; then
-				cp "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
-				if [ -e "${encodedFile}c" ]; then
-					cp "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$errorLogFile"
-				fi
+			if [ -L "$encodedFile" ]; then # source WAV symlinked as "$encodedFile"
+				cp "$( readlink -f "$encodedFile" )" "$destFile" >/dev/null 2>> "$errorLogFile"
 			else
 				mv "$encodedFile" "$destFile" >/dev/null 2>> "$errorLogFile"
 				if [ -e "${encodedFile}c" ]; then  # WavPack Hybrid correction files
@@ -4187,12 +4197,12 @@ prepareSource () {
 			sourcePath="${PWD}/${sourceFile}"
 		fi
 		if [ -n "$copyFile" ]; then
-			if [ ! -h "$copyFile" ]; then
+			if [ ! -L "$copyFile" ]; then
 				ln -s "$sourcePath" "$copyFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			fi
 
 			if [ -e "${sourcePath}c" ]; then # WavPack correction file
-				if [ ! -h "${copyFile}c" ]; then
+				if [ ! -L "${copyFile}c" ]; then
 					ln -s "${sourcePath}c" "${copyFile}c" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				fi
 			fi
