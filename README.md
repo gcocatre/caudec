@@ -198,8 +198,10 @@ Here we specify a list of directories instead of a list of files (with `-i`, but
 If your number of albums (i.e. the number of directories passed to the `transcaude` command) is lower than either limit, you can transcode your entire library in one go:
 
 ```
-$ transcaude -c flac -P ~/Transcoded/FLAC -c vorbis -P ~/Transcoded/Vorbis ~Music/*
+$ transcaude -i -c flac -P ~/Transcoded/FLAC -c vorbis -P ~/Transcoded/Vorbis ~/Music/*
 ```
+
+Using `transcaude` for that is important because it will only count the number of directories as the number of command line arguments, and loop over each directory, whereas `caudec` will process all files of all directories in one go (which would likely exceed the limit of command line arguments and return an error.)
 
 ## Requirements
 
