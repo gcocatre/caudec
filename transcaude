@@ -336,7 +336,7 @@ if [ $exitCode -eq $Ex_Ok ]; then
       if [ "$codec" != "$lastCodec" -o "$dir" != "$lastDir" ]; then
         if [ "$computeLosslessReplayGain" = "false" ]; then
           case "$lastCodec" in
-            FLAC|WavPack*|lossyFLAC|MonkeysAudio) true ;;
+            FLAC|WavPack*|MonkeysAudio) true ;;
             *) computeReplayGain || exitCode=$Ex_Ko ;;
           esac
         else
