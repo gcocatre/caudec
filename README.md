@@ -203,6 +203,14 @@ $ transcaude -i -c flac -P ~/Transcoded/FLAC -c vorbis -P ~/Transcoded/Vorbis ~/
 
 Using `transcaude` for that is important because it will only count the number of directories as the number of command line arguments, and loop over each directory, whereas `caudec` will process all files of all directories in one go (which would likely exceed the limit of command line arguments and return an error.)
 
+**If the number of albums is greater than either limit**, an alternative is to loop over each artist's root directory:
+
+```
+$ for d in ~/Music/*; do
+  transcaude -i -c flac -P ~/Transcoded/FLAC -c vorbis -P ~/Transcoded/Vorbis "$d"
+done
+```
+
 ## Requirements
 
 caudec uses common UNIX tools (bc, cut, date/gdate, find, grep, head, mktemp, ps, sed/gsed, sort, stat, tail, tr, uname, wc, xargs), as well as the following software (most of them available via **Homebrew** on macOS):
