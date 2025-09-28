@@ -3352,6 +3352,7 @@ decode () {
 				touch "$sourceTagFile"
 				;;
 
+			# decodeFLAC
 			flac)
 				sourceTagFormat='vc'
 				getInternalMD5 "$copyFile"
@@ -3375,6 +3376,7 @@ decode () {
 				fi
 				;;
 
+			# decodeWV
 			wv)
 				sourceTagFormat='ape' kfm='-w'
 				getInternalMD5 "$copyFile"
@@ -3387,6 +3389,7 @@ decode () {
 				fi
 				;;
 
+			# decodeAPE
 			ape)
 				sourceTagFormat='ape'
 				nThreads=$( getNumberOfAvailableThreads $index )
@@ -3397,6 +3400,7 @@ decode () {
 				fi
 				;;
 
+			# decodeALAC
 			m4a)
 				sourceTagFormat='m4a'
 				nThreads=$( getNumberOfAvailableThreads $index )
@@ -3960,6 +3964,7 @@ encode () {
 			sox "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			;;
 
+		# encodeALAC
 		ALAC)
 			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.m4a.txt"
 			nThreads=$( getNumberOfAvailableThreads $index )
@@ -3981,6 +3986,7 @@ encode () {
 			fi
 			;;
 
+		# encodeFLAC
 		FLAC)
 			destExtension='flac'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.vc.txt" kfm=''
 			# Kohlrabi is a very cool dude
@@ -3997,6 +4003,7 @@ encode () {
 			fi
 			;;
 
+		# encodeAPE
 		MonkeysAudio)
 			destExtension='ape'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.ape.txt"
 			nThreads=$( getNumberOfAvailableThreads $index )
@@ -4011,6 +4018,7 @@ encode () {
 			fi
 			;;
 
+		# encodeWV
 		WavPack)
 			destExtension='wv'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.ape.txt" kfm='-r'
 			if [ -e "${destFile}c" ]; then
@@ -4029,6 +4037,7 @@ encode () {
 			fi
 			;;
 
+		# encodeWVH
 		WavPackHybrid)
 			destExtension='wv'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.ape.txt" kfm='-r'
 			if [ $keepWavMetadata = true ]; then kfm=''; fi
@@ -4055,6 +4064,7 @@ encode () {
 			fi
 			;;
 
+		# encodeWVL
 		WavPackLossy)
 			destExtension='wv'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.ape.txt" kfm='-r'
 			if [ -e "${destFile}c" ]; then
@@ -4110,6 +4120,7 @@ encode () {
 			fi
 			;;
 
+		# encodeMP3
 		MP3)
 			destExtension='mp3'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.mp3.txt"
 			if [ "$compression_MP3" = '320' ]; then
@@ -4142,6 +4153,7 @@ encode () {
 			fi
 			;;
 
+		# encodeAAC
 		AAC)
 			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.m4a.txt" aaclibs=("aac_at" "libfdk_aac" "aac") aaclib=""
 			if [ "$doEmbedCoverArt" = "true" ]; then
@@ -4205,6 +4217,7 @@ encode () {
 			done
 			;;
 
+		# encodeOgg
 		OggVorbis)
 			destExtension='ogg'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.vc.txt"
 			if [ "$OggVorbis_MODE" = 'VBR' ]; then
@@ -4219,6 +4232,7 @@ encode () {
 			fi
 			;;
 
+		# encodeOpus
 		Opus)
 			destExtension='opus'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.vc.txt"
 			if [ "$Opus_MODE" = 'VBR' ]; then
