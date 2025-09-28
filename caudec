@@ -2651,7 +2651,7 @@ convertTags () {
 	shopt -qu nocasematch
 }
 
-getTrackPictureTypeLabel () {
+getAPEv2TrackPictureTypeLabel () {
 	local picType="$1" picTypeLabel
 
 	case "$picType" in
@@ -2677,6 +2677,37 @@ getTrackPictureTypeLabel () {
 		19) picTypeLabel='band logo' ;;
 		20) picTypeLabel='publisher logo' ;;
 		*)
+	esac
+
+	echo "$picTypeLabel"
+}
+
+getID3v2TrackPictureTypeLabel () {
+	local picType="$1" picTypeLabel
+
+	case $picType in
+		0) picTypeLabel='OTHER' ;;
+		1) picTypeLabel='ICON' ;;
+		2) picTypeLabel='OTHER_ICON' ;;
+		3) picTypeLabel='FRONT_COVER' ;;
+		4) picTypeLabel='BACK_COVER' ;;
+		5) picTypeLabel='LEAFLET' ;;
+		6) picTypeLabel='MEDIA' ;;
+		7) picTypeLabel='LEAD_ARTIST' ;;
+		8) picTypeLabel='ARTIST' ;;
+		9) picTypeLabel='CONDUCTOR' ;;
+		10) picTypeLabel='BAND' ;;
+		11) picTypeLabel='COMPOSER' ;;
+		12) picTypeLabel='LYRICIST' ;;
+		13) picTypeLabel='RECORDING_LOCATION' ;;
+		14) picTypeLabel='DURING_RECORDING' ;;
+		15) picTypeLabel='DURING_PERFORMANCE' ;;
+		16) picTypeLabel='VIDEO' ;;
+		17) picTypeLabel='BRIGHT_COLORED_FISH' ;;
+		18) picTypeLabel='ILLUSTRATION' ;;
+		19) picTypeLabel='BAND_LOGO' ;;
+		20) picTypeLabel='PUBLISHER_LOGO' ;;
+		*) picTypeLabel='OTHER' ;;
 	esac
 
 	echo "$picTypeLabel"
@@ -2961,7 +2992,7 @@ importArtworkIntoAPEv2 () {
 		if [ -r "$descFile" ]; then
 			description="$( cat "$descFile" 2>> "$errorLogFile" )"
 		fi
-		picTypeLabel="$( getTrackPictureTypeLabel "$picType" )"
+		picTypeLabel="$( getAPEv2TrackPictureTypeLabel "$picType" )"
 		argString="${argString}\\x00-a\\x00Cover Art (${picTypeLabel})=${picFile}"
 	done
 
@@ -3033,31 +3064,7 @@ importArtworkIntoMP3 () {
 			description="$( cat "$descFile" 2>> "$errorLogFile" )"
 		fi
 
-		# ID3v2 has its own fucking picture labels
-		case $picType in
-			0) picTypeLabel='OTHER' ;;
-			1) picTypeLabel='ICON' ;;
-			2) picTypeLabel='OTHER_ICON' ;;
-			3) picTypeLabel='FRONT_COVER' ;;
-			4) picTypeLabel='BACK_COVER' ;;
-			5) picTypeLabel='LEAFLET' ;;
-			6) picTypeLabel='MEDIA' ;;
-			7) picTypeLabel='LEAD_ARTIST' ;;
-			8) picTypeLabel='ARTIST' ;;
-			9) picTypeLabel='CONDUCTOR' ;;
-			10) picTypeLabel='BAND' ;;
-			11) picTypeLabel='COMPOSER' ;;
-			12) picTypeLabel='LYRICIST' ;;
-			13) picTypeLabel='RECORDING_LOCATION' ;;
-			14) picTypeLabel='DURING_RECORDING' ;;
-			15) picTypeLabel='DURING_PERFORMANCE' ;;
-			16) picTypeLabel='VIDEO' ;;
-			17) picTypeLabel='BRIGHT_COLORED_FISH' ;;
-			18) picTypeLabel='ILLUSTRATION' ;;
-			19) picTypeLabel='BAND_LOGO' ;;
-			20) picTypeLabel='PUBLISHER_LOGO' ;;
-			*) picTypeLabel='OTHER' ;;
-		esac
+		picTypeLabel="$( getID3v2TrackPictureTypeLabel "$picType" )"
 
 		eyeD3 --quiet --to-v2.4 --add-image="${picFile}:${picTypeLabel}:${description}" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 	done
