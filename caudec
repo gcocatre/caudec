@@ -712,14 +712,6 @@ getCompressionSetting () {
 	fi
 
 	case "$codec" in
-		AAC)
-			if [ -z "$value" ]; then value=1; fi
-			case "$value" in
-				[0-9]|1[0-4]) compression_AAC="$value" ;; # ffmpeg aac_at
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg compression level for $codec must be an integer between 0 and 14" ; exit $Ex_Usage ;;
-			esac
-			;;
-
 		FLAC)
 			if [ -z "$value" ]; then value=5; fi
 			case "$value" in
@@ -817,8 +809,8 @@ getConstantBitrate () {
 		AAC)
 			if [ -z "$bitrate" ]; then bitrate=128; fi # ffmpeg default
 			case "$bitrate" in
-				[0-9]|[1-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) bitrate_AAC="$bitrate" ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $codec must be an integer between 0 and 320 in kilobits per second" ; exit $Ex_Usage ;;
+				64|6[5-9]|[7-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) bitrate_AAC="$bitrate" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $codec must be an integer between 64 and 320 in kilobits per second" ; exit $Ex_Usage ;;
 			esac
 			;;
 
@@ -863,8 +855,8 @@ getAverageBitrate () {
 		AAC)
 			if [ -z "$bitrate" ]; then bitrate=128; fi # ffmpeg default
 			case "$bitrate" in
-				[0-9]|[1-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) average_bitrate_AAC="$bitrate" ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $codec must be an integer between 0 and 320 in kilobits per second" ; exit $Ex_Usage ;;
+				64|6[5-9]|[7-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) average_bitrate_AAC="$bitrate" ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $codec must be an integer between 64 and 320 in kilobits per second" ; exit $Ex_Usage ;;
 			esac
 			;;
 
@@ -6553,7 +6545,6 @@ if [ -n "$hashes" ]; then
 	hashes="$( echo -n "$hashes" | tr '[:lower:]' '[:upper:]' )"
 fi
 
-getCompressionSetting 'AAC' "$compression_AAC" 'caudecrc'
 getCompressionSetting 'FLAC' "$compression_FLAC" 'caudecrc'
 getCompressionSetting 'lossyFLAC' "$compression_lossyWAV" 'caudecrc'
 getCompressionSetting 'MonkeysAudio' "$compression_MonkeysAudio" 'caudecrc'
@@ -6817,7 +6808,6 @@ while getopts '2a:B:b:C:c:df:G:ghH:iIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 			fi
 
 			case "$lastCodec" in
-				AAC) getCompressionSetting 'AAC' "$OPTARG" ;;
 				FLAC) getCompressionSetting 'FLAC' "$OPTARG" ;;
 				lossyFLAC) getCompressionSetting "$lastCodec" "$OPTARG" ;;
 				MonkeysAudio) getCompressionSetting 'MonkeysAudio' "$OPTARG" ;;
