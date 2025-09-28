@@ -2859,6 +2859,33 @@ extractAPEv2Binaries () {
 	return $exitCode
 }
 
+getUserSpecifiedArtworkBytes () {
+	local exitCode=$Ex_Ok userSpecifiedArtwork bytes
+
+	userSpecifiedArtwork="$( getCodecCoverArtFile "$outputCodec" )"
+	userSpecifiedArtwork="${sourceDirname}/${userSpecifiedArtwork}"
+	if [ -z "$userSpecifiedArtwork" ]; then
+		echo "0"
+	elif [ ! -f "$userSpecifiedArtwork" ]; then
+		echo "0"
+	elif [ ! -r "$userSpecifiedArtwork" ]; then
+		echo "0"
+	else
+		if [ $gnustat = true ]; then
+			bytes="$( $statcmd -L --printf "%s" "$userSpecifiedArtwork" 2>/dev/null )"
+		else
+			bytes="$( $statcmd -L -n -f "%s" "$userSpecifiedArtwork" 2>/dev/null )"
+		fi
+	fi
+
+	case "$bytes" in
+		[0-9]*) echo "$bytes" ;;
+		*) echo "0"; exitCode=$Ex_Ko ;;
+	esac
+
+	return $exitCode
+}
+
 importCoverArt () {
 	local exitCode=$Ex_Ok userSpecifiedArtwork coverArtType=3 picNumber=0 picExt picFile descFile
 
@@ -3871,6 +3898,7 @@ encode () {
 	local pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses listOfOtherFiles
 	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag='' id3CompressionTag=''
 	local nChannels compressionParam qualityArg coverArtFile='' doEmbedCoverArt="true" bitsPerSample
+	local userCoverArtBytes=0 padding=4096
 	# local doEmbedBinaries="true" # FIXME with a new -F parameter
 
 	getFileProps "$sourceFile" "$outputCodec"
@@ -3921,8 +3949,12 @@ encode () {
 			# Kohlrabi is a very cool dude
 			if [ $keepWavMetadata = true ]; then kfm='--keep-foreign-metadata' ; fi
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / FLAC $flacVersion / -$compression_FLAC"; fi
+			if [ "$doEmbedCoverArt" = "true" ]; then
+				userCoverArtBytes="$( getUserSpecifiedArtworkBytes )"
+				padding=$(( padding + userCoverArtBytes ))
+			fi
 			nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
-			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P 4096 $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P $padding $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 				importArtworkIntoFLAC || exitCode=$Ex_Ko
 			fi
