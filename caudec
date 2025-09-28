@@ -929,7 +929,7 @@ getBitrateMode () {
 }
 
 cleanExit () {
-	local nLines=0 swapDirBasename
+	local nLines=0 swapDirBasename ioLockFile
 
 	if [ -n "$CAUDECDEBUG" -a "$verbose" = "true" -a "$outputMode" != 'machine' -a $1 -ne $Ex_Ok -a $1 -ne $Ex_Interrupt -a -e "$errorLogFile" ]; then
 		nLines="$( cat "$errorLogFile" 2>/dev/null | wc -l | tr -cd '0-9' )"
@@ -947,10 +947,10 @@ cleanExit () {
 	test -n "$Self_Ctrl_Dir" && rm -rf "$Self_Ctrl_Dir"
 
 	if [ $preloadSources = true ]; then
-		for f in "$Self_Instance_Dir"/ioLockFiles/* ; do
-			if [ -e "$f" ]; then
-				echo '' > "${Self_Io_Dir}/${f##*/}.lock" 2>/dev/null
-				mv "${Self_Io_Dir}/${f##*/}.lock" "${Self_Io_Dir}/${f##*/}" >/dev/null 2>&1
+		for ioLockFile in "$Self_Instance_Dir"/ioLockFiles/* ; do
+			if [ -e "$ioLockFile" ]; then
+				echo '' > "${Self_Io_Dir}/${ioLockFile##*/}.lock" 2>/dev/null
+				mv "${Self_Io_Dir}/${ioLockFile##*/}.lock" "${Self_Io_Dir}/${ioLockFile##*/}" >/dev/null 2>&1
 			fi
 		done
 	fi
@@ -1531,7 +1531,7 @@ isProcessRunning () {
 }
 
 cleanUpInstances () {
-	local pid tdir
+	local pid tdir lockFile
 
 	for d in "${Self_Pid_Dir}/instance".???????? ; do
 		if [ -d "$d" -a -f "${d}/PID" ]; then
@@ -1547,9 +1547,9 @@ cleanUpInstances () {
 	done
 
 	if [ $preloadSources = true ]; then
-		for f in "${Self_Io_Dir}"/*.lock ; do
-			if [ -f "$f" ]; then
-				cleanUpCopyLockFile "${f%.lock}"
+		for lockFile in "${Self_Io_Dir}"/*.lock ; do
+			if [ -f "$lockFile" ]; then
+				cleanUpCopyLockFile "${lockFile%.lock}"
 			fi
 		done
 	fi
@@ -2651,8 +2651,76 @@ convertTags () {
 	shopt -qu nocasematch
 }
 
+getTrackPictureTypeLabel () {
+	local picType="$1" picTypeLabel
+
+	case "$picType" in
+		0) picTypeLabel='other' ;;
+		1) picTypeLabel='icon' ;;
+		2) picTypeLabel='other icon' ;;
+		3) picTypeLabel='front' ;;
+		4) picTypeLabel='back' ;;
+		5) picTypeLabel='leaflet' ;;
+		6) picTypeLabel='media' ;;
+		7) picTypeLabel='lead artist' ;;
+		8) picTypeLabel='artist' ;;
+		9) picTypeLabel='conductor' ;;
+		10) picTypeLabel='band' ;;
+		11) picTypeLabel='composer' ;;
+		12) picTypeLabel='lyricist' ;;
+		13) picTypeLabel='recording location' ;;
+		14) picTypeLabel='during recording' ;;
+		15) picTypeLabel='during performance' ;;
+		16) picTypeLabel='video' ;;
+		17) picTypeLabel='a bright colored fish' ;;
+		18) picTypeLabel='illustration' ;;
+		19) picTypeLabel='band logo' ;;
+		20) picTypeLabel='publisher logo' ;;
+		*)
+	esac
+
+	echo "$picTypeLabel"
+}
+
+getTrackPictureFileName () {
+	local fileIndex="$1" picType="$2" picNumber="$3" picExt="$4"
+
+	case "$picNumber" in
+		[0-9]) picNumber="0${picNumber}" ;;
+	esac
+
+	case "$picType" in
+		[0-9]|1[0-9]|20) picType=$picType ;;
+		'other') picType=0 ;;
+		'icon') picType=1 ;;
+		'other icon') picType=2 ;;
+		'front') picType=3 ;;
+		'back') picType=4 ;;
+		'leaflet') picType=5 ;;
+		'media') picType=6 ;;
+		'lead artist') picType=7 ;;
+		'artist') picType=8 ;;
+		'conductor') picType=9 ;;
+		'band') picType=10 ;;
+		'composer') picType=11 ;;
+		'lyricist') picType=12 ;;
+		'recording location') picType=13 ;;
+		'during recording') picType=14 ;;
+		'during performance') picType=15 ;;
+		'video') picType=16 ;;
+		'a bright colored fish') picType=17 ;;
+		'illustration') picType=18 ;;
+		'band logo') picType=19 ;;
+		'publisher logo') picType=20 ;;
+		*) picType=0 ;;
+	esac
+
+	echo "picture-${index}-${picType}-${picNumber}-placeholder.${picExt}"
+}
+
 extractFlacArtwork () {
-	local exitCode=$Ex_Ok blockNumber withinPictureBlock=false picType picNumber=0 picExt description pattern
+	local exitCode=$Ex_Ok pattern blockNumber withinPictureBlock=false
+	local picType=0 picNumber=1 picExt picFile description descFile picTypesList=''
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
@@ -2672,7 +2740,9 @@ extractFlacArtwork () {
 				elif [ "$line" = 'type: 6 (PICTURE)' ]; then
 					withinPictureBlock=true
 				elif [ "${line:0:5}" = 'type:' -a $withinPictureBlock = true ]; then
-					picType="${line#* }" ; picType="${picType%% *}"
+					picType="${line#* }"
+					picType="${picType%% *}"
+					picTypesList="${picTypesList}\n${picType}\n"
 				elif [ "${line:0:10}" = 'MIME type:' -a $withinPictureBlock = true ]; then
 					case "$line" in
 						'MIME type: image/jpeg') picExt='jpg' ;;
@@ -2681,14 +2751,16 @@ extractFlacArtwork () {
 					esac
 				elif [ "${line:0:12}" = 'description:' -a $withinPictureBlock = true ]; then
 					description="${line/description: /}"
+					descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$picType" "$picNumber" "txt" )"
 					if [ "$description" != 'description:' ]; then
-						echo "$description" > "${Self_Swap_Dir}/picture-${index}-${picNumber}.txt"
+						echo "$description" > "$descFile"
 					fi
-					metaflac --block-number=$blockNumber --export-picture-to="${Self_Swap_Dir}/picture-${index}-${picNumber}_${picType}.${picExt}" "$copyFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
-					if [ $exitCode -eq $Ex_Ok ]; then
-						(( picNumber++ ))
-					else
-						rm -rf "${Self_Swap_Dir}/picture-${index}-${picNumber}_${picType}.${picExt}" "${Self_Swap_Dir}/picture-${index}-${picNumber}.txt" >/dev/null 2>> "$errorLogFile"
+
+					picNumber="$( echo -e "$picTypesList" | grep -F "$picType" | wc -l | tr -cd [0-9] )"
+					picFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$picType" "$picNumber" "$picExt" )"
+					metaflac --block-number=$blockNumber --export-picture-to="$picFile" "$copyFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+					if [ $exitCode -ne $Ex_Ok ]; then
+						rm -rf "$picFile" "$descFile" >/dev/null 2>> "$errorLogFile"
 					fi
 					withinPictureBlock=false
 				fi
@@ -2702,7 +2774,8 @@ extractFlacArtwork () {
 }
 
 extractAPEv2Artwork () {
-	local exitCode=$Ex_Ok picNumber=0 picExt='' picType=0 picTypeText='' pattern otherType='' argString='' fieldName=''
+	local exitCode=$Ex_Ok pattern picType=0 picNumber=1 picTypeLabel='other' picExt='' picFile
+	local picTypesList='' argString=''
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
@@ -2711,8 +2784,9 @@ extractAPEv2Artwork () {
 		pattern="x${outputCodec}Y"
 		if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then continue; fi
 
-		for fieldName in 'other' 'icon' 'other icon' 'front' 'back' 'leaflet' 'media' 'lead artist' 'artist' 'conductor' 'band' 'composer' 'lyricist' 'recording location' 'during recording' 'during performance' 'video' 'a bright colored fish' 'illustration' 'band logo' 'publisher logo'; do
-			argString="${argString}\\x00-d\\x00cover art (${fieldName})=${Self_Swap_Dir}/picture-${index}-${picNumber}_${picType}."
+		for picTypeLabel in 'other' 'icon' 'other icon' 'front' 'back' 'leaflet' 'media' 'lead artist' 'artist' 'conductor' 'band' 'composer' 'lyricist' 'recording location' 'during recording' 'during performance' 'video' 'a bright colored fish' 'illustration' 'band logo' 'publisher logo'; do
+			picFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$picTypeLabel" "$picNumber" "$picExt" )"
+			argString="${argString}\\x00-d\\x00cover art (${picTypeLabel})=${picFile}"
 			(( picType++ ))
 			(( picNumber++ ))
 		done
@@ -2733,7 +2807,9 @@ extractAPEv2Binaries () {
 				pattern="x${outputCodec}Y"
 				if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then continue; fi
 
-				if [ ! -d "$apeBinariesDir" ]; then mkdir -p "$apeBinariesDir" >/dev/null 2>&1 ; fi
+				if [ ! -d "$apeBinariesDir" ]; then
+					mkdir -p "$apeBinariesDir" >/dev/null 2>&1
+				fi
 				while read fieldName; do
 					echo "$fieldName" > "${apeBinariesDir}/${binaryIndex}.txt" 2>/dev/null
 					argString="${argString}\\x00-d\\x00${fieldName}=${apeBinariesDir}/${binaryIndex}.bin"
@@ -2753,28 +2829,33 @@ extractAPEv2Binaries () {
 }
 
 importCoverArt () {
-	local exitCode=$Ex_Ok userSpecifiedArtwork
+	local exitCode=$Ex_Ok userSpecifiedArtwork coverArtType=3 picNumber=0 picExt picFile descFile
 
-	for f in "${Self_Swap_Dir}/picture-3-"*_*; do
-		userSpecifiedArtwork="$( getCodecCoverArtFile "$outputCodec" )"
-		if [ -n $userSpecifiedArtwork ]; then
-			userSpecifiedArtwork="${sourceDirname}/${userSpecifiedArtwork}"
-			if [ -f "$userSpecifiedArtwork" -a -r "$userSpecifiedArtwork" ]; then
-				echo "" > "${Self_Swap_Dir}/picture-${index}-3.txt"
-				picExt="${userSpecifiedArtwork##*.}"
-				picType=3
-				swapFilePath="${Self_Swap_Dir}/picture-${index}-0_${picType}.${picExt}"
-				rm -f "$swapFilePath" >/dev/null 2>> "$errorLogFile"
-				cp -f "$userSpecifiedArtwork" "$swapFilePath" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
-			fi
+	# "picture-${index}-${picType}-${picNumber}-placeholder.${picExt}"
+	userSpecifiedArtwork="$( getCodecCoverArtFile "$outputCodec" )"
+	if [ -n "$userSpecifiedArtwork" ]; then
+		userSpecifiedArtwork="${sourceDirname}/${userSpecifiedArtwork}"
+		if [ ! -f "$userSpecifiedArtwork" ]; then
+			return $Ex_Ok
+		elif [ ! -r "$userSpecifiedArtwork" ]; then
+			return $Ex_Ko
 		fi
-	done
+	else
+		return $Ex_Ok
+	fi
+
+	picExt="${userSpecifiedArtwork##*.}"
+	picFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$coverArtType" "$picNumber" "$picExt" )"
+	descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$coverArtType" "$picNumber" "txt" )"
+	cp -f "$userSpecifiedArtwork" "$picFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+	touch "$descFile" 2>> "$errorLogFile" || exitCode=$Ex_Ko
+	touch "${descFile}"
 
 	return $exitCode
 }
 
 importArtworkIntoFLAC () {
-	local exitCode=$Ex_Ok picBasename="" picType picExt description='' descFile='' swapFilePath pattern
+	local exitCode=$Ex_Ok pattern picType picNumber picFile picBasename description='' descFile=''
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -2783,26 +2864,35 @@ importArtworkIntoFLAC () {
 
 	importCoverArt || exitCode=$Ex_Ko
 
-	for f in "${Self_Swap_Dir}/picture-${index}-"*_*; do
-		if [ ! -e "$f" ]; then
+	# "picture-${index}-${picType}-${picNumber}-placeholder.${picExt}"
+	for picFile in "${Self_Swap_Dir}/picture-${index}-"*; do
+		if [ ! -f "$picFile" ]; then # there are no pictures for this file
+			return $Ex_Ok
+		fi
+		case "$picFile" in
+			*.txt|*.bin) continue ;;
+		esac
+		if [ ! -r "$picFile" ]; then
 			continue
 		fi
-		picBasename="$( basename "$f" )"
-		picType="${picBasename#*_}"; picType="${picType%.*}"; descFile="${f%_*}.txt"
+		picBasename="$( basename "$picFile" )"
+		picType="$( echo "$picBasename" | cut -d '-' -f 3 | tr -cd [0-9] )"
+		picNumber="$( echo "$picBasename" | cut -d '-' -f 4 | tr -cd [0-9] )"
+		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$picType" "$picNumber" "txt" )"
 		description=''
-		if [ -f "$descFile" ]; then
-			description="$( cat "$descFile" 2>> "$errorLogFile" )"; description="${description//|//}" # replace | with /
+		if [ -r "$descFile" ]; then
+			description="$( cat "$descFile" 2>> "$errorLogFile" )"
 		fi
-		metaflac --import-picture-from="${picType}||${description}||${f}" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+		metaflac --import-picture-from="${picType}||${description}||${picFile}" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 	done
 
 	return $exitCode
 }
 
 genOpusArtworkCommandLine () {
-	local exitCode=$Ex_Ok picBasename="" picType description='' descFile='' pattern cmdline='' doEmbedCoverArt="true"
+	local exitCode=$Ex_Ok pattern picFile picBasename picType picNumber descFile description cmdline='' doEmbedCoverArt
 
-	doEmbedCoverArt="$( shouldEmbedCoverArt "Opus" )"
+	doEmbedCoverArt="$( shouldEmbedCoverArt "$outputCodec" )"
 	if [ "$doEmbedCoverArt" = "false" ]; then
 		echo "$cmdline"
 		return $Ex_Ok
@@ -2816,15 +2906,26 @@ genOpusArtworkCommandLine () {
 
 	importCoverArt || exitCode=$Ex_Ko
 
-	for f in "${Self_Swap_Dir}/picture-${index}-"*_*; do
-		if [ ! -e "$f" ]; then continue; fi
-		picBasename="$( basename "$f" )"
-		picType="${picBasename#*_}"; picType="${picType%.*}"; descFile="${f%_*}.txt"
-		description=''
-		if [ -f "$descFile" ]; then
-			description="$( cat "$descFile" 2>> "$errorLogFile" )"; description="${description//|//}" # replace | with /
+	# "picture-${index}-${picType}-${picNumber}-placeholder.${picExt}"
+	for picFile in "${Self_Swap_Dir}/picture-${index}-"*; do
+		if [ ! -f "$picFile" ]; then # there are no pictures for this file
+			return $Ex_Ok
 		fi
-		cmdline="${cmdline}\x00--picture=${picType}||${description}||${f}"
+		case "$picFile" in
+			*.txt|*.bin) continue ;;
+		esac
+		if [ ! -r "$picFile" ]; then
+			continue
+		fi
+		picBasename="$( basename "$picFile" )"
+		picType="$( echo "$picBasename" | cut -d '-' -f 3 | tr -cd [0-9] )"
+		picNumber="$( echo "$picBasename" | cut -d '-' -f 4 | tr -cd [0-9] )"
+		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$picType" "$picNumber" "txt" )"
+		description=''
+		if [ -r "$descFile" ]; then
+			description="$( cat "$descFile" 2>> "$errorLogFile" )"
+		fi
+		cmdline="${cmdline}\x00--picture=${picType}||${description}||${picFile}"
 	done
 	echo "$cmdline"
 
@@ -2832,7 +2933,7 @@ genOpusArtworkCommandLine () {
 }
 
 importArtworkIntoAPEv2 () {
-	local exitCode=$Ex_Ok picBasename="" picType picTypeText pattern af='' argString='' lastPicType=''
+	local exitCode=$Ex_Ok pattern picFile picBasename picType picTypeLabel argString=''
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -2841,38 +2942,27 @@ importArtworkIntoAPEv2 () {
 
 	importCoverArt || exitCode=$Ex_Ko
 
-	for f in "${Self_Swap_Dir}/picture-${index}-"*_*; do
-		if [ ! -e "$f" ]; then continue; fi
-		picBasename="$( basename "$f" )"
-		picType="${picBasename#*_}"; picType="${picType%.*}"
-		if [ "$lastPicType" = "$picType" ]; then
+	# "picture-${index}-${picType}-${picNumber}-placeholder.${picExt}"
+	for picFile in "${Self_Swap_Dir}/picture-${index}-"*; do
+		if [ ! -f "$picFile" ]; then # there are no pictures for this file
+			return $Ex_Ok
+		fi
+		case "$picFile" in
+			*.txt|*.bin) continue ;;
+		esac
+		if [ ! -r "$picFile" ]; then
 			continue
 		fi
-		lastPicType="$picType"
-		case "$picType" in
-			0) picTypeText='other' ;;
-			1) picTypeText='icon' ;;
-			2) picTypeText='other icon' ;;
-			3) picTypeText='front' ;;
-			4) picTypeText='back' ;;
-			5) picTypeText='leaflet' ;;
-			6) picTypeText='media' ;;
-			7) picTypeText='lead artist' ;;
-			8) picTypeText='artist' ;;
-			9) picTypeText='conductor' ;;
-			10) picTypeText='band' ;;
-			11) picTypeText='composer' ;;
-			12) picTypeText='lyricist' ;;
-			13) picTypeText='recording location' ;;
-			14) picTypeText='during recording' ;;
-			15) picTypeText='during performance' ;;
-			16) picTypeText='video' ;;
-			17) picTypeText='a bright colored fish' ;;
-			18) picTypeText='illustration' ;;
-			19) picTypeText='band logo' ;;
-			20) picTypeText='publisher logo' ;;
-		esac
-		argString="${argString}\\x00-a\\x00Cover Art (${picTypeText})=${f}"
+		picBasename="$( basename "$picFile" )"
+		picType="$( echo "$picBasename" | cut -d '-' -f 3 | tr -cd [0-9] )"
+		picNumber="$( echo "$picBasename" | cut -d '-' -f 4 | tr -cd [0-9] )"
+		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$picType" "$picNumber" "txt" )"
+		description=''
+		if [ -r "$descFile" ]; then
+			description="$( cat "$descFile" 2>> "$errorLogFile" )"
+		fi
+		picTypeLabel="$( getTrackPictureTypeLabel "$picType" )"
+		argString="${argString}\\x00-a\\x00Cover Art (${picTypeLabel})=${picFile}"
 	done
 
 	if [ -n "$argString" ]; then
@@ -2883,7 +2973,7 @@ importArtworkIntoAPEv2 () {
 }
 
 importBinariesIntoAPEv2 () {
-	local exitCode=$Ex_Ok pattern argString='' fieldName='' bf=''
+	local exitCode=$Ex_Ok pattern argString='' fieldName binaryFile
 
 	if [ ! -d "$apeBinariesDir" ]; then return $Ex_Ok; fi
 
@@ -2892,10 +2982,16 @@ importBinariesIntoAPEv2 () {
 		return $Ex_Ok
 	fi
 
-	for bf in "${apeBinariesDir}"/*.txt; do
-		if [ ! -e "$bf" ]; then continue; fi
-		fieldName="$( cat "$bf" )"
-		argString="${argString}\\x00-b\\x00${fieldName}=${bf/.txt/.bin}"
+	# "${apeBinariesDir}/${binaryIndex}.txt"
+	for binaryFile in "${apeBinariesDir}"/*.txt; do
+		if [ ! -f "$binaryFile" ]; then # there are no binaries for this file
+			exit $Ex_Ok
+		fi
+		if [ ! -r "$binaryFile" ]; then
+			continue
+		fi
+		fieldName="$( cat "$binaryFile" )"
+		argString="${argString}\\x00-b\\x00${fieldName}=${binaryFile/.txt/.bin}"
 	done
 
 	if [ -n "$argString" ]; then
@@ -2906,7 +3002,9 @@ importBinariesIntoAPEv2 () {
 }
 
 importArtworkIntoMP3 () {
-	local exitCode=$Ex_Ok picBasename="" picType picTypeText pattern descFile description='' pictureFile pictureIndex=0
+	local exitCode=$Ex_Ok pattern picBasename picType picTypeLabel description='' descFile=''
+
+	which 'eyeD3' >/dev/null 2>&1 || return $Ex_Ok
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -2915,44 +3013,53 @@ importArtworkIntoMP3 () {
 
 	importCoverArt || exitCode=$Ex_Ko
 
-	which 'eyeD3' >/dev/null 2>&1 || return $Ex_Ok
-	for pictureFile in "${Self_Swap_Dir}/picture-${index}-"*_*; do
-		if [ ! -e "$pictureFile" ]; then continue; fi
-		(( pictureIndex++ ))
-		picBasename="$( basename "$pictureFile" )"
-		picType="${picBasename#*_}"; picType="${picType%.*}"; descFile="${pictureFile%_*}.txt"
-		case $picType in
-			0) picTypeText='OTHER' ;;
-			1) picTypeText='ICON' ;;
-			2) picTypeText='OTHER_ICON' ;;
-			3) picTypeText='FRONT_COVER' ;;
-			4) picTypeText='BACK_COVER' ;;
-			5) picTypeText='LEAFLET' ;;
-			6) picTypeText='MEDIA' ;;
-			7) picTypeText='LEAD_ARTIST' ;;
-			8) picTypeText='ARTIST' ;;
-			9) picTypeText='CONDUCTOR' ;;
-			10) picTypeText='BAND' ;;
-			11) picTypeText='COMPOSER' ;;
-			12) picTypeText='LYRICIST' ;;
-			13) picTypeText='RECORDING_LOCATION' ;;
-			14) picTypeText='DURING_RECORDING' ;;
-			15) picTypeText='DURING_PERFORMANCE' ;;
-			16) picTypeText='VIDEO' ;;
-			17) picTypeText='BRIGHT_COLORED_FISH' ;;
-			18) picTypeText='ILLUSTRATION' ;;
-			19) picTypeText='BAND_LOGO' ;;
-			20) picTypeText='PUBLISHER_LOGO' ;;
-			*) continue ;;
+	# "picture-${index}-${picType}-${picNumber}-placeholder.${picExt}"
+	for picFile in "${Self_Swap_Dir}/picture-${index}-"*; do
+		if [ ! -f "$picFile" ]; then # there are no pictures for this file
+			return $Ex_Ok
+		fi
+		case "$picFile" in
+			*.txt|*.bin) continue ;;
 		esac
+		if [ ! -r "$picFile" ]; then
+			continue
+		fi
+		picBasename="$( basename "$picFile" )"
+		picType="$( echo "$picBasename" | cut -d '-' -f 3 | tr -cd [0-9] )"
+		picNumber="$( echo "$picBasename" | cut -d '-' -f 4 | tr -cd [0-9] )"
+		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$picType" "$picNumber" "txt" )"
 		description=''
-		if [ -f "$descFile" ]; then
-			description="$( cat "$descFile" 2>> "$errorLogFile" )"; description="${description//|//}" # replace | with /
+		if [ -r "$descFile" ]; then
+			description="$( cat "$descFile" 2>> "$errorLogFile" )"
 		fi
-		if [ -z "$description" ]; then
-			description="${picTypeText}_${pictureIndex}" # add a number to make it unique
-		fi
-		eyeD3 --quiet --to-v2.4 --add-image="${f}:${picTypeText}:${description}" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+
+		# ID3v2 has its own fucking picture labels
+		case $picType in
+			0) picTypeLabel='OTHER' ;;
+			1) picTypeLabel='ICON' ;;
+			2) picTypeLabel='OTHER_ICON' ;;
+			3) picTypeLabel='FRONT_COVER' ;;
+			4) picTypeLabel='BACK_COVER' ;;
+			5) picTypeLabel='LEAFLET' ;;
+			6) picTypeLabel='MEDIA' ;;
+			7) picTypeLabel='LEAD_ARTIST' ;;
+			8) picTypeLabel='ARTIST' ;;
+			9) picTypeLabel='CONDUCTOR' ;;
+			10) picTypeLabel='BAND' ;;
+			11) picTypeLabel='COMPOSER' ;;
+			12) picTypeLabel='LYRICIST' ;;
+			13) picTypeLabel='RECORDING_LOCATION' ;;
+			14) picTypeLabel='DURING_RECORDING' ;;
+			15) picTypeLabel='DURING_PERFORMANCE' ;;
+			16) picTypeLabel='VIDEO' ;;
+			17) picTypeLabel='BRIGHT_COLORED_FISH' ;;
+			18) picTypeLabel='ILLUSTRATION' ;;
+			19) picTypeLabel='BAND_LOGO' ;;
+			20) picTypeLabel='PUBLISHER_LOGO' ;;
+			*) picTypeLabel='OTHER' ;;
+		esac
+
+		eyeD3 --quiet --to-v2.4 --add-image="${picFile}:${picTypeLabel}:${description}" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 	done
 
 	return $exitCode
@@ -3784,14 +3891,16 @@ encode () {
 		ALAC)
 			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.m4a.txt"
 			nThreads=$( getNumberOfAvailableThreads $index )
-			if [ "$doEmbedCoverArt" = "true" -a -z "$sourceCoverArtFile" ]; then
-				for f in "${Self_Swap_Dir}/picture-${index}-"*_*; do
-					if [ ! -e "$f" ]; then continue; fi
-					picType="${f#*_}"; picType="${picType%.*}"
-					case $picType in
-						3) sourceCoverArtFile="$f" ; break ;;
-					esac
-				done
+			if [ "$doEmbedCoverArt" = "true" ]; then
+				if [ -z "$sourceCoverArtFile" ]; then
+					for coverArtFile in "${Self_Swap_Dir}/picture-${index}-3-"; do
+						if [ ! -r "$coverArtFile" ]; then continue; fi
+						case "$coverArtFile" in
+							*.txt|*.bin) continue ;;
+							*) sourceCoverArtFile="$coverArtFile"
+						esac
+					done
+				fi
 			fi
 			if [ "$doEmbedCoverArt" = "true" -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
 				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a alac >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
@@ -3955,14 +4064,16 @@ encode () {
 
 		AAC)
 			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.m4a.txt" aaclibs=("aac_at" "libfdk_aac" "aac") aaclib=""
-			if [ "$doEmbedCoverArt" = "true" -a -z "$sourceCoverArtFile" ]; then
-				for f in "${Self_Swap_Dir}/picture-${index}-"*_*; do
-					if [ ! -e "$f" ]; then continue; fi
-					picType="${f#*_}"; picType="${picType%.*}"
-					case $picType in
-						3) sourceCoverArtFile="$f" ; break ;;
-					esac
-				done
+			if [ "$doEmbedCoverArt" = "true" ]; then
+				if [ -z "$sourceCoverArtFile" ]; then
+					for coverArtFile in "${Self_Swap_Dir}/picture-${index}-3-"; do
+						if [ ! -r "$coverArtFile" ]; then continue; fi
+						case "$coverArtFile" in
+							*.txt|*.bin) continue ;;
+							*) sourceCoverArtFile="$coverArtFile"
+						esac
+					done
+				fi
 			fi
 
 			# https://trac.ffmpeg.org/wiki/Encode/AAC
