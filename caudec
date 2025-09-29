@@ -1612,7 +1612,7 @@ handleInstance () {
 }
 
 setupControlDir () {
-	local index outputCodec
+	local processIndex fileIndex maxFileIndex outputCodec
 
 	Self_Ctrl_Dir="${Self_Pid_Dir}/${Self_Name}_control.${Self_Random_Suffix}"
 	mkdir -m 0777 -p "$Self_Ctrl_Dir" >/dev/null 2>&1
@@ -1629,20 +1629,26 @@ setupControlDir () {
 
 	chmod 0775 "$Self_Ctrl_Dir"
 
-	for (( index=0; index < ${#sourceFiles[@]}; index++ )); do
-		touch "${Self_Ctrl_Dir}/${index}"
+	maxFileIndex=${#sourceFiles[@]}
+	for (( processIndex=1; processIndex <= maxProcessesSetByUser; processIndex++ )); do
+		fileIndex=$(( processIndex * maxProcessesSetByUser - maxProcessesSetByUser ))
+		for (( ; fileIndex < maxFileIndex; fileIndex++ )); do
+			{
+			touch "${Self_Ctrl_Dir}/${fileIndex}"
 
-		fileMilliseconds="$( getFileMilliseconds "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
-		echo "$fileMilliseconds $index" > "${Self_Ctrl_Dir}/inputMilliseconds_${index}"
+			fileMilliseconds="$( getFileMilliseconds "${sourceFiles[$fileIndex]}" 2>> "$errorLogFile" )"
+			echo "$fileMilliseconds $fileIndex" > "${Self_Ctrl_Dir}/inputMilliseconds_${fileIndex}"
 
-		for outputCodec in $outputCodecs; do
-			touch "${Self_Ctrl_Dir}/${outputCodec}_${index}"
-			touch "${Self_Ctrl_Dir}/${outputCodec}_${index}_WAV_NEEDED"
+			for outputCodec in $outputCodecs; do
+				touch "${Self_Ctrl_Dir}/${outputCodec}_${fileIndex}"
+				touch "${Self_Ctrl_Dir}/${outputCodec}_${fileIndex}_WAV_NEEDED"
+			done
+			} &
 		done
+		wait
 	done
 
 	echo -n "0" > "${Self_Ctrl_Dir}/readTimes"
-	touch "${Self_Ctrl_Dir}/transcodingErrorFiles"
 
 	# FIXME STAT: for some reason, gstat -c doesn't work here on macOS
 	# if [ $gnustat = true ]; then
@@ -1662,12 +1668,7 @@ setupControlDir () {
 	case "$orderStrategy" in
 		longest) sort -n -r "${Self_Ctrl_Dir}/inputMilliseconds_"* > "${Self_Ctrl_Dir}/millisecondsAndFileNumbers" ;;
 		shortest) sort -n "${Self_Ctrl_Dir}/inputMilliseconds_"* > "${Self_Ctrl_Dir}/millisecondsAndFileNumbers" ;;
-		*)
-			cat "${Self_Ctrl_Dir}/inputMilliseconds_0" > "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
-			for (( index=1; index < ${#sourceFiles[@]}; index++ )); do
-				cat "${Self_Ctrl_Dir}/inputMilliseconds_${index}" >> "${Self_Ctrl_Dir}/millisecondsAndFileNumbers"
-			done
-			;;
+		*) cat "${Self_Ctrl_Dir}/inputMilliseconds_"* > "${Self_Ctrl_Dir}/millisecondsAndFileNumbers" ;;
 	esac
 }
 
@@ -4430,10 +4431,6 @@ prepareSource () {
 	return $exitCode
 }
 
-addTranscodingErrorFile () {
-	echo "$1" >> "${Self_Ctrl_Dir}/transcodingErrorFiles"
-}
-
 transcode () {
 	local exitCode=$Ex_Ok lastCodec="${outputCodecs##* }" allDone=false copyDone=false encodingDone=false lsec=0
 	local milliseconds index nDecodingThreads=1 allCodecsDone=false encodingLockFile
@@ -4475,7 +4472,6 @@ transcode () {
 				else
 					nDecodingThreads=1
 				fi
-				if [ $exitCode -ne $Ex_Ok ]; then addTranscodingErrorFile "$sourceFile" ; fi
 				rm -f "$decodingLockFile" >/dev/null 2>&1
 			elif [ -e "$decodingLockFile" ]; then # can't do anything for this track yet, gotta wait for it to be decoded
 				allDone=false
@@ -4488,7 +4484,6 @@ transcode () {
 				if test -e "$encodingLockFile" && getLock "$encodingLockFile"; then
 					allDone=false
 					encode $nDecodingThreads || exitCode=$Ex_Ko
-					if [ $exitCode -ne $Ex_Ok ]; then addTranscodingErrorFile "$sourceFile" ; fi
 					rm -f "${encodingLockFile}_WAV_NEEDED"
 					ls "${Self_Ctrl_Dir}/"*"_${index}_WAV_NEEDED" >/dev/null 2>&1 || rm -f "$wavFile"
 
@@ -5213,8 +5208,9 @@ getFileMilliseconds () {
 				OIFS="$IFS"
 				IFS=";"
 				read samplingRate bitDepth format nChannels channelMask nSamples rest <<< "$line"
-				seconds="$( echo "scale=3; $nSamples / $samplingRate" | bc )"
+				echo "scale=0; $nSamples * 1000 / $samplingRate" | bc 2>/dev/null
 				IFS="$OIFS"
+				return $Ex_Ok
 			;;
 
 		*.ape|*.m4a)
@@ -5225,7 +5221,7 @@ getFileMilliseconds () {
 	esac
 
 	if [ -n "$seconds" -a "$seconds" != "0" ]; then
-		printf "%.0f" "$( echo "scale=3; ($seconds * 1000) / 1" | bc 2>/dev/null )" 2>/dev/null
+		echo "scale=0; $seconds * 1000 / 1" | bc 2>/dev/null
 	else
 		exitCode=$Ex_Ko
 		echo 1
@@ -5940,6 +5936,39 @@ getCodecFullName () {
 	echo "$codecFullName"
 }
 
+getOutputCodecDestFile () {
+	local sourceFile="$1" outputCodec="$2" sourceFilename sourceDirname sourceBasename sourceIsLossyWAV
+	local sourceExtension destExtension destDir destFilename copyPath destPath
+
+	sourceFilename="${sourceFile##*/}"
+	sourceDirname="${sourceFile%/*}"
+	sourceBasename="${sourceFilename%.*}"
+	if [ "$sourceBasename" != "${sourceBasename%.lossy}" ]; then
+		sourceIsLossyWAV=true
+	else
+		sourceIsLossyWAV=false
+	fi
+	sourceBasename="${sourceBasename%.lossy}";
+	sourceExtension="${sourceFilename##*.}"
+
+	destExtension="$( getCodecExtension "$outputCodec" )"
+	outputCodecFullName="$( getCodecFullName "$outputCodec" )"
+	destDir="$( getDestDir "$outputCodec" )"
+	if [ "$outputCodec" = 'WAV' -a $sourceIsLossyWAV = true ]; then
+		destExtension='lossy.wav'
+	fi
+	destFilename="${sourceBasename}.${destExtension}"
+
+	copyPath="$( copyPathOrNot "$outputCodec" )"
+	if [ $copyPath = "true" ]; then
+		destPath="${destDir}/${sourceDirname#/}"
+		destFile="${destPath}/${destFilename}"
+	else
+		destPath="$destDir"
+		destFile="${destDir}/${destFilename}"
+	fi
+}
+
 getFileProps () {
 	local outputCodec="$2"
 
@@ -6125,7 +6154,7 @@ printHumanStats () {
 	bcmd=''
 	for outputCodec in $outputCodecs; do
 		for sourceFile in "${sourceFiles[@]}"; do
-			getFileProps "$sourceFile" "$outputCodec"
+			getOutputCodecDestFile "$sourceFile" "$outputCodec"
 			if [ -e "$destFile" ]; then
 				bcmd="${bcmd}\x00${destFile//%/%%}"
 				if [ -e "${destFile}c" ]; then # WavPack correction file
@@ -6168,7 +6197,7 @@ printHumanStats () {
 	for outputCodec in $outputCodecs; do
 		bcmd=''
 		for sourceFile in "${sourceFiles[@]}"; do
-			getFileProps "$sourceFile" "$outputCodec"
+			getOutputCodecDestFile "$sourceFile" "$outputCodec"
 			if [ -e "$destFile" ]; then
 				bcmd="${bcmd}\x00${destFile//%/%%}"
 				if [ -e "${destFile}c" ]; then # WavPack correction file
@@ -7306,6 +7335,7 @@ setupControlDir
 # startTimer
 setupSwapDir
 # endTimer "setupSwapDir()"
+# endTimer "setup"
 
 numberOfOutputFiles=$(( numberOfSourceFiles * nCodecs ))
 
@@ -7419,11 +7449,13 @@ fi
 
 # print transcoding stats if applicable
 if [ $exitCode -eq $Ex_Ok -a $verbose = true ]; then
+	# startTimer
 	if [ "$outputMode" = 'machine' ]; then
 		printMachineStats
 	else
 		printHumanStats
 	fi
+	# endTimer "print stats"
 fi
 
 cleanExit $exitCode
