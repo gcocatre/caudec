@@ -981,6 +981,8 @@ getInputFiles () {
 		unset inputFilesAndDirs
 		declare -a inputFilesAndDirs=()
 		while read line; do
+			ext="${line##*.}"
+			if [ "$ext" = "wvc" ]; then continue; fi
 			inputFilesAndDirs[index]="$line"
 			(( index++ ))
 		done < <( find "$inputDir" -type f 2>/dev/null | sort -u 2>/dev/null )
