@@ -4434,6 +4434,27 @@ prepareSource () {
 	return $exitCode
 }
 
+setControlVariables () {
+	copyFile="${Self_Swap_Dir}/${index}.${sourceFilename}"
+	wavFile="${Self_Swap_Dir}/${index}.wav"
+	apeBinariesDir="${Self_Swap_Dir}/${index}.apeBinariesDir"
+	lossywavFile="${Self_Swap_Dir}/${index}.lossy.wav"
+	resampledWavFile="${Self_Swap_Dir}/${index}_resampled.wav"
+	wasProcessedFile="${Self_Ctrl_Dir}/WAS_PROCESSED.${index}"
+	wavProcessedStatusFile="${Self_Ctrl_Dir}/${index}.wavProcessed"
+	sourceTagFile="${Self_Ctrl_Dir}/${index}.txt"
+	sourceCRC32File="${Self_Ctrl_Dir}/${index}.sourceCRC32"
+	sourceMD5File="${Self_Ctrl_Dir}/${index}.sourceMD5"
+	sourceSHA1File="${Self_Ctrl_Dir}/${index}.sourceSHA1"
+	sourceSHA256File="${Self_Ctrl_Dir}/${index}.sourceSHA256"
+	sourceSHA512File="${Self_Ctrl_Dir}/${index}.sourceSHA512"
+	losslessCRC32File="${Self_Ctrl_Dir}/${index}.losslessCRC32"
+	losslessMD5File="${Self_Ctrl_Dir}/${index}.losslessMD5"
+	losslessSHA1File="${Self_Ctrl_Dir}/${index}.losslessSHA1"
+	losslessSHA256File="${Self_Ctrl_Dir}/${index}.losslessSHA256"
+	losslessSHA512File="${Self_Ctrl_Dir}/${index}.losslessSHA512"
+}
+
 transcode () {
 	local exitCode=$Ex_Ok lastCodec="${outputCodecs##* }" allDone=false copyDone=false encodingDone=false lsec=0
 	local milliseconds index nDecodingThreads=1 allCodecsDone=false encodingLockFile
@@ -4443,32 +4464,13 @@ transcode () {
 		while read milliseconds index; do
 			sourceFile="${sourceFiles[$index]}"
 			sourceFilename="${sourceFile##*/}"
-			copyFile="${Self_Swap_Dir}/${index}.${sourceFilename}"
-
-			wavFile="${Self_Swap_Dir}/${index}.wav"
-			apeBinariesDir="${Self_Swap_Dir}/${index}.apeBinariesDir"
-			lossywavFile="${Self_Swap_Dir}/${index}.lossy.wav"
-			resampledWavFile="${Self_Swap_Dir}/${index}_resampled.wav"
-
 			transcodingLockFile="${Self_Ctrl_Dir}/${index}"
-			wasProcessedFile="${Self_Ctrl_Dir}/WAS_PROCESSED.${index}"
 			decodingLockFile="${Self_Ctrl_Dir}/DECODING_${index}"
-			wavProcessedStatusFile="${Self_Ctrl_Dir}/${index}.wavProcessed"
-			sourceTagFile="${Self_Ctrl_Dir}/${index}.txt"
-			sourceCRC32File="${Self_Ctrl_Dir}/${index}.sourceCRC32"
-			sourceMD5File="${Self_Ctrl_Dir}/${index}.sourceMD5"
-			sourceSHA1File="${Self_Ctrl_Dir}/${index}.sourceSHA1"
-			sourceSHA256File="${Self_Ctrl_Dir}/${index}.sourceSHA256"
-			sourceSHA512File="${Self_Ctrl_Dir}/${index}.sourceSHA512"
-			losslessCRC32File="${Self_Ctrl_Dir}/${index}.losslessCRC32"
-			losslessMD5File="${Self_Ctrl_Dir}/${index}.losslessMD5"
-			losslessSHA1File="${Self_Ctrl_Dir}/${index}.losslessSHA1"
-			losslessSHA256File="${Self_Ctrl_Dir}/${index}.losslessSHA256"
-			losslessSHA512File="${Self_Ctrl_Dir}/${index}.losslessSHA512"
 
 			# if test -e "$transcodingLockFile" && mv "$transcodingLockFile" "$decodingLockFile" 2>/dev/null; then
 			if getAndRenameLock "$transcodingLockFile" "$decodingLockFile"; then
 				allDone=false
+				setControlVariables
 				getFileProps "$sourceFile"
 				prepareSource &&
 				decode || exitCode=$Ex_Ko
@@ -4488,6 +4490,7 @@ transcode () {
 				# if test -e "$encodingLockFile" && unlink "$encodingLockFile" 2>/dev/null; then
 				if test -e "$encodingLockFile" && getLock "$encodingLockFile"; then
 					allDone=false
+					setControlVariables
 					getFileProps "$sourceFile" "$outputCodec"
 					encode $nDecodingThreads || exitCode=$Ex_Ko
 					rm -f "${encodingLockFile}_WAV_NEEDED"
