@@ -224,15 +224,15 @@ computeReplayGain () {
       fi
       if [ "$lastCodec" = "MP3" ]; then
         if [ $Self_Verbose = true ]; then
-          caudec -Z -G album "${files[@]}" 2>"${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -Z -G album "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -Z -G album "${files[@]}" 1>/dev/null 2>"${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -z -G album "${files[@]}" 1> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       else
         if [ $Self_Verbose = true ]; then
-          caudec -Z -g "${files[@]}" 2>"${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -Z -g "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -Z -g "${files[@]}" 1>/dev/null 2>"${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -z -g "${files[@]}" 1> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       fi
 
@@ -278,9 +278,9 @@ touchFiles () {
         fi
       else
         if [ -n "$linkDir" -a -d "$linkDir" ]; then
-          caudec -Z -T -l "$linkDir" "$lastDir" 1>/dev/null 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -z -T -l "$linkDir" "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -Z -T "$lastDir" 1>/dev/null 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -z -T "$lastDir" 1> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       fi
 
@@ -312,9 +312,9 @@ touchFiles () {
 
 if [ $Self_Verbose = true ]; then
   echo "Transcoding files:"
-  caudec -Z "$@" 2>"$Self_Encoding_Log"; exitCode=$?
+  caudec -Z "$@" 2> "$Self_Encoding_Log"; exitCode=$?
 else
-  caudec -Z "$@" 1>/dev/null 2>"$Self_Encoding_Log"; exitCode=$?
+  caudec -z "$@" 1> "$Self_Encoding_Log"; exitCode=$?
 fi
 
 if [ $exitCode -eq $Ex_Ok ]; then
