@@ -1663,7 +1663,12 @@ setupControlDir () {
 	for (( jobIndex=0; jobIndex < maxJobs; jobIndex++ )); do
 		createControlFiles "$jobIndex" "$filesPerJob" &
 	done
-	wait
+	for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
+
+	if [ $exitCode -eq $Ex_Ko ]; then
+		wait
+		cleanExit $exitCode
+	fi
 
 	echo -n "0" > "${Self_Ctrl_Dir}/readTimes"
 
