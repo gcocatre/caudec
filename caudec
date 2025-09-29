@@ -668,7 +668,7 @@ printMessage () {
 			stderr) msgOut='stderr' ;;
 			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|touch_file|touch_files|characteristics) statusInfo="$msgArg" ;;
 			unsupported|quota|bad_value|filesystem|command_line|internal) statusData="$msgArg" ;;
-			file:*) file="${msgArg#file:}"; fileDir="$( dirname "$file" )"; fileName="$( basename "$file" )" ;;
+			file:*) file="${msgArg#file:}"; fileDir="${file%/*}"; fileName="${file##*/}" ;;
 			path:*) path="${msgArg#path:}" ;;
 			outputCodec:*) statusData="${msgArg#outputCodec:}" ;;
 			hash:*) statusData="${msgArg#hash:}" ;;
@@ -943,7 +943,7 @@ cleanExit () {
 
 	if [ -n "$Self_Swap_Dir" ]; then
 		rm -rf "$Self_Swap_Dir"
-		swapDirBasename="$( basename "$Self_Swap_Dir" )"
+		swapDirBasename="${Self_Swap_Dir##*/}"
 		rm "${Self_Pid_Dir}"/"${swapDirBasename}"
 	fi
 	test -n "$Self_Ctrl_Dir" && rm -rf "$Self_Ctrl_Dir"
@@ -1055,7 +1055,7 @@ checkInputFiles () {
 	for inputFile in "${inputFiles[@]}" ; do
 
 		addToSourceFiles=false
-		inputDirName="$( dirname "$inputFile" )"
+		inputDirName="${inputFile%/*}"
 		if [ ! -e "$inputFile" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'no such file.' ; exitCode=$Ex_No_Input
 		elif [ ! -f "$inputFile" ]; then
@@ -2976,7 +2976,7 @@ importArtworkIntoFLAC () {
 		if [ ! -r "$picFile" ]; then
 			continue
 		fi
-		picBasename="$( basename "$picFile" )"
+		picBasename="${picFile##*/}"
 		picType="$( echo "$picBasename" | cut -d '-' -f 3 | tr -cd [0-9] )"
 		picNumber="$( echo "$picBasename" | cut -d '-' -f 4 | tr -cd [0-9] )"
 		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$picType" "$picNumber" "txt" )"
@@ -3018,7 +3018,7 @@ genOpusArtworkCommandLine () {
 		if [ ! -r "$picFile" ]; then
 			continue
 		fi
-		picBasename="$( basename "$picFile" )"
+		picBasename="${picFile##*/}"
 		picType="$( echo "$picBasename" | cut -d '-' -f 3 | tr -cd [0-9] )"
 		picNumber="$( echo "$picBasename" | cut -d '-' -f 4 | tr -cd [0-9] )"
 		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$picType" "$picNumber" "txt" )"
@@ -3054,7 +3054,7 @@ importArtworkIntoAPEv2 () {
 		if [ ! -r "$picFile" ]; then
 			continue
 		fi
-		picBasename="$( basename "$picFile" )"
+		picBasename="${picFile##*/}"
 		picType="$( echo "$picBasename" | cut -d '-' -f 3 | tr -cd [0-9] )"
 		picNumber="$( echo "$picBasename" | cut -d '-' -f 4 | tr -cd [0-9] )"
 		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$picType" "$picNumber" "txt" )"
@@ -3125,7 +3125,7 @@ importArtworkIntoMP3 () {
 		if [ ! -r "$picFile" ]; then
 			continue
 		fi
-		picBasename="$( basename "$picFile" )"
+		picBasename="${picFile##*/}"
 		picType="$( echo "$picBasename" | cut -d '-' -f 3 | tr -cd [0-9] )"
 		picNumber="$( echo "$picBasename" | cut -d '-' -f 4 | tr -cd [0-9] )"
 		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$picType" "$picNumber" "txt" )"
@@ -5753,7 +5753,7 @@ touchAllFiles () {
 
 	for (( index=0, dirIndex=0; index < ${#sourceFiles[@]}; index++ )); do
 		sourceFile="${sourceFiles[$index]}"
-		sourceDirname="$( dirname "$sourceFile" )"
+		sourceDirname="${sourceFile%/*}"
 		curDir="$( readlink -f "$sourceDirname" )"
 		if [ "$curDir" != "$lastDir" ]; then
 			discDirs[$dirIndex]="$curDir"
@@ -5771,7 +5771,7 @@ touchAllFiles () {
 
 		for (( index=0, audioFileIndex=0, otherFileIndex=0; index < ${#sourceFiles[@]}; index++ )); do
 			sourceFile="${sourceFiles[$index]}"
-			sourceDirname="$( dirname "$sourceFile" )"
+			sourceDirname="${sourceFile%/*}"
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			case "$sourceFile" in
@@ -5783,7 +5783,7 @@ touchAllFiles () {
 		done
 
 		for audioFile in "${audioFiles[@]}"; do
-			audioFileDirname="$( dirname "$audioFile" )"
+			audioFileDirname="${audioFile%/*}"
 			dirPath="$( readlink -f "$audioFileDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			if [ $gotLinkedDir = true -a -z "$linkPath" ]; then
@@ -5792,7 +5792,7 @@ touchAllFiles () {
 				if [ -n "$inode" ]; then
 					while read linkedFile; do
 						if [ -z "$linkPath" ]; then
-							linkPath="$( dirname "$linkedFile" )"
+							linkPath="${linkedFile%/*}"
 							linkedDiscDirs[$dirIndex]="$linkPath"
 							break
 						fi
@@ -5805,7 +5805,7 @@ touchAllFiles () {
 
 		for (( index=0; index < ${#sourceFiles[@]}; index++ )); do
 			sourceFile="${sourceFiles[$index]}"
-			sourceDirname="$( dirname "$sourceFile" )"
+			sourceDirname="${sourceFile%/*}"
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			sourceTagFile="${Self_Ctrl_Dir}/${index}.txt"
@@ -5860,7 +5860,7 @@ touchAllFiles () {
 		for (( dirIndex=0; dirIndex < ${#discDirs[@]}; dirIndex++ )); do
 			curDir="${discDirs[$dirIndex]}"
 			curLinkedDir="${linkedDiscDirs[$dirIndex]}"
-			albumDir="$( dirname "$curDir" )"
+			albumDir="${curDir%/*}"
 
 			if [ ! -w "$albumDir" ]; then
 				printMessage 'warning' 'usage' 'filesystem' "path:${albumDir}" 'refusing to touch directory that is read-only.'
@@ -5870,7 +5870,7 @@ touchAllFiles () {
 			fi
 
 			if [ -n "$curLinkedDir" ]; then
-				albumLinkDir="$( dirname "$curLinkedDir" )"
+				albumLinkDir="${curLinkedDir%/*}"
 				if [ ! -w "$albumLinkDir" ]; then
 					printMessage 'warning' 'usage' 'filesystem' "path:${albumLinkDir}" 'refusing to touch directory that is read-only.'
 				else
@@ -5977,7 +5977,7 @@ getFileProps () {
 
 	sourceFile="$1"
 	sourceFilename="${sourceFile##*/}"
-	sourceDirname="$( dirname "$sourceFile" )"
+	sourceDirname="${sourceFile%/*}"
 	sourceBasename="${sourceFilename%.*}"
 	if [ "$sourceBasename" != "${sourceBasename%.lossy}" ]; then
 		sourceIsLossyWAV=true
