@@ -1052,18 +1052,6 @@ checkInputFiles () {
 
 	for inputFile in "${inputFiles[@]}" ; do
 
-		# For ReplayGain
-		inputFileExtension="${inputFile##*.}"
-		case "$inputFileExtension" in
-			flac|wv|ape|ogg|opus|mp3)
-				if [ -z "$commonFileExtension" ]; then
-					commonFileExtension="$inputFileExtension"
-				elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
-					inputCodecsAreAllTheSame=false
-				fi
-				;;
-		esac
-
 		addToSourceFiles=false
 		inputDirName="$( dirname "$inputFile" )"
 		if [ ! -e "$inputFile" ]; then
@@ -1178,6 +1166,19 @@ checkInputFiles () {
 								continue
 							else
 								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
+							fi
+							;;
+					esac
+				fi
+
+				if [ $computeReplayGain = true -o $reverseReplayGain = true ]; then
+					inputFileExtension="${inputFile##*.}"
+					case "$inputFileExtension" in
+						flac|wv|ape|ogg|opus|mp3)
+							if [ -z "$commonFileExtension" ]; then
+								commonFileExtension="$inputFileExtension"
+							elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
+								inputCodecsAreAllTheSame=false
 							fi
 							;;
 					esac
