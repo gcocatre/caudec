@@ -104,9 +104,19 @@ fi
 
 # sanitize caudecrc input
 
+case "$FLACPadding" in
+	[0-9]*) true ;; # nothing to do
+	*) FLACPadding=8192 ;; # FLAC default
+esac
+
+case "$OpusPadding" in
+	[0-9]*) true ;; # nothing to do
+	*) OpusPadding=512 ;;  # Opus default
+esac
+
 case "$ID3Padding" in
 	[0-9]*) true ;; # nothing to do
-	*) ID3Padding=512 ;;
+	*) ID3Padding=512 ;;  # LAME default
 esac
 
 # true by default
@@ -2857,16 +2867,16 @@ getUserSpecifiedArtworkBytes () {
 	userSpecifiedArtwork="$( getCodecCoverArtFile "$outputCodec" )"
 	userSpecifiedArtwork="${sourceDirname}/${userSpecifiedArtwork}"
 	if [ -z "$userSpecifiedArtwork" ]; then
-		echo "0"
+		echo "0"; return $Ex_Ok
 	elif [ ! -f "$userSpecifiedArtwork" ]; then
-		echo "0"
+		echo "0"; return $Ex_Ok
 	elif [ ! -r "$userSpecifiedArtwork" ]; then
-		echo "0"
+		echo "0"; return $Ex_Ok
 	else
 		if [ $gnustat = true ]; then
 			bytes="$( $statcmd -L --printf "%s" "$userSpecifiedArtwork" 2>/dev/null )"
 		else
-			bytes="$( $statcmd -L -n -f "%s" "$userSpecifiedArtwork" 2>/dev/null )"
+			bytes="$( $statcmd -L -n -f "%z" "$userSpecifiedArtwork" 2>/dev/null )"
 		fi
 	fi
 
@@ -2878,8 +2888,8 @@ getUserSpecifiedArtworkBytes () {
 	return $exitCode
 }
 
-getFlacEmbeddedArtworkSize () {
-	local exitCode=$Ex_Ok pattern picType picNumber picFile picBasename bytes=0 fileBytes
+getEmbeddedArtworkSize () {
+	local exitCode=$Ex_Ok pattern picType picNumber picFile picBasename bytes=0 fileBytes=0
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -2904,7 +2914,7 @@ getFlacEmbeddedArtworkSize () {
 		if [ $gnustat = true ]; then
 			fileBytes="$( $statcmd -L --printf "%s" "$picFile" 2>/dev/null )"
 		else
-			fileBytes="$( $statcmd -L -n -f "%s" "$picFile" 2>/dev/null )"
+			fileBytes="$( $statcmd -L -n -f "%z" "$picFile" 2>/dev/null )"
 		fi
 		case "$fileBytes" in
 			[0-9]*) bytes=$(( bytes + fileBytes )) ;;
@@ -3931,7 +3941,7 @@ encode () {
 	local pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses listOfOtherFiles
 	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag='' id3CompressionTag=''
 	local nChannels compressionParam qualityArg coverArtFile='' doEmbedCoverArt="true" bitsPerSample
-	local flacEmbeddedArtworkBytes=0 padding=4096
+	local embeddedArtworkBytes=0 padding
 	# local doEmbedBinaries="true" # FIXME with a new -F parameter
 
 	getFileProps "$sourceFile" "$outputCodec"
@@ -3984,9 +3994,10 @@ encode () {
 			# Kohlrabi is a very cool dude
 			if [ $keepWavMetadata = true ]; then kfm='--keep-foreign-metadata' ; fi
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / FLAC $flacVersion / -$compression_FLAC"; fi
+			padding=$FLACPadding
 			if [ "$doEmbedCoverArt" = "true" ]; then
-				flacEmbeddedArtworkBytes="$( getFlacEmbeddedArtworkSize )"
-				padding=$(( padding + flacEmbeddedArtworkBytes ))
+				embeddedArtworkBytes="$( getEmbeddedArtworkSize )"
+				padding=$(( padding + embeddedArtworkBytes ))
 			fi
 			nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
 			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P $padding $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
@@ -4092,9 +4103,10 @@ encode () {
 			destExtension='lossy.flac'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.vc.txt"
 			namedPipe="${Self_Swap_Dir}/lossyWAV-pipe-${index}.wav"
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
+			padding=$FLACPadding
 			if [ "$doEmbedCoverArt" = "true" ]; then
-				flacEmbeddedArtworkBytes="$( getFlacEmbeddedArtworkSize )"
-				padding=$(( padding + flacEmbeddedArtworkBytes ))
+				embeddedArtworkBytes="$( getEmbeddedArtworkSize )"
+				padding=$(( padding + embeddedArtworkBytes ))
 			fi
 			# nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
 			nThreads=1 # flac -5 -e -p is slower than lossyWAV
@@ -4118,19 +4130,24 @@ encode () {
 			if [ "$compression_MP3" = '320' ]; then
 				MP3_MODE='CBR' bitrate_MP3=320
 			fi
+			padding=$ID3Padding
+			if [ "$doEmbedCoverArt" = "true" ]; then
+				embeddedArtworkBytes="$( getEmbeddedArtworkSize )"
+				padding=$(( padding + embeddedArtworkBytes ))
+			fi
 			if [ "$MP3_MODE" = 'VBR' ]; then
 				if [ $tagCompressionSetting = true ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / VBR $compression_MP3"; fi
-				lame -S -V $compression_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+				lame -S -V $compression_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			elif [ "$MP3_MODE" = 'ABR' ]; then
 				if [ $tagCompressionSetting = true ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / ABR $average_bitrate_MP3 kbps"; fi
-				lame -S --abr $average_bitrate_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+				lame -S --abr $average_bitrate_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			else
 				if [ $compression_MP3 -eq "insane" ]; then
 					if [ $tagCompressionSetting = true ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / CBR 320 kbps"; fi
-					lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+					lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				else
 					if [ $tagCompressionSetting = true ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / CBR $bitrate_MP3 kbps"; fi
-					lame -S -b $bitrate_MP3 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $ID3Padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+					lame -S -b $bitrate_MP3 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 				fi
 			fi
 			if [ $exitCode -ne $Ex_Ko ]; then
@@ -4229,13 +4246,13 @@ encode () {
 			destExtension='opus'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Ctrl_Dir}/${index}.vc.txt"
 			if [ "$Opus_MODE" = 'VBR' ]; then
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / $opusVersion / $compression_Opus kbps (VBR)"; fi
-				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --vbr --bitrate $compression_Opus >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --padding $OpusPadding --vbr --bitrate $compression_Opus >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			elif [ "$Opus_MODE" = 'ABR' ]; then
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / $opusVersion / $average_bitrate_Opus kbps (ABR)"; fi
-				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --cvbr --bitrate $average_bitrate_Opus >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --padding $OpusPadding --cvbr --bitrate $average_bitrate_Opus >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			else
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / $opusVersion / $bitrate_Opus kbps (CBR)"; fi
-				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --hard-cbr --bitrate $bitrate_Opus >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
+				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --padding $OpusPadding --hard-cbr --bitrate $bitrate_Opus >/dev/null 2>> "$errorLogFile" || exitCode=$Ex_Ko
 			fi
 			;;
 	esac

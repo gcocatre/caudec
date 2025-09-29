@@ -19,7 +19,6 @@ compression_MP3=3 # 0-9, used with MP3_MODE='VBR'
 bitrate_MP3=128 # 16-320, used with MP3_MODE='CBR'
 average_bitrate_MP3=256 # 8-310, used with MP3_MODE='ABR'
 MP3_MODE='VBR' # 'VBR' (variable bitrate), 'ABR' (average bitrate) or 'CBR' (constant bitrate)
-ID3Padding=512 # size in bytes of padding to add to ID3v2 tags
 
 compression_OggVorbis=3 # 0-10, used with OggVorbis_MODE='VBR'
 bitrate_OggVorbis=96 # 32-500, used with OggVorbis_MODE='CBR'
@@ -30,6 +29,11 @@ compression_Opus=96 # 6-512, used with Opus_MODE='VBR'
 bitrate_Opus=96 # 6-512, used with Opus_MODE='CBR'
 average_bitrate_Opus=96 # 6-512, used with Opus_Mode='ABR'
 Opus_MODE='VBR' # 'VBR' (variable bitrate), 'ABR' (average bitrate) or 'CBR' (constant bitrate)
+
+# Padding, for supported codecs
+FLACPadding=8192  # size in bytes of padding to add to FLAC or lossyFLAC tags
+OpusPadding=512 #  size in bytes of padding to add to Opus files
+ID3Padding=512 # size in bytes of padding to add to ID3v2 tags
 
 # When using transcaude, give files a timestamp that matches the music's release date and duration times
 transcaudeTouchFiles="true"
