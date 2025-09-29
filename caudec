@@ -1614,8 +1614,28 @@ handleInstance () {
 	fi
 }
 
+createControlFiles () {
+	local jobIndex=$1 filesPerJob=$2 fileIndex threadIndex fileMilliseconds outputCodec
+
+	for (( threadIndex=0; threadIndex < filesPerJob; threadIndex++ )); do
+		fileIndex=$(( jobIndex * filesPerJob + threadIndex ))
+		if [ $fileIndex -gt $maxFileIndex ]; then
+			return
+		fi
+		touch "${Self_Ctrl_Dir}/${fileIndex}"
+
+		fileMilliseconds="$( getFileMilliseconds "${sourceFiles[$fileIndex]}" 2>> "$errorLogFile" )"
+		echo "$fileMilliseconds $fileIndex" > "${Self_Ctrl_Dir}/inputMilliseconds_${fileIndex}"
+
+		for outputCodec in $outputCodecs; do
+			touch "${Self_Ctrl_Dir}/${outputCodec}_${fileIndex}"
+			touch "${Self_Ctrl_Dir}/${outputCodec}_${fileIndex}_WAV_NEEDED"
+		done
+	done
+}
+
 setupControlDir () {
-	local processIndex fileIndex maxFileIndex maxThreads outputCodec
+	local fileIndex maxFileIndex maxJobs filesPerJob jobIndex
 
 	Self_Ctrl_Dir="${Self_Pid_Dir}/${Self_Name}_control.${Self_Random_Suffix}"
 	mkdir -m 0777 -p "$Self_Ctrl_Dir" >/dev/null 2>&1
@@ -1632,25 +1652,18 @@ setupControlDir () {
 
 	chmod 0775 "$Self_Ctrl_Dir"
 
-	maxFileIndex=${#sourceFiles[@]}
-	maxThreads=$(( maxProcessesSetByUser * 2 ))
-	for (( processIndex=1; processIndex <= maxThreads; processIndex++ )); do
-		fileIndex=$(( processIndex * maxThreads - maxThreads ))
-		for (( ; fileIndex < maxFileIndex; fileIndex++ )); do
-			{
-			touch "${Self_Ctrl_Dir}/${fileIndex}"
-
-			fileMilliseconds="$( getFileMilliseconds "${sourceFiles[$fileIndex]}" 2>> "$errorLogFile" )"
-			echo "$fileMilliseconds $fileIndex" > "${Self_Ctrl_Dir}/inputMilliseconds_${fileIndex}"
-
-			for outputCodec in $outputCodecs; do
-				touch "${Self_Ctrl_Dir}/${outputCodec}_${fileIndex}"
-				touch "${Self_Ctrl_Dir}/${outputCodec}_${fileIndex}_WAV_NEEDED"
-			done
-			} &
-		done
-		wait
+	maxFileIndex=$(( numberOfSourceFiles - 1 ))
+	maxJobs=$(( maxProcessesSetByUser * 2 ))
+	if [ $maxJobs -ge $numberOfSourceFiles ]; then
+		maxJobs=$numberOfSourceFiles
+		filesPerJob=1
+	elif [ $maxJobs -lt $numberOfSourceFiles ]; then\
+		filesPerJob="$( printf "%.0f" "$( echo "scale=3; $numberOfSourceFiles / $maxJobs + (1 / 2)" | bc )" )"
+	fi
+	for (( jobIndex=0; jobIndex < maxJobs; jobIndex++ )); do
+		createControlFiles "$jobIndex" "$filesPerJob" &
 	done
+	wait
 
 	echo -n "0" > "${Self_Ctrl_Dir}/readTimes"
 
