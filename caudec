@@ -3949,7 +3949,6 @@ encode () {
 	local embeddedArtworkBytes=0 padding
 	# local doEmbedBinaries="true" # FIXME with a new -F parameter
 
-	getFileProps "$sourceFile" "$outputCodec"
 	doEmbedCoverArt="$( shouldEmbedCoverArt "$outputCodec" )"
 	# doEmbedBinaries="$( shouldEmbedBinaries "$outputCodec" )" # FIXME with a new -F parameter
 	case "$outputCodec" in
@@ -4442,7 +4441,8 @@ transcode () {
 	until test $allDone = true; do
 		allDone=true
 		while read milliseconds index; do
-			getFileProps "${sourceFiles[$index]}"
+			sourceFile="${sourceFiles[$index]}"
+			sourceFilename="${sourceFile##*/}"
 			copyFile="${Self_Swap_Dir}/${index}.${sourceFilename}"
 
 			wavFile="${Self_Swap_Dir}/${index}.wav"
@@ -4469,6 +4469,7 @@ transcode () {
 			# if test -e "$transcodingLockFile" && mv "$transcodingLockFile" "$decodingLockFile" 2>/dev/null; then
 			if getAndRenameLock "$transcodingLockFile" "$decodingLockFile"; then
 				allDone=false
+				getFileProps "$sourceFile"
 				prepareSource &&
 				decode || exitCode=$Ex_Ko
 				if [ -n "$nThreads" ]; then
@@ -4487,6 +4488,7 @@ transcode () {
 				# if test -e "$encodingLockFile" && unlink "$encodingLockFile" 2>/dev/null; then
 				if test -e "$encodingLockFile" && getLock "$encodingLockFile"; then
 					allDone=false
+					getFileProps "$sourceFile" "$outputCodec"
 					encode $nDecodingThreads || exitCode=$Ex_Ko
 					rm -f "${encodingLockFile}_WAV_NEEDED"
 					ls "${Self_Ctrl_Dir}/"*"_${index}_WAV_NEEDED" >/dev/null 2>&1 || rm -f "$wavFile"
