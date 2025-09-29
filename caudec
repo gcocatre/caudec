@@ -1615,7 +1615,7 @@ handleInstance () {
 }
 
 setupControlDir () {
-	local processIndex fileIndex maxFileIndex outputCodec
+	local processIndex fileIndex maxFileIndex maxThreads outputCodec
 
 	Self_Ctrl_Dir="${Self_Pid_Dir}/${Self_Name}_control.${Self_Random_Suffix}"
 	mkdir -m 0777 -p "$Self_Ctrl_Dir" >/dev/null 2>&1
@@ -1633,8 +1633,9 @@ setupControlDir () {
 	chmod 0775 "$Self_Ctrl_Dir"
 
 	maxFileIndex=${#sourceFiles[@]}
-	for (( processIndex=1; processIndex <= maxProcessesSetByUser; processIndex++ )); do
-		fileIndex=$(( processIndex * maxProcessesSetByUser - maxProcessesSetByUser ))
+	maxThreads=$(( maxProcessesSetByUser * 2 ))
+	for (( processIndex=1; processIndex <= maxThreads; processIndex++ )); do
+		fileIndex=$(( processIndex * maxThreads - maxThreads ))
 		for (( ; fileIndex < maxFileIndex; fileIndex++ )); do
 			{
 			touch "${Self_Ctrl_Dir}/${fileIndex}"
