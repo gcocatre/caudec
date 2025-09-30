@@ -89,6 +89,38 @@ declare -r Self_Io_Dir="${Self_Pid_Dir}/io"
 declare -r Flac_Max_Threads=128
 declare -r WavPack_Max_Threads=12
 
+if [ -n "$LC_ALL" ]; then
+#	export LANG="$LC_ALL"
+	unset LC_ALL
+fi
+export LANG='en_US.UTF-8'
+export LC_NUMERIC='C'
+
+datecmd='date' gnudate=false
+findcmd='find' gnufind=false
+sedcmd='sed' gnused=false
+statcmd='stat' gnustat=false
+if which 'uname' >/dev/null 2>&1 ; then
+	OS="$( uname -s )"
+	if [ "$OS" = 'Linux' ]; then
+		gnudate=true gnufind=true gnused=true gnustat=true
+	else
+		if which 'gdate' >/dev/null 2>&1; then
+			datecmd='gdate' gnudate=true
+		fi
+		# if which 'gfind' >/dev/null 2>&1; then
+		# 	findcmd='gfind' gnufind=true
+		# fi
+		if which 'gsed' >/dev/null 2>&1; then
+			sedcmd='gsed' gnused=true
+		fi
+		if which 'gstat' >/dev/null 2>&1; then
+			statcmd='gstat' gnustat=true # FIXME: gstat doesn't always work as expected on macOS
+		fi
+	fi
+fi
+
+
 # User settings ================================================================
 
 if [ -r '/etc/caudecrc' ]; then
@@ -973,60 +1005,49 @@ cleanAbort () {
 	cleanExit $Ex_Interrupt
 }
 
-getInputFiles () {
-	local exitCode=$Ex_Ok index=0 fileOrDir ext line inputDir
+findInputFiles () {
+	local location="$1"
 
-	if [ ${#inputFilesAndDirs[@]} -eq 1 -a -d "${inputFilesAndDirs[0]}" ]; then
-		inputDir="${inputFilesAndDirs[0]}"
-		unset inputFilesAndDirs
-		declare -a inputFilesAndDirs=()
-		while read line; do
-			ext="${line##*.}"
-			if [ "$ext" = "wvc" ]; then continue; fi
-			inputFilesAndDirs[index]="$line"
-			(( index++ ))
-		done < <( find "$inputDir" -type f 2>/dev/null | sort -u 2>/dev/null )
-		index=0
+	if [ $gnufind = true ]; then
+		$findcmd "$location" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
+	else
+		$findcmd -E "$location" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
 	fi
+}
+
+getInputFiles () {
+	local exitCode=$Ex_Ok inputDir line fileIndex=0 fileOrDir file fileExtension
 
 	for fileOrDir in "${inputFilesAndDirs[@]}"; do
 		if [ -d "$fileOrDir" ]; then
 			{
 			if [ -r "$fileOrDir" ]; then
-				if [ "$OS" = 'Linux' ]; then
-					while IFS= read -d $'\0' -r file ; do
-						if [ -f "$file" -a -r "$file" ]; then
-							inputFiles[$index]="$file"
-							(( index++ ))
-						fi
-					done < <(find "$fileOrDir" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null)
-				else
-					while IFS= read -d $'\0' -r file ; do
-						if [ -f "$file" -a -r "$file" ]; then
-							inputFiles[$index]="$file"
-							(( index++ ))
-						fi
-					done < <(find -E "$fileOrDir" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null)
-				fi
+				while IFS= read -d $'\0' -r file ; do
+					if [ -r "$file" ]; then
+						inputFiles[$fileIndex]="$file"
+						(( fileIndex++ ))
+					fi
+				done < <( findInputFiles "$fileOrDir" )
 			else
 				printMessage 'warning' 'usage' 'filesystem' "path:${fileOrDir}" 'directory is not readable (permission denied).' ; exitCode=$Ex_No_Input
 			fi
-			} 2>/dev/null || exitCode=$Ex_Ko
+			} 2>/dev/null || exitCode=$Ex_Io_Err
+			if [ $exitCode -eq $Ex_Io_Err ]; then
+				printMessage 'warning' 'usage' 'filesystem' "the operating system cannot handle this many files."
+			fi
 			if [ $exitCode -ne $Ex_Ok ]; then
-				printMessage 'warning' 'usage' 'filesystem' "the operating system cannot handle this many files." ; exitCode=$Ex_No_Input
 				printMessage 'abort' 'verbose'
 				cleanExit $exitCode
 			fi
 		else
-			inputFiles[$index]="$fileOrDir"
-			(( index++ ))
-		fi
-	done
-
-	for fileOrDir in "${inputFiles[@]}"; do
-		ext="${fileOrDir##*.}"
-		if [ "$ext" != "opus" ]; then
-			allFilesAreOpus=false
+			fileExtension="${fileOrDir##*.}"
+			if [ "$fileExtension" = "wvc" ]; then
+				continue
+			elif [ "$fileExtension" != "opus" ]; then
+				allFilesAreOpus=false
+			fi
+			inputFiles[$fileIndex]="$fileOrDir"
+			(( fileIndex++ ))
 		fi
 	done
 
@@ -6542,32 +6563,6 @@ endTimer () {
 }
 
 # main() =======================================================================
-
-if [ -n "$LC_ALL" ]; then
-#	export LANG="$LC_ALL"
-	unset LC_ALL
-fi
-export LANG='en_US.UTF-8'
-export LC_NUMERIC='C'
-
-
-datecmd='date' gnudate=false sedcmd='sed' gnused=false statcmd='stat' gnustat=false
-if which 'uname' >/dev/null 2>&1 ; then
-	OS="$( uname -s )"
-	if [ "$OS" = 'Linux' ]; then
-		gnudate=true gnused=true gnustat=true
-	else
-		if which 'gdate' >/dev/null 2>&1; then
-			datecmd='gdate' gnudate=true
-		fi
-		if which 'gsed' >/dev/null 2>&1; then
-			sedcmd='gsed' gnused=true
-		fi
-		if which 'gstat' >/dev/null 2>&1; then
-			statcmd='gstat' gnustat=true # FIXME: gstat doesn't always work as expected on macOS
-		fi
-	fi
-fi
 
 checkMainBinaries
 
