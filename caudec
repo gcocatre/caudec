@@ -1023,7 +1023,7 @@ getInputFiles () {
 			{
 			if [ -r "$fileOrDir" ]; then
 				while IFS= read -d $'\0' -r file ; do
-					if [ -r "$file" ]; then
+					if [ -e "$file" ]; then
 						inputFiles[$fileIndex]="$file"
 						(( fileIndex++ ))
 					fi
@@ -1053,6 +1053,7 @@ getInputFiles () {
 
 	unset inputFilesAndDirs
 	if [ $exitCode -eq $Ex_Ok ]; then
+		numberOfInputFiles=$fileIndex
 		return $Ex_Ok
 	else
 		printMessage 'abort' 'verbose'
@@ -1061,12 +1062,10 @@ getInputFiles () {
 }
 
 checkInputFiles () {
-	local exitCode=$Ex_Ok inputFile inputDirName commonFileExtension="" inputFileExtension=""
-	local inputCodecsAreAllTheSame=true refDn cdpath pdpath
-	local index=0 addToSourceFiles errorMSG gotExistingFiles=false nChannels=0 gotAudioFile=false
-	local dateSourceFile dateSourceFile outputCodec copyPath codec
+	local exitCode=$Ex_Ok inputFile fileIndex=0 inputDirName commonFileExtension inputFileExtension
+	local inputCodecsAreAllTheSame=true cdpath pdpath addToSourceFiles
+	local dateSourceFile outputCodec copyPath codec
 
-	numberOfInputFiles="${#inputFiles[@]}"
 	if [ $numberOfInputFiles -gt $maxInputFiles ]; then
 		printMessage 'warning' 'usage' 'quota' "the number of input files ($numberOfInputFiles) is greater than maxInputFiles=${maxInputFiles}."
 		printMessage 'abort'
@@ -1074,7 +1073,6 @@ checkInputFiles () {
 	fi
 
 	for inputFile in "${inputFiles[@]}" ; do
-
 		addToSourceFiles=false
 		inputDirName="${inputFile%/*}"
 		if [ ! -e "$inputFile" ]; then
@@ -1085,13 +1083,17 @@ checkInputFiles () {
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for reading (permission denied).' ; exitCode=$Ex_No_Input
 		elif [ ! -w "$inputFile" -a $computeReplayGain = true ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
+		elif [ ! -w "$inputFile" -a $reverseReplayGain = true ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
 		elif [ ! -w "$inputFile" -a $hashFiles = true -a "$hashes" != "internal" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
 		elif [ ! -w "$inputFile" -a $touchFiles = true ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'refusing to touch file that is read-only.' ; exitCode=$Ex_Cant_Create
 		else
+
 			if [ -n "$outputCodecs" ]; then # transcode
 				for outputCodec in $outputCodecs; do
+					getOutputCodecDestFile "$inputFile" "$outputCodec"
 					copyPath="$( copyPathOrNot "$outputCodec" )"
 					if [ "$copyPath" = "true" ]; then
 						cdpath='/./' pdpath='/../'
@@ -1100,197 +1102,147 @@ checkInputFiles () {
 							continue
 						fi
 					fi
+
+					case "$inputFile" in
+						*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape|*.m4a)
+							addToSourceFiles=true
+							case "$inputFile" in
+								*.m4a)
+									codec="$( ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$inputFile" 2>/dev/null )"
+									if [ "$codec" != "alac" ]; then
+										addToSourceFiles=false
+										printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" "refusing to transcode from lossy codec ($codec)." ; exitCode=$Ex_Data_Err
+									fi
+									;;
+							esac
+							if [ $addToSourceFiles = false ]; then continue ; fi
+							if [ $keepExistingFiles = true ]; then
+								if [ -e "$destFile" ]; then
+									addToSourceFiles=false
+									printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: \"$destFile\" exists already."
+								fi
+							fi
+							if [ $keepNewerFiles = true ]; then
+								if [ -e "$destFile" ]; then
+									if isFileNewer "$destFile" "$inputFile"; then
+										addToSourceFiles=false
+										if [ $gnudate = true ]; then
+											dateSourceFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$inputFile" )"" "+%Y-%m-%d %H:%M:%S" )"
+											dateDestFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$destFile" )"" "+%Y-%m-%d %H:%M:%S" )"
+										else
+											dateSourceFile="$( $datecmd -r $( $statcmd -f '%c' "$inputFile" ) "+%Y-%m-%d %H:%M:%S" )"
+											dateDestFile="$( $datecmd -r $( $statcmd -f '%c' "$destFile" ) "+%Y-%m-%d %H:%M:%S" )"
+										fi
+										printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: '$dateDestFile' vs. '$dateSourceFile': \"$destFile\" is newer that the source."
+									fi
+								else
+									addToSourceFiles=true
+								fi
+							fi
+							;;
+
+						*)
+							if [ $ignoreUnsupportedFiles = false ]; then
+								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+								exitCode=$Ex_Data_Err
+								continue
+							fi
+							;;
+					esac
 				done
 			fi
 
-			if [ -n "$outputCodecs" ]; then # transcode
+			if [ $hashFiles = true -a "$hashes" = "internal" ]; then
 				case "$inputFile" in
-					*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape|*.m4a)
+					*.flac|*.wv) addToSourceFiles=true ;;
+					*)
+						if [ $ignoreUnsupportedFiles = true ]; then
+							continue
+						else
+							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
+						fi
+						;;
+				esac
+			elif [ $checkFiles = true -o $hashFiles = true ]; then
+				case "$inputFile" in
+					*.flac|*.wv|*.ape) addToSourceFiles=true ;;
+					*)
+						if [ $ignoreUnsupportedFiles = true ]; then
+							continue
+						else
+							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
+						fi
+						;;
+				esac
+			fi
+
+			if [ $showInformation = true ]; then
+				case "$inputFile" in
+					*.flac|*.wv|*.ape|*.m4a|*.mp3|*.ogg|*.opus) addToSourceFiles=true ;;
+					*)
+						if [ $ignoreUnsupportedFiles = true ]; then
+							continue
+						else
+							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
+						fi
+						;;
+				esac
+			fi
+
+			if [ $computeReplayGain = true -o $reverseReplayGain = true ]; then
+				inputFileExtension="${inputFile##*.}"
+				case "$inputFileExtension" in
+					flac|wv|ape|ogg|opus|mp3)
 						addToSourceFiles=true
-						case "$inputFile" in
-							*.m4a)
-								codec="$( ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$inputFile" 2>/dev/null )"
-								if [ "$codec" = "alac" ]; then
-									addToSourceFiles=true
-								else
-									addToSourceFiles=false
-									printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" "refusing to transcode from lossy codec ($codec)." ; exitCode=$Ex_Data_Err
-								fi
-								;;
-						esac
-						if [ $addToSourceFiles = false ]; then continue ; fi
-						if [ $keepExistingFiles = true -o $keepNewerFiles = true ]; then
-							getFileProps "$inputFile" "$outputCodec"
-						fi
-						if [ $keepExistingFiles = true ]; then
-							if [ -e "$destFile" ]; then
-								addToSourceFiles=false
-								printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: \"$destFile\" exists already."
+						if [ -z "$commonFileExtension" ]; then
+							commonFileExtension="$inputFileExtension"
+						elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
+							inputCodecsAreAllTheSame=false
+							addToSourceFiles=false
+							if [ $ignoreUnsupportedFiles = false ]; then
+								printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension"
 							fi
-						fi
-						if [ $keepNewerFiles = true ]; then
-							if [ -e "$destFile" ]; then
-								if isFileNewer "$destFile" "$sourceFile"; then
-									addToSourceFiles=false
-									if [ $gnudate = true ]; then
-										dateSourceFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$sourceFile" )"" "+%Y-%m-%d %H:%M:%S" )"
-										dateDestFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$destFile" )"" "+%Y-%m-%d %H:%M:%S" )"
-									else
-										dateSourceFile="$( $datecmd -r $( $statcmd -f '%c' "$sourceFile" ) "+%Y-%m-%d %H:%M:%S" )"
-										dateDestFile="$( $datecmd -r $( $statcmd -f '%c' "$destFile" ) "+%Y-%m-%d %H:%M:%S" )"
-									fi
-									printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: '$dateDestFile' vs. '$dateSourceFile': \"$destFile\" is newer that the source."
-								fi
-							else
-								addToSourceFiles=true
-							fi
+							exitCode=$Ex_Data_Err
+							continue
 						fi
 						;;
 
 					*)
 						if [ $ignoreUnsupportedFiles = false ]; then
 							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-							exitCode=$Ex_Data_Err
-							continue
 						fi
+						exitCode=$Ex_Data_Err
+						continue
 						;;
 				esac
+			fi
 
-			else # actions other than transcoding
-				if [ $hashFiles = true -a "$hashes" = "internal" ]; then
-					case "$inputFile" in
-						*.flac|*.wv) addToSourceFiles=true ;;
-						*)
-							if [ $ignoreUnsupportedFiles = true ]; then
-								continue
-							else
-								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
-							fi
-							;;
-					esac
-				elif [ $checkFiles = true -o $hashFiles = true ]; then
-					case "$inputFile" in
-						*.flac|*.wv|*.ape) addToSourceFiles=true ;;
-						*)
-							if [ $ignoreUnsupportedFiles = true ]; then
-								continue
-							else
-								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
-							fi
-							;;
-					esac
-				fi
+			if [ $applyGain = true ]; then
+				case "$inputFile" in
+					*.mp3) addToSourceFiles=true ;;
+					*)
+						if [ $ignoreUnsupportedFiles = false ]; then
+							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+						fi
+						exitCode=$Ex_Data_Err
+						continue
+						;;
+				esac
+			fi
 
-				if [ $showInformation = true ]; then
-					case "$inputFile" in
-						*.flac|*.wv|*.ape|*.m4a|*.mp3|*.ogg|*.opus) addToSourceFiles=true ;;
-						*)
-							if [ $ignoreUnsupportedFiles = true ]; then
-								continue
-							else
-								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
-							fi
-							;;
-					esac
-				fi
-
-				if [ $computeReplayGain = true -o $reverseReplayGain = true ]; then
-					inputFileExtension="${inputFile##*.}"
-					case "$inputFileExtension" in
-						flac|wv|ape|ogg|opus|mp3)
-							if [ -z "$commonFileExtension" ]; then
-								commonFileExtension="$inputFileExtension"
-							elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
-								inputCodecsAreAllTheSame=false
-							fi
-							;;
-					esac
-				fi
-
-				if [ $computeReplayGain = true ]; then
-					if [ $inputCodecsAreAllTheSame = false ]; then
-						printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension" ; exitCode=$Ex_Data_Err
-					else
-						case "$inputFile" in
-							*.flac|*.wv|*.ape|*.ogg|*.opus|*.mp3)
-								nChannels="$( getNumberOfChannels "$inputFile" )"
-								if [ $nChannels -le 2 ]; then
-									addToSourceFiles=true
-								else
-									if [ $ignoreUnsupportedFiles = true ]; then
-										continue
-									else
-										printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format (neither mono or stereo).' ; exitCode=$Ex_Data_Err ; continue
-									fi
-								fi
-								;;
-
-							*)
-								if [ $ignoreUnsupportedFiles = true ]; then
-									continue
-								else
-									printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
-								fi
-								;;
-						esac
-					fi
-				fi
-
-				if [ $reverseReplayGain = true ]; then
-					if [ $inputCodecsAreAllTheSame = false ]; then
-						printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension" ; exitCode=$Ex_Data_Err
-					else
-						case "$inputFile" in
-							*.flac|*.wv|*.ape|*.ogg|*.opus|*.mp3) addToSourceFiles=true ;;
-							*)
-								if [ $ignoreUnsupportedFiles = true ]; then
-									continue
-								else
-									printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
-								fi
-								;;
-						esac
-					fi
-				fi
-
-				if [ $applyGain = true ]; then
-					case "$inputFile" in
-						*.mp3) addToSourceFiles=true ;;
-						*)
-							if [ $ignoreUnsupportedFiles = true ]; then
-								continue
-							else
-								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
-							fi
-							;;
-					esac
-				fi
-
-				if [ $touchFiles = true ]; then
-					case "$inputFile" in
-						*.flac|*.ogg|*.m4a|*.wv|*.ape|*.mp3|*.opus) gotAudioFile=true ;;
-						*.wvc) continue ;;
-					esac
-					sourceFiles[$index]="$inputFile"
-					(( index++ ))
-				fi
+			if [ $touchFiles = true ]; then
+				addToSourceFiles=true
 			fi
 		fi
 
 		if [ $addToSourceFiles = true ]; then
-			sourceFiles[$index]="$inputFile"
-			(( index++ ))
+			sourceFiles[$fileIndex]="$inputFile"
+			(( fileIndex++ ))
 		fi
 	done
 
-	if [ $touchFiles = true -a $gotAudioFile = false ]; then
-		printMessage 'warning' 'processing' 'unsupported' 'at least one supported audio file is required.'; exitCode=$Ex_Data_Err
-		printMessage 'abort' 'verbose'
-		cleanExit $exitCode
-	fi
-
 	unset inputFiles
-	numberOfSourceFiles=$index
+	numberOfSourceFiles=$fileIndex
 
 	if [ $exitCode -ne $Ex_Ok ]; then
 		printMessage 'abort'
