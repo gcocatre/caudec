@@ -1296,7 +1296,7 @@ checkOutputDirectories () {
 }
 
 checkBinary () {
-	local exitCode=$Ex_Ok binary listOfBinaries="$@" pattern
+	local exitCode=$Ex_Ok binary listOfBinaries="$@" pattern foundBinaries
 
 	for binary in $listOfBinaries; do
 		pattern="x${binary}Y"
@@ -1306,14 +1306,14 @@ checkBinary () {
 				foundBinaries="${foundBinaries}${pattern}"
 				continue
 			else
-				binaryMissing=true exitCode=$Ex_Ko
+				binaryMissing=true
+				exitCode=$Ex_Ko
 				if [ "$binary" = "opusgain" ]; then
-					printMessage 'warning' 'initialization' 'filesystem' \
-	"Binary \"${binary}\" not found. Make sure it is in your \$PATH, and that you've upgraded it to the latest available version. \
-You may find it at https://github.com/FrancisRussell/zoog"
+					printMessage 'warning' 'initialization' 'filesystem' "Binary \"${binary}\" not found. Make sure it is in your \$PATH, and that you've upgraded it to the latest available version. You may find it at https://github.com/FrancisRussell/zoog"
+				elif [ "$binary" = "rsgain" ]; then
+					printMessage 'warning' 'initialization' 'filesystem' "Binary \"${binary}\" not found. Make sure it is in your \$PATH, and that you've upgraded it to the latest available version. You may find it at https://github.com/complexlogic/rsgain"
 				else
-					printMessage 'warning' 'initialization' 'filesystem' \
-	"Binary \"${binary}\" not found. Make sure it is in your \$PATH, and that you've upgraded it to the latest available version."
+					printMessage 'warning' 'initialization' 'filesystem' "Binary \"${binary}\" not found. Make sure it is in your \$PATH, and that you've upgraded it to the latest available version."
 				fi
 			fi
 		elif [ -z "$foundBinaries" -o "$foundBinaries" = "${foundBinaries//$pattern/@}" ]; then
