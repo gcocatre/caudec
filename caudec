@@ -1346,8 +1346,10 @@ checkMainBinaries () {
 }
 
 checkBinaries () {
-	local sourceFile searchedBinaries='' binaryMissing=false hash outputCodec
+	local exitCode=$Ex_Ok sourceFile hash outputCodec
 
+	searchedBinaries=''
+	binaryMissing=false
 	if ! which 'which' >/dev/null 2>&1 ; then
 		printMessage 'warning' 'initialization' 'filesystem' "Binary \"which\" not found. Make sure it is in your \$PATH."
 		printMessage 'abort'
@@ -1356,7 +1358,7 @@ checkBinaries () {
 
 	for sourceFile in "${sourceFiles[@]}" ; do
 		case "$sourceFile" in
-			*.ape|*.m4a) checkBinary 'ffprobe' ; break ;;
+			*.ape|*.m4a) checkBinary 'ffprobe' ;;
 		esac
 	done
 
@@ -1481,7 +1483,7 @@ checkBinaries () {
 		printMessage 'abort'
 		cleanExit $Ex_Os_File
 	else
-		return $Ex_Ok
+		return $exitCode
 	fi
 }
 
