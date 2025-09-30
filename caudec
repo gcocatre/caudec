@@ -1334,13 +1334,14 @@ checkMainBinaries () {
 		cleanExit $Ex_Os_File
 	fi
 
-	checkBinary 'bc' 'cut' "$datecmd" 'find' 'grep' 'head' 'mktemp' 'ps' "$sedcmd" 'sort' 'soxi' 'stat' 'tail' 'tr' 'uname' 'wc' 'xargs' || exitCode=$Ex_Ko
+	checkBinary 'bc' 'cut' 'date' 'find' 'grep' 'head' 'mktemp' 'ps' 'sed' 'sort' 'soxi' 'stat' 'tail' 'tr' 'uname' 'wc' 'xargs' || exitCode=$Ex_Os_File
+	checkBinary "$datecmd" "$findcmd" "$sedcmd" # FIXME
 
-	if [ $exitCode -eq $Ex_Ko ]; then
+	if [ $exitCode -ne $Ex_Ok ]; then
 		printMessage 'abort'
 		cleanExit $Ex_Os_File
 	else
-		return $Ex_Ok
+		return $exitCode
 	fi
 }
 
