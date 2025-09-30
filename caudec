@@ -963,9 +963,9 @@ getBitrateMode () {
 }
 
 cleanExit () {
-	local nLines=0 swapDirBasename ioLockFile
+	local exitCode=$1 nLines swapDirBasename ioLockFile
 
-	if [ -n "$CAUDECDEBUG" -a "$verbose" = "true" -a "$outputMode" != 'machine' -a $1 -ne $Ex_Ok -a $1 -ne $Ex_Interrupt -a -e "$errorLogFile" ]; then
+	if [ -n "$CAUDECDEBUG" -a "$verbose" = "true" -a "$outputMode" != 'machine' -a $exitCode -ne $Ex_Ok -a $exitCode -ne $Ex_Interrupt -a -e "$errorLogFile" ]; then
 		nLines="$( cat "$errorLogFile" 2>/dev/null | wc -l | tr -cd '0-9' )"
 		if [ $nLines -gt 0 ]; then
 			echo -e "\nError Log:\n================================================================================" 1>&2
@@ -995,7 +995,7 @@ cleanExit () {
 
 	# rm -rf "$Self_Pid_Dir" >/dev/null 2>&1
 
-	exit $1
+	exit $exitCode
 }
 
 cleanAbort () {
@@ -1063,8 +1063,7 @@ getInputFiles () {
 
 checkInputFiles () {
 	local exitCode=$Ex_Ok inputFile fileIndex=0 inputDirName commonFileExtension inputFileExtension
-	local inputCodecsAreAllTheSame=true cdpath pdpath addToSourceFiles
-	local dateSourceFile outputCodec copyPath codec
+	local inputCodecsAreAllTheSame=true cdpath pdpath addToSourceFiles dateSourceFile outputCodec copyPath codec
 
 	if [ $numberOfInputFiles -gt $maxInputFiles ]; then
 		printMessage 'warning' 'usage' 'quota' "the number of input files ($numberOfInputFiles) is greater than maxInputFiles=${maxInputFiles}."
@@ -1269,25 +1268,30 @@ checkOutputDirectories () {
 		codecDestDir="$( getDestDir "$outputCodec" )"
 		if [ ! -e "$codecDestDir" ]; then
 			if ! mkdir -p "$codecDestDir" >/dev/null 2>&1 ; then
-				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name -O/P: failed to create directory, do you have write permissions? ($codecFullName)" ; exitCode=$Ex_Cant_Create
+				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name -O/P: failed to create directory, do you have write permissions? ($codecFullName)"
+				exitCode=$Ex_Cant_Create
 			fi
 		elif [ ! -d "$codecDestDir" ]; then
 			if [ "$codecDestDir" = "$defaultDestDir" ]; then
-				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name: not a directory ($codecFullName)." ; exitCode=$Ex_Cant_Create
+				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name: not a directory ($codecFullName)."
+				exitCode=$Ex_Cant_Create
 			else
-				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name -O/P: not a directory ($codecFullName)" ; exitCode=$Ex_Cant_Create
+				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name -O/P: not a directory ($codecFullName)"
+				exitCode=$Ex_Cant_Create
 			fi
 		elif [ ! -w "$codecDestDir" ]; then
 			if [ "$codecDestDir" = "$defaultDestDir" ]; then
-				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name: permission denied, not writable ($codecFullName)" ; exitCode=$Ex_Cant_Create
+				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name: permission denied, not writable ($codecFullName)"
+				exitCode=$Ex_Cant_Create
 			else
-				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name -O/P: permission denied, not writable ($codecFullName)" ; exitCode=$Ex_Cant_Create
+				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name -O/P: permission denied, not writable ($codecFullName)"
+				exitCode=$Ex_Cant_Create
 			fi
 		fi
 	done
 
-	if [ $exitCode != $Ex_Ok ]; then
-		cleanExit
+	if [ $exitCode -ne $Ex_Ok ]; then
+		cleanExit $exitCode
 	fi
 }
 
