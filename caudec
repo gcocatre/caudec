@@ -1487,24 +1487,16 @@ checkBinaries () {
 	fi
 }
 
-setNumberOfProcesses () {
-	local newNumberOfProcesses=$1 processIndex
+adjustNumberOfProcesses () {
+	local numberOfFiles=$1 processIndex
 
-	for (( processIndex=0 ; processIndex < newNumberOfProcesses; processIndex++ )); do
-		touch "${Self_Instance_Dir}/process.$processIndex" >/dev/null 2>&1
-	done
-
-	if [ $newNumberOfProcesses -lt $nProcesses ]; then
-		for (( processIndex=newNumberOfProcesses ; processIndex < nProcesses; processIndex++ )); do
-			rm -f "${Self_Instance_Dir}/process.$processIndex"
-		done
-	elif [ $newNumberOfProcesses -gt $nProcesses ]; then
-		for (( processIndex=nProcesses ; processIndex < newNumberOfProcesses; processIndex++ )); do
-			touch "${Self_Instance_Dir}/process.$processIndex" >/dev/null 2>&1
-		done
+	if [ $numberOfFiles -lt $nProcesses ]; then
+		nProcesses=$numberOfFiles
 	fi
 
-	nProcesses=$newNumberOfProcesses
+	for (( processIndex=0 ; processIndex < nProcesses; processIndex++ )); do
+		touch "${Self_Instance_Dir}/process.$processIndex" >/dev/null 2>&1
+	done
 }
 
 isProcessRunning () {
@@ -7331,8 +7323,7 @@ fi
 if [ $nCodecs -gt 0 ]; then # action: transcode files
 	checkOutputDirectories
 
-	nJobs=$numberOfOutputFiles
-	if [ $nProcesses -gt $nJobs ]; then setNumberOfProcesses $nJobs ; fi
+	adjustNumberOfProcesses $numberOfOutputFiles
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
@@ -7342,7 +7333,7 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 		transcode &
 	done
 elif [ $checkFiles = true ]; then
-	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
+	adjustNumberOfProcesses $numberOfSourceFiles
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
@@ -7352,7 +7343,7 @@ elif [ $checkFiles = true ]; then
 		testFiles &
 	done
 elif [ $computeReplayGain = true ]; then
-	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
+	adjustNumberOfProcesses $numberOfSourceFiles
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
@@ -7362,7 +7353,7 @@ elif [ $computeReplayGain = true ]; then
 		computeTrackGains &
 	done
 elif [ $reverseReplayGain = true ]; then
-	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
+	adjustNumberOfProcesses $numberOfSourceFiles
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
@@ -7376,7 +7367,7 @@ elif [ $reverseReplayGain = true ]; then
 		done
 	fi
 elif [ $touchFiles = true ]; then
-	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
+	adjustNumberOfProcesses $numberOfSourceFiles
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
@@ -7386,7 +7377,7 @@ elif [ $touchFiles = true ]; then
 		computeTrackDateTimes &
 	done
 elif [ $hashFiles = true ]; then
-	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
+	adjustNumberOfProcesses $numberOfSourceFiles
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
@@ -7396,7 +7387,7 @@ elif [ $hashFiles = true ]; then
 		computeHashes &
 	done
 elif [ $showInformation = true ]; then
-	if [ $nProcesses -gt $numberOfSourceFiles ]; then setNumberOfProcesses $numberOfSourceFiles ; fi
+	adjustNumberOfProcesses $numberOfSourceFiles
 	if [ $gnudate = true ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
