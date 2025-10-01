@@ -96,26 +96,25 @@ fi
 export LANG='en_US.UTF-8'
 export LC_NUMERIC='C'
 
-datecmd='date' gnudate=false
-findcmd='find' gnufind=false
-sedcmd='sed' gnused=false
-statcmd='stat' gnustat=false
+datecmd='date' gnudate=true
+findcmd='find' gnufind=true
+sedcmd='sed' gnused=true
+statcmd='stat' gnustat=true
 if which 'uname' >/dev/null 2>&1 ; then
 	OS="$( uname -s )"
-	if [ "$OS" = 'Linux' ]; then
-		gnudate=true gnufind=true gnused=true gnustat=true
-	else
+	if [ "$OS" = 'Darwin' ]; then
+		gnudate=false gnufind=false gnused=false gnustat=false
 		if which 'gdate' >/dev/null 2>&1; then
 			datecmd='gdate' gnudate=true
 		fi
-		# if which 'gfind' >/dev/null 2>&1; then
-		# 	findcmd='gfind' gnufind=true
-		# fi
+		if which 'gfind' >/dev/null 2>&1; then
+			findcmd='gfind' gnufind=true
+		fi
 		if which 'gsed' >/dev/null 2>&1; then
 			sedcmd='gsed' gnused=true
 		fi
 		if which 'gstat' >/dev/null 2>&1; then
-			statcmd='gstat' gnustat=true # FIXME: gstat doesn't always work as expected on macOS
+			statcmd='gstat' gnustat=true
 		fi
 	fi
 fi
@@ -1009,7 +1008,7 @@ findInputFiles () {
 	local location="$1"
 
 	if [ $gnufind = true ]; then
-		$findcmd "$location" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
+		$findcmd "$location" -type f -regextype 'posix-egrep' -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
 	else
 		$findcmd -E "$location" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
 	fi
@@ -1132,7 +1131,7 @@ checkInputFiles () {
 											dateSourceFile="$( $datecmd -r $( $statcmd -f '%c' "$inputFile" ) "+%Y-%m-%d %H:%M:%S" )"
 											dateDestFile="$( $datecmd -r $( $statcmd -f '%c' "$destFile" ) "+%Y-%m-%d %H:%M:%S" )"
 										fi
-										printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: '$dateDestFile' vs. '$dateSourceFile': \"$destFile\" is newer that the source."
+										printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: \"$destFile\" is newer that the source."
 									fi
 								else
 									addToSourceFiles=true
@@ -1644,17 +1643,10 @@ setupControlDir () {
 
 	echo -n "0" > "${Self_Ctrl_Dir}/readTimes"
 
-	# FIXME STAT: for some reason, gstat -c doesn't work here on macOS
-	# if [ $gnustat = true ]; then
-	# 	TDEV="$( $statcmd -c '%d' "$Self_Ctrl_Dir" )"
-	# else
-	# 	TDEV="$( $statcmd -f '%d' "$Self_Ctrl_Dir" )"
-	# fi
-
-	if [ "$OS" = 'Linux' ]; then
-		TDEV="$( stat -c '%d' "$Self_Ctrl_Dir" )"
+	if [ $gnustat = true ]; then
+		TDEV="$( $statcmd -c '%d' "$Self_Ctrl_Dir" )"
 	else
-		TDEV="$( stat -f '%d' "$Self_Ctrl_Dir" )"
+		TDEV="$( $statcmd -f '%d' "$Self_Ctrl_Dir" )"
 	fi
 	echo "$TDEV" > "${Self_Instance_Dir}/tdev"
 	echo "$Self_Ctrl_Dir" > "${Self_Instance_Dir}/tdir"
@@ -1722,10 +1714,10 @@ setupSwapDir () {
 
 	if [ $preloadSources = true ]; then
 		for (( index=0; index < ${#sourceFiles[@]}; index++ )); do
-			if [ "$OS" = 'Linux' ]; then
-				copyLockFile="${Self_Io_Dir}/$( stat -c '%d' "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
+			if [ $gnustat = true ]; then
+				copyLockFile="${Self_Io_Dir}/$( $statcmd -c '%d' "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
 			else
-				copyLockFile="${Self_Io_Dir}/$( stat -f '%d' "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
+				copyLockFile="${Self_Io_Dir}/$( $statcmd -f '%d' "${sourceFiles[$index]}" 2>> "$errorLogFile" )"
 			fi
 			if [ ! -e "${copyLockFile}.lock" ]; then
 				touch "$copyLockFile"
@@ -1756,7 +1748,7 @@ getNumberOfChannels () {
 getNumberOfCaudecInstances () {
 	local n=0
 
-	n=$( find "$Self_Pid_Dir" -type d -name 'instance.*' 2>/dev/null | wc -l | tr -cd '0-9' )
+	n=$( ls -1d "${Self_Pid_Dir}/instance."* 2>/dev/null | wc -l | tr -cd '0-9' )
 	case "$n" in
 		[0-9]*) echo $n ;;
 		*) echo 0 ;;
@@ -1766,7 +1758,7 @@ getNumberOfCaudecInstances () {
 getNumberOfCaudecProcesses () {
 	local n=0
 
-	n=$( find "$Self_Pid_Dir" -type f -name 'process.*' 2>/dev/null | wc -l | tr -cd '0-9' )
+	n=$( ls -1d "${Self_Pid_Dir}/process."* 2>/dev/null | wc -l | tr -cd '0-9' )
 	case "$n" in
 		[0-9]*) echo $n ;;
 		*) echo 0 ;;
@@ -2566,10 +2558,10 @@ sanitizeApeTags () {
 		fi
 	done < <( sort -u "$destTagFile" 2>/dev/null ) > "${destTagFile}.tmp"
 	if [ -f "${destTagFile}.tmp" ]; then
-		if [ "$OS" = "Linux" ]; then
-			destTagFileSize=$( stat -f %s "${destTagFile}.tmp" )
+		if [ $gnustat = true ]; then
+			destTagFileSize=$( $statcmd -c '%s' "${destTagFile}.tmp" )
 		else
-			destTagFileSize=$( stat -f %z "${destTagFile}.tmp" )
+			destTagFileSize=$( $statcmd -f '%z' "${destTagFile}.tmp" )
 		fi
 		if [ $destTagFileSize -gt 0 ]; then
 			echo -en "\n" >> "${destTagFile}.tmp"
@@ -2869,9 +2861,9 @@ getUserSpecifiedArtworkBytes () {
 		echo "0"; return $Ex_Ok
 	else
 		if [ $gnustat = true ]; then
-			bytes="$( $statcmd -L --printf "%s" "$userSpecifiedArtwork" 2>/dev/null )"
+			bytes="$( $statcmd -L --printf '%s' "$userSpecifiedArtwork" 2>/dev/null )"
 		else
-			bytes="$( $statcmd -L -n -f "%z" "$userSpecifiedArtwork" 2>/dev/null )"
+			bytes="$( $statcmd -L -n -f '%z' "$userSpecifiedArtwork" 2>/dev/null )"
 		fi
 	fi
 
@@ -2907,9 +2899,9 @@ getEmbeddedArtworkSize () {
 			continue
 		fi
 		if [ $gnustat = true ]; then
-			fileBytes="$( $statcmd -L --printf "%s" "$picFile" 2>/dev/null )"
+			fileBytes="$( $statcmd -L --printf '%s' "$picFile" 2>/dev/null )"
 		else
-			fileBytes="$( $statcmd -L -n -f "%z" "$picFile" 2>/dev/null )"
+			fileBytes="$( $statcmd -L -n -f '%z' "$picFile" 2>/dev/null )"
 		fi
 		case "$fileBytes" in
 			[0-9]*) bytes=$(( bytes + fileBytes )) ;;
@@ -3765,18 +3757,18 @@ getEncoderVersions () {
 }
 
 isFileNewer () {
-	local fileA="$1" fileB="$2" mtimeA mtimeB
+	local fileA="$1" fileB="$2" ctimeA ctimeB
 
 	# Don't use 'test -nt' because it doesn't work on files touched by 'caudec -T '
 	if [ -e "$fileA" -a -e "$fileB" ]; then
 		if [ $gnustat = true ]; then
-			mtimeA="$( $statcmd -c '%Y' "$fileA" )"
-			mtimeB="$( $statcmd -c '%Y' "$fileB" )"
+			ctimeA="$( $statcmd -c '%Z' "$fileA" )"
+			ctimeB="$( $statcmd -c '%Z' "$fileB" )"
 		else
-			mtimeA="$( $statcmd -f '%c' "$fileA" )"
-			mtimeB="$( $statcmd -f '%c' "$fileB" )"
+			ctimeA="$( $statcmd -f '%c' "$fileA" )"
+			ctimeB="$( $statcmd -f '%c' "$fileB" )"
 		fi
-		if [ $mtimeA -gt $mtimeB ]; then
+		if [ $ctimeA -gt $ctimeB ]; then
 			return $Ex_Ok
 		else
 			return $Ex_Ko
@@ -4354,10 +4346,10 @@ prepareSource () {
 	local exitCode=$Ex_Ok sourcePath copyLockFile copyDone=false cptimer1 cptimer2 cpseconds attemptNumber=0
 
 	if [ $preloadSources = true -a $touchFiles = false ]; then
-		if [ "$OS" = 'Linux' ]; then
-			copyLockFile="${Self_Io_Dir}/$( stat -c '%d' "$sourceFile" 2>> "$errorLogFile" )"
+		if [ $gnustat = true ]; then
+			copyLockFile="${Self_Io_Dir}/$( $statcmd -c '%d' "$sourceFile" 2>> "$errorLogFile" )"
 		else
-			copyLockFile="${Self_Io_Dir}/$( stat -f '%d' "$sourceFile" 2>> "$errorLogFile" )"
+			copyLockFile="${Self_Io_Dir}/$( $statcmd -f '%d' "$sourceFile" 2>> "$errorLogFile" )"
 		fi
 		until test $copyDone = true; do
 			# if test -f "$copyLockFile" && mv "$copyLockFile" "${copyLockFile}.lock" >/dev/null 2>&1; then
@@ -4960,11 +4952,11 @@ showTrackInformation () {
 		*.wv)
 			if [ -f "${sourceFile}c" ]; then
 				if [ $gnustat = true ]; then
-					bytesLossy="$( $statcmd -L --printf "%s" "$sourceFile" 2>/dev/null )"
-					bytesLossless="$( $statcmd -L --printf "%s" "${sourceFile}c" 2>/dev/null )"
+					bytesLossy="$( $statcmd -L --printf '%s' "$sourceFile" 2>/dev/null )"
+					bytesLossless="$( $statcmd -L --printf '%s' "${sourceFile}c" 2>/dev/null )"
 				else
-					bytesLossy="$( $statcmd -L -n -f "%z" "$sourceFile" 2>/dev/null )"
-					bytesLossless="$( $statcmd -L -n -f "%z" "${sourceFile}c" 2>/dev/null )"
+					bytesLossy="$( $statcmd -L -n -f '%z' "$sourceFile" 2>/dev/null )"
+					bytesLossless="$( $statcmd -L -n -f '%z' "${sourceFile}c" 2>/dev/null )"
 				fi
 				bitrate="$( printf "%.0f" "$( echo "scale=3; ($bytesLossy + $bytesLossless) * 8 * $samplingRate / $nSamples" | bc )" )"
 			else
@@ -5792,7 +5784,7 @@ touchAllFiles () {
 							linkedDiscDirs[$dirIndex]="$linkPath"
 							break
 						fi
-					done < <( find "$linkDir" -inum "$inode" )
+					done < <( $findcmd "$linkDir" -inum "$inode" 2>dev/null )
 				fi
 			else
 				break
