@@ -1683,6 +1683,8 @@ setupSwapDir () {
 
 		mkdir -m "$Self_Permissions" -p "${CAUDECDIR}.${Self_Random_Suffix}" >/dev/null || cleanExit $Ex_Cant_Create
 		ln -s "${CAUDECDIR}.${Self_Random_Suffix}" "$Self_Swap_Dir"
+	else
+		mkdir -m "$Self_Permissions" -p "${Self_Swap_Dir}" >/dev/null || cleanExit $Ex_Cant_Create
 	fi
 
 	# FIXME: this should go to io dir
