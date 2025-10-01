@@ -108,20 +108,20 @@ datecmd='date' gnudate=true
 findcmd='find' gnufind=true
 sedcmd='sed' gnused=true
 statcmd='stat' gnustat=true
-if which 'uname' >/dev/null 2>&1 ; then
+if which 'uname' 1>/dev/null 2>&1 ; then
 	OS="$( uname -s )"
 	if [ "$OS" = 'Darwin' ]; then
 		gnudate=false gnufind=false gnused=false gnustat=false
-		if which 'gdate' >/dev/null 2>&1; then
+		if which 'gdate' 1>/dev/null 2>&1; then
 			datecmd='gdate' gnudate=true
 		fi
-		if which 'gfind' >/dev/null 2>&1; then
+		if which 'gfind' 1>/dev/null 2>&1; then
 			findcmd='gfind' gnufind=true
 		fi
-		if which 'gsed' >/dev/null 2>&1; then
+		if which 'gsed' 1>/dev/null 2>&1; then
 			sedcmd='gsed' gnused=true
 		fi
-		if which 'gstat' >/dev/null 2>&1; then
+		if which 'gstat' 1>/dev/null 2>&1; then
 			statcmd='gstat' gnustat=true
 		fi
 	fi
@@ -996,7 +996,7 @@ cleanExit () {
 		for ioLockFile in "$Self_Instance_Dir"/ioLockFiles/* ; do
 			if [ -e "$ioLockFile" ]; then
 				echo '' > "${Self_Io_Dir}/${ioLockFile##*/}.lock" 2>/dev/null
-				mv "${Self_Io_Dir}/${ioLockFile##*/}.lock" "${Self_Io_Dir}/${ioLockFile##*/}" >/dev/null 2>&1
+				mv "${Self_Io_Dir}/${ioLockFile##*/}.lock" "${Self_Io_Dir}/${ioLockFile##*/}" 1>/dev/null 2>&1
 			fi
 		done
 	fi
@@ -1009,7 +1009,7 @@ cleanExit () {
 cleanAbort () {
 	echo
 	printMessage 'abort'
-	kill $( jobs -p ) >/dev/null 2>&1
+	kill $( jobs -p ) 1>/dev/null 2>&1
 	cleanExit $Ex_Interrupt
 }
 
@@ -1283,7 +1283,7 @@ checkOutputDirectories () {
 		codecFullName="$( getCodecFullName "$outputCodec" )"
 		codecDestDir="$( getDestDir "$outputCodec" )"
 		if [ ! -e "$codecDestDir" ]; then
-			if ! mkdir -p "$codecDestDir" >/dev/null 2>&1 ; then
+			if ! mkdir -p "$codecDestDir" 1>/dev/null 2>&1 ; then
 				printMessage 'error' 'usage' 'filesystem' "path:${codecDestDir}" "$Self_Name -O/P: failed to create directory, do you have write permissions? ($codecFullName)"
 				exitCode=$Ex_Cant_Create
 			fi
@@ -1318,7 +1318,7 @@ checkBinary () {
 		pattern="x${binary}Y"
 		if [ "$searchedBinaries" = "${searchedBinaries//$pattern/@}" ]; then # search for binary hasn't been done before
 			searchedBinaries="${searchedBinaries}${pattern}" # make sure we don't check twice for nothing
-			if which "$binary" >/dev/null 2>&1 ; then
+			if which "$binary" 1>/dev/null 2>&1 ; then
 				foundBinaries="${foundBinaries}${pattern}"
 				continue
 			else
@@ -1344,7 +1344,7 @@ checkBinary () {
 checkMainBinaries () {
 	local exitCode=$Ex_Ok
 
-	if ! which 'which' >/dev/null 2>&1 ; then
+	if ! which 'which' 1>/dev/null 2>&1 ; then
 		printMessage 'warning' 'initialization' 'filesystem' "Binary \"which\" not found. Make sure it is in your \$PATH."
 		printMessage 'abort'
 		cleanExit $Ex_Os_File
@@ -1366,7 +1366,7 @@ checkBinaries () {
 
 	searchedBinaries=''
 	binaryMissing=false
-	if ! which 'which' >/dev/null 2>&1 ; then
+	if ! which 'which' 1>/dev/null 2>&1 ; then
 		printMessage 'warning' 'initialization' 'filesystem' "Binary \"which\" not found. Make sure it is in your \$PATH."
 		printMessage 'abort'
 		cleanExit $Ex_Os_File
@@ -1511,12 +1511,12 @@ adjustNumberOfProcesses () {
 	fi
 
 	for (( processIndex=0 ; processIndex < nProcesses; processIndex++ )); do
-		touch "${Self_Jobs_Dir}/process.${processIndex}" >/dev/null 2>&1
+		touch "${Self_Jobs_Dir}/process.${processIndex}" 1>/dev/null 2>&1
 	done
 }
 
 isProcessRunning () {
-	if ps "$1" >/dev/null 2>&1 ; then
+	if ps "$1" 1>/dev/null 2>&1 ; then
 		return $Ex_Ok
 	else
 		return $Ex_Ko
@@ -1532,9 +1532,9 @@ cleanUpInstances () {
 			if ! isProcessRunning $pid ; then
 				tdir="$( cat "${d}/tdir" 2>/dev/null )"
 				if [ -d "$tdir" ]; then
-					rm -rf "$tdir" >/dev/null 2>&1
+					rm -rf "$tdir" 1>/dev/null 2>&1
 				fi
-				rm -rf "$d" >/dev/null 2>&1
+				rm -rf "$d" 1>/dev/null 2>&1
 			fi
 		fi
 	done
@@ -1593,10 +1593,10 @@ handleInstance () {
 	Self_Jobs_Dir="${Self_Instance_Dir}/jobs"
 	Self_Pid_File="${Self_Instance_Dir}/pid.txt"
 	Self_Swap_Dir="${Self_Instance_Dir}/swap"
-	mkdir -m "$Self_Permissions" -p "$Self_Control_Dir" "$Self_Data_Dir" "$Self_Io_Dir" "$Self_Jobs_Dir" >/dev/null 2>&1 || cleanExit $Ex_Temp_Fail
-	echo "$$" > "${Self_Pid_File}" >/dev/null 2>&1 || cleanExit $Ex_Temp_Fail
-	touch "$Self_Errors_File" >/dev/null 2>&1 || cleanExit $Ex_Temp_Fail
-	echo -n "0" > "${Self_Data_Dir}/readTimes.txt" >/dev/null 2>&1 || cleanExit $Ex_Temp_Fail
+	mkdir -m "$Self_Permissions" -p "$Self_Control_Dir" "$Self_Data_Dir" "$Self_Io_Dir" "$Self_Jobs_Dir" 1>/dev/null 2>&1 || cleanExit $Ex_Temp_Fail
+	echo "$$" > "${Self_Pid_File}" 1>/dev/null 2>&1 || cleanExit $Ex_Temp_Fail
+	touch "$Self_Errors_File" 1>/dev/null 2>&1 || cleanExit $Ex_Temp_Fail
+	echo -n "0" > "${Self_Data_Dir}/readTimes.txt" 1>/dev/null 2>&1 || cleanExit $Ex_Temp_Fail
 
 	nRunningInstances="$( getNumberOfCaudecInstances )"
 	if [ $nRunningInstances -gt $maxInstances ]; then
@@ -1681,10 +1681,10 @@ setupSwapDir () {
 			cleanExit $Ex_No_Perm
 		fi
 
-		mkdir -m "$Self_Permissions" -p "${CAUDECDIR}.${Self_Random_Suffix}" >/dev/null || cleanExit $Ex_Cant_Create
+		mkdir -m "$Self_Permissions" -p "${CAUDECDIR}.${Self_Random_Suffix}" 1>/dev/null || cleanExit $Ex_Cant_Create
 		ln -s "${CAUDECDIR}.${Self_Random_Suffix}" "$Self_Swap_Dir"
 	else
-		mkdir -m "$Self_Permissions" -p "${Self_Swap_Dir}" >/dev/null || cleanExit $Ex_Cant_Create
+		mkdir -m "$Self_Permissions" -p "${Self_Swap_Dir}" 1>/dev/null || cleanExit $Ex_Cant_Create
 	fi
 
 	# FIXME: this should go to io dir
@@ -1760,12 +1760,12 @@ getNumberOfAvailableThreads () {
 	fi
 
 	while read milliseconds number; do
-		test -e "${Self_Control_Dir}/WAS_PROCESSED.${number}" &>/dev/null && continue
+		test -e "${Self_Control_Dir}/WAS_PROCESSED.${number}" 1>/dev/null 2>/dev/null && continue
 		nMillisecondsLeft=$(( nMillisecondsLeft + milliseconds ))
 	done < "${Self_Data_Dir}/millisecondsAndFileNumbers"
 
 	while read milliseconds number; do
-		test -e "${Self_Control_Dir}/WAS_PROCESSED.${number}" &>/dev/null && continue
+		test -e "${Self_Control_Dir}/WAS_PROCESSED.${number}" 1>/dev/null 2>/dev/null && continue
 		if [ "$number" = "$index" ]; then
 			# +0.3 to round up any n value over n.2 even though printf "%.0f" already rounds up anything over n.5
 			nThreads="$( printf "%.0f" "$( echo "scale=3; $maxProcessesSetByUser * $milliseconds / $nMillisecondsLeft + 0.3" | bc )" )"
@@ -2415,9 +2415,9 @@ processSourceTagFile () {
 	nChars="$( cat "$sourceTagFile" | wc -m | tr -d ' ' )"
 	if [ $nChars -gt 0 ]; then
 		if [ $gnused = true ]; then
-			$sedcmd -i'' -e 's@crc=@CRC32=@i' "$sourceTagFile" >/dev/null 2>&1
+			$sedcmd -i'' -e 's@crc=@CRC32=@i' "$sourceTagFile" 1>/dev/null 2>&1
 		else
-			$sedcmd -i '' -e 's@crc=@CRC32=@i' "$sourceTagFile" >/dev/null 2>&1
+			$sedcmd -i '' -e 's@crc=@CRC32=@i' "$sourceTagFile" 1>/dev/null 2>&1
 		fi
 		echo >> "$sourceTagFile"
 	fi
@@ -2540,8 +2540,8 @@ sanitizeApeTags () {
 		if [ $destTagFileSize -gt 0 ]; then
 			echo -en "\n" >> "${destTagFile}.tmp"
 		fi
-		rm -f "$destTagFile" >/dev/null 2>&1
-		mv "${destTagFile}.tmp" "$destTagFile" >/dev/null 2>&1
+		rm -f "$destTagFile" 1>/dev/null 2>&1
+		mv "${destTagFile}.tmp" "$destTagFile" 1>/dev/null 2>&1
 	fi
 }
 
@@ -2557,7 +2557,7 @@ convertTags () {
 					if [ -n "$outputCodecs" ]; then
 						grep -viE '^encoder=|^encoding=' "$sourceTagFile" > "$destTagFile"
 					else
-						cp "$sourceTagFile" "$destTagFile" >/dev/null 2>&1
+						cp "$sourceTagFile" "$destTagFile" 1>/dev/null 2>&1
 					fi
 					;;
 
@@ -2572,7 +2572,7 @@ convertTags () {
 					if [ -n "$outputCodecs" ]; then
 						grep -viE '^encoder=|^encoding=' "$sourceTagFile" > "$destTagFile"
 					else
-						cp "$sourceTagFile" "$destTagFile" >/dev/null 2>&1
+						cp "$sourceTagFile" "$destTagFile" 1>/dev/null 2>&1
 					fi
 					;;
 
@@ -2598,7 +2598,7 @@ convertTags () {
 					if [ -n "$outputCodecs" ]; then
 						grep -viE '^encoder=|^encoding=' "$sourceTagFile" > "$destTagFile"
 					else
-						cp "$sourceTagFile" "$destTagFile" >/dev/null 2>&1
+						cp "$sourceTagFile" "$destTagFile" 1>/dev/null 2>&1
 					fi
 					;;
 
@@ -2752,14 +2752,14 @@ extractFlacArtwork () {
 
 					picNumber="$( echo -e "$picTypesList" | grep -F "$picType" | wc -l | tr -cd [0-9] )"
 					picFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$picType" "$picNumber" "$picExt" )"
-					metaflac --block-number=$blockNumber --export-picture-to="$picFile" "$copyFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					metaflac --block-number=$blockNumber --export-picture-to="$picFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 					if [ $exitCode -ne $Ex_Ok ]; then
-						rm -rf "$picFile" "$descFile" >/dev/null 2>> "$Self_Errors_File"
+						rm -rf "$picFile" "$descFile" 1>/dev/null 2>> "$Self_Errors_File"
 					fi
 					withinPictureBlock=false
 				fi
 			done < "${Self_Control_Dir}/${index}.flist"
-			rm -f "${Self_Control_Dir}/${index}.flist" >/dev/null 2>&1
+			rm -f "${Self_Control_Dir}/${index}.flist" 1>/dev/null 2>&1
 			return $exitCode
 		fi
 	done
@@ -2785,7 +2785,7 @@ extractAPEv2Artwork () {
 			(( picNumber++ ))
 		done
 		if [ -n "$argString" ]; then
-			echo -en "-z${argString}\x00${copyFile}" | xargs -0 APEv2 >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			echo -en "-z${argString}\x00${copyFile}" | xargs -0 APEv2 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 		fi
 	done
 
@@ -2802,7 +2802,7 @@ extractAPEv2Binaries () {
 				if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then continue; fi
 
 				if [ ! -d "$apeBinariesDir" ]; then
-					mkdir -p "$apeBinariesDir" >/dev/null 2>&1
+					mkdir -p "$apeBinariesDir" 1>/dev/null 2>&1
 				fi
 				while read fieldName; do
 					echo "$fieldName" > "${apeBinariesDir}/${binaryIndex}.txt" 2>/dev/null
@@ -2811,7 +2811,7 @@ extractAPEv2Binaries () {
 				done < <( APEv2 -z "$copyFile" 2>/dev/null | grep -F '=data:' 2>/dev/null | cut -d '=' -f 1 2>/dev/null )
 
 				if [ -n "$argString" ]; then
-					echo -en "-z${argString}\x00${copyFile}" | xargs -0 APEv2 >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					echo -en "-z${argString}\x00${copyFile}" | xargs -0 APEv2 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 				;;
 
@@ -2905,7 +2905,7 @@ importCoverArt () {
 	picExt="${userSpecifiedArtwork##*.}"
 	picFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$coverArtType" "$picNumber" "$picExt" )"
 	descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$index" "$coverArtType" "$picNumber" "txt" )"
-	cp -f "$userSpecifiedArtwork" "$picFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+	cp -f "$userSpecifiedArtwork" "$picFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	touch "$descFile" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	touch "${descFile}"
 
@@ -2941,7 +2941,7 @@ importArtworkIntoFLAC () {
 		if [ -r "$descFile" ]; then
 			description="$( cat "$descFile" 2>> "$Self_Errors_File" )"
 		fi
-		metaflac --import-picture-from="${picType}||${description}||${picFile}" "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+		metaflac --import-picture-from="${picType}||${description}||${picFile}" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	done
 
 	return $exitCode
@@ -3024,7 +3024,7 @@ importArtworkIntoAPEv2 () {
 	done
 
 	if [ -n "$argString" ]; then
-		echo -en "-z${argString}\x00${encodedFile}" | xargs -0 APEv2 >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+		echo -en "-z${argString}\x00${encodedFile}" | xargs -0 APEv2 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	fi
 
 	return $exitCode
@@ -3053,7 +3053,7 @@ importBinariesIntoAPEv2 () {
 	done
 
 	if [ -n "$argString" ]; then
-		echo -en "-z${argString}\x00${encodedFile}" | xargs -0 APEv2 >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+		echo -en "-z${argString}\x00${encodedFile}" | xargs -0 APEv2 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	fi
 
 	return $exitCode
@@ -3062,7 +3062,7 @@ importBinariesIntoAPEv2 () {
 importArtworkIntoMP3 () {
 	local exitCode=$Ex_Ok pattern picBasename picType picTypeLabel description='' descFile=''
 
-	which 'eyeD3' >/dev/null 2>&1 || return $Ex_Ok
+	which 'eyeD3' 1>/dev/null 2>&1 || return $Ex_Ok
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -3093,7 +3093,7 @@ importArtworkIntoMP3 () {
 
 		picTypeLabel="$( getID3v2TrackPictureTypeLabel "$picType" )"
 
-		eyeD3 --quiet --to-v2.4 --add-image="${picFile}:${picTypeLabel}:${description}" "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+		eyeD3 --quiet --to-v2.4 --add-image="${picFile}:${picTypeLabel}:${description}" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	done
 
 	return $exitCode
@@ -3108,7 +3108,7 @@ computeCRC32 () {
 	fi
 
 	fifo="${Self_Control_Dir}/${index}.fifo"
-	if [ ! -e "$fifo" ]; then mkfifo "$fifo" >/dev/null 2>> "$Self_Errors_File" ; fi
+	if [ ! -e "$fifo" ]; then mkfifo "$fifo" 1>/dev/null 2>> "$Self_Errors_File" ; fi
 	sox $earg "$hfile" -t raw "$fifo" 2>> "$Self_Errors_File" &
 	dgst="$( cksfv -b "$fifo" 2>> "$Self_Errors_File" | grep -Fv ';' )"
 	dgst="${dgst##* }"
@@ -3185,10 +3185,10 @@ getDownmixFactors () {
 upmixToStereo () {
 	local exitCode=$Ex_Ok
 
-	sox $soxGuard -M "$wavFile" "$wavFile" $bitdepthcmd -c 2 "$resampledWavFile" $gaincmd $ratecmd $dithercmd >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+	sox $soxGuard -M "$wavFile" "$wavFile" $bitdepthcmd -c 2 "$resampledWavFile" $gaincmd $ratecmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 
 	if [ $exitCode -eq $Ex_Ok -a -f "$resampledWavFile" ]; then
-		mv -f "$resampledWavFile" "$wavFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+		mv -f "$resampledWavFile" "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 		if [ $exitCode -eq $Ex_Ok ]; then
 			isWavProcessed 'true'
 		fi
@@ -3207,31 +3207,31 @@ downmixToStereo () {
 		3) # FL, FR, LFE
 			surroundConfig='2.1'
 			getDownmixFactors '1.55'
-			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${hv} 2v${fv},3v${hv} $dithercmd >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${hv} 2v${fv},3v${hv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
 		4) # FL, FR, SL, SR
 			surroundConfig='4.0'
 			getDownmixFactors '1.75'
-			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv} 2v${fv},4v${pv} $dithercmd >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv} 2v${fv},4v${pv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
 		5) # FL, FR, C, SL, SR
 			surroundConfig='5.0'
 			getDownmixFactors '2.5'
-			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${pv} 2v${fv},3v${pv},5v${pv} $dithercmd >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${pv} 2v${fv},3v${pv},5v${pv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
 		6) # FL, FR, C, LFE, SL, SR
 			surroundConfig='5.1'
 			getDownmixFactors '3'
-			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${hv},5v${pv} 2v${fv},3v${pv},4v${hv},6v${pv} $dithercmd >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${hv},5v${pv} 2v${fv},3v${pv},4v${hv},6v${pv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
 		8) # FL, FR, C, LFE, SL, SR, BL, BR
 			surroundConfig='7.1'
 			getDownmixFactors '3.75'
-			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${hv},5v${pv},7v${pv} 2v${fv},3v${pv},4v${hv},6v${pv},8v${pv} $dithercmd >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${hv},5v${pv},7v${pv} 2v${fv},3v${pv},4v${hv},6v${pv},8v${pv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
 		*) return $Ex_Ok ;; # nothing to do
@@ -3240,7 +3240,7 @@ downmixToStereo () {
 	unset fv pv hv
 
 	if [ $exitCode -eq $Ex_Ok -a -f "$resampledWavFile" ]; then
-		mv -f "$resampledWavFile" "$wavFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+		mv -f "$resampledWavFile" "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 		if [ $exitCode -eq $Ex_Ok ]; then
 			isWavProcessed 'true'
 		fi
@@ -3262,7 +3262,7 @@ isWavProcessed () {
 			wavProcessed='true'
 		elif [ "$val" = "false" ]; then
 			if [ -e "$wavProcessedStatusFile" ]; then
-				rm -f "$wavProcessedStatusFile" >/dev/null 2>&1
+				rm -f "$wavProcessedStatusFile" 1>/dev/null 2>&1
 			fi
 			wavProcessed='false'
 		else
@@ -3292,26 +3292,26 @@ decode () {
 			wav)
 				sourceTagFormat='vc'
 				if [ -L "$copyFile" ]; then
-					echo "$outputCodecs" | grep -iE "(^WAV$)|(^WAV )|( WAV )|( WAV$)" >/dev/null 2>&1 && gotWavOutputCodec=true
+					echo "$outputCodecs" | grep -iE "(^WAV$)|(^WAV )|( WAV )|( WAV$)" 1>/dev/null 2>&1 && gotWavOutputCodec=true
 					if [ "$gotWavOutputCodec" = "true" ]; then
 						getFileProps "$sourceFile" "WAV"
 						destFileTargetPath="$( readlink -f "$destFile" )"
 						copyFileTargetPath="$( readlink -f "$copyFile" )"
 						if [ "$destFileTargetPath" = "$copyFileTargetPath" ]; then
-							cp "$sourceFile" "$wavFile" >/dev/null 2>&1 && rm -f "$copyFile" || exitCode=$Ex_Ko
+							cp "$sourceFile" "$wavFile" 1>/dev/null 2>&1 && rm -f "$copyFile" || exitCode=$Ex_Ko
 						else
-							mv "$copyFile" "$wavFile" >/dev/null 2>&1 || exitCode=$Ex_Ko
+							mv "$copyFile" "$wavFile" 1>/dev/null 2>&1 || exitCode=$Ex_Ko
 						fi
 					fi
 				else
-					mv "$copyFile" "$wavFile" >/dev/null 2>&1 || exitCode=$Ex_Ko
+					mv "$copyFile" "$wavFile" 1>/dev/null 2>&1 || exitCode=$Ex_Ko
 				fi
 				touch "$sourceTagFile"
 				;;
 
 			aiff|caf)
 				sourceTagFormat='vc'
-				sox "$copyFile" -t wav "$wavFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				sox "$copyFile" -t wav "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				touch "$sourceTagFile"
 				;;
 
@@ -3320,15 +3320,15 @@ decode () {
 				sourceTagFormat='vc'
 				getInternalMD5 "$copyFile"
 				if [ $keepWavMetadata = true ]; then
-					if ! flac -s -d --keep-foreign-metadata -o "$wavFile" "$copyFile" >/dev/null 2>&1; then
+					if ! flac -s -d --keep-foreign-metadata -o "$wavFile" "$copyFile" 1>/dev/null 2>&1; then
 						if [ -e "$wavFile" ]; then rm -f "$wavFile"; fi
-						flac -s -d -o "$wavFile" "$copyFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						flac -s -d -o "$wavFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 					fi
 				else
-					flac -s -d -o "$wavFile" "$copyFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					flac -s -d -o "$wavFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 				if [ $exitCode -eq $Ex_Ok ]; then
-					metaflac --no-utf8-convert --export-tags-to="$sourceTagFile" "$copyFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					metaflac --no-utf8-convert --export-tags-to="$sourceTagFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 					if [ $exitCode -eq $Ex_Ok ]; then
 						extractFlacArtwork || exitCode=$Ex_Ko
 					fi
@@ -3345,7 +3345,7 @@ decode () {
 				getInternalMD5 "$copyFile"
 				if [ $keepWavMetadata = true ]; then kfm='' ; fi
 				nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
-				wvunpack -q $kfm -m --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				wvunpack -q $kfm -m --threads=$nThreads -o "$wavFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
 					extractAPEv2Artwork && extractAPEv2Binaries
@@ -3356,7 +3356,7 @@ decode () {
 			ape)
 				sourceTagFormat='ape'
 				nThreads=$( getNumberOfAvailableThreads $index )
-				mac "$copyFile" "$wavFile" -d -threads=$nThreads >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				mac "$copyFile" "$wavFile" -d -threads=$nThreads 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
 					extractAPEv2Artwork && extractAPEv2Binaries
@@ -3367,7 +3367,7 @@ decode () {
 			m4a)
 				sourceTagFormat='m4a'
 				nThreads=$( getNumberOfAvailableThreads $index )
-				ffmpeg -i "$copyFile" -threads ${nThreads} "$wavFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				ffmpeg -i "$copyFile" -threads ${nThreads} "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					ffmpeg -i "$copyFile" -f ffmetadata "$sourceTagFile" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 					if [ $exitCode -eq $Ex_Ok ]; then
@@ -3382,7 +3382,7 @@ decode () {
 
 		if [ $sourceIsLossyWAV = true ]; then
 			if [ ! -L "$lossywavFile" ]; then
-				ln -s "${index}.wav" "$lossywavFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				ln -s "${index}.wav" "$lossywavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			fi
 		fi
 	else
@@ -3552,9 +3552,9 @@ decode () {
 		# make sure to test both wavProcessed != 'true' and ec = Ex_Ok, because wavProcessed will only be true if prior processing succeeded
 		if [ $exitCode -eq $Ex_Ok -a "$wavProcessed" != 'true' ]; then # no prior processing, resampling has not yet be done
 			if [ -n "$bitdepthcmd" -o -n "$ratecmd" ]; then
-				sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $gaincmd $ratecmd $dithercmd >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+				sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $gaincmd $ratecmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
 				if [ $exitCode -eq $Ex_Ok -a -f "$resampledWavFile" ]; then
-					mv -f "$resampledWavFile" "$wavFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+					mv -f "$resampledWavFile" "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
 					if [ $exitCode -eq $Ex_Ok ]; then
 						isWavProcessed 'true'
 					fi
@@ -3566,9 +3566,9 @@ decode () {
 		# apply gain if not already done
 		if [ $exitCode -eq $Ex_Ok -a "$wavProcessed" != 'true' -a -n "$gaincmd" ]; then # no prior processing, gain has not yet been applied
 			# debug "sox gaincmd=[$gaincmd]"
-			sox $soxGuard "$wavFile" "$resampledWavFile" $gaincmd >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+			sox $soxGuard "$wavFile" "$resampledWavFile" $gaincmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
 			if [ $exitCode -eq $Ex_Ok -a -f "$resampledWavFile" ]; then
-				mv -f "$resampledWavFile" "$wavFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+				mv -f "$resampledWavFile" "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
 				if [ $exitCode -eq $Ex_Ok ]; then
 					isWavProcessed 'true'
 				fi
@@ -3780,12 +3780,12 @@ copyOrLinkAllFiles () {
 			if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 				destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
 				if areInodesDifferent "$destOtherFile" "$destOtherLinkedFile"; then
-					rm -f "$destOtherLinkedFile" >/dev/null 2>> "$Self_Errors_File" &&
-					ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$Self_Errors_File"
+					rm -f "$destOtherLinkedFile" 1>/dev/null 2>> "$Self_Errors_File" &&
+					ln -f "$destOtherFile" "$destOtherLinkedFile" 1>/dev/null 2>> "$Self_Errors_File"
 				fi
 			else
 				if isFileNewer "$sourceDirFile" "$destOtherFile"; then
-					cp "$sourceDirFile" "$destOtherFile" >/dev/null 2>> "$Self_Errors_File"
+					cp "$sourceDirFile" "$destOtherFile" 1>/dev/null 2>> "$Self_Errors_File"
 				fi
 			fi
 		fi
@@ -3807,12 +3807,12 @@ copyOrLinkCommaSeparatedFiles () {
 						if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 							destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
 							if areInodesDifferent "$destOtherFile" "$destOtherLinkedFile"; then
-								rm -f "$destOtherLinkedFile" >/dev/null 2>> "$Self_Errors_File" &&
-								ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$Self_Errors_File"
+								rm -f "$destOtherLinkedFile" 1>/dev/null 2>> "$Self_Errors_File" &&
+								ln -f "$destOtherFile" "$destOtherLinkedFile" 1>/dev/null 2>> "$Self_Errors_File"
 							fi
 						else
 							if isFileNewer "$extOtherFile" "$destOtherFile"; then
-								cp "$extOtherFile" "$destOtherFile" >/dev/null 2>> "$Self_Errors_File"
+								cp "$extOtherFile" "$destOtherFile" 1>/dev/null 2>> "$Self_Errors_File"
 							fi
 						fi
 					fi
@@ -3825,12 +3825,12 @@ copyOrLinkCommaSeparatedFiles () {
 					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 						destOtherLinkedFile="${destLinkPath}/${destOtherFile}"
 						if areInodesDifferent "$destOtherFile" "$destOtherLinkedFile"; then
-							rm -f "$destOtherLinkedFile" >/dev/null 2>> "$Self_Errors_File" &&
-							ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$Self_Errors_File"
+							rm -f "$destOtherLinkedFile" 1>/dev/null 2>> "$Self_Errors_File" &&
+							ln -f "$destOtherFile" "$destOtherLinkedFile" 1>/dev/null 2>> "$Self_Errors_File"
 						fi
 					else
 						if isFileNewer "$extOtherFile" "$destOtherFile"; then
-							cp "${sourceDirname}/${otherFile}" "$destOtherFile" >/dev/null 2>> "$Self_Errors_File"
+							cp "${sourceDirname}/${otherFile}" "$destOtherFile" 1>/dev/null 2>> "$Self_Errors_File"
 						fi
 					fi
 				fi
@@ -3852,12 +3852,12 @@ copyOrLinkFile () {
 					if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 						destOtherLinkedFile="${destLinkPath}/${otherFileBasename}"
 						if areInodesDifferent "$destOtherFile" "$destOtherLinkedFile"; then
-							rm -f "$destOtherLinkedFile" >/dev/null 2>> "$Self_Errors_File" &&
-							ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$Self_Errors_File"
+							rm -f "$destOtherLinkedFile" 1>/dev/null 2>> "$Self_Errors_File" &&
+							ln -f "$destOtherFile" "$destOtherLinkedFile" 1>/dev/null 2>> "$Self_Errors_File"
 						fi
 					else
 						if isFileNewer "$extOtherFile" "$destOtherFile"; then
-							cp "$extOtherFile" "$destOtherFile" >/dev/null 2>> "$Self_Errors_File"
+							cp "$extOtherFile" "$destOtherFile" 1>/dev/null 2>> "$Self_Errors_File"
 						fi
 					fi
 				fi
@@ -3870,12 +3870,12 @@ copyOrLinkFile () {
 				if [ "$codec" = "WavPackLossy" -a -n "$linkDir" ]; then
 					destOtherLinkedFile="${destLinkPath}/${otherFile}"
 					if areInodesDifferent "$destOtherFile" "$destOtherLinkedFile"; then
-						rm -f "$destOtherLinkedFile" >/dev/null 2>> "$Self_Errors_File" &&
-						ln -f "$destOtherFile" "$destOtherLinkedFile" >/dev/null 2>> "$Self_Errors_File"
+						rm -f "$destOtherLinkedFile" 1>/dev/null 2>> "$Self_Errors_File" &&
+						ln -f "$destOtherFile" "$destOtherLinkedFile" 1>/dev/null 2>> "$Self_Errors_File"
 					fi
 				else
 					if isFileNewer "${sourceDirname}/${otherFile}" "$destOtherFile"; then
-						cp "${sourceDirname}/${otherFile}" "$destOtherFile" >/dev/null 2>> "$Self_Errors_File"
+						cp "${sourceDirname}/${otherFile}" "$destOtherFile" 1>/dev/null 2>> "$Self_Errors_File"
 					fi
 				fi
 			fi
@@ -3918,12 +3918,12 @@ encode () {
 
 		AIFF)
 			destExtension='aiff'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}"
-			sox "$wavFile" "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			sox "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
 		CAF)
 			destExtension='caf'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}"
-			sox "$wavFile" "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			sox "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
 		# encodeALAC
@@ -3942,9 +3942,9 @@ encode () {
 				fi
 			fi
 			if [ "$doEmbedCoverArt" = "true" -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a alac >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a alac 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			else
-				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a alac >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a alac 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			fi
 			;;
 
@@ -3960,7 +3960,7 @@ encode () {
 				padding=$(( padding + embeddedArtworkBytes ))
 			fi
 			nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
-			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P $padding $kfm -${compression_FLAC} -o "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P $padding $kfm -${compression_FLAC} -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 				importArtworkIntoFLAC || exitCode=$Ex_Ko
 			fi
@@ -3970,10 +3970,10 @@ encode () {
 		MonkeysAudio)
 			destExtension='ape'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Control_Dir}/${index}.ape.txt"
 			nThreads=$( getNumberOfAvailableThreads $index )
-			mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 -threads=${nThreads} >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 -threads=${nThreads} 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$Self_Name $Self_Version / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
-				printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z >/dev/null 2>> "$Self_Errors_File"
+				printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z 1>/dev/null 2>> "$Self_Errors_File"
 				if [ "$doEmbedCoverArt" = "true" ]; then
 					importArtworkIntoAPEv2
 				fi
@@ -3990,7 +3990,7 @@ encode () {
 				if [ $keepWavMetadata = true ]; then kfm=''; fi
 				nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
 				if [ $tagCompressionSetting = true ]; then compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack"; fi
-				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 					if [ "$doEmbedCoverArt" = "true" ]; then
 						importArtworkIntoAPEv2
@@ -4018,7 +4018,7 @@ encode () {
 					compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack / $average_bitrate_WavPackLossy kbps (ABR)"
 				fi
 			fi
-			printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -c${compression_WavPack} -b${average_bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -c${compression_WavPack} -b${average_bitrate_WavPackLossy} --no-utf8-convert 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 				if [ "$doEmbedCoverArt" = "true" ]; then
 					importArtworkIntoAPEv2
@@ -4048,7 +4048,7 @@ encode () {
 						compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack / $average_bitrate_WavPackLossy kbps (ABR)"
 					fi
 				fi
-				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -$compression_WavPack -b${average_bitrate_WavPackLossy} --no-utf8-convert >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -$compression_WavPack -b${average_bitrate_WavPackLossy} --no-utf8-convert 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 					if [ "$doEmbedCoverArt" = "true" ]; then
 						importArtworkIntoAPEv2
@@ -4073,11 +4073,11 @@ encode () {
 			bitsPerSample="$( soxi -b "$wavFile" 2>/dev/null )"
 			mkfifo "$namedPipe"
 			if [ -n "$bitsPerSample" -a $bitsPerSample -lt 24 ]; then
-				sox "$wavFile" -b 24 -D -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$Self_Errors_File" > "$namedPipe" &
+				sox "$wavFile" -b 24 -D -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent 1>/dev/null 2>> "$Self_Errors_File" > "$namedPipe" &
 			else
-				lossywav "$wavFile" -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent >/dev/null 2>> "$Self_Errors_File" > "$namedPipe" &
+				lossywav "$wavFile" -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent 1>/dev/null 2>> "$Self_Errors_File" > "$namedPipe" &
 			fi
-			printf -- "--totally-silent`tagline -T`\x00%s" "$namedPipe" | xargs -0 flac -j $nThreads -P $padding -5 -e -p -b 512 -o "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			printf -- "--totally-silent`tagline -T`\x00%s" "$namedPipe" | xargs -0 flac -j $nThreads -P $padding -5 -e -p -b 512 -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			rm -f "$namedPipe"
 			if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 				importArtworkIntoFLAC || exitCode=$Ex_Ko
@@ -4097,24 +4097,24 @@ encode () {
 			fi
 			if [ "$MP3_MODE" = 'VBR' ]; then
 				if [ $tagCompressionSetting = true ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / VBR $compression_MP3"; fi
-				lame -S -V $compression_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				lame -S -V $compression_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			elif [ "$MP3_MODE" = 'ABR' ]; then
 				if [ $tagCompressionSetting = true ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / ABR $average_bitrate_MP3 kbps"; fi
-				lame -S --abr $average_bitrate_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				lame -S --abr $average_bitrate_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			else
 				if [ $compression_MP3 -eq "insane" ]; then
 					if [ $tagCompressionSetting = true ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / CBR 320 kbps"; fi
-					lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					if [ $tagCompressionSetting = true ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / CBR $bitrate_MP3 kbps"; fi
-					lame -S -b $bitrate_MP3 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					lame -S -b $bitrate_MP3 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			fi
 			if [ $exitCode -ne $Ex_Ko ]; then
 				if [ -n "$id3CompressionTag" ]; then
-					printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' --text-frame=TSSE:"$id3CompressionTag" "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' --text-frame=TSSE:"$id3CompressionTag" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
-					printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 				if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = "true" ]; then
 					importArtworkIntoMP3 || exitCode=$Ex_Ko
@@ -4148,9 +4148,9 @@ encode () {
 						fi
 						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
 						if [ "$doEmbedCoverArt" = "true" -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$Self_Errors_File"; exitCode=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
 						else
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$Self_Errors_File"; exitCode=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
 						fi
 						if [ $exitCode -ne $Ex_Ko ]; then exitCode=$Ex_Ok; break; fi
 						;;
@@ -4159,9 +4159,9 @@ encode () {
 						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
 						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
 						if [ "$doEmbedCoverArt" = "true" -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$Self_Errors_File"; exitCode=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
 						else
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$Self_Errors_File"; exitCode=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
 						fi
 						if [ $exitCode -ne $Ex_Ko ]; then exitCode=$Ex_Ok; break; fi
 						;;
@@ -4175,9 +4175,9 @@ encode () {
 						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
 						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
 						if [ "$doEmbedCoverArt" = "true" -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$Self_Errors_File"; exitCode=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
 						else
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg >/dev/null 2>> "$Self_Errors_File"; exitCode=$?
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
 						fi
 						if [ $exitCode -ne $Ex_Ko ]; then exitCode=$Ex_Ok; break; fi
 						;;
@@ -4191,13 +4191,13 @@ encode () {
 			destExtension='ogg'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Control_Dir}/${index}.vc.txt"
 			if [ "$OggVorbis_MODE" = 'VBR' ]; then
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / oggenc $oggencVersion / -q $compression_OggVorbis"; fi
-				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc -q $compression_OggVorbis -o "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc -q $compression_OggVorbis -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			elif [ "$OggVorbis_MODE" = 'ABR' ]; then
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / oggenc $oggencVersion / $average_bitrate_OggVorbis kbps (ABR)"; fi
-				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $average_bitrate_OggVorbis -o "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $average_bitrate_OggVorbis -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			else
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / oggenc $oggencVersion / $bitrate_OggVorbis kbps (CBR)"; fi
-				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $bitrate_OggVorbis -m $bitrate_OggVorbis -M $bitrate_OggVorbis -o "$encodedFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $bitrate_OggVorbis -m $bitrate_OggVorbis -M $bitrate_OggVorbis -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			fi
 			;;
 
@@ -4206,23 +4206,23 @@ encode () {
 			destExtension='opus'; encodedFile="${Self_Swap_Dir}/${index}-${outputCodec}.${destExtension}" destTagFile="${Self_Control_Dir}/${index}.vc.txt"
 			if [ "$Opus_MODE" = 'VBR' ]; then
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / $opusVersion / $compression_Opus kbps (VBR)"; fi
-				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --padding $OpusPadding --vbr --bitrate $compression_Opus >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --padding $OpusPadding --vbr --bitrate $compression_Opus 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			elif [ "$Opus_MODE" = 'ABR' ]; then
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / $opusVersion / $average_bitrate_Opus kbps (ABR)"; fi
-				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --padding $OpusPadding --cvbr --bitrate $average_bitrate_Opus >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --padding $OpusPadding --cvbr --bitrate $average_bitrate_Opus 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			else
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / $opusVersion / $bitrate_Opus kbps (CBR)"; fi
-				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --padding $OpusPadding --hard-cbr --bitrate $bitrate_Opus >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --padding $OpusPadding --hard-cbr --bitrate $bitrate_Opus 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			fi
 			;;
 	esac
 
 	if [ $copyPath = "true" ]; then
-		if ! mkdir -p "$destPath" >/dev/null 2>&1 ; then
+		if ! mkdir -p "$destPath" 1>/dev/null 2>&1 ; then
 			exitCode=$Ex_Ko
 		fi
 		if [ "$outputCodec" = "WavPackHybrid" -a -n "$destLinkPath" ]; then
-			if ! mkdir -p "$destLinkPath" >/dev/null 2>&1 ; then
+			if ! mkdir -p "$destLinkPath" 1>/dev/null 2>&1 ; then
 				exitCode=$Ex_Ko
 			fi
 		fi
@@ -4241,20 +4241,20 @@ encode () {
 				chmod 0644 "${encodedFile}c"
 			fi
 			if [ -L "$encodedFile" ]; then # source WAV symlinked as "$encodedFile"
-				cp "$( readlink -f "$encodedFile" )" "$destFile" >/dev/null 2>> "$Self_Errors_File"
+				cp "$( readlink -f "$encodedFile" )" "$destFile" 1>/dev/null 2>> "$Self_Errors_File"
 			else
-				mv "$encodedFile" "$destFile" >/dev/null 2>> "$Self_Errors_File"
+				mv "$encodedFile" "$destFile" 1>/dev/null 2>> "$Self_Errors_File"
 				if [ -e "${encodedFile}c" ]; then  # WavPack Hybrid correction files
-					mv "${encodedFile}c" "${destFile}c" >/dev/null 2>> "$Self_Errors_File"
+					mv "${encodedFile}c" "${destFile}c" 1>/dev/null 2>> "$Self_Errors_File"
 				fi
 			fi
 
 			if [ "$outputCodec" = "WavPackHybrid" -a -n "$destLinkPath" ]; then
 				if [ -e "$destLinkFile" ]; then # delete old link for consistency``
-					rm -f "$destLinkFile" >/dev/null 2>> "$Self_Errors_File"
+					rm -f "$destLinkFile" 1>/dev/null 2>> "$Self_Errors_File"
 				fi
 				if [ -f "$destFile" ]; then
-					ln -f "$destFile" "$destLinkPath" >/dev/null 2>> "$Self_Errors_File"
+					ln -f "$destFile" "$destLinkPath" 1>/dev/null 2>> "$Self_Errors_File"
 				fi
 			fi
 
@@ -4277,7 +4277,7 @@ encode () {
 			esac
 		fi
 	else
-		rm -f "$encodedFile" >/dev/null 2>&1 # in case it exists
+		rm -f "$encodedFile" 1>/dev/null 2>&1 # in case it exists
 		printMessage 'error' "$statusInfo" "file:${sourceFile}" $p
 	fi
 
@@ -4287,7 +4287,7 @@ encode () {
 getLock () {
 	local lockFile="$1"
 	if [ "$OS" = 'Darwin' ]; then
-		test -e "$lockFile" && lockf -s -n -t 1 "$lockFile" test -e "$lockFile" &>/dev/null
+		test -e "$lockFile" && lockf -s -n -t 1 "$lockFile" test -e "$lockFile" 1>/dev/null 2>/dev/null
 	else
 		test -e "$lockFile" && unlink "$lockFile" 2>/dev/null # FIXME LOCKING
 	fi
@@ -4296,7 +4296,7 @@ getLock () {
 getAndRenameLock () {
 	local lockFileOne="$1" lockFileTwo="$2"
 	if [ "$OS" = 'Darwin' ]; then
-		test -e "$lockFileOne" && lockf -k -s -n -t 1 "$lockFileOne" mv "$lockFileOne" "$lockFileTwo" &>/dev/null
+		test -e "$lockFileOne" && lockf -k -s -n -t 1 "$lockFileOne" mv "$lockFileOne" "$lockFileTwo" 1>/dev/null 2>/dev/null
 	else
 		test -e "$lockFileOne" && mv "$lockFileOne" "$lockFileTwo" 2>/dev/null  # FIXME LOCKING
 	fi
@@ -4310,7 +4310,7 @@ cleanUpCopyLockFile () {
 		if [ -n "$pid" ]; then
 			if ! isProcessRunning $pid ; then
 				echo '' > "${copyLockFile}.lock" 2>/dev/null
-				mv "${copyLockFile}.lock" "$copyLockFile" >/dev/null 2>&1
+				mv "${copyLockFile}.lock" "$copyLockFile" 1>/dev/null 2>&1
 			fi
 		fi
 	fi
@@ -4326,7 +4326,7 @@ prepareSource () {
 			copyLockFile="${Self_Io_Dir}/$( $statcmd -f '%d' "$sourceFile" 2>> "$Self_Errors_File" )"
 		fi
 		until test $copyDone = true; do
-			# if test -f "$copyLockFile" && mv "$copyLockFile" "${copyLockFile}.lock" >/dev/null 2>&1; then
+			# if test -f "$copyLockFile" && mv "$copyLockFile" "${copyLockFile}.lock" 1>/dev/null 2>&1; then
 			if getAndRenameLock "$copyLockFile" "${copyLockFile}.lock"; then
 				touch "${Self_Instance_Dir}/ioLockFiles/${copyLockFile##*/}"
 				echo "$$" > "${copyLockFile}.lock"
@@ -4335,14 +4335,14 @@ prepareSource () {
 					cptimer1="$( $datecmd '+%s.%N' )"
 				fi
 
-				cp "$sourceFile" "$copyFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				cp "$sourceFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ -e "${sourceFile}c" ]; then # WavPack correction file
-					cp "${sourceFile}c" "${copyFile}c" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					cp "${sourceFile}c" "${copyFile}c" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 
 				echo '' > "${copyLockFile}.lock" 2>/dev/null
-				mv "${copyLockFile}.lock" "$copyLockFile" >/dev/null 2>&1 &&
-				rm -f "${Self_Instance_Dir}/ioLockFiles/${copyLockFile##*/}" >/dev/null 2>&1
+				mv "${copyLockFile}.lock" "$copyLockFile" 1>/dev/null 2>&1 &&
+				rm -f "${Self_Instance_Dir}/ioLockFiles/${copyLockFile##*/}" 1>/dev/null 2>&1
 				copyDone=true
 
 				if [ -n "$cptimer1" ]; then
@@ -4372,19 +4372,19 @@ prepareSource () {
 		fi
 		if [ -n "$copyFile" ]; then
 			if [ ! -L "$copyFile" ]; then
-				ln -s "$sourcePath" "$copyFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				ln -s "$sourcePath" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			fi
 
 			if [ -e "${sourcePath}c" ]; then # WavPack correction file
 				if [ ! -L "${copyFile}c" ]; then
-					ln -s "${sourcePath}c" "${copyFile}c" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					ln -s "${sourcePath}c" "${copyFile}c" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			fi
 		fi
 	fi
 
 	if [ $exitCode -ne $Ex_Ok ]; then
-		rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1
+		rm -f "$copyFile" "${copyFile}c" 1>/dev/null 2>&1
 	fi
 
 	return $exitCode
@@ -4435,7 +4435,7 @@ transcode () {
 				else
 					nDecodingThreads=1
 				fi
-				rm -f "$decodingLockFile" >/dev/null 2>&1
+				rm -f "$decodingLockFile" 1>/dev/null 2>&1
 			elif [ -e "$decodingLockFile" ]; then # can't do anything for this track yet, gotta wait for it to be decoded
 				allDone=false
 				continue # skip to next track
@@ -4450,7 +4450,7 @@ transcode () {
 					getFileProps "$sourceFile" "$outputCodec"
 					encode $nDecodingThreads || exitCode=$Ex_Ko
 					rm -f "${encodingLockFile}_WAV_NEEDED"
-					ls "${Self_Control_Dir}/"*"_${index}_WAV_NEEDED" >/dev/null 2>&1 || rm -f "$wavFile"
+					ls "${Self_Control_Dir}/"*"_${index}_WAV_NEEDED" 1>/dev/null 2>&1 || rm -f "$wavFile"
 
 					copyOrLinkOtherFiles "$outputCodec"
 					if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
@@ -4473,7 +4473,7 @@ transcode () {
 
 			# FIXME
 			# if [ $allCodecsDone = true ]; then
-			# 	rm -rf "$apeBinariesDir" "${Self_Swap_Dir}/picture-${index}"* >/dev/null 2>&1
+			# 	rm -rf "$apeBinariesDir" "${Self_Swap_Dir}/picture-${index}"* 1>/dev/null 2>&1
 			# fi
 
 			if [ -n "$destPath" -a -d "$destPath" -a -w "$destPath" ]; then
@@ -4511,43 +4511,43 @@ checkHashAvailability () {
 	local hashtype="$1" hashval="$2"
 
 	test -z "$hashval" && return $Ex_Data_Err
-	which 'sox' >/dev/null 2>&1 || return $Ex_Os_File
+	which 'sox' 1>/dev/null 2>&1 || return $Ex_Os_File
 
 	case "$hashtype" in
 		SHA512)
 			if [ "$OS" = 'Linux' ]; then
-				which 'sha512sum' >/dev/null 2>&1 || return $Ex_Os_File
+				which 'sha512sum' 1>/dev/null 2>&1 || return $Ex_Os_File
 			else
-				which 'shasum' >/dev/null 2>&1 || return $Ex_Os_File
+				which 'shasum' 1>/dev/null 2>&1 || return $Ex_Os_File
 			fi
 			;;
 
 		SHA256)
 			if [ "$OS" = 'Linux' ]; then
-				which 'sha256sum' >/dev/null 2>&1 || return $Ex_Os_File
+				which 'sha256sum' 1>/dev/null 2>&1 || return $Ex_Os_File
 			else
-				which 'shasum' >/dev/null 2>&1 || return $Ex_Os_File
+				which 'shasum' 1>/dev/null 2>&1 || return $Ex_Os_File
 			fi
 			;;
 
 		SHA1)
 			if [ "$OS" = 'Linux' ]; then
-				which 'sha1sum' >/dev/null 2>&1 || return $Ex_Os_File
+				which 'sha1sum' 1>/dev/null 2>&1 || return $Ex_Os_File
 			else
-				which 'shasum' >/dev/null 2>&1 || return $Ex_Os_File
+				which 'shasum' 1>/dev/null 2>&1 || return $Ex_Os_File
 			fi
 			;;
 
 		MD5)
 			if [ "$OS" = 'Linux' ]; then
-				which 'md5sum' >/dev/null 2>&1 || return $Ex_Os_File
+				which 'md5sum' 1>/dev/null 2>&1 || return $Ex_Os_File
 			else
-				which 'md5' >/dev/null 2>&1 || return $Ex_Os_File
+				which 'md5' 1>/dev/null 2>&1 || return $Ex_Os_File
 			fi
 			;;
 
 		CRC32)
-			which 'cksfv' >/dev/null 2>&1 || return $Ex_Os_File
+			which 'cksfv' 1>/dev/null 2>&1 || return $Ex_Os_File
 			;;
 	esac
 
@@ -4610,9 +4610,9 @@ getHashTags () {
 	if [ ! -e "$sourceTagFile" ]; then return $Ex_Data_Err; fi
 
 	if [ $gnused = true ]; then
-		$sedcmd -i'' -e 's@crc=@CRC32=@i' "$sourceTagFile" >/dev/null 2>&1
+		$sedcmd -i'' -e 's@crc=@CRC32=@i' "$sourceTagFile" 1>/dev/null 2>&1
 	else
-		$sedcmd -i '' -e 's@crc=@CRC32=@i' "$sourceTagFile" >/dev/null 2>&1
+		$sedcmd -i '' -e 's@crc=@CRC32=@i' "$sourceTagFile" 1>/dev/null 2>&1
 	fi
 	hashtags="$( grep -iE '^SHA512=|^SHA256=|^SHA1=|^MD5=|^CRC32=' "$sourceTagFile" 2>/dev/null | sort -u 2>/dev/null )"
 	if [ -z "$hashtags" ]; then
@@ -4633,16 +4633,16 @@ testFile () {
 
 	if [ -e "$copyFile" ]; then
 		case "$copyFile" in
-			*.flac) flac -st "$copyFile" >/dev/null 2>&1; exitCode=$? ;;
+			*.flac) flac -st "$copyFile" 1>/dev/null 2>&1; exitCode=$? ;;
 
 			*.wv)
 				nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
-				wvunpack --threads=$nThreads -qmv "$copyFile" >/dev/null 2>&1; exitCode=$?
+				wvunpack --threads=$nThreads -qmv "$copyFile" 1>/dev/null 2>&1; exitCode=$?
 				;;
 
 			*.ape)
 				nThreads=$( getNumberOfAvailableThreads $index )
-				mac "$copyFile" -V -threads=$nThreads >/dev/null 2>&1; exitCode=$?
+				mac "$copyFile" -V -threads=$nThreads 1>/dev/null 2>&1; exitCode=$?
 				;;
 
 			*) printMessage 'warning' 'testing' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format' ; return $Ex_Ko ;;
@@ -4672,7 +4672,7 @@ testFiles () {
 		if getLock "$testingLockFile"; then
 			prepareSource &&
 			testFile || exitCode=$Ex_Ko
-			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
+			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" 1>/dev/null 2>&1; fi
 			touch "$wasProcessedFile"
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileNumbers"
@@ -4698,10 +4698,10 @@ computeHash () {
 		sourceMD5=''
 		case "$copyFile" in
 			*.flac)
-				metaflac --no-utf8-convert --export-tags-to="$sourceTagFile" "$copyFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				metaflac --no-utf8-convert --export-tags-to="$sourceTagFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					getInternalMD5 "$copyFile"
-					flac -s -d -o "$wavFile" "$copyFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					flac -s -d -o "$wavFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 				;;
 
@@ -4710,7 +4710,7 @@ computeHash () {
 				if [ $exitCode -eq $Ex_Ok ]; then
 					getInternalMD5 "$copyFile"
 					nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
-					wvunpack -q -m --threads=$nThreads -o "$wavFile" "$copyFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					wvunpack -q -m --threads=$nThreads -o "$wavFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 				;;
 
@@ -4718,14 +4718,14 @@ computeHash () {
 				touch "$sourceTagFile"
 				if [ $exitCode -eq $Ex_Ok ]; then
 					nThreads=$( getNumberOfAvailableThreads $index )
-					mac "$copyFile" "$wavFile" -d -threads=$nThreads >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					mac "$copyFile" "$wavFile" -d -threads=$nThreads 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 				;;
 
 			*) printMessage 'warning' 'hashing' '' 'unsupported format' "file:${sourceFile}" $processNumber ; return $Ex_Ko ;;
 		esac
 
-		if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
+		if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" 1>/dev/null 2>&1; fi
 
 		if [ $exitCode -eq $Ex_Ok ]; then
 			processSourceTagFile
@@ -4773,20 +4773,20 @@ computeHash () {
 			wait
 		fi
 
-		if [ -e "$wavFile" ]; then rm -f "$wavFile" >/dev/null 2>&1; fi
+		if [ -e "$wavFile" ]; then rm -f "$wavFile" 1>/dev/null 2>&1; fi
 
 		if [ $exitCode -eq $Ex_Ok ]; then
 			case "$copyFile" in
 				*.flac)
 					destTagFile="${Self_Control_Dir}/${index}.vc.txt" outputCodec="FLAC"
-					cp "$sourceTagFile" "$destTagFile" >/dev/null 2>&1 &&
-					printf -- "--no-utf8-convert`tagline --set-tag`\x00%s" "$sourceFile" | xargs -0 metaflac --remove-all-tags >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					cp "$sourceTagFile" "$destTagFile" 1>/dev/null 2>&1 &&
+					printf -- "--no-utf8-convert`tagline --set-tag`\x00%s" "$sourceFile" | xargs -0 metaflac --remove-all-tags 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 					;;
 
 				*.wv|*.ape)
 					destTagFile="${Self_Control_Dir}/${index}.ape.txt" outputCodec="WavPack"
-					cp "$sourceTagFile" "$destTagFile" >/dev/null 2>&1 &&
-					printf -- "-z`tagline -t`\x00%s" "$sourceFile" | xargs -0 APEv2 >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					cp "$sourceTagFile" "$destTagFile" 1>/dev/null 2>&1 &&
+					printf -- "-z`tagline -t`\x00%s" "$sourceFile" | xargs -0 APEv2 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 					;;
 			esac
 		fi
@@ -4844,8 +4844,8 @@ computeHashes () {
 				if [ $exitCode -eq $Ex_Ok ]; then
 					computeHash || exitCode=$Ex_Ko
 				fi
-				if [ -e "$wavFile" ]; then rm -f "$wavFile" >/dev/null 2>&1; fi
-				if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" >/dev/null 2>&1; fi
+				if [ -e "$wavFile" ]; then rm -f "$wavFile" 1>/dev/null 2>&1; fi
+				if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" 1>/dev/null 2>&1; fi
 			fi
 			touch "$wasProcessedFile"
 		fi
@@ -4980,12 +4980,12 @@ saveReplaygainToMP3 () {
 			--user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
 			--user-text-frame="REPLAYGAIN_${gainType}_PEAK:${peak}" \
 			--user-text-frame="AUDIO_${gainType}_PEAK:${peakDbfs} dBFS" \
-			"$destFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	else
 		eyeD3 --quiet --to-v2.4 \
 			--user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
 			--user-text-frame="REPLAYGAIN_${gainType}_PEAK:${peak}" \
-			"$destFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	fi
 
 	return $exitCode
@@ -5026,21 +5026,21 @@ saveGain () {
 						--set-tag="REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
 						--set-tag="REPLAYGAIN_ALBUM_PEAK=${peak}" \
 						--set-tag="AUDIO_ALBUM_PEAK=${peakDbfs} dBFS" \
-						"$destFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					metaflac \
 						--remove-tag="REPLAYGAIN_ALBUM_GAIN" \
 						--remove-tag="REPLAYGAIN_ALBUM_PEAK" \
 						--set-tag="REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
 						--set-tag="REPLAYGAIN_ALBUM_PEAK=${peak}" \
-						"$destFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			else
 				if [ $computeAudioPeaks = true -a -n "$peakDbfs" ]; then
 					metaflac \
 						--remove-tag="AUDIO_TRACK_PEAK" \
 						--set-tag="AUDIO_TRACK_PEAK=${peakDbfs} dBFS" \
-						"$destFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			fi
 			;;
@@ -5124,21 +5124,21 @@ saveGain () {
 						-t "REPLAYGAIN_ALBUM_PEAK=${peak}" \
 						-t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
 						-t "AUDIO_ALBUM_PEAK=${peakDbfs} dBFS" \
-						"$destFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					vorbiscomment -a \
 						-d "REPLAYGAIN_ALBUM_PEAK" \
 						-d "REPLAYGAIN_ALBUM_GAIN" \
 						-t "REPLAYGAIN_ALBUM_PEAK=${peak}" \
 						-t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
-						"$destFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			else
 				if [ $computeAudioPeaks = true -a -n "$peakDbfs" ]; then
 					vorbiscomment -a \
 						-d "AUDIO_TRACK_PEAK" \
 						-t "AUDIO_TRACK_PEAK=${peakDbfs} dBFS" \
-						"$destFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			fi
 			;;
@@ -5150,10 +5150,10 @@ saveGain () {
 				if [ $preventClipping = true ]; then
 					clippingPreventionParam="-k"
 				fi
-				mp3gain -s d "$destFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-				mp3gain -c $clippingPreventionParam -g "$mp3GainSteps" "$destFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				mp3gain -s d "$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				mp3gain -c $clippingPreventionParam -g "$mp3GainSteps" "$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			else
-				mp3gain -s d "$destFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				mp3gain -s d "$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				saveReplaygainToMP3 || exitCode=$Ex_Ko
 			fi
 			;;
@@ -5221,7 +5221,7 @@ computeTrackGain () {
 	if [ -e "$sourceFile" ]; then
 		case "$sourceFile" in
 			*.flac)
-				metaflac --add-replay-gain "$sourceFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				metaflac --add-replay-gain "$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					trackGain="$( metaflac --show-tag="REPLAYGAIN_TRACK_GAIN" "$sourceFile" 2>> "$Self_Errors_File" | cut -d '=' -f 2 | cut -d ' ' -f 1 | tr -d '+' )"
 					trackPeak="$( metaflac --show-tag="REPLAYGAIN_TRACK_PEAK" "$sourceFile" 2>> "$Self_Errors_File" | cut -d '=' -f 2 )"
@@ -5237,9 +5237,9 @@ computeTrackGain () {
 			*.wv)
 				nThreads=$( getNumberOfAvailableThreads $index )
 				if [ $nThreads -gt 1 ]; then
-					wvgain -q -t "$sourceFile" >/dev/null 2>/dev/null || exitCode=$Ex_Ko
+					wvgain -q -t "$sourceFile" 1>/dev/null 2>/dev/null || exitCode=$Ex_Ko
 				else
-					wvgain -q -1 "$sourceFile" >/dev/null 2>/dev/null || exitCode=$Ex_Ko
+					wvgain -q -1 "$sourceFile" 1>/dev/null 2>/dev/null || exitCode=$Ex_Ko
 				fi
 				if [ $exitCode -eq $Ex_Ok ]; then
 					trackGain="$( wvtag -x "replaygain_track_gain" "$sourceFile" 2>/dev/null | cut -d '=' -f 2 | cut -d ' ' -f 1 | tr -d '+' )"
@@ -5254,7 +5254,7 @@ computeTrackGain () {
 				;;
 
 			*.ape)
-				rsgain custom -q -s i "$sourceFile" >/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				rsgain custom -q -s i "$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					shopt -qs nocasematch
 					while read line; do
@@ -5291,7 +5291,7 @@ computeTrackGain () {
 
 			*.mp3)
 				mp3gain -u "$sourceFile" 1>/dev/null 2>/dev/null
-				mp3gain -s d "$sourceFile" >/dev/null 2>/dev/null
+				mp3gain -s d "$sourceFile" 1>/dev/null 2>/dev/null
 				if [ $preventClipping = true ]; then
 					clippingPreventionParam="-k"
 				fi
@@ -5566,7 +5566,7 @@ reverseTrackGain () {
 			*.mp3)
 				mp3gain -u "$sourceFile" 1>/dev/null 2>/dev/null ; exitCode=$?
 				if [ $exitCode -eq $Ex_Ok ]; then
-					mp3gain -s d "$sourceFile" >/dev/null 2>> "$Self_Errors_File"
+					mp3gain -s d "$sourceFile" 1>/dev/null 2>> "$Self_Errors_File"
 				fi
 				;;
 
@@ -6485,9 +6485,9 @@ endTimer () {
 checkMainBinaries
 
 maxProcesses=''
-if which 'nproc' >/dev/null 2>&1; then # GNU Coreutils installed
+if which 'nproc' 1>/dev/null 2>&1; then # GNU Coreutils installed
 	maxProcesses="$( nproc 2>/dev/null )"
-elif which 'gnproc' >/dev/null 2>&1; then # GNU Coreutils installed on macOS
+elif which 'gnproc' 1>/dev/null 2>&1; then # GNU Coreutils installed on macOS
 	maxProcesses="$( gnproc 2>/dev/null )"
 elif [ -e '/proc/cpuinfo' ]; then # Linux
 	maxProcesses="$( grep -cF 'cpu MHz' /proc/cpuinfo 2>/dev/null )"
@@ -6556,15 +6556,15 @@ getBitrateMode 'MP3' "$MP3_MODE" 'caudecrc'
 getBitrateMode 'OggVorbis' "$OggVorbis_MODE" 'caudecrc'
 getBitrateMode 'Opus' "$Opus_MODE" 'caudecrc'
 
-if which 'mac' >/dev/null 2>&1; then
-	if mac 2>&1 | grep -F 'Verify:' >/dev/null 2>&1; then # mac has the patch that adds the -v parameter
+if which 'mac' 1>/dev/null 2>&1; then
+	if mac 2>&1 | grep -F 'Verify:' 1>/dev/null 2>&1; then # mac has the patch that adds the -v parameter
 		macHasVerify=true
 	fi
 fi
 
 if [ -n "$defaultDestination" ]; then
 	if [ ! -e "$defaultDestination" ]; then
-		if ! mkdir -p "$defaultDestination" >/dev/null 2>&1 ; then
+		if ! mkdir -p "$defaultDestination" 1>/dev/null 2>&1 ; then
 			printMessage 'error' 'usage' 'filesystem' "path:${defaultDestination}" "$Self_Name: failed to create '\$defaultDestination' (do you have write permissions?)." ; exit $Ex_Cant_Create
 		fi
 	fi
@@ -6586,7 +6586,7 @@ fi
 
 if [ -n "$defaultLosslessDestination" ]; then
 	if [ ! -e "$defaultLosslessDestination" ]; then
-		if ! mkdir -p "$defaultLosslessDestination" >/dev/null 2>&1 ; then
+		if ! mkdir -p "$defaultLosslessDestination" 1>/dev/null 2>&1 ; then
 			printMessage 'error' 'usage' 'filesystem' "path:${defaultLosslessDestination}" "$Self_Name: failed to create '\$defaultLosslessDestination' (do you have write permissions?)." ; exit $Ex_Cant_Create
 		fi
 	fi
@@ -6607,7 +6607,7 @@ fi
 
 if [ -n "$defaultLossyDestination" ]; then
 	if [ ! -e "$defaultLossyDestination" ]; then
-		if ! mkdir -p "$defaultLossyDestination" >/dev/null 2>&1 ; then
+		if ! mkdir -p "$defaultLossyDestination" 1>/dev/null 2>&1 ; then
 			printMessage 'error' 'usage' 'filesystem' "path:${defaultLossyDestination}" "$Self_Name: failed to create '\$defaultLossyDestination' (do you have write permissions?)." ; exit $Ex_Cant_Create
 		fi
 	fi
@@ -6629,7 +6629,7 @@ fi
 # defaultLinkedDestination
 if [ -n "$defaultLinkedDestination" ]; then
 	if [ ! -e "$defaultLinkedDestination" ]; then
-		if ! mkdir -p "$defaultLinkedDestination" >/dev/null 2>&1 ; then
+		if ! mkdir -p "$defaultLinkedDestination" 1>/dev/null 2>&1 ; then
 			printMessage 'error' 'usage' 'filesystem' "path:${defaultLinkedDestination}" "$Self_Name: failed to create '\$defaultLinkedDestination' (do you have write permissions?)." ; exit $Ex_Cant_Create
 		fi
 	fi
@@ -6841,7 +6841,7 @@ while getopts '2a:B:b:C:c:df:G:ghH:iIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 				lastCodecDestDir="${lastCodecDestDir%/}"
 			fi
 			if [ ! -e "$lastCodecDestDir" ]; then
-				if ! mkdir -p "$lastCodecDestDir" >/dev/null 2>&1 ; then
+				if ! mkdir -p "$lastCodecDestDir" 1>/dev/null 2>&1 ; then
 					printMessage 'error' 'usage' 'filesystem' "path:${lastCodecDestDir}" "$Self_Name -O/P: failed to create directory (do you have write permissions?)." ; exit $Ex_Cant_Create
 				fi
 			elif [ ! -d "$lastCodecDestDir" ]; then
@@ -6888,7 +6888,7 @@ while getopts '2a:B:b:C:c:df:G:ghH:iIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 				linkDir="${linkDir%/}"
 			fi
 			if [ ! -e "$linkDir" ]; then
-				if ! mkdir -p "$linkDir" >/dev/null 2>&1 ; then
+				if ! mkdir -p "$linkDir" 1>/dev/null 2>&1 ; then
 					printMessage 'error' 'usage' 'filesystem' "path:${linkDir}" "$Self_Name -L: failed to create directory (do you have write permissions?)." ; exit $Ex_Cant_Create
 				fi
 			elif [ ! -d "$linkDir" ]; then
