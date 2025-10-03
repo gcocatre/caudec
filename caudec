@@ -3276,7 +3276,7 @@ decode () {
 	fi
 
 	if [ $exitCode -ne $Ex_Ok ]; then
-		rm -f "$wavFile" "$copyFile" "${copyFile}c" "$resampledWavFile" # in case it exists
+		rm -f "$wavFile" "$copyFile" "${copyFile}c" "$resampledWavFile" "$wavProcessedStatusFile" # in case it exists
 		rm -f "${Self_Control_Dir}/${paddedFileIndex}_encoding_"*.job # delete all codec lock files
 		rm -f "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info # delete associated lock files
 		if [ $exitCode -eq $Ex_Io_Err ]; then
