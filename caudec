@@ -1470,14 +1470,14 @@ checkBinaries () {
 }
 
 adjustNumberOfProcesses () {
-	local numberOfFiles=$1 processIndex
+	local numberOfFiles=$1 processNumber
 
 	if [ $numberOfFiles -lt $nProcesses ]; then
 		nProcesses=$numberOfFiles
 	fi
 
-	for (( processIndex=0 ; processIndex < nProcesses; processIndex++ )); do
-		touch "${Self_Jobs_Dir}/process.${processIndex}" 1>/dev/null 2>&1
+	for (( processNumber=0 ; processNumber < nProcesses; processNumber++ )); do
+		touch "${Self_Jobs_Dir}/process.${processNumber}" 1>/dev/null 2>&1
 	done
 }
 
@@ -1578,7 +1578,7 @@ createControlFiles () {
 
 	for (( threadIndex=0; threadIndex < filesPerJob; threadIndex++ )); do
 		fileIndex=$(( jobIndex * filesPerJob + threadIndex ))
-		if [ $fileIndex -gt $numberOfSourceFiles ]; then
+		if [ $fileIndex -ge $numberOfSourceFiles ]; then
 			return
 		fi
 		paddedFileIndex="$( printf "%03i" $fileIndex )"
@@ -1708,7 +1708,7 @@ getNumberOfCaudecProcesses () {
 
 getNumberOfProcessedFiles () {
 	local numberOfProcessedFiles
-	numberOfProcessedFiles="$( ls -1 "${Self_Control_Dir}/WAS_PROCESSED".* 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
+	numberOfProcessedFiles="$( ls -1 "${Self_Control_Dir}"/*"_wav_processed.info" 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
 	echo $(( numberOfProcessedFiles * nCodecs ))
 }
 
@@ -1726,13 +1726,13 @@ getNumberOfAvailableThreads () {
 		return
 	fi
 
-	while read milliseconds number; do
-		test -e "${Self_Control_Dir}/WAS_PROCESSED.${number}" 1>/dev/null 2>/dev/null && continue
+	while read milliseconds paddedFileIndex fileIndex; do
+		test -e "${Self_Control_Dir}/${paddedFileIndex}_wav_processed.info" 1>/dev/null 2>/dev/null && continue
 		nMillisecondsLeft=$(( nMillisecondsLeft + milliseconds ))
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
-	while read milliseconds number; do
-		test -e "${Self_Control_Dir}/WAS_PROCESSED.${number}" 1>/dev/null 2>/dev/null && continue
+	while read milliseconds paddedFileIndex fileIndex; do
+		test -e "${Self_Control_Dir}/${paddedFileIndex}_wav_processed.info" 1>/dev/null 2>/dev/null && continue
 		if [ "$number" = "$index" ]; then
 			# +0.3 to round up any n value over n.2 even though printf "%.0f" already rounds up anything over n.5
 			nThreads="$( printf "%.0f" "$( echo "scale=3; $maxProcessesSetByUser * $milliseconds / $nMillisecondsLeft + 0.3" | bc )" )"
@@ -3051,7 +3051,7 @@ decode () {
 	local soxGuard='' kfm='' nChannels=2 gaincmd='' ratecmd='' bitdepthcmd='' dithercmd='' gainPeak=''
 	local destFileTargetPath copyFileTargetPath gotWavOutputCodec
 
-	isWavProcessed 'false'
+	isWavProcessed 'false' ; ec=$?
 	if [ -e "$copyFile" ]; then
 		case "$sourceExtension" in
 			wav)
@@ -3277,9 +3277,9 @@ decode () {
 		rm -f "${Self_Control_Dir}/${paddedFileIndex}_encoding_"*.job # delete all codec lock files
 		rm -f "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info # delete associated lock files
 		if [ $exitCode -eq $Ex_Io_Err ]; then
-			printMessage 'error' 'processing' "file:${sourceFile}" $p
-		elif [ $exitCode -ne $Ex_Ok ]; then
-			printMessage 'error' 'decoding' "file:${sourceFile}" $p
+			printMessage 'error' 'processing' "file:${sourceFile}" $processNumber
+		else
+			printMessage 'error' 'decoding' "file:${sourceFile}" $processNumber
 		fi
 		return $Ex_Ko
 	fi
@@ -4096,7 +4096,7 @@ transcode () {
 		sleep 0.05 # make sure idling processes don't hog the CPU
 	done
 
-	rm -f "${Self_Jobs_Dir}/process.${p}"
+	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
 	return $exitCode
 }
 
@@ -4150,7 +4150,7 @@ testFiles () {
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
-	rm -f "${Self_Jobs_Dir}/process.${p}"
+	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
 	return $exitCode
 }
 
@@ -4170,7 +4170,7 @@ showInternalHash () {
 	if [ $exitCode -eq $Ex_Ok -a -n "$hash" ]; then
 		printMessage 'info' 'hashing' "hash:$hash" "hashType:MD5" "file:${sourceFile}" "threads:1" $processNumber
 	else
-		printMessage 'error' 'hashing' "" "file doesn't have an internal hash" "file:${sourceFile}" $p
+		printMessage 'error' 'hashing' "" "file doesn't have an internal hash" "file:${sourceFile}" $processNumber
 	fi
 	return $exitCode
 }
@@ -4193,7 +4193,7 @@ showInternalHashes () {
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
-	rm -f "${Self_Jobs_Dir}/process.${p}"
+	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
 	return $exitCode
 }
 
@@ -4288,9 +4288,9 @@ showTrackInformation () {
 	esac
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth}${floatStr};${samplingRate};${bitrate}" "mediaType:${mediaType}" "file:${sourceFile}" $p
+		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth}${floatStr};${samplingRate};${bitrate}" "mediaType:${mediaType}" "file:${sourceFile}" $processNumber
 	else
-		printMessage 'error' 'characteristics' "characteristics:0;00;00000;0" "mediaType:${mediaType}" "file:${sourceFile}" $p
+		printMessage 'error' 'characteristics' "characteristics:0;00;00000;0" "mediaType:${mediaType}" "file:${sourceFile}" $processNumber
 	fi
 	return $exitCode
 }
@@ -4311,7 +4311,7 @@ showTracksInformation () {
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
-	rm -f "${Self_Jobs_Dir}/process.${p}"
+	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
 	return $exitCode
 }
 
@@ -4680,7 +4680,7 @@ computeTrackGain () {
 				printMessage 'success' 'track_gain' $processNumber "$trackGain dB" "Track gain: $trackGain dB" "file:${sourceFile}"
 			fi
 		else
-			printMessage 'error' 'track_gain' "file:${sourceFile}" $p
+			printMessage 'error' 'track_gain' "file:${sourceFile}" $processNumber
 		fi
 	fi
 	return $exitCode
@@ -4705,7 +4705,7 @@ computeTrackGains () {
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
-	rm -f "${Self_Jobs_Dir}/process.${p}"
+	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
 	return $exitCode
 }
 
@@ -4926,7 +4926,7 @@ reverseTrackGain () {
 			printMessage 'success' 'track_gain' $processNumber "-0 dB" "file:${sourceFile}"
 		fi
 	else
-		printMessage 'error' 'track_gain' "file:${sourceFile}" $p
+		printMessage 'error' 'track_gain' "file:${sourceFile}" $processNumber
 	fi
 	return $exitCode
 }
@@ -4943,7 +4943,7 @@ reverseTrackGains () {
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
-	rm -f "${Self_Jobs_Dir}/process.${p}"
+	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
 	return $exitCode
 }
 
@@ -5039,7 +5039,7 @@ computeTrackDateTimes () {
 		fi
 	done
 
-	rm -f "${Self_Jobs_Dir}/process.${p}"
+	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
 	return $exitCode
 }
 
