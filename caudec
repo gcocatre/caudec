@@ -3543,7 +3543,7 @@ encode () {
 
 		# encodeALAC
 		ALAC)
-			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}.m4a.txt"
+			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_m4a.txt"
 			nThreads=$( getNumberOfAvailableThreads $index )
 			if [ "$doEmbedCoverArt" = "true" ]; then
 				if [ -z "$sourceCoverArtFile" ]; then
@@ -3565,7 +3565,7 @@ encode () {
 
 		# encodeFLAC
 		FLAC)
-			destExtension='flac'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}.vc.txt" kfm=''
+			destExtension='flac'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_vc.txt" kfm=''
 			# Kohlrabi is a very cool dude
 			if [ $keepWavMetadata = true ]; then kfm='--keep-foreign-metadata' ; fi
 			if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / FLAC $flacVersion / -$compression_FLAC"; fi
@@ -3583,7 +3583,7 @@ encode () {
 
 		# encodeAPE
 		MonkeysAudio)
-			destExtension='ape'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}.ape.txt"
+			destExtension='ape'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_ape.txt"
 			nThreads=$( getNumberOfAvailableThreads $index )
 			mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 -threads=${nThreads} 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
@@ -3598,7 +3598,7 @@ encode () {
 
 		# encodeWV
 		WavPack)
-			destExtension='wv'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}.ape.txt" kfm='-r'
+			destExtension='wv'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_ape.txt" kfm='-r'
 			if [ -e "${destFile}c" ]; then
 				printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$Self_Name -c wv: correction files are present. Please delete them and try again." ; exitCode=$Ex_Ko
 			else
@@ -3617,7 +3617,7 @@ encode () {
 
 		# encodeWVH
 		WavPackHybrid)
-			destExtension='wv'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}.ape.txt" kfm='-r'
+			destExtension='wv'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_ape.txt" kfm='-r'
 			if [ $keepWavMetadata = true ]; then kfm=''; fi
 			# WavPack Hybrid only supports multithreading for files with more than 2 channels
 			nChannels=$( getNumberOfChannels "$wavFile" )
@@ -3644,7 +3644,7 @@ encode () {
 
 		# encodeWVL
 		WavPackLossy)
-			destExtension='wv'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}.ape.txt" kfm='-r'
+			destExtension='wv'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_ape.txt" kfm='-r'
 			if [ -e "${destFile}c" ]; then
 				printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$Self_Name -c wv: correction files are present. Please delete them and try again." ; exitCode=$Ex_Ko
 			else
@@ -3675,7 +3675,7 @@ encode () {
 
 		# encodeLossyFLAC
 		lossyFLAC)
-			destExtension='lossy.flac'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}.vc.txt"
+			destExtension='lossy.flac'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_vc.txt"
 			if [ $sourceIsLossyWAV = true ]; then
 				printMessage 'warning' 'encoding' "file:${sourceBasename}" $processNumber "${outputCodec}: source is already lossy"
 				exitCode=$Ex_Ko
@@ -3705,7 +3705,7 @@ encode () {
 
 		# encodeMP3
 		MP3)
-			destExtension='mp3'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}.mp3.txt"
+			destExtension='mp3'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_mp3.txt"
 			if [ "$compression_MP3" = '320' ]; then
 				MP3_MODE='CBR' bitrate_MP3=320
 			fi
@@ -3743,7 +3743,7 @@ encode () {
 
 		# encodeAAC
 		AAC)
-			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}.m4a.txt" aaclibs=("aac_at" "libfdk_aac" "aac") aaclib=""
+			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_m4a.txt" aaclibs=("aac_at" "libfdk_aac" "aac") aaclib=""
 			if [ "$doEmbedCoverArt" = "true" ]; then
 				if [ -z "$sourceCoverArtFile" ]; then
 					for coverArtFile in "${Self_Swap_Dir}/${paddedFileIndex}_picture_3-"; do
@@ -3807,7 +3807,7 @@ encode () {
 
 		# encodeOgg
 		OggVorbis)
-			destExtension='ogg'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}.vc.txt"
+			destExtension='ogg'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_vc.txt"
 			if [ "$OggVorbis_MODE" = 'VBR' ]; then
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / oggenc $oggencVersion / -q $compression_OggVorbis"; fi
 				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc -q $compression_OggVorbis -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
@@ -3822,7 +3822,7 @@ encode () {
 
 		# encodeOpus
 		Opus)
-			destExtension='opus'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}.vc.txt"
+			destExtension='opus'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_vc.txt"
 			if [ "$Opus_MODE" = 'VBR' ]; then
 				if [ $tagCompressionSetting = true ]; then compressionTag="ENCODING=$Self_Name $Self_Version / $opusVersion / $compression_Opus kbps (VBR)"; fi
 				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --padding $OpusPadding --vbr --bitrate $compression_Opus 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
