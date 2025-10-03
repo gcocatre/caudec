@@ -1706,12 +1706,12 @@ getNumberOfCaudecProcesses () {
 
 getNumberOfProcessedFiles () {
 	local numberOfProcessedFiles
-	numberOfProcessedFiles="$( ls -1 "${Self_Control_Dir}"/*"_wav_processed.info" 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
+	numberOfProcessedFiles="$( ls -1 "${Self_Control_Dir}"/*"_all_processed.info" 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
 	echo $(( numberOfProcessedFiles * nCodecs ))
 }
 
 getNumberOfAvailableThreads () {
-	local n=$1 maxThreads="$2" nProcessedFiles nAvailableProcesses nMillisecondsLeft=0 nThreads=1
+	local index="$1" maxThreads="$2" nProcessedFiles nAvailableProcesses nMillisecondsLeft=0 nThreads=1
 
 	if [ -z "$maxThreads" ]; then
 		maxThreads=999999
@@ -1725,13 +1725,13 @@ getNumberOfAvailableThreads () {
 	fi
 
 	while read milliseconds paddedFileIndex fileIndex; do
-		test -e "${Self_Control_Dir}/${paddedFileIndex}_wav_processed.info" 1>/dev/null 2>/dev/null && continue
+		test -e "${Self_Control_Dir}/${paddedFileIndex}_all_processed.info" 1>/dev/null 2>/dev/null && continue
 		nMillisecondsLeft=$(( nMillisecondsLeft + milliseconds ))
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 	while read milliseconds paddedFileIndex fileIndex; do
-		test -e "${Self_Control_Dir}/${paddedFileIndex}_wav_processed.info" 1>/dev/null 2>/dev/null && continue
-		if [ "$number" = "$index" ]; then
+		test -e "${Self_Control_Dir}/${paddedFileIndex}_all_processed.info" 1>/dev/null 2>/dev/null && continue
+		if [ "$fileIndex" = "$index" ]; then
 			# +0.3 to round up any n value over n.2 even though printf "%.0f" already rounds up anything over n.5
 			nThreads="$( printf "%.0f" "$( echo "scale=3; $maxProcessesSetByUser * $milliseconds / $nMillisecondsLeft + 0.3" | bc )" )"
 			break
@@ -3054,13 +3054,19 @@ decode () {
 			wav)
 				sourceTagFormat='vc'
 				if [ -L "$copyFile" ]; then
-					if [ $gotWavOutputCodec = 'true' ]; then
+					if [ "$gotWavOutputCodec" = 'true' ]; then
 						getOutputCodecDestFile "$sourceFile"
 						destFileTargetPath="$( readlink -f "$destFile" )"
 						copyFileTargetPath="$( readlink -f "$copyFile" )"
 						if [ "$destFileTargetPath" = "$copyFileTargetPath" ]; then
 							cp "$copyFileTargetPath" "$wavFile" >/dev/null 2>&1 || exitCode=$Ex_Ko
+						else
+							mv "$copyFile" "$wavFile" 1>/dev/null 2>&1 || exitCode=$Ex_Ko
 						fi
+					elif [ "$outputCodecs" = 'WAV' ]; then
+						mv "$copyFile" "$wavFile" 1>/dev/null 2>&1 || exitCode=$Ex_Ko
+					else
+						cp "$copyFile" "$wavFile" 1>/dev/null 2>&1 || exitCode=$Ex_Ko
 					fi
 				elif [ "$outputCodecs" = 'WAV' ]; then
 					mv "$copyFile" "$wavFile" 1>/dev/null 2>&1 || exitCode=$Ex_Ko
@@ -3103,7 +3109,7 @@ decode () {
 			wv)
 				sourceTagFormat='ape' kfm='-w'
 				if [ $keepWavMetadata = 'true' ]; then kfm='' ; fi
-				nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
+				nThreads=$( getNumberOfAvailableThreads "$fileIndex" $WavPack_Max_Threads )
 				wvunpack -q $kfm -m --threads=$nThreads -o "$wavFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
@@ -3114,7 +3120,7 @@ decode () {
 			# decodeAPE
 			ape)
 				sourceTagFormat='ape'
-				nThreads=$( getNumberOfAvailableThreads $index )
+				nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
 				mac "$copyFile" "$wavFile" -d -threads=$nThreads 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
@@ -3125,7 +3131,7 @@ decode () {
 			# decodeALAC
 			m4a)
 				sourceTagFormat='m4a'
-				nThreads=$( getNumberOfAvailableThreads $index )
+				nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
 				ffmpeg -i "$copyFile" -threads ${nThreads} "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					ffmpeg -i "$copyFile" -f ffmetadata "$sourceTagFile" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
@@ -3541,7 +3547,7 @@ encode () {
 		# encodeALAC
 		ALAC)
 			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_m4a.txt"
-			nThreads=$( getNumberOfAvailableThreads $index )
+			nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
 			if [ "$doEmbedCoverArt" = 'true' ]; then
 				if [ -z "$sourceCoverArtFile" ]; then
 					for coverArtFile in "${Self_Swap_Dir}/${paddedFileIndex}_picture_3-"; do
@@ -3571,7 +3577,7 @@ encode () {
 				embeddedArtworkBytes="$( getEmbeddedArtworkSize )"
 				padding=$(( padding + embeddedArtworkBytes ))
 			fi
-			nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
+			nThreads=$( getNumberOfAvailableThreads "$fileIndex" $Flac_Max_Threads )
 			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P $padding $kfm -${compression_FLAC} -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = 'true' ]; then
 				importArtworkIntoFLAC || exitCode=$Ex_Ko
@@ -3581,7 +3587,7 @@ encode () {
 		# encodeAPE
 		MonkeysAudio)
 			destExtension='ape'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_ape.txt"
-			nThreads=$( getNumberOfAvailableThreads $index )
+			nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
 			mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 -threads=${nThreads} 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 				if [ $tagCompressionSetting = 'true' ]; then compressionTag="Encoding=$Self_Name $Self_Version / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
@@ -3600,7 +3606,7 @@ encode () {
 				printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$Self_Name -c wv: correction files are present. Please delete them and try again." ; exitCode=$Ex_Ko
 			else
 				if [ $keepWavMetadata = 'true' ]; then kfm=''; fi
-				nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
+				nThreads=$( getNumberOfAvailableThreads "$fileIndex" $WavPack_Max_Threads )
 				if [ $tagCompressionSetting = 'true' ]; then compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack"; fi
 				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
@@ -3619,7 +3625,7 @@ encode () {
 			# WavPack Hybrid only supports multithreading for files with more than 2 channels
 			nChannels=$( getNumberOfChannels "$wavFile" )
 			if [ $nChannels -gt 2 ]; then
-				nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
+				nThreads=$( getNumberOfAvailableThreads "$fileIndex" $WavPack_Max_Threads )
 			else
 				nThreads=1
 			fi
@@ -3649,7 +3655,7 @@ encode () {
 				# WavPack Lossy only supports multithreading for files with more than 2 channels
 				nChannels=$( getNumberOfChannels "$wavFile" )
 				if [ $nChannels -gt 2 ]; then
-					nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
+					nThreads=$( getNumberOfAvailableThreads "$fileIndex" $WavPack_Max_Threads )
 				else
 					nThreads=1
 				fi
@@ -3684,7 +3690,7 @@ encode () {
 				embeddedArtworkBytes="$( getEmbeddedArtworkSize )"
 				padding=$(( padding + embeddedArtworkBytes ))
 			fi
-			# nThreads=$( getNumberOfAvailableThreads $index $Flac_Max_Threads )
+			# nThreads=$( getNumberOfAvailableThreads "$fileIndex" $Flac_Max_Threads )
 			nThreads=1 # flac -5 -e -p is slower than lossyWAV
 			bitsPerSample="$( soxi -b "$wavFile" 2>/dev/null )"
 			mkfifo "$namedPipe"
@@ -4072,8 +4078,8 @@ transcode () {
 					if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
 						copyOrLinkOtherFiles "WavPackLossy"
 					fi
-					allCodecsDone='true'
-					ls "${Self_Control_Dir}/${paddedFileIndex}_encoding_"*.job 1>/dev/null 2>&1 || allCodecsDone='false'
+					allCodecsDone='false'
+					ls "${Self_Control_Dir}/${paddedFileIndex}_encoding_"*.job 1>/dev/null 2>&1 || allCodecsDone='true'
 					if [ $allCodecsDone = 'true' ]; then
 						touch "$wasProcessedFile"
 					fi
@@ -4105,12 +4111,12 @@ testFile () {
 			*.flac) flac -st "$copyFile" 1>/dev/null 2>&1; exitCode=$? ;;
 
 			*.wv)
-				nThreads=$( getNumberOfAvailableThreads $index $WavPack_Max_Threads )
+				nThreads=$( getNumberOfAvailableThreads "$fileIndex" $WavPack_Max_Threads )
 				wvunpack --threads=$nThreads -qmv "$copyFile" 1>/dev/null 2>&1; exitCode=$?
 				;;
 
 			*.ape)
-				nThreads=$( getNumberOfAvailableThreads $index )
+				nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
 				mac "$copyFile" -V -threads=$nThreads 1>/dev/null 2>&1; exitCode=$?
 				;;
 
@@ -4575,7 +4581,7 @@ computeTrackGain () {
 				;;
 
 			*.wv)
-				nThreads=$( getNumberOfAvailableThreads $index )
+				nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
 				if [ $nThreads -gt 1 ]; then
 					wvgain -q -t "$sourceFile" 1>/dev/null 2>/dev/null || exitCode=$Ex_Ko
 				else
