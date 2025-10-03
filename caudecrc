@@ -2,7 +2,7 @@
 
 # save this file to either /etc/caudecrc or ~/.caudecrc
 
-# CAUDECDIR="" # set to a directory of your choosing (e.g. ${HOME}/tmp)
+# CAUDECDIR="${HOME}/tmp" # set to a directory of your choosing (e.g. "${HOME}/tmp") for temporary swap files
 
 # default compression levels (try 'caudec -c CODEC -q help' for a full list of possible values)
 compression_FLAC=5 # 0-8
@@ -36,7 +36,7 @@ OpusPadding=512 #  size in bytes of padding to add to Opus files
 ID3Padding=512 # size in bytes of padding to add to ID3v2 tags
 
 # When using transcaude, give files a timestamp that matches the music's release date and duration times
-transcaudeTouchFiles="true"
+transcaudeTouchFiles='true'
 
 # Default destination is the current directory. This can be overridden by the following destinations variables:
 
@@ -71,21 +71,21 @@ copyOtherFilesForLossyByDefault="" # copy certain files when transcoding to loss
 
 maxInstances=10 # maximum number of caudec instances allowed to run concurrently
 maxInputFiles=900 # raise a warning and exit if the number of input files is higher than that
-preloadSources=false # cache source files to temporary directory (e.g. a fast SSD) before processing them
+preloadSources='false' # cache source files to temporary directory (e.g. a fast SSD) before processing them
 
-# strategy for processing files in order of duration: "longest", "shortest" or "none":
+# strategy for processing files in order of duration: 'longest', 'shortest' or 'none':
 orderStrategy='none'
 
-preventClipping=true # reduce volume to prevent clipping, when resampling or applying gain
-computeAudioPeaks=false # when computing ReplayGain, also include audio peaks in dBFS
+preventClipping='true' # reduce volume to prevent clipping, when resampling or applying gain
+computeAudioPeaks='false' # when computing ReplayGain, also include audio peaks in dBFS
 
-setCompilationFlagWithAlbumArtist=false # always true when ALBUMARTIST="Various Artists" regardless of this setting
-keepWavMetadata=false # set to true to keep WAV metadata with FLAC and WavPack
-tagCompressionSetting=true # store the compression setting in metadata
-ignoreUnsupportedFiles=false # set to true to prevent caudec from aborting when some of the input files are unsupported
+setCompilationFlagWithAlbumArtist='false' # always true when ALBUMARTIST="Various Artists" regardless of this setting
+keepWavMetadata='false' # set to true to keep WAV metadata with FLAC and WavPack
+tagCompressionSetting='true' # store the compression setting in metadata
+ignoreUnsupportedFiles='false' # set to true to prevent caudec from aborting when some of the input files are unsupported
 
-enableColors=true # Enable colors in human-readable output
-useBrightColors=true # If enableColors=true, use bright colors (instead of darker ones)
+enableColors='true' # Enable colors in human-readable output
+useBrightColors='true' # If enableColors=true, use bright colors (instead of darker ones)
 
 # Whitelist / Blacklist: lists of comma separated tags
 # Example: 'artist, date, album, tracknumber, title, genre, replaygain_reference_loudness, replaygain_track_gain, replaygain_track_peak, replaygain_album_gain, replaygain_album_peak'
