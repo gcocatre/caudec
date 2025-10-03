@@ -2779,8 +2779,8 @@ importArtworkIntoFLAC () {
 			continue
 		fi
 		picBasename="${picFile##*/}"
-		picType="$( echo "$picBasename" | cut -d '-' -f 3 | tr -cd [0-9] )"
-		picNumber="$( echo "$picBasename" | cut -d '-' -f 4 | tr -cd [0-9] )"
+		picType="$( echo "$picBasename" | cut -d '_' -f 3 | tr -cd [0-9] )"
+		picNumber="$( echo "$picBasename" | cut -d '_' -f 4 | tr -cd [0-9] )"
 		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$picType" "$picNumber" "txt" )"
 		description=''
 		if [ -r "$descFile" ]; then
@@ -2821,8 +2821,8 @@ genOpusArtworkCommandLine () {
 			continue
 		fi
 		picBasename="${picFile##*/}"
-		picType="$( echo "$picBasename" | cut -d '-' -f 3 | tr -cd [0-9] )"
-		picNumber="$( echo "$picBasename" | cut -d '-' -f 4 | tr -cd [0-9] )"
+		picType="$( echo "$picBasename" | cut -d '_' -f 3 | tr -cd [0-9] )"
+		picNumber="$( echo "$picBasename" | cut -d '_' -f 4 | tr -cd [0-9] )"
 		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$picType" "$picNumber" "txt" )"
 		description=''
 		if [ -r "$descFile" ]; then
@@ -2857,8 +2857,8 @@ importArtworkIntoAPEv2 () {
 			continue
 		fi
 		picBasename="${picFile##*/}"
-		picType="$( echo "$picBasename" | cut -d '-' -f 3 | tr -cd [0-9] )"
-		picNumber="$( echo "$picBasename" | cut -d '-' -f 4 | tr -cd [0-9] )"
+		picType="$( echo "$picBasename" | cut -d '_' -f 3 | tr -cd [0-9] )"
+		picNumber="$( echo "$picBasename" | cut -d '_' -f 4 | tr -cd [0-9] )"
 		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$picType" "$picNumber" "txt" )"
 		description=''
 		if [ -r "$descFile" ]; then
@@ -2928,16 +2928,14 @@ importArtworkIntoMP3 () {
 			continue
 		fi
 		picBasename="${picFile##*/}"
-		picType="$( echo "$picBasename" | cut -d '-' -f 3 | tr -cd [0-9] )"
-		picNumber="$( echo "$picBasename" | cut -d '-' -f 4 | tr -cd [0-9] )"
+		picType="$( echo "$picBasename" | cut -d '_' -f 3 | tr -cd [0-9] )"
+		picNumber="$( echo "$picBasename" | cut -d '_' -f 4 | tr -cd [0-9] )"
 		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$picType" "$picNumber" "txt" )"
 		description=''
 		if [ -r "$descFile" ]; then
 			description="$( cat "$descFile" 2>> "$Self_Errors_File" )"
 		fi
-
 		picTypeLabel="$( getID3v2TrackPictureTypeLabel "$picType" )"
-
 		eyeD3 --quiet --to-v2.4 --add-image="${picFile}:${picTypeLabel}:${description}" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	done
 
