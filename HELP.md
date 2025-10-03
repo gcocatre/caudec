@@ -143,7 +143,7 @@ Little to no extra storage will be used (just extra inodes).
 
 Decoding parameters (all mutually exlusive from each other and other actions):
 
-  -d        decode to WAV (input: AIFF, CAF, FLAC, WavPack, Monkey's Audio)
+  -d        decode to WAV (input: AIFF, ALAC, APE, CAF, FLAC, WavPack)
   -t        test file integrity
   -H        show internal hash, if available
 
