@@ -83,7 +83,6 @@ setCompilationFlagWithAlbumArtist=false # always true when ALBUMARTIST="Various 
 keepWavMetadata=false # set to true to keep WAV metadata with FLAC and WavPack
 tagCompressionSetting=true # store the compression setting in metadata
 ignoreUnsupportedFiles=false # set to true to prevent caudec from aborting when some of the input files are unsupported
-hashes='' # comma separated list of hashes to compute and tag (CRC32, MD5, SHA1, SHA256 and / or SHA512)
 
 enableColors=true # Enable colors in human-readable output
 useBrightColors=true # If enableColors=true, use bright colors (instead of darker ones)

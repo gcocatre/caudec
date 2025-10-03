@@ -1,5 +1,5 @@
 ```
-caudec 3.3.3: multiprocess audio converter
+caudec 4.0.0: multiprocess audio converter
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
@@ -145,10 +145,7 @@ Decoding parameters (all mutually exlusive from each other and other actions):
 
   -d        decode to WAV (input: AIFF, CAF, FLAC, WavPack, Monkey's Audio)
   -t        test file integrity
-  -H HASH   compute hash of raw PCM (CRC32, MD5, SHA1, SHA256 or SHA512,
-            FLAC, WavPack, Monkey's Audio and lossyFLAC only)
-  -H ^HASH  do NOT compute HASH even if it's in caudecrc
-  -H i[nt]  show internal hash, if available
+  -H        show internal hash, if available
 
 -------------------------------------------------------------------------------
 
