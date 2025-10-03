@@ -2638,7 +2638,7 @@ extractAPEv2Artwork () {
 }
 
 extractAPEv2Binaries () {
-	local exitCode=$Ex_Ok pattern argString='' fieldName='' binaryIndex=0
+	local exitCode=$Ex_Ok pattern argString='' fieldName='' binaryIndex=1 paddedBinaryIndex
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
@@ -2650,8 +2650,9 @@ extractAPEv2Binaries () {
 					mkdir -p "$binariesDir" 1>/dev/null 2>&1
 				fi
 				while read fieldName; do
-					echo "$fieldName" > "${binariesDir}/${binaryIndex}.txt" 2>/dev/null
-					argString="${argString}\\x00-d\\x00${fieldName}=${binariesDir}/${binaryIndex}.bin"
+					paddedBinaryIndex="$( printf "%03i" $binaryIndex )"
+					echo "$fieldName" > "${binariesDir}/${paddedBinaryIndex}.txt" 2>/dev/null
+					argString="${argString}\\x00-d\\x00${fieldName}=${binariesDir}/${paddedBinaryIndex}.bin"
 					( (binaryIndex++ ))
 				done < <( APEv2 -z "$copyFile" 2>/dev/null | grep -F '=data:' 2>/dev/null | cut -d '=' -f 1 2>/dev/null )
 
@@ -2885,7 +2886,7 @@ importBinariesIntoAPEv2 () {
 		return $Ex_Ok
 	fi
 
-	# "${binariesDir}/${binaryIndex}.txt"
+	# "${binariesDir}/${paddedBinaryIndex}.txt"
 	for binaryFile in "${binariesDir}"/*.txt; do
 		if [ ! -f "$binaryFile" ]; then # there are no binaries for this file
 			exit $Ex_Ok
