@@ -6100,7 +6100,12 @@ while getopts '2a:B:b:C:c:df:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 			 wavMustBeProcessed='true'
 			;;
 
-		2) convertToStereo='flat' wavMustBeProcessed='true' ;;
+		2)
+			if [ -n "$lastCodec" -a "$Self_Called_As" != "$Self_Decode_Name" ]; then
+				printMessage 'error' 'usage' 'command_line' "$Self_Name -2: parameter must be given before -c" ; exit $Ex_Usage
+			fi
+			convertToStereo='flat' wavMustBeProcessed='true'
+			;;
 
 # -----------------------------------------------------------------------------
 
