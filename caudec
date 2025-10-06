@@ -414,9 +414,9 @@ Information:
 -------------------------------------------------------------------------------
 
 caudec uses a temporary directory for processing files (\$TMPDIR or /tmp by
-default). If you wish to use another directory, set the CAUDECDIR environment
-variable to its path (export CAUDECDIR=\"/some/dir\"), or set CAUDECDIR in your
-configuration file (~/.caudecrc or /etc/caudecrc).
+default). If you wish to use another directory, set the CAUDEC_SWAP_DIR
+environment variable to its path (export CAUDEC_SWAP_DIR=\"/some/dir\"), or set
+CAUDEC_SWAP_DIR in your configuration file (~/.caudecrc or /etc/caudecrc).
 
 To enable debugging, set the CAUDECDEBUG environment variable to 'true'
 (export CAUDECDEBUG='true'). caudec will output some additional information,
@@ -1624,30 +1624,35 @@ setupControlDir () {
 setupSwapDir () {
 	local swapDir="$Self_Swap_Dir" index copyLockFile fileMilliseconds
 
-	if [ -n "$CAUDECDIR" ]; then
-		if [ "$CAUDECDIR" != '/' ]; then
-			CAUDECDIR="${CAUDECDIR%/}" # remove trailing slash
+	# Backwards compatibility with caudec < 4.0.0
+	if [ -n "$CAUDECDIR" -a -z "$CAUDEC_SWAP_DIR" ]; then
+		CAUDEC_SWAP_DIR="$CAUDECDIR"
+	fi
+
+	if [ -n "$CAUDEC_SWAP_DIR" ]; then
+		if [ "$CAUDEC_SWAP_DIR" != '/' ]; then
+			CAUDEC_SWAP_DIR="${CAUDEC_SWAP_DIR%/}" # remove trailing slash
 		fi
-		if [ "${CAUDECDIR:0:1}" != '/' ]; then # if not an absolute path, prepend current dir
-			CAUDECDIR="${PWD}/${CAUDECDIR}"
+		if [ "${CAUDEC_SWAP_DIR:0:1}" != '/' ]; then # if not an absolute path, prepend current dir
+			CAUDEC_SWAP_DIR="${PWD}/${CAUDEC_SWAP_DIR}"
 		fi
 
-		if [ ! -e "$CAUDECDIR" ]; then
-			printMessage 'warning' 'initialization' 'filesystem' "path:${CAUDECDIR}" "CAUDECDIR doesn't exist."
+		if [ ! -e "$CAUDEC_SWAP_DIR" ]; then
+			printMessage 'warning' 'initialization' 'filesystem' "path:${CAUDEC_SWAP_DIR}" "CAUDEC_SWAP_DIR doesn't exist."
 			printMessage 'abort'
 			cleanExit $Ex_Os_File
-		elif [ ! -d "$CAUDECDIR" ]; then
-			printMessage 'warning' 'initialization' 'filesystem' "path:${CAUDECDIR}" "CAUDECDIR is not a directory."
+		elif [ ! -d "$CAUDEC_SWAP_DIR" ]; then
+			printMessage 'warning' 'initialization' 'filesystem' "path:${CAUDEC_SWAP_DIR}" "CAUDEC_SWAP_DIR is not a directory."
 			printMessage 'abort'
 			cleanExit $Ex_Cant_Create
-		elif [ ! -w "$CAUDECDIR" ]; then
-			printMessage 'warning' 'initialization' 'filesystem' "path:${CAUDECDIR}" "CAUDECDIR is not writable (permission denied)."
+		elif [ ! -w "$CAUDEC_SWAP_DIR" ]; then
+			printMessage 'warning' 'initialization' 'filesystem' "path:${CAUDEC_SWAP_DIR}" "CAUDEC_SWAP_DIR is not writable (permission denied)."
 			printMessage 'abort'
 			cleanExit $Ex_No_Perm
 		fi
 
-		mkdir -m "$Self_Permissions" -p "${CAUDECDIR}.${Self_Random_Suffix}" 1>/dev/null || cleanExit $Ex_Cant_Create
-		ln -s "${CAUDECDIR}.${Self_Random_Suffix}" "$Self_Swap_Dir"
+		mkdir -m "$Self_Permissions" -p "${CAUDEC_SWAP_DIR}.${Self_Random_Suffix}" 1>/dev/null || cleanExit $Ex_Cant_Create
+		ln -s "${CAUDEC_SWAP_DIR}.${Self_Random_Suffix}" "$Self_Swap_Dir"
 	else
 		mkdir -m "$Self_Permissions" -p "${Self_Swap_Dir}" 1>/dev/null || cleanExit $Ex_Cant_Create
 	fi

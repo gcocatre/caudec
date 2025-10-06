@@ -181,9 +181,9 @@ Information:
 -------------------------------------------------------------------------------
 
 caudec uses a temporary directory for processing files ($TMPDIR or /tmp by
-default). If you wish to use another directory, set the CAUDECDIR environment
-variable to its path (export CAUDECDIR="/some/dir"), or set CAUDECDIR in your
-configuration file (~/.caudecrc or /etc/caudecrc).
+default). If you wish to use another directory, set the CAUDEC_SWAP_DIR
+environment variable to its path (export CAUDEC_SWAP_DIR="/some/dir"), or set
+CAUDEC_SWAP_DIR in your configuration file (~/.caudecrc or /etc/caudecrc).
 
 To enable debugging, set the CAUDECDEBUG environment variable to 'true'
 (export CAUDECDEBUG='true'). caudec will output some additional information,
