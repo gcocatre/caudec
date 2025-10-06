@@ -980,7 +980,7 @@ cleanExit () {
 		fi
 	fi
 
-	if [ $preloadSources = 'true' ]; then
+	if [ "$preloadSources" = 'true' ]; then
 		# FIXME
 		for ioLockFile in "$Self_Instance_Dir"/ioLockFiles/* ; do
 			if [ -e "$ioLockFile" ]; then
@@ -1005,7 +1005,7 @@ cleanAbort () {
 findInputFiles () {
 	local location="$1"
 
-	if [ $gnufind = 'true' ]; then
+	if [ "$gnufind" = 'true' ]; then
 		$findcmd "$location" -type f -regextype 'posix-egrep' -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
 	else
 		$findcmd -E "$location" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
@@ -1085,13 +1085,13 @@ checkInputFiles () {
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'not a regular file.' ; exitCode=$Ex_Data_Err
 		elif [ ! -r "$inputFile" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for reading (permission denied).' ; exitCode=$Ex_No_Input
-		elif [ ! -w "$inputFile" -a $computeReplayGain = 'true' ]; then
+		elif [ ! -w "$inputFile" -a "$computeReplayGain" = 'true' ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
-		elif [ ! -w "$inputFile" -a $reverseReplayGain = 'true' ]; then
+		elif [ ! -w "$inputFile" -a "$reverseReplayGain" = 'true' ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
-		elif [ ! -r "$inputFile" -a $displayInternalHash = 'true' ]; then
+		elif [ ! -r "$inputFile" -a "$displayInternalHash" = 'true' ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for reading (permission denied).' ; exitCode=$Ex_No_Input
-		elif [ ! -w "$inputFile" -a $touchFiles = 'true' ]; then
+		elif [ ! -w "$inputFile" -a "$touchFiles" = 'true' ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'refusing to touch file that is read-only.' ; exitCode=$Ex_Cant_Create
 		else
 
@@ -1119,18 +1119,18 @@ checkInputFiles () {
 									fi
 									;;
 							esac
-							if [ $addToSourceFiles = 'false' ]; then continue ; fi
-							if [ $keepExistingFiles = 'true' ]; then
+							if [ "$addToSourceFiles" = 'false' ]; then continue ; fi
+							if [ "$keepExistingFiles" = 'true' ]; then
 								if [ -e "$destFile" ]; then
 									addToSourceFiles='false'
 									printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: \"$destFile\" exists already."
 								fi
 							fi
-							if [ $keepNewerFiles = 'true' ]; then
+							if [ "$keepNewerFiles" = 'true' ]; then
 								if [ -e "$destFile" ]; then
 									if isFileNewer "$destFile" "$inputFile"; then
 										addToSourceFiles='false'
-										if [ $gnudate = 'true' ]; then
+										if [ "$gnudate" = 'true' ]; then
 											dateSourceFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$inputFile" )"" "+%Y-%m-%d %H:%M:%S" )"
 											dateDestFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$destFile" )"" "+%Y-%m-%d %H:%M:%S" )"
 										else
@@ -1146,7 +1146,7 @@ checkInputFiles () {
 							;;
 
 						*)
-							if [ $ignoreUnsupportedFiles = 'false' ]; then
+							if [ "$ignoreUnsupportedFiles" = 'false' ]; then
 								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
 								exitCode=$Ex_Data_Err
 								continue
@@ -1156,22 +1156,22 @@ checkInputFiles () {
 				done
 			fi
 
-			if [ $displayInternalHash = 'true' ]; then
+			if [ "$displayInternalHash" = 'true' ]; then
 				case "$inputFile" in
 					*.flac|*.wv) addToSourceFiles='true' ;;
 					*)
-						if [ $ignoreUnsupportedFiles = 'true' ]; then
+						if [ "$ignoreUnsupportedFiles" = 'true' ]; then
 							continue
 						else
 							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
 						fi
 						;;
 				esac
-			elif [ $checkFiles = 'true' ]; then
+			elif [ "$checkFiles" = 'true' ]; then
 				case "$inputFile" in
 					*.flac|*.wv|*.ape) addToSourceFiles='true' ;;
 					*)
-						if [ $ignoreUnsupportedFiles = 'true' ]; then
+						if [ "$ignoreUnsupportedFiles" = 'true' ]; then
 							continue
 						else
 							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
@@ -1180,11 +1180,11 @@ checkInputFiles () {
 				esac
 			fi
 
-			if [ $showInformation = 'true' ]; then
+			if [ "$showInformation" = 'true' ]; then
 				case "$inputFile" in
 					*.flac|*.wv|*.ape|*.m4a|*.mp3|*.ogg|*.opus) addToSourceFiles='true' ;;
 					*)
-						if [ $ignoreUnsupportedFiles = 'true' ]; then
+						if [ "$ignoreUnsupportedFiles" = 'true' ]; then
 							continue
 						else
 							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
@@ -1193,7 +1193,7 @@ checkInputFiles () {
 				esac
 			fi
 
-			if [ $computeReplayGain = 'true' -o $reverseReplayGain = 'true' ]; then
+			if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
 				inputFileExtension="${inputFile##*.}"
 				case "$inputFileExtension" in
 					flac|wv|ape|ogg|opus|mp3)
@@ -1203,7 +1203,7 @@ checkInputFiles () {
 						elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
 							inputCodecsAreAllTheSame='false'
 							addToSourceFiles='false'
-							if [ $ignoreUnsupportedFiles = 'false' ]; then
+							if [ "$ignoreUnsupportedFiles" = 'false' ]; then
 								printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension"
 							fi
 							exitCode=$Ex_Data_Err
@@ -1212,7 +1212,7 @@ checkInputFiles () {
 						;;
 
 					*)
-						if [ $ignoreUnsupportedFiles = 'false' ]; then
+						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
 							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
 						fi
 						exitCode=$Ex_Data_Err
@@ -1221,11 +1221,11 @@ checkInputFiles () {
 				esac
 			fi
 
-			if [ $applyGain = 'true' ]; then
+			if [ "$applyGain" = 'true' ]; then
 				case "$inputFile" in
 					*.mp3) addToSourceFiles='true' ;;
 					*)
-						if [ $ignoreUnsupportedFiles = 'false' ]; then
+						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
 							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
 						fi
 						exitCode=$Ex_Data_Err
@@ -1234,12 +1234,12 @@ checkInputFiles () {
 				esac
 			fi
 
-			if [ $touchFiles = 'true' ]; then
+			if [ "$touchFiles" = 'true' ]; then
 				addToSourceFiles='true'
 			fi
 		fi
 
-		if [ $addToSourceFiles = 'true' ]; then
+		if [ "$addToSourceFiles" = 'true' ]; then
 			sourceFiles[$fileIndex]="$inputFile"
 			(( fileIndex++ ))
 		fi
@@ -1252,9 +1252,9 @@ checkInputFiles () {
 		printMessage 'abort'
 		cleanExit $exitCode
 	elif [ $numberOfSourceFiles -eq 0 ]; then
-		if [ $keepExistingFiles = 'true' ]; then
+		if [ "$keepExistingFiles" = 'true' ]; then
 			printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: all or some destination files exist already, nothing to do."
-		elif [ $keepNewerFiles = 'true' ]; then
+		elif [ "$keepNewerFiles" = 'true' ]; then
 			printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: all or some destination files are newer than their source, nothing to do."
 		fi
 		printMessage 'warning' 'usage' 'filesystem' 'verbose' "no supported files to work with, nothing to do."
@@ -1367,18 +1367,18 @@ checkBinaries () {
 		esac
 	done
 
-	if [ $computeReplayGain = 'true' ]; then
+	if [ "$computeReplayGain" = 'true' ]; then
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
 				*.flac) checkBinary 'metaflac' ;;
 				*.wv) checkBinary 'wvunpack' 'wvgain' 'wvtag' ;;
 				*.ape) checkBinary 'rsgain' 'APEv2' ;;
 				*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
-				*.mp3) checkBinary 'ffprobe' 'mp3gain'; if [ $applyGain = 'false' ]; then checkBinary 'eyeD3'; fi ;;
+				*.mp3) checkBinary 'ffprobe' 'mp3gain'; if [ "$applyGain" = 'false' ]; then checkBinary 'eyeD3'; fi ;;
 				*.opus) checkBinary 'opusinfo' 'opusgain' ;; # https://github.com/FrancisRussell/zoog
 			esac
 		done
-	elif [ $reverseReplayGain = 'true' ]; then
+	elif [ "$reverseReplayGain" = 'true' ]; then
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
 				*.flac) checkBinary 'metaflac' ;;
@@ -1389,7 +1389,7 @@ checkBinaries () {
 				*.mp3) checkBinary 'mp3gain' ;;
 			esac
 		done
-	elif [ $checkFiles = 'true' ]; then
+	elif [ "$checkFiles" = 'true' ]; then
 		checkBinary 'sox'
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
@@ -1398,7 +1398,7 @@ checkBinaries () {
 				*.ape) checkBinary 'mac' ;;
 			esac
 		done
-	elif [ $touchFiles = 'true' ]; then
+	elif [ "$touchFiles" = 'true' ]; then
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
 				*.flac) checkBinary 'metaflac' ;;
@@ -1410,7 +1410,7 @@ checkBinaries () {
 				*.mp3) checkBinary 'ffmpeg' ;;
 			esac
 		done
-	elif [ $showInformation = 'true' ]; then
+	elif [ "$showInformation" = 'true' ]; then
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
 				*.flac) checkBinary 'metaflac' 'ffprobe' ;;
@@ -1418,7 +1418,7 @@ checkBinaries () {
 				*) checkBinary 'ffprobe' ;;
 			esac
 		done
-	elif [ $displayInternalHash = 'true' ]; then
+	elif [ "$displayInternalHash" = 'true' ]; then
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
 				*.flac) checkBinary 'metaflac' ;;
@@ -1436,7 +1436,7 @@ checkBinaries () {
 			esac
 		done
 
-		if [ $applyGain = 'true' ]; then
+		if [ "$applyGain" = 'true' ]; then
 			checkBinary 'sox'
 		fi
 	fi
@@ -1459,7 +1459,7 @@ checkBinaries () {
 		checkBinary 'sox'
 	fi
 
-	if [ $binaryMissing = 'true' ]; then
+	if [ "$binaryMissing" = 'true' ]; then
 		printMessage 'abort'
 		cleanExit $Ex_Os_File
 	else
@@ -1503,7 +1503,7 @@ cleanUpInstances () {
 		fi
 	done
 
-	if [ $preloadSources = 'true' ]; then
+	if [ "$preloadSources" = 'true' ]; then
 		for lockFile in "${Self_Io_Dir}"/*.lock ; do
 			if [ -f "$lockFile" ]; then
 				cleanUpCopyLockFile "${lockFile%.lock}"
@@ -1653,9 +1653,9 @@ setupSwapDir () {
 	fi
 
 	# FIXME: this should go to io dir
-	if [ $preloadSources = 'true' ]; then
+	if [ "$preloadSources" = 'true' ]; then
 		for (( index=0; index < ${#sourceFiles[@]}; index++ )); do
-			if [ $gnustat = 'true' ]; then
+			if [ "$gnustat" = 'true' ]; then
 				copyLockFile="${Self_Io_Dir}/$( $statcmd -c '%d' "${sourceFiles[$index]}" 2>> "$Self_Errors_File" )"
 			else
 				copyLockFile="${Self_Io_Dir}/$( $statcmd -f '%d' "${sourceFiles[$index]}" 2>> "$Self_Errors_File" )"
@@ -1918,7 +1918,7 @@ vorbisCommentsToEyeD3 () {
 			album)                 echo "--album $value" ;;
 			albumartist|"album artist")
 				echo "--album-artist $value"
-				if [ "$value" = 'Various Artists' -o $setCompilationFlagWithAlbumArtist = 'true' ]; then
+				if [ "$value" = 'Various Artists' -o "$setCompilationFlagWithAlbumArtist" = 'true' ]; then
 					echo "--text-frame=TCMP:1" # iTunes 'compilation' frame
 				fi
 				;;
@@ -1965,7 +1965,7 @@ vorbisCommentsToM4A () {
 			album)                 echo "-metadata album=$value" ;;
 			albumartist|"album artist")
 				echo "-metadata album_artist=$value"
-				if [ "$value" = 'Various Artists' -o $setCompilationFlagWithAlbumArtist = 'true' ]; then
+				if [ "$value" = 'Various Artists' -o "$setCompilationFlagWithAlbumArtist" = 'true' ]; then
 					echo "-metadata compilation=1" # iTunes 'compilation' frame
 				fi
 				;;
@@ -2084,7 +2084,7 @@ M4AToEyeD3 () {
 			album)                 echo "--album $value" ;;
 			album_artist)
 				echo "--album-artist $value"
-				if [ "$value" = 'Various Artists' -o $setCompilationFlagWithAlbumArtist = 'true' ]; then
+				if [ "$value" = 'Various Artists' -o "$setCompilationFlagWithAlbumArtist" = 'true' ]; then
 					echo "--text-frame=TCMP:1" # iTunes 'compilation' frame
 				fi
 				;;
@@ -2195,7 +2195,7 @@ APEv2ToEyeD3 () {
 			album)                 echo "--album $value" ;;
 			albumartist|"album artist")
 				echo "--album-artist $value"
-				if [ "$value" = 'Various Artists' -o $setCompilationFlagWithAlbumArtist = 'true' ]; then
+				if [ "$value" = 'Various Artists' -o "$setCompilationFlagWithAlbumArtist" = 'true' ]; then
 					echo "--text-frame=TCMP:1" # iTunes 'compilation' frame
 				fi
 				;;
@@ -2253,7 +2253,7 @@ APEv2ToM4A () {
 			album)                 echo "-metadata album=$value" ;;
 			albumartist|"album artist")
 				echo "-metadata album_artist=$value"
-				if [ "$value" = 'Various Artists' -o $setCompilationFlagWithAlbumArtist = 'true' ]; then
+				if [ "$value" = 'Various Artists' -o "$setCompilationFlagWithAlbumArtist" = 'true' ]; then
 					echo "-metadata compilation=1" # iTunes 'compilation' frame
 				fi
 				;;
@@ -2325,7 +2325,7 @@ processSourceTagFile () {
 	# process multi-line tags
 	while read line; do
 		if [ "$line" != "${line%%=*}" ]; then # new field
-			if [ $firstLine = 'true' ]; then
+			if [ "$firstLine" = 'true' ]; then
 				firstLine='false'
 				echo -n "$line"
 			else
@@ -2366,7 +2366,7 @@ sanitizeApeTags () {
 		field="$( echo "${line%%=*}" | tr '[:upper:]' '[:lower:]' 2>/dev/null )"
 		value="${line#*=}"
 		if [ "$field" != "$lastField" ]; then
-			if [ $first = 'true' ]; then
+			if [ "$first" = 'true' ]; then
 				echo -en "${line}"
 				first='false'
 			else
@@ -2378,7 +2378,7 @@ sanitizeApeTags () {
 		fi
 	done < <( sort -u "$destTagFile" 2>/dev/null ) > "${destTagFile}.tmp"
 	if [ -f "${destTagFile}.tmp" ]; then
-		if [ $gnustat = 'true' ]; then
+		if [ "$gnustat" = 'true' ]; then
 			destTagFileSize=$( $statcmd -c '%s' "${destTagFile}.tmp" )
 		else
 			destTagFileSize=$( $statcmd -f '%z' "${destTagFile}.tmp" )
@@ -2430,7 +2430,7 @@ convertTags () {
 			esac
 			case $2 in
 				vc|mp3)
-					if [ $gnused = 'true' ]; then
+					if [ "$gnused" = 'true' ]; then
 						$sedcmd -i'' -e 's@\x02@ / @g' -e 's@^ro:@@' "$destTagFile"
 					else
 						$sedcmd -i '' -e 's@\x02@ / @g' -e 's@^ro:@@' "$destTagFile"
@@ -2570,7 +2570,7 @@ extractFlacArtwork () {
 		pattern="x${outputCodec}Y"
 		if [ "$preserveMetadata" != "${preserveMetadata//$pattern/@}" ]; then
 			metaflac --list "$copyFile" 2>> "$Self_Errors_File" | grep -vE '[0-9A-F]{8}:' > "${Self_Swap_Dir}/${paddedFileIndex}_internal_FLAC.list" 2>/dev/null
-			if [ $gnused = 'true' ]; then
+			if [ "$gnused" = 'true' ]; then
 				$sedcmd -i'' -e 's@METADATA block #@\nMETADATA block #@' "${Self_Swap_Dir}/${paddedFileIndex}_internal_FLAC.list" # binary data can screw up the 'METADATA block #' line
 			else
 				$sedcmd -i '' -e 's@METADATA block #@\nMETADATA block #@' "${Self_Swap_Dir}/${paddedFileIndex}_internal_FLAC.list" # binary data can screw up the 'METADATA block #' line
@@ -2580,17 +2580,17 @@ extractFlacArtwork () {
 					blockNumber="${line#*#}"
 				elif [ "$line" = 'type: 6 (PICTURE)' ]; then
 					withinPictureBlock='true'
-				elif [ "${line:0:5}" = 'type:' -a $withinPictureBlock = 'true' ]; then
+				elif [ "${line:0:5}" = 'type:' -a "$withinPictureBlock" = 'true' ]; then
 					picType="${line#* }"
 					picType="${picType%% *}"
 					picTypesList="${picTypesList}\n${picType}\n"
-				elif [ "${line:0:10}" = 'MIME type:' -a $withinPictureBlock = 'true' ]; then
+				elif [ "${line:0:10}" = 'MIME type:' -a "$withinPictureBlock" = 'true' ]; then
 					case "$line" in
 						'MIME type: image/jpeg') picExt='jpg' ;;
 						'MIME type: image/png') picExt='png' ;;
 						'MIME type: image/gif') picExt='gif' ;;
 					esac
-				elif [ "${line:0:12}" = 'description:' -a $withinPictureBlock = 'true' ]; then
+				elif [ "${line:0:12}" = 'description:' -a "$withinPictureBlock" = 'true' ]; then
 					description="${line/description: /}"
 					descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$picType" "$picNumber" "txt" )"
 					if [ "$description" != 'description:' ]; then
@@ -2682,7 +2682,7 @@ getUserSpecifiedArtworkBytes () {
 	elif [ ! -r "$userSpecifiedArtwork" ]; then
 		echo "0"; return $Ex_Ok
 	else
-		if [ $gnustat = 'true' ]; then
+		if [ "$gnustat" = 'true' ]; then
 			bytes="$( $statcmd -L --printf '%s' "$userSpecifiedArtwork" 2>/dev/null )"
 		else
 			bytes="$( $statcmd -L -n -f '%z' "$userSpecifiedArtwork" 2>/dev/null )"
@@ -2720,7 +2720,7 @@ getEmbeddedArtworkSize () {
 		if [ ! -r "$picFile" ]; then
 			continue
 		fi
-		if [ $gnustat = 'true' ]; then
+		if [ "$gnustat" = 'true' ]; then
 			fileBytes="$( $statcmd -L --printf '%s' "$picFile" 2>/dev/null )"
 		else
 			fileBytes="$( $statcmd -L -n -f '%z' "$picFile" 2>/dev/null )"
@@ -3052,7 +3052,7 @@ processWavFile () {
 		rm -f "$copyFile" "${copyFile}c"
 	fi
 	gainValue='' gaincmd=''
-	if [ $applyGain = 'true' ]; then
+	if [ "$applyGain" = 'true' ]; then
 		if [ "$applyGainType" = 'ALBUM' -o "$applyGainType" = 'TRACK' ]; then
 			if [ "$applyGainType" = 'ALBUM' ]; then
 				gainValue="$( grep -Fi 'replaygain_album_gain' "$sourceTagFile" 2>/dev/null | cut -d '=' -f 2 | cut -d ' ' -f 1 )"
@@ -3107,7 +3107,7 @@ processWavFile () {
 		fi
 	fi
 
-	if [ $applyGain = 'true' -a -z "$gainValue" ]; then
+	if [ "$applyGain" = 'true' -a -z "$gainValue" ]; then
 		printMessage 'warning' 'processing' "file:${sourceFile}" $processNumber "threads:1" "no gain value"
 	fi
 
@@ -3116,7 +3116,7 @@ processWavFile () {
 		nChannels=2
 	fi
 
-	if [ $preventClipping = 'true' ]; then
+	if [ "$preventClipping" = 'true' ]; then
 		soxGuard='-G'
 	fi
 
@@ -3212,7 +3212,7 @@ decode () {
 			# decodeFLAC
 			flac)
 				sourceTagFormat='vc'
-				if [ $keepWavMetadata = 'true' ]; then
+				if [ "$keepWavMetadata" = 'true' ]; then
 					if ! flac -s -d --keep-foreign-metadata -o "$wavFile" "$copyFile" 1>/dev/null 2>&1; then
 						if [ -e "$wavFile" ]; then rm -f "$wavFile"; fi
 						flac -s -d -o "$wavFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
@@ -3235,7 +3235,7 @@ decode () {
 			# decodeWV
 			wv)
 				sourceTagFormat='ape' kfm='-w'
-				if [ $keepWavMetadata = 'true' ]; then kfm='' ; fi
+				if [ "$keepWavMetadata" = 'true' ]; then kfm='' ; fi
 				nThreads=$( getNumberOfAvailableThreads "$fileIndex" $WavPack_Max_Threads )
 				wvunpack -q $kfm -m --threads=$nThreads -o "$wavFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
@@ -3291,7 +3291,7 @@ decode () {
 		return $Ex_Ko
 	fi
 
-	if [ $gnustat = 'true' ]; then
+	if [ "$gnustat" = 'true' ]; then
 		$statcmd -L --printf ' + %s' "$wavFile" >> "${Self_Data_Dir}/bytes" 2>> "$Self_Errors_File"
 	else
 		$statcmd -L -n -f ' + %z' "$wavFile" >> "${Self_Data_Dir}/bytes" 2>> "$Self_Errors_File"
@@ -3355,7 +3355,7 @@ isFileNewer () {
 
 	# Don't use 'test -nt' because it doesn't work on files touched by 'caudec -T '
 	if [ -e "$fileA" -a -e "$fileB" ]; then
-		if [ $gnustat = 'true' ]; then
+		if [ "$gnustat" = 'true' ]; then
 			ctimeA="$( $statcmd -c '%Z' "$fileA" )"
 			ctimeB="$( $statcmd -c '%Z' "$fileB" )"
 		else
@@ -3529,7 +3529,7 @@ encode () {
 	# doEmbedBinaries="$( shouldEmbedBinaries "$outputCodec" )" # FIXME with a new -F parameter
 	case "$outputCodec" in
 		WAV)
-			if [ $sourceIsLossyWAV = 'true' ]; then
+			if [ "$sourceIsLossyWAV" = 'true' ]; then
 				destExtension='lossy.wav'
 			else
 				destExtension='wav'
@@ -3574,8 +3574,8 @@ encode () {
 		FLAC)
 			destExtension='flac'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_vc.txt" kfm=''
 			# Kohlrabi is a very cool dude
-			if [ $keepWavMetadata = 'true' ]; then kfm='--keep-foreign-metadata' ; fi
-			if [ $tagCompressionSetting = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / FLAC $flacVersion / -$compression_FLAC"; fi
+			if [ "$keepWavMetadata" = 'true' ]; then kfm='--keep-foreign-metadata' ; fi
+			if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / FLAC $flacVersion / -$compression_FLAC"; fi
 			padding=$FLACPadding
 			if [ "$doEmbedCoverArt" = 'true' ]; then
 				embeddedArtworkBytes="$( getEmbeddedArtworkSize )"
@@ -3594,7 +3594,7 @@ encode () {
 			nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
 			mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 -threads=${nThreads} 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
-				if [ $tagCompressionSetting = 'true' ]; then compressionTag="Encoding=$Self_Name $Self_Version / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
+				if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="Encoding=$Self_Name $Self_Version / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
 				printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z 1>/dev/null 2>> "$Self_Errors_File"
 				if [ "$doEmbedCoverArt" = 'true' ]; then
 					importArtworkIntoAPEv2
@@ -3609,9 +3609,9 @@ encode () {
 			if [ -e "${destFile}c" ]; then
 				printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$Self_Name -c wv: correction files are present. Please delete them and try again." ; exitCode=$Ex_Ko
 			else
-				if [ $keepWavMetadata = 'true' ]; then kfm=''; fi
+				if [ "$keepWavMetadata" = 'true' ]; then kfm=''; fi
 				nThreads=$( getNumberOfAvailableThreads "$fileIndex" $WavPack_Max_Threads )
-				if [ $tagCompressionSetting = 'true' ]; then compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack"; fi
+				if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack"; fi
 				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 					if [ "$doEmbedCoverArt" = 'true' ]; then
@@ -3625,7 +3625,7 @@ encode () {
 		# encodeWVH
 		WavPackHybrid)
 			destExtension='wv'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_ape.txt" kfm='-r'
-			if [ $keepWavMetadata = 'true' ]; then kfm=''; fi
+			if [ "$keepWavMetadata" = 'true' ]; then kfm=''; fi
 			# WavPack Hybrid only supports multithreading for files with more than 2 channels
 			nChannels=$( getNumberOfChannels "$wavFile" )
 			if [ $nChannels -gt 2 ]; then
@@ -3633,7 +3633,7 @@ encode () {
 			else
 				nThreads=1
 			fi
-			if [ $tagCompressionSetting = 'true' ]; then
+			if [ "$tagCompressionSetting" = 'true' ]; then
 				if [ "${average_bitrate_WavPackLossy%.*}" -lt 24 ]; then
 					compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack / $average_bitrate_WavPackLossy bits per sample (ABR)"
 				else
@@ -3655,7 +3655,7 @@ encode () {
 			if [ -e "${destFile}c" ]; then
 				printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$Self_Name -c wv: correction files are present. Please delete them and try again." ; exitCode=$Ex_Ko
 			else
-				if [ $keepWavMetadata = 'true' ]; then kfm=''; fi
+				if [ "$keepWavMetadata" = 'true' ]; then kfm=''; fi
 				# WavPack Lossy only supports multithreading for files with more than 2 channels
 				nChannels=$( getNumberOfChannels "$wavFile" )
 				if [ $nChannels -gt 2 ]; then
@@ -3663,7 +3663,7 @@ encode () {
 				else
 					nThreads=1
 				fi
-				if [ $tagCompressionSetting = 'true' ]; then
+				if [ "$tagCompressionSetting" = 'true' ]; then
 					if [ -z "$compression_WavPack" ]; then
 						compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / default / $average_bitrate_WavPackLossy bits per sample (ABR)"
 					else
@@ -3683,12 +3683,12 @@ encode () {
 		# encodeLossyFLAC
 		lossyFLAC)
 			destExtension='lossy.flac'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_vc.txt"
-			if [ $sourceIsLossyWAV = 'true' ]; then
+			if [ "$sourceIsLossyWAV" = 'true' ]; then
 				printMessage 'warning' 'encoding' "file:${sourceBasename}" $processNumber "${outputCodec}: source is already lossy"
 				exitCode=$Ex_Ko
 			fi
 			namedPipe="${Self_Control_Dir}/${paddedIndexFile}_lossyWAV_pipe.wav"
-			if [ $tagCompressionSetting = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
+			if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 			padding=$FLACPadding
 			if [ "$doEmbedCoverArt" = 'true' ]; then
 				embeddedArtworkBytes="$( getEmbeddedArtworkSize )"
@@ -3722,17 +3722,17 @@ encode () {
 				padding=$(( padding + embeddedArtworkBytes ))
 			fi
 			if [ "$MP3_MODE" = 'VBR' ]; then
-				if [ $tagCompressionSetting = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / VBR $compression_MP3"; fi
+				if [ "$tagCompressionSetting" = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / VBR $compression_MP3"; fi
 				lame -S -V $compression_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			elif [ "$MP3_MODE" = 'ABR' ]; then
-				if [ $tagCompressionSetting = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / ABR $average_bitrate_MP3 kbps"; fi
+				if [ "$tagCompressionSetting" = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / ABR $average_bitrate_MP3 kbps"; fi
 				lame -S --abr $average_bitrate_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			else
 				if [ $compression_MP3 -eq "insane" ]; then
-					if [ $tagCompressionSetting = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / CBR 320 kbps"; fi
+					if [ "$tagCompressionSetting" = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / CBR 320 kbps"; fi
 					lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
-					if [ $tagCompressionSetting = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / CBR $bitrate_MP3 kbps"; fi
+					if [ "$tagCompressionSetting" = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / CBR $bitrate_MP3 kbps"; fi
 					lame -S -b $bitrate_MP3 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			fi
@@ -3816,13 +3816,13 @@ encode () {
 		OggVorbis)
 			destExtension='ogg'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_vc.txt"
 			if [ "$OggVorbis_MODE" = 'VBR' ]; then
-				if [ $tagCompressionSetting = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / oggenc $oggencVersion / -q $compression_OggVorbis"; fi
+				if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / oggenc $oggencVersion / -q $compression_OggVorbis"; fi
 				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc -q $compression_OggVorbis -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			elif [ "$OggVorbis_MODE" = 'ABR' ]; then
-				if [ $tagCompressionSetting = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / oggenc $oggencVersion / $average_bitrate_OggVorbis kbps (ABR)"; fi
+				if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / oggenc $oggencVersion / $average_bitrate_OggVorbis kbps (ABR)"; fi
 				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $average_bitrate_OggVorbis -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			else
-				if [ $tagCompressionSetting = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / oggenc $oggencVersion / $bitrate_OggVorbis kbps (CBR)"; fi
+				if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / oggenc $oggencVersion / $bitrate_OggVorbis kbps (CBR)"; fi
 				printf -- "-Q`tagline -c`\x00%s" "$wavFile" | xargs -0 oggenc --managed -b $bitrate_OggVorbis -m $bitrate_OggVorbis -M $bitrate_OggVorbis -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			fi
 			;;
@@ -3831,19 +3831,19 @@ encode () {
 		Opus)
 			destExtension='opus'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_vc.txt"
 			if [ "$Opus_MODE" = 'VBR' ]; then
-				if [ $tagCompressionSetting = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / $opusVersion / $compression_Opus kbps (VBR)"; fi
+				if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / $opusVersion / $compression_Opus kbps (VBR)"; fi
 				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --padding $OpusPadding --vbr --bitrate $compression_Opus 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			elif [ "$Opus_MODE" = 'ABR' ]; then
-				if [ $tagCompressionSetting = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / $opusVersion / $average_bitrate_Opus kbps (ABR)"; fi
+				if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / $opusVersion / $average_bitrate_Opus kbps (ABR)"; fi
 				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --padding $OpusPadding --cvbr --bitrate $average_bitrate_Opus 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			else
-				if [ $tagCompressionSetting = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / $opusVersion / $bitrate_Opus kbps (CBR)"; fi
+				if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / $opusVersion / $bitrate_Opus kbps (CBR)"; fi
 				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --padding $OpusPadding --hard-cbr --bitrate $bitrate_Opus 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			fi
 			;;
 	esac
 
-	if [ $copyPath = 'true' ]; then
+	if [ "$copyPath" = 'true' ]; then
 		if ! mkdir -p "$destPath" 1>/dev/null 2>&1 ; then
 			exitCode=$Ex_Ko
 		fi
@@ -3953,19 +3953,19 @@ cleanUpCopyLockFile () {
 prepareSource () {
 	local exitCode=$Ex_Ok sourcePath copyLockFile copyDone='false' cptimer1 cptimer2 cpseconds attemptNumber=0
 
-	if [ $preloadSources = 'true' -a $touchFiles = 'false' ]; then
-		if [ $gnustat = 'true' ]; then
+	if [ "$preloadSources" = 'true' -a "$touchFiles" = 'false' ]; then
+		if [ "$gnustat" = 'true' ]; then
 			copyLockFile="${Self_Io_Dir}/$( $statcmd -c '%d' "$sourceFile" 2>> "$Self_Errors_File" )"
 		else
 			copyLockFile="${Self_Io_Dir}/$( $statcmd -f '%d' "$sourceFile" 2>> "$Self_Errors_File" )"
 		fi
-		until test $copyDone = 'true' ; do
+		until test "$copyDone" = 'true' ; do
 			# if test -f "$copyLockFile" && mv "$copyLockFile" "${copyLockFile}.lock" 1>/dev/null 2>&1; then
 			if getAndRenameLock "$copyLockFile" "${copyLockFile}.lock"; then
 				touch "${Self_Instance_Dir}/ioLockFiles/${copyLockFile##*/}"
 				echo "$$" > "${copyLockFile}.lock"
 
-				if [ $gnudate = 'true' ]; then
+				if [ "$gnudate" = 'true' ]; then
 					cptimer1="$( $datecmd '+%s.%N' )"
 				fi
 
@@ -3980,7 +3980,7 @@ prepareSource () {
 				copyDone='true'
 
 				if [ -n "$cptimer1" ]; then
-					if [ $gnudate = 'true' ]; then
+					if [ "$gnudate" = 'true' ]; then
 						cptimer2="$( $datecmd '+%s.%N' )"
 					fi
 					if [ -n "$cptimer2" ]; then
@@ -4039,7 +4039,7 @@ transcode () {
 	local lastCodec="${outputCodecs##* }" copyDone='false' encodingDone='false' lsec=0
 	local nDecodingThreads=1 encodingNeedsWavFile allCodecsDone='false'
 
-	until test $allDone = 'true' ; do
+	until test "$allDone" = 'true' ; do
 		allDone='true'
 		while read milliseconds paddedFileIndex fileIndex; do
 			sourceFile="${sourceFiles[$fileIndex]}"
@@ -4084,14 +4084,14 @@ transcode () {
 					fi
 					allCodecsDone='false'
 					ls "${Self_Control_Dir}/${paddedFileIndex}_encoding_"*.job 1>/dev/null 2>&1 || allCodecsDone='true'
-					if [ $allCodecsDone = 'true' ]; then
+					if [ "$allCodecsDone" = 'true' ]; then
 						touch "$wasProcessedFile"
 					fi
 				fi
 			done
 
 			# FIXME
-			# if [ $allCodecsDone = 'true' ]; then
+			# if [ "$allCodecsDone" = 'true' ]; then
 			# 	rm -rf "$binariesDir" 1>/dev/null 2>&1
 			# 	"${Self_Swap_Dir}/${paddedFileIndex}_picture_"* 1>/dev/null 2>&1
 			# fi
@@ -4274,7 +4274,7 @@ showTrackInformation () {
 	case "$sourceFile" in
 		*.wv)
 			if [ -f "${sourceFile}c" ]; then
-				if [ $gnustat = 'true' ]; then
+				if [ "$gnustat" = 'true' ]; then
 					bytesLossy="$( $statcmd -L --printf '%s' "$sourceFile" 2>/dev/null )"
 					bytesLossless="$( $statcmd -L --printf '%s' "${sourceFile}c" 2>/dev/null )"
 				else
@@ -4325,7 +4325,7 @@ showTracksInformation () {
 saveReplaygainToMP3 () {
 	local exitCode=$Ex_Ok
 
-	if [ $computeAudioPeaks = 'true' -a -n "$peakDbfs" ]; then
+	if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
 		eyeD3 --quiet --to-v2.4 \
 			--user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
 			--user-text-frame="REPLAYGAIN_${gainType}_PEAK:${peak}" \
@@ -4354,7 +4354,7 @@ saveGain () {
 		gain="+${gain}"
 	fi
 
-	if [ $computeAudioPeaks = 'true' ]; then
+	if [ "$computeAudioPeaks" = 'true' ]; then
 		peakDbfs="$( computeGainFromPeak "$peak" )"
 		if [ -n "$peakDbfs" ]; then
 			if [ "$peakDbfs" = "-0.00" ]; then
@@ -4368,7 +4368,7 @@ saveGain () {
 	case "$destFile" in
 		*.flac)
 			if [ "$gainType" = 'ALBUM' ]; then
-				if [ $computeAudioPeaks = 'true' -a -n "$peakDbfs" ]; then
+				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
 					metaflac \
 						--remove-tag="REPLAYGAIN_ALBUM_GAIN" \
 						--remove-tag="REPLAYGAIN_ALBUM_PEAK" \
@@ -4386,7 +4386,7 @@ saveGain () {
 						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			else
-				if [ $computeAudioPeaks = 'true' -a -n "$peakDbfs" ]; then
+				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
 					metaflac \
 						--remove-tag="AUDIO_TRACK_PEAK" \
 						--set-tag="AUDIO_TRACK_PEAK=${peakDbfs} dBFS" \
@@ -4397,7 +4397,7 @@ saveGain () {
 
 		*.wv)
 			if [ "$gainType" = 'ALBUM' ]; then
-				if [ $computeAudioPeaks = 'true' -a -n "$peakDbfs" ]; then
+				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
 					wvtag \
 						-w "replaygain_album_gain=" \
 						-w "replaygain_album_peak=" \
@@ -4415,7 +4415,7 @@ saveGain () {
 						"$destFile" 1>/dev/null 2>/dev/null || exitCode=$Ex_Ko
 				fi
 			else
-				if [ $computeAudioPeaks = 'true' -a -n "$peakDbfs" ]; then
+				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
 					wvtag \
 						-w "audio_track_peak=" \
 						-w "audio_track_peak=${peakDbfs} dBFS" \
@@ -4426,7 +4426,7 @@ saveGain () {
 
 		*.ape)
 			if [ "$gainType" = 'ALBUM' ]; then
-				if [ $computeAudioPeaks = 'true' -a -n "$peakDbfs" ]; then
+				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
 					APEv2 \
 						-r "replaygain_album_gain" \
 						-r "replaygain_album_peak" \
@@ -4444,7 +4444,7 @@ saveGain () {
 						"$destFile" 1>/dev/null 2>/dev/null || exitCode=$Ex_Ko
 				fi
 			else
-				if [ $computeAudioPeaks = 'true' -a -n "$peakDbfs" ]; then
+				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
 					APEv2 \
 						-r "replaygain_track_gain" \
 						-r "replaygain_track_peak" \
@@ -4466,7 +4466,7 @@ saveGain () {
 
 		*.ogg)
 			if [ "$gainType" = 'ALBUM' ]; then
-				if [ $computeAudioPeaks = 'true' -a -n "$peakDbfs" ]; then
+				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
 					vorbiscomment -a \
 						-d "REPLAYGAIN_ALBUM_PEAK" \
 						-d "REPLAYGAIN_ALBUM_GAIN" \
@@ -4484,7 +4484,7 @@ saveGain () {
 						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			else
-				if [ $computeAudioPeaks = 'true' -a -n "$peakDbfs" ]; then
+				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
 					vorbiscomment -a \
 						-d "AUDIO_TRACK_PEAK" \
 						-t "AUDIO_TRACK_PEAK=${peakDbfs} dBFS" \
@@ -4494,10 +4494,10 @@ saveGain () {
 			;;
 
 		*.mp3)
-			if [ $applyGain = 'true' ]; then
+			if [ "$applyGain" = 'true' ]; then
 				mp3GainSteps="$( echo "scale=3; $uGain / 1.5" | bc )" # MP3 gain steps are 1.5dB
 				mp3GainSteps="$( printf '%.0f' "$mp3GainSteps" )"
-				if [ $preventClipping = 'true' ]; then
+				if [ "$preventClipping" = 'true' ]; then
 					clippingPreventionParam="-k"
 				fi
 				mp3gain -s d "$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
@@ -4642,7 +4642,7 @@ computeTrackGain () {
 			*.mp3)
 				mp3gain -u "$sourceFile" 1>/dev/null 2>/dev/null
 				mp3gain -s d "$sourceFile" 1>/dev/null 2>/dev/null
-				if [ $preventClipping = 'true' ]; then
+				if [ "$preventClipping" = 'true' ]; then
 					clippingPreventionParam="-k"
 				fi
 				line="$( mp3gain -e $clippingPreventionParam -o -T -q "$sourceFile" 2>> "$Self_Errors_File" | grep -Fv 'MP3 gain' | tr '\t' '|' | tr -d '+' | cut -d '|' -f 3-4 )" ; exitCode=$?
@@ -4674,13 +4674,13 @@ computeTrackGain () {
 
 	if [ "$sourceExtension" != "opus" ]; then
 		if [ $exitCode -eq $Ex_Ok ]; then
-			if [ $applyGain = 'false' -o "$applyGainType" = "TRACK" ]; then
+			if [ "$applyGain" = 'false' -o "$applyGainType" = "TRACK" ]; then
 				saveGain 'TRACK' || exitCode=$Ex_Ko
 			fi
 		fi
 
 		if [ $exitCode -eq $Ex_Ok ]; then
-			if [ $verbose = 'true' ]; then
+			if [ "$verbose" = 'true' ]; then
 				if [ "${trackGain:0:1}" != '-' -a "${trackGain:0:1}" != '+' ]; then
 					trackGain="+${trackGain}"
 				fi
@@ -4744,7 +4744,7 @@ computeAlbumGain () {
 		return $Ex_Ko
 	fi
 
-	if [ $applyGain = 'true' -a "$applyGainType" = 'ALBUM_PEAK' ]; then
+	if [ "$applyGain" = 'true' -a "$applyGainType" = 'ALBUM_PEAK' ]; then
 		albumGain="$( computeGainFromPeak "$albumPeak" )"
 		if [ "${albumGain:0:1}" = '-' ]; then
 			albumGain="${albumGain:1}"
@@ -4767,7 +4767,7 @@ computeAlbumGain () {
 		if [ -z "$albumGain" ]; then
 			printMessage 'error' 'album_gain' "Album gain"
 			return $Ex_Ko
-		elif [ $applyGain = 'true' -a "$applyGainType" = 'ALBUM' -a -n "$preamp" ]; then
+		elif [ "$applyGain" = 'true' -a "$applyGainType" = 'ALBUM' -a -n "$preamp" ]; then
 			if [ "${preamp:0:1}" = '-' ]; then
 				albumGain="$( printf "%.2f" "$( echo "scale=3; ($albumGain - ${preamp:1}) / 1" | bc 2>> "$Self_Errors_File" )" )"
 			elif [ "${preamp:0:1}" = '+' ]; then
@@ -4929,7 +4929,7 @@ reverseTrackGain () {
 	fi
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		if [ $verbose = 'true' ]; then
+		if [ "$verbose" = 'true' ]; then
 			printMessage 'success' 'track_gain' $processNumber "-0 dB" "file:${sourceFile}"
 		fi
 	else
@@ -5100,7 +5100,7 @@ touchAllFiles () {
 			audioFileDirname="${audioFile%/*}"
 			dirPath="$( readlink -f "$audioFileDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
-			if [ $gotLinkedDir = 'true' -a -z "$linkPath" ]; then
+			if [ "$gotLinkedDir" = 'true' -a -z "$linkPath" ]; then
 				linkedDiscDirs[$dirIndex]=""
 				inode="$( ls -i "$audioFile" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
 				if [ -n "$inode" ]; then
@@ -5270,13 +5270,13 @@ getOutputCodecDestFile () {
 	destExtension="$( getCodecExtension "$outputCodec" )"
 	outputCodecFullName="$( getCodecFullName "$outputCodec" )"
 	destDir="$( getDestDir "$outputCodec" )"
-	if [ "$outputCodec" = 'WAV' -a $sourceIsLossyWAV = 'true' ]; then
+	if [ "$outputCodec" = 'WAV' -a "$sourceIsLossyWAV" = 'true' ]; then
 		destExtension='lossy.wav'
 	fi
 	destFilename="${sourceBasename}.${destExtension}"
 
 	copyPath="$( copyPathOrNot "$outputCodec" )"
-	if [ $copyPath = 'true' ]; then
+	if [ "$copyPath" = 'true' ]; then
 		destPath="${destDir}/${sourceDirname#/}"
 		destFile="${destPath}/${destFilename}"
 	else
@@ -5304,7 +5304,7 @@ getFileProps () {
 		destExtension="$( getCodecExtension "$outputCodec" )"
 		outputCodecFullName="$( getCodecFullName "$outputCodec" )"
 		destDir="$( getDestDir "$outputCodec" )"
-		if [ "$outputCodec" = 'WAV' -a $sourceIsLossyWAV = 'true' ]; then
+		if [ "$outputCodec" = 'WAV' -a "$sourceIsLossyWAV" = 'true' ]; then
 			destExtension='lossy.wav'
 		fi
 		destFilename="${sourceBasename}.${destExtension}"
@@ -5323,7 +5323,7 @@ getFileProps () {
 		fi
 
 		copyPath="$( copyPathOrNot "$outputCodec" )"
-		if [ $copyPath = 'true' ]; then
+		if [ "$copyPath" = 'true' ]; then
 			destPath="${destDir}/${sourceDirname#/}"
 			destFile="${destPath}/${destFilename}"
 			if [ -n "$linkDir" ]; then
@@ -5383,7 +5383,7 @@ printMachineStats () {
 		done
 	done
 
-	if [ $gnustat = 'true' ]; then
+	if [ "$gnustat" = 'true' ]; then
 		bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 	else
 		bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
@@ -5401,7 +5401,7 @@ printMachineStats () {
 			fi
 		done
 
-		if [ $gnustat = 'true' ]; then
+		if [ "$gnustat" = 'true' ]; then
 			bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 		else
 			bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
@@ -5452,7 +5452,7 @@ printHumanStats () {
 		fi
 	done
 
-	if [ $gnustat = 'true' ]; then
+	if [ "$gnustat" = 'true' ]; then
 		bytesSource="$( { echo -n 'scale=0; 0'; printf "%s${slist}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 	else
 		bytesSource="$( { echo -n 'scale=0; 0'; printf "%s${slist}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
@@ -5481,7 +5481,7 @@ printHumanStats () {
 		done
 	done
 
-	if [ $gnustat = 'true' ]; then
+	if [ "$gnustat" = 'true' ]; then
 		bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 	else
 		bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
@@ -5523,7 +5523,7 @@ printHumanStats () {
 			fi
 		done
 
-		if [ $gnustat = 'true' ]; then
+		if [ "$gnustat" = 'true' ]; then
 			bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
 		else
 			bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %z' | xargs -0 $statcmd -L -n -f; echo; } | bc )"
@@ -5764,7 +5764,7 @@ getCodecCoverArtFile () {
 shouldEmbedCoverArt () {
 	local outputCodec="$1" coverArtFile=""
 
-	if [ $setArtworkParam = 'true' ]; then
+	if [ "$setArtworkParam" = 'true' ]; then
 		coverArtFile="$( getCodecCoverArtFile "$outputCodec" )"
 		if [ -z "$coverArtFile" ]; then
 			echo 'false'
@@ -5781,7 +5781,7 @@ shouldEmbedBinaries () {
 	echo 'true'
 	return
 
-	if [ $copyFilesParam = 'true' ]; then
+	if [ "$copyFilesParam" = 'true' ]; then
 		otherFiles="$( getCodecOtherFiles "$outputCodec" )"
 		if [ -z "$otherFiles" ]; then
 			echo 'false'
@@ -5814,7 +5814,7 @@ getNumberOfCpuCores () {
 }
 
 startTimer () {
-	if [ $gnudate = 'true' ]; then
+	if [ "$gnudate" = 'true' ]; then
 		timerStart="$( $datecmd '+%s.%N' )"
 	else
 		timerStart="$( $datecmd '+%s' ).0"
@@ -5822,7 +5822,7 @@ startTimer () {
 }
 
 endTimer () {
-	if [ $gnudate = 'true' ]; then
+	if [ "$gnudate" = 'true' ]; then
 		timerEnd="$( $datecmd '+%s.%N' )"
 	else
 		timerEnd="$( $datecmd '+%s' ).0"
@@ -6208,7 +6208,7 @@ while getopts '2a:B:b:C:c:df:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		# from an original idea by Porcus on https://hydrogenaudio.org/index.php/topic,127856.msg1062957.html#msg1062957
 		l)
-			if [ "$lastCodec" != "WavPackHybrid" -a $touchFiles = 'false' ]; then
+			if [ "$lastCodec" != "WavPackHybrid" -a "$touchFiles" = 'false' ]; then
 				printMessage 'error' 'usage' 'command_line' "$Self_Name -l: it must be preceded by -c wvh or -T." ; exit $Ex_Usage
 			fi
 			gotLinkedDir='false'
@@ -6228,7 +6228,7 @@ while getopts '2a:B:b:C:c:df:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		# from an original idea by Porcus on https://hydrogenaudio.org/index.php/topic,127856.msg1062957.html#msg1062957
 		L)
-			if [ "$lastCodec" != "WavPackHybrid" -a $touchFiles = 'false' ]; then
+			if [ "$lastCodec" != "WavPackHybrid" -a "$touchFiles" = 'false' ]; then
 				printMessage 'error' 'usage' 'command_line' "$Self_Name -L: it must be preceded by -c wvh or -T." ; exit $Ex_Usage
 			fi
 			gotLinkedDir='false'
@@ -6270,7 +6270,7 @@ while getopts '2a:B:b:C:c:df:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 				setCodecOtherFiles "default" "$OPTARG"
 			elif [ -n "$lastCodec" ]; then
 				if [ "$lastCodec" = "WavPackHybrid" ]; then
-					if [ $gotLinkedDir = 'true' ]; then
+					if [ "$gotLinkedDir" = 'true' ]; then
 						setCodecOtherFiles "WavPackLossy" "$OPTARG"
 					else
 						setCodecOtherFiles "WavPackHybrid" "$OPTARG"
@@ -6285,14 +6285,14 @@ while getopts '2a:B:b:C:c:df:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		k)
 			keepExistingFiles='true'
-			if [ $keepNewerFiles = 'true' ]; then
+			if [ "$keepNewerFiles" = 'true' ]; then
 				printMessage 'error' 'usage' 'command_line' "$Self_Name -k: parameters -k and -K are mutually exclusive. Choose one or the other." ; exit $Ex_Usage
 			fi
 			;;
 
 		K)
 			keepNewerFiles='true'
-			if [ $keepExistingFiles = 'true' ]; then
+			if [ "$keepExistingFiles" = 'true' ]; then
 				printMessage 'error' 'usage' 'command_line' "$Self_Name -K: parameters -k and -K are mutually exclusive. Choose one or the other." ; exit $Ex_Usage
 			fi
 			;;
@@ -6336,7 +6336,7 @@ while getopts '2a:B:b:C:c:df:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 					-[0-9].[0-9][0-9]|-[1-9][0-9].[0-9][0-9]) gainValue="$OPTARG" ;; # floating point, 2 decimals
 					*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -G: gain type must be either album or track, albumpeak or trackpeak, or a signed number between -99.99 and +99.99" ; exit $Ex_Usage
 				esac
-				if [ $applyGain = 'true' ]; then
+				if [ "$applyGain" = 'true' ]; then
 					case "$applyGainType" in
 						ALBUM|TRACK)
 							preamp="$gainValue"
@@ -6390,31 +6390,31 @@ fi
 
 outputCodecs="${outputCodecs# }"
 
-if [ "$outputCodecs" = 'WAV' -a $applyGain = 'true' ]; then
+if [ "$outputCodecs" = 'WAV' -a "$applyGain" = 'true' ]; then
 	wavMustBeProcessed='true'
 fi
 
 # transcode, test, replaygain, touch, hash
-if [ -z "$outputCodecs" -a $checkFiles = 'false' -a $computeReplayGain = 'false' -a $reverseReplayGain = 'false' -a $touchFiles = 'false' -a "$displayInternalHash" = 'false' -a $showInformation = 'false' ]; then
+if [ -z "$outputCodecs" -a "$checkFiles" = 'false' -a "$computeReplayGain" = 'false' -a "$reverseReplayGain" = 'false' -a "$touchFiles" = 'false' -a "$displayInternalHash" = 'false' -a "$showInformation" = 'false' ]; then
 	printMessage 'error' 'usage' 'command_line' "$Self_Name: no action specified"
 	exit $Ex_Usage
 fi
 
 # transcode
 if [ -z "$outputCodecs" ]; then
-	if [ $setArtworkParam = 'true' ]; then
+	if [ "$setArtworkParam" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -a is only available when transcoding (-c)."
 		exit $Ex_Usage
 	fi
-	if [ $copyFilesParam = 'true' ]; then
+	if [ "$copyFilesParam" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -f is only available when transcoding (-c)."
 		exit $Ex_Usage
 	fi
-	if [ $keepExistingFiles = 'true' ]; then
+	if [ "$keepExistingFiles" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -k is only available when -c has been provided."
 		exit $Ex_Usage
 	fi
-	if [ $keepNewerFiles = 'true' ]; then
+	if [ "$keepNewerFiles" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -K is only available when -c has been provided."
 		exit $Ex_Usage
 	fi
@@ -6422,123 +6422,123 @@ fi
 
 # transcode (test, replaygain, touch, hash, information)
 if [ -n "$outputCodecs" ]; then
-	if [ $computeReplayGain = 'true' -o $reverseReplayGain = 'true' ]; then
+	if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -c/-d and -g/-G are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $displayInternalHash = 'true' ]; then
+	if [ "$displayInternalHash" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -c/-d and -H are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $touchFiles = 'true' ]; then
+	if [ "$touchFiles" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -c/-d and -T are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $checkFiles = 'true' ]; then
+	if [ "$checkFiles" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -c/-d and -t are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $showInformation = 'true' ]; then
+	if [ "$showInformation" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -c/-d and -I are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
 fi
 
 # Test files (replaygain, touch, hash, information)
-if [ $checkFiles = 'true' ]; then
-	if [ $computeReplayGain = 'true' -o $reverseReplayGain = 'true' ]; then
+if [ "$checkFiles" = 'true' ]; then
+	if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -t and -g/-G are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $touchFiles = 'true' ]; then
+	if [ "$touchFiles" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -t and -T are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $displayInternalHash = 'true' ]; then
+	if [ "$displayInternalHash" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -t and -H are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $showInformation = 'true' ]; then
+	if [ "$showInformation" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -t and -I are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
 fi
 
 # ReplayGain (test, touch, hash, information)
-if [ $computeReplayGain = 'true' -o $reverseReplayGain = 'true' ]; then
-	if [ $checkFiles = 'true' ]; then
+if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
+	if [ "$checkFiles" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -g/-G and -t are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $touchFiles = 'true' ]; then
+	if [ "$touchFiles" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -g/-G and -T are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $displayInternalHash = 'true' ]; then
+	if [ "$displayInternalHash" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -g/-G and -H are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $showInformation = 'true' ]; then
+	if [ "$showInformation" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -g/-G and -I are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
 fi
 
 # Touch files (test, replaygain, hash, information)
-if [ $touchFiles = 'true' ]; then
-	if [ $checkFiles = 'true' ]; then
+if [ "$touchFiles" = 'true' ]; then
+	if [ "$checkFiles" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -T and -t are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $computeReplayGain = 'true' -o $reverseReplayGain = 'true' ]; then
+	if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -T and -g/-G are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $displayInternalHash = 'true' ]; then
+	if [ "$displayInternalHash" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -T and -H are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $showInformation = 'true' ]; then
+	if [ "$showInformation" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -T and -I are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
 fi
 
 # Hash files (test, replaygain, touch, information)
-if [ $displayInternalHash = 'true' ]; then
-	if [ $checkFiles = 'true' ]; then
+if [ "$displayInternalHash" = 'true' ]; then
+	if [ "$checkFiles" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -H and -t are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $computeReplayGain = 'true' -o $reverseReplayGain = 'true' ]; then
+	if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -H and -g/-G are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $touchFiles = 'true' ]; then
+	if [ "$touchFiles" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -H and -T are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $showInformation = 'true' ]; then
+	if [ "$showInformation" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -H and -I are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
 fi
 
 # Show information (test, replaygain, touch, hash)
-if [ $showInformation = 'true' ]; then
-	if [ $checkFiles = 'true' ]; then
+if [ "$showInformation" = 'true' ]; then
+	if [ "$checkFiles" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -I and -t are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $computeReplayGain = 'true' -o $reverseReplayGain = 'true' ]; then
+	if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -I and -g/-G are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $touchFiles = 'true' ]; then
+	if [ "$touchFiles" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -I and -T are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
-	if [ $displayInternalHash = 'true' ]; then
+	if [ "$displayInternalHash" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -I and -H are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
@@ -6582,7 +6582,7 @@ for signal in INT TERM ABRT PIPE; do
 	trap "cleanAbort" $signal
 done
 
-if [ -n "$outputCodecs" -a $tagCompressionSetting = 'true' ]; then
+if [ -n "$outputCodecs" -a "$tagCompressionSetting" = 'true' ]; then
 	getEncoderVersions
 fi
 
@@ -6590,7 +6590,7 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 	checkOutputDirectories
 
 	adjustNumberOfProcesses $numberOfOutputFiles
-	if [ $gnudate = 'true' ]; then
+	if [ "$gnudate" = 'true' ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
 		time1="$( $datecmd '+%s' ).0"
@@ -6598,9 +6598,9 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		transcode &
 	done
-elif [ $checkFiles = 'true' ]; then
+elif [ "$checkFiles" = 'true' ]; then
 	adjustNumberOfProcesses $numberOfSourceFiles
-	if [ $gnudate = 'true' ]; then
+	if [ "$gnudate" = 'true' ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
 		time1="$( $datecmd '+%s' ).0"
@@ -6608,9 +6608,9 @@ elif [ $checkFiles = 'true' ]; then
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		testFiles &
 	done
-elif [ $computeReplayGain = 'true' ]; then
+elif [ "$computeReplayGain" = 'true' ]; then
 	adjustNumberOfProcesses $numberOfSourceFiles
-	if [ $gnudate = 'true' ]; then
+	if [ "$gnudate" = 'true' ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
 		time1="$( $datecmd '+%s' ).0"
@@ -6618,23 +6618,23 @@ elif [ $computeReplayGain = 'true' ]; then
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		computeTrackGains &
 	done
-elif [ $reverseReplayGain = 'true' ]; then
+elif [ "$reverseReplayGain" = 'true' ]; then
 	adjustNumberOfProcesses $numberOfSourceFiles
-	if [ $gnudate = 'true' ]; then
+	if [ "$gnudate" = 'true' ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	if [ $allFilesAreOpus = 'true' ]; then
+	if [ "$allFilesAreOpus" = 'true' ]; then
 		reverseOpusTrackGains || exitCode=$Ex_Ko
 	else
 		for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 			reverseTrackGains &
 		done
 	fi
-elif [ $touchFiles = 'true' ]; then
+elif [ "$touchFiles" = 'true' ]; then
 	adjustNumberOfProcesses $numberOfSourceFiles
-	if [ $gnudate = 'true' ]; then
+	if [ "$gnudate" = 'true' ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
 		time1="$( $datecmd '+%s' ).0"
@@ -6642,9 +6642,9 @@ elif [ $touchFiles = 'true' ]; then
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		computeTrackDateTimes &
 	done
-elif [ $displayInternalHash = 'true' ]; then
+elif [ "$displayInternalHash" = 'true' ]; then
 	adjustNumberOfProcesses $numberOfSourceFiles
-	if [ $gnudate = 'true' ]; then
+	if [ "$gnudate" = 'true' ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
 		time1="$( $datecmd '+%s' ).0"
@@ -6652,9 +6652,9 @@ elif [ $displayInternalHash = 'true' ]; then
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		showInternalHashes &
 	done
-elif [ $showInformation = 'true' ]; then
+elif [ "$showInformation" = 'true' ]; then
 	adjustNumberOfProcesses $numberOfSourceFiles
-	if [ $gnudate = 'true' ]; then
+	if [ "$gnudate" = 'true' ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
 		time1="$( $datecmd '+%s' ).0"
@@ -6666,27 +6666,27 @@ fi
 exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
 
 if [ $exitCode -eq $Ex_Ok ]; then
-	if [ $computeReplayGain = 'true' ]; then
-		if [ $allFilesAreOpus = 'true' ]; then
+	if [ "$computeReplayGain" = 'true' ]; then
+		if [ "$allFilesAreOpus" = 'true' ]; then
 			computeOpusAlbumGain || exitCode=$Ex_Ko
 		else
-			if [ $applyGain = 'false' -o "$applyGainType" = 'ALBUM' ]; then
+			if [ "$applyGain" = 'false' -o "$applyGainType" = 'ALBUM' ]; then
 				computeAlbumGain || exitCode=$Ex_Ko
 			fi
 		fi
-	elif [ $touchFiles = 'true' ]; then
+	elif [ "$touchFiles" = 'true' ]; then
 		touchAllFiles || exitCode=$Ex_Ko
 	fi
 fi
 
-if [ $gnudate = 'true' ]; then
+if [ "$gnudate" = 'true' ]; then
 	time2="$( $datecmd '+%s.%N' )"
 else
 	time2="$( $datecmd '+%s' ).0"
 fi
 
 # print transcoding stats if applicable
-if [ $exitCode -eq $Ex_Ok -a $verbose = 'true' ]; then
+if [ $exitCode -eq $Ex_Ok -a "$verbose" = 'true' ]; then
 	# startTimer
 	if [ "$outputMode" = 'machine' ]; then
 		printMachineStats
