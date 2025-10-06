@@ -4040,12 +4040,12 @@ setControlVariables () {
 }
 
 transcode () {
-	local exitCode=$Ex_Ok allDone='false' milliseconds fileIndex paddedFileIndex transcodingJobFile decodingJobFile
-	local lastCodec="${outputCodecs##* }" copyDone='false' encodingDone='false' lsec=0
-	local nDecodingThreads=1 encodingNeedsWavFile allCodecsDone='false'
+	local exitCode=$Ex_Ok allFilesDone allCodecsDone milliseconds fileIndex paddedFileIndex transcodingJobFile
+	local decodingJobFile lastCodec="${outputCodecs##* }" copyDone='false' encodingDone='false'
+	local nDecodingThreads=1 encodingNeedsWavFile sleepTime="0.05"
 
-	until test "$allDone" = 'true' ; do
-		allDone='true'
+	until test "$allFilesDone" = 'true' ; do
+		allFilesDone='true'
 		while read milliseconds paddedFileIndex fileIndex; do
 			sourceFile="${sourceFiles[$fileIndex]}"
 			sourceFilename="${sourceFile##*/}"
@@ -4055,7 +4055,7 @@ transcode () {
 
 			# if test -e "$transcodingJobFile" && mv "$transcodingJobFile" "$decodingJobFile" 2>/dev/null; then
 			if getAndRenameLock "$transcodingJobFile" "$decodingJobFile"; then
-				allDone='false'
+				allFilesDone='false'
 				setControlVariables
 				getFileProps "$sourceFile"
 				prepareSource &&
@@ -4067,45 +4067,40 @@ transcode () {
 				fi
 				rm -f "$decodingJobFile" 1>/dev/null 2>&1
 			elif [ -e "$decodingJobFile" ]; then # can't do anything for this track yet, gotta wait for it to be decoded
-				allDone='false'
+				allFilesDone='false'
 				continue # skip to next track
 			fi
 
 			for outputCodec in $outputCodecs; do
-				encodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
 				encodingNeedsWavFile="${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
+				encodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
 				# if test -e "$encodingJobFile" && unlink "$encodingJobFile" 2>/dev/null; then
 				if test -e "$encodingJobFile" && getLock "$encodingJobFile"; then
-					allDone='false'
+					allFilesDone='false' allCodecsDone='false'
 					setControlVariables
 					getFileProps "$sourceFile" "$outputCodec"
 					encode $nDecodingThreads || exitCode=$Ex_Ko
-					rm -f "$encodingNeedsWavFile"
-					ls "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info 1>/dev/null 2>&1 || rm -f "$wavFile"
-
 					copyOrLinkOtherFiles "$outputCodec"
 					if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
 						copyOrLinkOtherFiles "WavPackLossy"
 					fi
-					allCodecsDone='false'
-					ls "${Self_Control_Dir}/${paddedFileIndex}_encoding_"*.job 1>/dev/null 2>&1 || allCodecsDone='true'
+					rm -f "$encodingNeedsWavFile"
+
+					# Do this in this loop because it is conditional on getting a lock on an encoding job.
+					# Doing it outside of this loop would run the following code every $sleepTime seconds per process.
+					ls "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info 1>/dev/null 2>&1 || allCodecsDone='true'
 					if [ "$allCodecsDone" = 'true' ]; then
 						touch "$wasProcessedFile"
+						rm -rf "$wavFile" "$binariesDir" "${Self_Swap_Dir}/${paddedFileIndex}_picture_"* 1>/dev/null 2>&1
 					fi
 				fi
 			done
-
-			# FIXME
-			# if [ "$allCodecsDone" = 'true' ]; then
-			# 	rm -rf "$binariesDir" 1>/dev/null 2>&1
-			# 	"${Self_Swap_Dir}/${paddedFileIndex}_picture_"* 1>/dev/null 2>&1
-			# fi
 
 			if [ -n "$destPath" -a -d "$destPath" -a -w "$destPath" ]; then
 				chmod u+rwX "$destPath" "${destPath}"/* 2>/dev/null
 			fi
 		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
-		sleep 0.05 # make sure idling processes don't hog the CPU
+		sleep "$sleepTime" # make sure idling processes don't hog the CPU
 	done
 
 	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
