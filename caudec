@@ -3063,8 +3063,6 @@ decode () {
 						else
 							mv "$copyFile" "$wavFile" 1>/dev/null 2>&1 || exitCode=$Ex_Ko
 						fi
-					elif [ "$outputCodecs" = 'WAV' ]; then
-						mv "$copyFile" "$wavFile" 1>/dev/null 2>&1 || exitCode=$Ex_Ko
 					else
 						cp "$copyFile" "$wavFile" 1>/dev/null 2>&1 || exitCode=$Ex_Ko
 					fi
