@@ -2335,22 +2335,24 @@ processSourceTagFile () {
 			echo -n "§${line}"
 		fi
 	done < "$sourceTagFile" > "${sourceTagFile}.tmp"
-	mv "${sourceTagFile}.tmp" "$sourceTagFile"
+	mv "${sourceTagFile}.tmp" "$sourceTagFile" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 
 	if [ -n "$outputCodecs" ]; then
 		# white/blacklists
 		if [ -n "$tagWhitelist" ]; then
 			genTagFilter "$tagWhitelist"
 			grep -iE "$ereg" "$sourceTagFile" > "${sourceTagFile}.tmp"
-			mv "${sourceTagFile}.tmp" "$sourceTagFile"
+			mv "${sourceTagFile}.tmp" "$sourceTagFile" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 		elif [ -n "$tagBlacklist" ]; then
 			genTagFilter "$tagBlacklist"
 			grep -viE "$ereg" "$sourceTagFile" > "${sourceTagFile}.tmp"
-			mv "${sourceTagFile}.tmp" "$sourceTagFile"
+			mv "${sourceTagFile}.tmp" "$sourceTagFile" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 		fi
 
 		if isWavProcessed ; then
-			mv -f "${sourceTagFile}.tmp" "$sourceTagFile"
+			if [ -e "${sourceTagFile}.tmp" ]; then
+				mv -f "${sourceTagFile}.tmp" "$sourceTagFile" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			fi
 		fi
 	fi
 }
@@ -3043,6 +3045,133 @@ isWavProcessed () {
 	fi
 }
 
+processWavFile () {
+	local exitCode=$Ex_Ok
+
+	if [ -e "$copyFile" ]; then
+		rm -f "$copyFile" "${copyFile}c"
+	fi
+	gainValue='' gaincmd=''
+	if [ $applyGain = 'true' ]; then
+		if [ "$applyGainType" = 'ALBUM' -o "$applyGainType" = 'TRACK' ]; then
+			if [ "$applyGainType" = 'ALBUM' ]; then
+				gainValue="$( grep -Fi 'replaygain_album_gain' "$sourceTagFile" 2>/dev/null | cut -d '=' -f 2 | cut -d ' ' -f 1 )"
+			else
+				gainValue="$( grep -Fi 'replaygain_track_gain' "$sourceTagFile" 2>/dev/null | cut -d '=' -f 2 | cut -d ' ' -f 1 )"
+			fi
+			if [ -n "$gainValue" ]; then
+				if [ "${preamp:0:1}" = '-' ]; then
+					gainValue="$( printf '%.2f' "$( echo "scale=5; ($gainValue - ${preamp:1}) / 1" | bc 2>> "$Self_Errors_File" )" )"
+				elif [ "${preamp:0:1}" = '+' ]; then
+					gainValue="$( printf '%.2f' "$( echo "scale=5; ($gainValue + ${preamp:1}) / 1" | bc 2>> "$Self_Errors_File" )" )"
+				fi
+				if [ "${gainValue:0:1}" != '-' -a "${gainValue:0:1}" != '+' ]; then
+					gainValue="+${gainValue}"
+				fi
+			fi
+		elif [ "$applyGainType" = 'ALBUM_PEAK' -o "$applyGainType" = 'TRACK_PEAK' ]; then
+			if [ "$applyGainType" = 'ALBUM_PEAK' ]; then
+				gainPeak="$( grep -Fi 'replaygain_album_peak' "$sourceTagFile" 2>/dev/null | cut -d '=' -f 2 )"
+			elif [ "$applyGainType" = 'TRACK_PEAK' ]; then
+				gainPeak="$( grep -Fi 'replaygain_track_peak' "$sourceTagFile" 2>/dev/null | cut -d '=' -f 2 )"
+			fi
+			if [ -n "$gainPeak" ]; then
+				if [ "${gainPeak:0:1}" = '0' ]; then
+					gainValue="$( computeGainFromPeak "$gainPeak" )"
+					if [ "${gainValue:0:1}" != '-' ]; then # gainValue is positive
+						if [ "${peakReference:0:1}" = '-' ]; then
+							gainValue="${peakReference}"
+						else
+							gainValue=''
+						fi
+					else # gainValue is negative
+						if [ "${peakReference:0:1}" = '-' ]; then
+							gainValue="$( printf "%.2f" "$( echo "scale=5; (${gainValue:1} + ${peakReference}) / 1" | bc 2>> "$Self_Errors_File" )" )"
+							if [ "${gainValue:0:1}" != '-' ]; then
+								gainValue="+${gainValue}"
+							fi
+						else
+							gainValue="+${gainValue:1}"
+						fi
+					fi
+				elif [ "${peakReference:0:1}" = '-' ]; then
+					gainValue="$peakReference"
+				fi
+			fi
+		else
+			gainValue="$applyGainType"
+		fi
+
+		if [ -n "$gainValue" ]; then
+			gaincmd="gain $gainValue"
+		fi
+	fi
+
+	if [ $applyGain = 'true' -a -z "$gainValue" ]; then
+		printMessage 'warning' 'processing' "file:${sourceFile}" $processNumber "threads:1" "no gain value"
+	fi
+
+	nChannels=$( getNumberOfChannels "$wavFile" )
+	if [ -z "$nChannels" -o "$nChannels" = '0' ]; then
+		nChannels=2
+	fi
+
+	if [ $preventClipping = 'true' ]; then
+		soxGuard='-G'
+	fi
+
+	if [ -n "$bitDepth" ]; then
+		bitdepthcmd="-b $bitDepth"
+	fi
+
+	if [ -n "$samplingRate" ]; then
+		ratecmd="rate -v $samplingRate"
+	fi
+
+	if [ -n "$bitDepth" -o -n "$samplingRate" ]; then
+		dithercmd='dither -a -s' # FL, FR, C, LFE, SL, SR, BL, BR; 1/4
+	fi
+
+	# convert to stereo (and at the same time, resample and / or apply gain if requested)
+	if [ "$convertToStereo" != 'false' ]; then
+		if [ $nChannels -gt 2 ]; then
+			downmixToStereo || exitCode=$Ex_Io_Err
+		elif [ $nChannels -eq 1 ]; then
+			upmixToStereo || exitCode=$Ex_Io_Err
+		fi
+	fi
+
+	# resample (and apply gain if requested) if not already done
+	# make sure to test both wavProcessed != 'true' and ec = Ex_Ok, because wavProcessed will only be true if prior processing succeeded
+	if [ $exitCode -eq $Ex_Ok -a "$wavProcessed" != 'true' ]; then # no prior processing, resampling has not yet be done
+		if [ -n "$bitdepthcmd" -o -n "$ratecmd" ]; then
+			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $gaincmd $ratecmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+			if [ $exitCode -eq $Ex_Ok -a -f "$resampledWavFile" ]; then
+				rm -f "$wavFile" &&  mv -f "$resampledWavFile" "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+				if [ $exitCode -eq $Ex_Ok ]; then
+					isWavProcessed 'true'
+				fi
+			fi
+			if [ -e "$resampledWavFile" ]; then rm -f "$resampledWavFile"; fi
+		fi
+	fi
+
+	# apply gain if not already done
+	if [ $exitCode -eq $Ex_Ok -a "$wavProcessed" != 'true' -a -n "$gaincmd" ]; then # no prior processing, gain has not yet been applied
+		# debug "sox gaincmd=[$gaincmd]"
+		sox $soxGuard "$wavFile" "$resampledWavFile" $gaincmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+		if [ $exitCode -eq $Ex_Ok -a -f "$resampledWavFile" ]; then
+			rm -f "$wavFile" &&  mv -f "$resampledWavFile" "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+			if [ $exitCode -eq $Ex_Ok ]; then
+				isWavProcessed 'true'
+			fi
+		fi
+		if [ -e "$resampledWavFile" ]; then rm -f "$resampledWavFile"; fi
+	fi
+
+	return $exitCode
+}
+
 decode () {
 	local exitCode=$Ex_Ok sourceTagFormat
 	local soxGuard='' kfm='' nChannels=2 gaincmd='' ratecmd='' bitdepthcmd='' dithercmd='' gainPeak=''
@@ -3142,135 +3271,12 @@ decode () {
 
 			*) exitCode=$Ex_Ko ;;
 		esac
-
 	else
 		exitCode=$Ex_Ko
 	fi
 
-	if [ $exitCode -eq $Ex_Ok ]; then
-		if [ -e "$copyFile" ]; then
-			rm -f "$copyFile" "${copyFile}c"
-		fi
-
-		if [ $wavMustBeProcessed = 'true' ]; then
-			gainValue='' gaincmd=''
-			if [ $applyGain = 'true' ]; then
-				if [ "$applyGainType" = 'ALBUM' -o "$applyGainType" = 'TRACK' ]; then
-					if [ "$applyGainType" = 'ALBUM' ]; then
-						gainValue="$( grep -Fi 'replaygain_album_gain' "$sourceTagFile" 2>/dev/null | cut -d '=' -f 2 | cut -d ' ' -f 1 )"
-					else
-						gainValue="$( grep -Fi 'replaygain_track_gain' "$sourceTagFile" 2>/dev/null | cut -d '=' -f 2 | cut -d ' ' -f 1 )"
-					fi
-					if [ -n "$gainValue" ]; then
-						if [ "${preamp:0:1}" = '-' ]; then
-							gainValue="$( printf '%.2f' "$( echo "scale=5; ($gainValue - ${preamp:1}) / 1" | bc 2>> "$Self_Errors_File" )" )"
-						elif [ "${preamp:0:1}" = '+' ]; then
-							gainValue="$( printf '%.2f' "$( echo "scale=5; ($gainValue + ${preamp:1}) / 1" | bc 2>> "$Self_Errors_File" )" )"
-						fi
-						if [ "${gainValue:0:1}" != '-' -a "${gainValue:0:1}" != '+' ]; then
-							gainValue="+${gainValue}"
-						fi
-					fi
-				elif [ "$applyGainType" = 'ALBUM_PEAK' -o "$applyGainType" = 'TRACK_PEAK' ]; then
-					if [ "$applyGainType" = 'ALBUM_PEAK' ]; then
-						gainPeak="$( grep -Fi 'replaygain_album_peak' "$sourceTagFile" 2>/dev/null | cut -d '=' -f 2 )"
-					elif [ "$applyGainType" = 'TRACK_PEAK' ]; then
-						gainPeak="$( grep -Fi 'replaygain_track_peak' "$sourceTagFile" 2>/dev/null | cut -d '=' -f 2 )"
-					fi
-					if [ -n "$gainPeak" ]; then
-						if [ "${gainPeak:0:1}" = '0' ]; then
-							gainValue="$( computeGainFromPeak "$gainPeak" )"
-							if [ "${gainValue:0:1}" != '-' ]; then # gainValue is positive
-								if [ "${peakReference:0:1}" = '-' ]; then
-									gainValue="${peakReference}"
-								else
-									gainValue=''
-								fi
-							else # gainValue is negative
-								if [ "${peakReference:0:1}" = '-' ]; then
-									gainValue="$( printf "%.2f" "$( echo "scale=5; (${gainValue:1} + ${peakReference}) / 1" | bc 2>> "$Self_Errors_File" )" )"
-									if [ "${gainValue:0:1}" != '-' ]; then
-										gainValue="+${gainValue}"
-									fi
-								else
-									gainValue="+${gainValue:1}"
-								fi
-							fi
-						elif [ "${peakReference:0:1}" = '-' ]; then
-							gainValue="$peakReference"
-						fi
-					fi
-				else
-					gainValue="$applyGainType"
-				fi
-
-				if [ -n "$gainValue" ]; then
-					gaincmd="gain $gainValue"
-				fi
-			fi
-
-			if [ $applyGain = 'true' -a -z "$gainValue" ]; then
-				printMessage 'warning' 'processing' "file:${sourceFile}" $processNumber "threads:1" "no gain value"
-			fi
-
-			nChannels=$( getNumberOfChannels "$wavFile" )
-			if [ -z "$nChannels" -o "$nChannels" = '0' ]; then
-				nChannels=2
-			fi
-
-			if [ $preventClipping = 'true' ]; then
-				soxGuard='-G'
-			fi
-
-			if [ -n "$bitDepth" ]; then
-				bitdepthcmd="-b $bitDepth"
-			fi
-
-			if [ -n "$samplingRate" ]; then
-				ratecmd="rate -v $samplingRate"
-			fi
-
-			if [ -n "$bitDepth" -o -n "$samplingRate" ]; then
-				dithercmd='dither -a -s' # FL, FR, C, LFE, SL, SR, BL, BR; 1/4
-			fi
-
-			# convert to stereo (and at the same time, resample and / or apply gain if requested)
-			if [ "$convertToStereo" != 'false' ]; then
-				if [ $nChannels -gt 2 ]; then
-					downmixToStereo || exitCode=$Ex_Io_Err
-				elif [ $nChannels -eq 1 ]; then
-					upmixToStereo || exitCode=$Ex_Io_Err
-				fi
-			fi
-
-			# resample (and apply gain if requested) if not already done
-			# make sure to test both wavProcessed != 'true' and ec = Ex_Ok, because wavProcessed will only be true if prior processing succeeded
-			if [ $exitCode -eq $Ex_Ok -a "$wavProcessed" != 'true' ]; then # no prior processing, resampling has not yet be done
-				if [ -n "$bitdepthcmd" -o -n "$ratecmd" ]; then
-					sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $gaincmd $ratecmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
-					if [ $exitCode -eq $Ex_Ok -a -f "$resampledWavFile" ]; then
-						rm -f "$wavFile" &&  mv -f "$resampledWavFile" "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
-						if [ $exitCode -eq $Ex_Ok ]; then
-							isWavProcessed 'true'
-						fi
-					fi
-					if [ -e "$resampledWavFile" ]; then rm -f "$resampledWavFile"; fi
-				fi
-			fi
-
-			# apply gain if not already done
-			if [ $exitCode -eq $Ex_Ok -a "$wavProcessed" != 'true' -a -n "$gaincmd" ]; then # no prior processing, gain has not yet been applied
-				# debug "sox gaincmd=[$gaincmd]"
-				sox $soxGuard "$wavFile" "$resampledWavFile" $gaincmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
-				if [ $exitCode -eq $Ex_Ok -a -f "$resampledWavFile" ]; then
-					rm -f "$wavFile" &&  mv -f "$resampledWavFile" "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
-					if [ $exitCode -eq $Ex_Ok ]; then
-						isWavProcessed 'true'
-					fi
-				fi
-				if [ -e "$resampledWavFile" ]; then rm -f "$resampledWavFile"; fi
-			fi
-		fi
+	if [ $exitCode -eq $Ex_Ok -a "$wavMustBeProcessed" = 'true' ]; then
+		processWavFile ; exitCode=$?
 	fi
 
 	if [ $exitCode -ne $Ex_Ok ]; then
