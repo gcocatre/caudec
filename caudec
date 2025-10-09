@@ -851,7 +851,7 @@ getConstantBitrate () {
 			if [ -z "$bitrate" ]; then bitrate=128; fi # ffmpeg default
 			case "$bitrate" in
 				64|6[5-9]|[7-9][0-9]|[1-2][0-9][0-9]|3[0-1][0-9]|320) bitrate_AAC="$bitrate" ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$errormsg average bitrate for $codec must be an integer between 64 and 320 in kilobits per second" ; exit $Ex_Usage ;;
+				*) printMessage 'error' 'usage' 'bad_value' "$errormsg constant bitrate for $codec must be an integer between 64 and 320 in kilobits per second" ; exit $Ex_Usage ;;
 			esac
 			;;
 
@@ -3556,6 +3556,7 @@ encode () {
 		# encodeALAC
 		ALAC)
 			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_m4a.txt"
+			if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="-metadata comment=$Self_Name $Self_Version / ALAC (ffmpeg $alacVersion)"; fi
 			nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
 			if [ "$doEmbedCoverArt" = 'true' ]; then
 				if [ -z "$sourceCoverArtFile" ]; then
@@ -3730,14 +3731,14 @@ encode () {
 				if [ "$tagCompressionSetting" = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / VBR $compression_MP3"; fi
 				lame -S -V $compression_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			elif [ "$MP3_MODE" = 'ABR' ]; then
-				if [ "$tagCompressionSetting" = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / ABR $average_bitrate_MP3 kbps"; fi
+				if [ "$tagCompressionSetting" = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / $average_bitrate_MP3 kbps (ABR)"; fi
 				lame -S --abr $average_bitrate_MP3 --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			else
 				if [ $compression_MP3 -eq "insane" ]; then
-					if [ "$tagCompressionSetting" = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / CBR 320 kbps"; fi
+					if [ "$tagCompressionSetting" = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / 320 kbps (CBR)"; fi
 					lame -S --preset insane --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
-					if [ "$tagCompressionSetting" = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / CBR $bitrate_MP3 kbps"; fi
+					if [ "$tagCompressionSetting" = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / $bitrate_MP3 kbps (CBR)"; fi
 					lame -S -b $bitrate_MP3 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			fi
@@ -3774,8 +3775,10 @@ encode () {
 					aac_at)
 						if [ "$AAC_MODE" = "ABR" -a -n "$average_bitrate_AAC" ]; then
 							compressionParam="-aac_at_mode abr -b:a" qualityArg="${average_bitrate_AAC}k"
+							if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="-metadata comment=$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac_at) / $bitrate_AAC kbps (ABR)"; fi
 						else
 							compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
+							if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="-metadata comment=$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac_at) / $bitrate_AAC kbps (CBR)"; fi
 						fi
 						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
 						if [ "$doEmbedCoverArt" = 'true' -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
@@ -3788,6 +3791,7 @@ encode () {
 
 					libfdk_aac)
 						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
+						if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="-metadata comment=$Self_Name $Self_Version / AAC (ffmpeg $aacVersion libfdk_aac) / $bitrate_AAC kbps (CBR)"; fi
 						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
 						if [ "$doEmbedCoverArt" = 'true' -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
 							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
@@ -3804,6 +3808,7 @@ encode () {
 							fi
 						fi
 						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
+						if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="-metadata comment=$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac) / $bitrate_AAC kbps (CBR)"; fi
 						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
 						if [ "$doEmbedCoverArt" = 'true' -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
 							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
