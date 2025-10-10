@@ -3775,7 +3775,7 @@ encode () {
 					aac_at)
 						if [ "$AAC_MODE" = "ABR" -a -n "$average_bitrate_AAC" ]; then
 							compressionParam="-aac_at_mode abr -b:a" qualityArg="${average_bitrate_AAC}k"
-							if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="-metadata comment=$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac_at) / $bitrate_AAC kbps (ABR)"; fi
+							if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="-metadata comment=$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac_at) / $average_bitrate_AAC kbps (ABR)"; fi
 						else
 							compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
 							if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="-metadata comment=$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac_at) / $bitrate_AAC kbps (CBR)"; fi
