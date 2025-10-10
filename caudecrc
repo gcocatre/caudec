@@ -9,25 +9,25 @@ compression_FLAC=5 # 0-8
 compression_lossyWAV=S # X, P, C, S, H, E, I
 compression_MonkeysAudio=2 # 1-5
 compression_WavPack=gx1 # [f|g|h|hh][x[1-6]]
-average_bitrate_WavPackLossy=256 # 2.9-23.9 or 24-9600
+average_bitrate_WavPackLossy=320 # 2.9-23.9 or 24-9600
 
-bitrate_AAC=128 # 8-320, always constant bitrate
-average_bitrate_AAC=128 # 8-320, always average bitrate
+bitrate_AAC=256 # 8-320, always constant bitrate
+average_bitrate_AAC=256 # 8-320, always average bitrate
 AAC_MODE='ABR' # 'ABR' (average bitrate) or 'CBR' (constant bitrate)
 
-compression_MP3=3 # 0-9, used with MP3_MODE='VBR'
-bitrate_MP3=128 # 16-320, used with MP3_MODE='CBR'
+compression_MP3=2 # 0-9, used with MP3_MODE='VBR'
+bitrate_MP3=256 # 16-320, used with MP3_MODE='CBR'
 average_bitrate_MP3=256 # 8-310, used with MP3_MODE='ABR'
 MP3_MODE='VBR' # 'VBR' (variable bitrate), 'ABR' (average bitrate) or 'CBR' (constant bitrate)
 
-compression_OggVorbis=3 # 0-10, used with OggVorbis_MODE='VBR'
-bitrate_OggVorbis=96 # 32-500, used with OggVorbis_MODE='CBR'
-average_bitrate_OggVorbis=96 # 32-500, used with OggVorbis_MODE='ABR'
+compression_OggVorbis=5 # 0-10, used with OggVorbis_MODE='VBR'
+bitrate_OggVorbis=160 # 32-500, used with OggVorbis_MODE='CBR'
+average_bitrate_OggVorbis=160 # 32-500, used with OggVorbis_MODE='ABR'
 OggVorbis_MODE='VBR' # 'VBR' (variable bitrate), 'ABR' (average bitrate) or 'CBR' (constant bitrate)
 
-compression_Opus=96 # 6-512, used with Opus_MODE='VBR'
-bitrate_Opus=96 # 6-512, used with Opus_MODE='CBR'
-average_bitrate_Opus=96 # 6-512, used with Opus_Mode='ABR'
+compression_Opus=128 # 6-512, used with Opus_MODE='VBR'
+bitrate_Opus=128 # 6-512, used with Opus_MODE='CBR'
+average_bitrate_Opus=128 # 6-512, used with Opus_Mode='ABR'
 Opus_MODE='VBR' # 'VBR' (variable bitrate), 'ABR' (average bitrate) or 'CBR' (constant bitrate)
 
 # Padding, for supported codecs
