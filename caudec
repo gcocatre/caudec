@@ -1432,7 +1432,7 @@ checkBinaries () {
 				*.flac) checkBinary 'flac' 'metaflac' ;;
 				*.wv) checkBinary 'wvunpack' 'APEv2' ;;
 				*.ape) checkBinary 'mac' 'APEv2' ;;
-				*.m4a) checkBinary 'ffmpeg' ;;
+				*.m4a) checkBinary 'ffmpeg' 'ffprobe' ;;
 			esac
 		done
 
@@ -1450,7 +1450,7 @@ checkBinaries () {
 			lossyFLAC) checkBinary 'lossywav' 'sox' 'soxi' 'flac' ;;
 			OggVorbis) checkBinary 'oggenc' ;;
 			MP3) checkBinary 'lame' 'eyeD3' ;;
-			AAC|ALAC) checkBinary 'ffmpeg' ;;
+			AAC|ALAC) checkBinary 'ffmpeg'; if [ "$tagCompressionSetting" = 'true' ]; then checkBinary 'mp4tags'; fi ;;
 			Opus) checkBinary 'opusenc' ;;
 		esac
 	done
@@ -3525,7 +3525,8 @@ copyOrLinkOtherFiles () {
 encode () {
 	local exitCode=$Ex_Ok nDecodingThreads=$1 nThreads=1
 	local pattern="x${outputCodec}Y" kfm='' statusInfo='' nRunningProcesses listOfOtherFiles
-	local audioFile otherFile otherFileBasename extOtherFile destOtherFile compressionTag='' id3CompressionTag=''
+	local audioFile otherFile otherFileBasename extOtherFile destOtherFile
+	local compressionTag='' id3CompressionTag='' m4aCompressionTag=''
 	local nChannels compressionParam qualityArg coverArtFile='' doEmbedCoverArt='true' bitsPerSample
 	local embeddedArtworkBytes=0 padding
 	# local doEmbedBinaries='true' # FIXME with a new -F parameter
@@ -3556,7 +3557,7 @@ encode () {
 		# encodeALAC
 		ALAC)
 			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_m4a.txt"
-			if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="-metadata comment=$Self_Name $Self_Version / ALAC (ffmpeg $alacVersion)"; fi
+			if [ "$tagCompressionSetting" = 'true' ]; then m4aCompressionTag="$Self_Name $Self_Version / ALAC (ffmpeg $alacVersion)"; fi
 			nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
 			if [ "$doEmbedCoverArt" = 'true' ]; then
 				if [ -z "$sourceCoverArtFile" ]; then
@@ -3573,6 +3574,9 @@ encode () {
 				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a alac 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			else
 				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a alac 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			fi
+			if which 'mp4tags' 1>/dev/null 2>/dev/null; then
+				mp4tags -E "$m4aCompressionTag" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File"
 			fi
 			;;
 
@@ -3775,12 +3779,11 @@ encode () {
 					aac_at)
 						if [ "$AAC_MODE" = "ABR" -a -n "$average_bitrate_AAC" ]; then
 							compressionParam="-aac_at_mode abr -b:a" qualityArg="${average_bitrate_AAC}k"
-							if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="-metadata comment=$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac_at) / $average_bitrate_AAC kbps (ABR)"; fi
+							if [ "$tagCompressionSetting" = 'true' ]; then m4aCompressionTag="$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac_at) / $average_bitrate_AAC kbps (ABR)"; fi
 						else
 							compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
-							if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="-metadata comment=$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac_at) / $bitrate_AAC kbps (CBR)"; fi
+							if [ "$tagCompressionSetting" = 'true' ]; then m4aCompressionTag="$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac_at) / $bitrate_AAC kbps (CBR)"; fi
 						fi
-						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
 						if [ "$doEmbedCoverArt" = 'true' -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
 							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
 						else
@@ -3791,8 +3794,7 @@ encode () {
 
 					libfdk_aac)
 						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
-						if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="-metadata comment=$Self_Name $Self_Version / AAC (ffmpeg $aacVersion libfdk_aac) / $bitrate_AAC kbps (CBR)"; fi
-						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
+						if [ "$tagCompressionSetting" = 'true' ]; then m4aCompressionTag="$Self_Name $Self_Version / AAC (ffmpeg $aacVersion libfdk_aac) / $bitrate_AAC kbps (CBR)"; fi
 						if [ "$doEmbedCoverArt" = 'true' -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
 							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
 						else
@@ -3808,8 +3810,7 @@ encode () {
 							fi
 						fi
 						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
-						if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="-metadata comment=$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac) / $bitrate_AAC kbps (CBR)"; fi
-						# debug "aaclib [$aaclib] compressionParam[$compressionParam] qualityArg[$qualityArg]"
+						if [ "$tagCompressionSetting" = 'true' ]; then m4aCompressionTag="$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac) / $bitrate_AAC kbps (CBR)"; fi
 						if [ "$doEmbedCoverArt" = 'true' -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
 							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
 						else
@@ -3818,8 +3819,14 @@ encode () {
 						if [ $exitCode -ne $Ex_Ko ]; then exitCode=$Ex_Ok; break; fi
 						;;
 				esac
-				if [ $exitCode -eq $Ex_Ok ]; then break; fi
+				if [ $exitCode -eq $Ex_Ok ]; then
+					break
+				fi
 			done
+			if which 'mp4tags' 1>/dev/null 2>/dev/null; then
+				debug "m4aCompressionTag=[$m4aCompressionTag]"
+				mp4tags -E "$m4aCompressionTag" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File"
+			fi
 			;;
 
 		# encodeOgg
