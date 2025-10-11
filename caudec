@@ -3575,7 +3575,7 @@ encode () {
 			else
 				printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -threads ${nThreads} -c:a alac 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			fi
-			if which 'mp4tags' 1>/dev/null 2>/dev/null; then
+			if [ "$tagCompressionSetting" = 'true' ]; then
 				mp4tags -E "$m4aCompressionTag" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File"
 			fi
 			;;
@@ -3823,8 +3823,7 @@ encode () {
 					break
 				fi
 			done
-			if which 'mp4tags' 1>/dev/null 2>/dev/null; then
-				debug "m4aCompressionTag=[$m4aCompressionTag]"
+			if [ "$tagCompressionSetting" = 'true' ]; then
 				mp4tags -E "$m4aCompressionTag" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File"
 			fi
 			;;
