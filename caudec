@@ -1015,6 +1015,19 @@ findInputFiles () {
 getInputFiles () {
 	local exitCode=$Ex_Ok inputDir line fileIndex=0 fileOrDir file fileExtension
 
+	if [ "$touchFiles" = 'true' -a ${#inputFilesAndDirs[@]} -eq 1 -a -d "${inputFilesAndDirs[0]}" ]; then
+		inputDir="${inputFilesAndDirs[0]}"
+		unset inputFilesAndDirs
+		declare -a inputFilesAndDirs=()
+		while read line; do
+			ext="${line##*.}"
+			if [ "$ext" = "wvc" ]; then continue; fi
+			inputFilesAndDirs[fileIndex]="$line"
+			(( fileIndex++ ))
+		done < <( $findcmd "$inputDir" -type f 2>/dev/null | sort -u 2>/dev/null )
+		fileIndex=0
+	fi
+
 	for fileOrDir in "${inputFilesAndDirs[@]}"; do
 		if [ -d "$fileOrDir" ]; then
 			{
@@ -1613,11 +1626,17 @@ setupControlDir () {
 		cleanExit $exitCode
 	fi
 
+	if [ "$touchFiles" = 'true' ]; then
+		orderStrategy='none'
+	fi
+
 	case "$orderStrategy" in
 		longest) sort -n -r "${Self_Data_Dir}/"*.ms > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
 		shortest) sort -n "${Self_Data_Dir}/"*.ms > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
 		*) cat "${Self_Data_Dir}/"*.ms > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
 	esac
+
+	rm -f "${Self_Data_Dir}/"*.ms
 }
 
 
@@ -4526,7 +4545,7 @@ saveGain () {
 }
 
 getFileMilliseconds () {
-	local exitCode=$Ex_Ok file="$1" seconds line samplingRate bitDepth format nChannels channelMask nSamples rest
+	local exitCode=$Ex_Ok file="$1" seconds=0 line samplingRate bitDepth format nChannels channelMask nSamples rest
 
 	case "$file" in
 		*.wv)
@@ -4543,31 +4562,17 @@ getFileMilliseconds () {
 			seconds="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | grep -F 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '0-9.' )"
 			;;
 
-		*) seconds="$( soxi -D "$file" )" ;;
+		*.wav|*.aiff|*.caf|*.flac|*.ogg|*.mp3|*.opus) seconds="$( soxi -D "$file" )" ;;
 	esac
 
 	if [ -n "$seconds" -a "$seconds" != "0" ]; then
 		echo "scale=0; $seconds * 1000 / 1" | bc 2>/dev/null
 	else
 		exitCode=$Ex_Ko
-		echo 1
+		echo 0
 	fi
 
 	return $exitCode
-}
-
-getMillisecondsByPaddedFileIndex () {
-	local paddedFileIndex="$1"
-
-	read trackMilliseconds paddedFileIndex fileIndex < "${Self_Data_Dir}/${paddedFileIndex}.ms"
-	if [ -n "$trackMilliseconds" ]; then
-		echo $trackMilliseconds
-	else
-		echo 1
-		return $Ex_Ko
-	fi
-
-	return $Ex_Ok
 }
 
 computeGainFromPeak () {
@@ -4738,8 +4743,7 @@ computeAlbumGain () {
 		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain.txt"
 		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak.txt"
 		trackGain="$( cat "$trackGainFile" )"
-		trackMilliseconds="$( getMillisecondsByPaddedFileIndex "$paddedFileIndex" )"
-		trackSeconds="$( printf "%.0f" "$( echo "scale=3; $trackMilliseconds / 1000" | bc )" )"
+		trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
 		if [ -z "$trackSeconds" ]; then
 			trackSeconds=1
 		fi
@@ -5055,15 +5059,15 @@ computeTrackDateTimes () {
 			computeTrackDateTime || exitCode=$Ex_Ko
 			touch "$wasProcessedFile"
 		fi
-	done
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
 	return $exitCode
 }
 
 touchAllFiles () {
-	local exitCode=$Ex_Ok index audioFileIndex otherFileIndex dirIndex
-	local trackDate albumSeconds discSeconds trackMilliseconds discHours discMinutes discSeconds
+	local exitCode=$Ex_Ok fileIndex audioFileIndex otherFileIndex dirIndex
+	local trackDate albumSeconds discSeconds milliseconds discHours discMinutes discSeconds
 	local defaultTrackDate lastDir="" curDir artistDir albumDir albumLinkDir albumPath dirPath inode linkedFile linkPath
 	local touchString discDirs linkedDiscDirs audioFiles otherFiles otherFile audioFile sourceFile sourceTagFile
 
@@ -5076,8 +5080,8 @@ touchAllFiles () {
 	audioFiles=()
 	otherFiles=()
 
-	for (( index=0, dirIndex=0; index < ${#sourceFiles[@]}; index++ )); do
-		sourceFile="${sourceFiles[$index]}"
+	for (( fileIndex=0, dirIndex=0; fileIndex < ${#sourceFiles[@]}; fileIndex++ )); do
+		sourceFile="${sourceFiles[$fileIndex]}"
 		sourceDirname="${sourceFile%/*}"
 		curDir="$( readlink -f "$sourceDirname" )"
 		if [ "$curDir" != "$lastDir" ]; then
@@ -5089,13 +5093,13 @@ touchAllFiles () {
 
 	for (( dirIndex=0; dirIndex < ${#discDirs[@]}; dirIndex++ )); do
 		curDir="${discDirs[$dirIndex]}"
-		trackMilliseconds=0
+		milliseconds=0
 		touchString="${trackDate}0000.00"
 		discSeconds=0
 		linkPath=""
 
-		for (( index=0, audioFileIndex=0, otherFileIndex=0; index < ${#sourceFiles[@]}; index++ )); do
-			sourceFile="${sourceFiles[$index]}"
+		for (( fileIndex=0, audioFileIndex=0, otherFileIndex=0; fileIndex < ${#sourceFiles[@]}; fileIndex++ )); do
+			sourceFile="${sourceFiles[$fileIndex]}"
 			sourceDirname="${sourceFile%/*}"
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
@@ -5121,7 +5125,7 @@ touchAllFiles () {
 							linkedDiscDirs[$dirIndex]="$linkPath"
 							break
 						fi
-					done < <( $findcmd "$linkDir" -inum "$inode" 2>dev/null )
+					done < <( $findcmd "$linkDir" -inum "$inode" 2>/dev/null )
 				fi
 			else
 				break
@@ -5134,8 +5138,7 @@ touchAllFiles () {
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
-			trackMilliseconds="$( getMillisecondsByPaddedFileIndex "$paddedFileIndex" )"
-			if [ -z "$trackMilliseconds" ]; then trackMilliseconds=0; fi
+			if [ -z "$milliseconds" ]; then milliseconds=0; fi
 
 			case "$sourceFile" in
 				*.flac|*ogg|*m4a|*.wv|*.ape|*.mp3|*.opus)
@@ -5153,10 +5156,9 @@ touchAllFiles () {
 			if [ -e "${sourceFile}c" ]; then  # WavPack correction file
 				touch -t "$touchString" "${sourceFile}c" || exitCode=$Ex_Io_Err
 			fi
-			discSeconds="$( echo "scale=3; ($discSeconds + ($trackMilliseconds / 1000)) / 1" | bc )"
-			albumSeconds="$( echo "scale=3; ($albumSeconds + ($trackMilliseconds / 1000)) / 1" | bc )"
-			# debug "trackMilliseconds=[$trackMilliseconds] discSeconds=[$discSeconds] albumSeconds[$albumSeconds]"
-		done
+			discSeconds="$( echo "scale=3; ($discSeconds + ($milliseconds / 1000)) / 1" | bc )"
+			albumSeconds="$( echo "scale=3; ($albumSeconds + ($milliseconds / 1000)) / 1" | bc )"
+		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 		for otherFile in "${otherFiles[@]}"; do
 			touchString="$( getTouchString $trackDate $discSeconds )"
@@ -5866,7 +5868,7 @@ maxProcessesSetByUser=$nProcesses
 
 case "$orderStrategy" in
 	longest|shortest|none) true ;;
-	*) orderStrategy="none" ;;
+	*) orderStrategy='none' ;;
 esac
 
 losslessCodecsString="WAV AIFF CAF FLAC ALAC WavPack WavPackHybrid MonkeysAudio"
@@ -6053,9 +6055,9 @@ while getopts '2a:B:b:C:c:df:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		S)
 			case "$OPTARG" in
-				n|none) orderStrategy="none" ;;
-				s|shortest) orderStrategy="shortest" ;;
-				l|longest) orderStrategy="longest" ;;
+				n|none) orderStrategy='none' ;;
+				s|shortest) orderStrategy='shortest' ;;
+				l|longest) orderStrategy='longest' ;;
 				*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -S: the order strategy must be either 'l' / 'longest', 's' / 'shortest' or 'n' / 'none' (default)" ; exit $Ex_Usage ;;
 			esac
 			;;
