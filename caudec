@@ -3167,9 +3167,25 @@ processWavFile () {
 
 	# resample (and apply gain if requested) if not already done
 	# make sure to test both wavProcessed != 'true' and ec = Ex_Ok, because wavProcessed will only be true if prior processing succeeded
-	if [ $exitCode -eq $Ex_Ok -a "$wavProcessed" != 'true' ]; then # no prior processing, resampling has not yet be done
-		if [ -n "$bitdepthcmd" -o -n "$ratecmd" ]; then
-			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $gaincmd $ratecmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+	if [ $exitCode -eq $Ex_Ok ]; then
+		if ! isWavProcessed ; then # no prior processing, resampling has not yet be done
+			if [ -n "$bitdepthcmd" -o -n "$ratecmd" ]; then
+				sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $gaincmd $ratecmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+				if [ $exitCode -eq $Ex_Ok -a -f "$resampledWavFile" ]; then
+					rm -f "$wavFile" &&  mv -f "$resampledWavFile" "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+					if [ $exitCode -eq $Ex_Ok ]; then
+						isWavProcessed 'true'
+					fi
+				fi
+				if [ -e "$resampledWavFile" ]; then rm -f "$resampledWavFile"; fi
+			fi
+		fi
+	fi
+
+	# apply gain if not already done
+	if [ $exitCode -eq $Ex_Ok -a -n "$gaincmd" ]; then # gain may not yet have been applied
+		if ! isWavProcessed ; then # no prior processing
+			sox $soxGuard "$wavFile" "$resampledWavFile" $gaincmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
 			if [ $exitCode -eq $Ex_Ok -a -f "$resampledWavFile" ]; then
 				rm -f "$wavFile" &&  mv -f "$resampledWavFile" "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
 				if [ $exitCode -eq $Ex_Ok ]; then
@@ -3178,19 +3194,6 @@ processWavFile () {
 			fi
 			if [ -e "$resampledWavFile" ]; then rm -f "$resampledWavFile"; fi
 		fi
-	fi
-
-	# apply gain if not already done
-	if [ $exitCode -eq $Ex_Ok -a "$wavProcessed" != 'true' -a -n "$gaincmd" ]; then # no prior processing, gain has not yet been applied
-		# debug "sox gaincmd=[$gaincmd]"
-		sox $soxGuard "$wavFile" "$resampledWavFile" $gaincmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
-		if [ $exitCode -eq $Ex_Ok -a -f "$resampledWavFile" ]; then
-			rm -f "$wavFile" &&  mv -f "$resampledWavFile" "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
-			if [ $exitCode -eq $Ex_Ok ]; then
-				isWavProcessed 'true'
-			fi
-		fi
-		if [ -e "$resampledWavFile" ]; then rm -f "$resampledWavFile"; fi
 	fi
 
 	return $exitCode
