@@ -1162,8 +1162,8 @@ checkInputFiles () {
 							if [ "$ignoreUnsupportedFiles" = 'false' ]; then
 								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
 								exitCode=$Ex_Data_Err
-								continue
 							fi
+							continue
 							;;
 					esac
 				done
@@ -1173,22 +1173,22 @@ checkInputFiles () {
 				case "$inputFile" in
 					*.flac|*.wv) addToSourceFiles='true' ;;
 					*)
-						if [ "$ignoreUnsupportedFiles" = 'true' ]; then
-							continue
-						else
-							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
+						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+							exitCode=$Ex_Data_Err
 						fi
+						continue
 						;;
 				esac
 			elif [ "$checkFiles" = 'true' ]; then
 				case "$inputFile" in
 					*.flac|*.wv|*.ape) addToSourceFiles='true' ;;
 					*)
-						if [ "$ignoreUnsupportedFiles" = 'true' ]; then
-							continue
-						else
-							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
+						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+							exitCode=$Ex_Data_Err
 						fi
+						continue
 						;;
 				esac
 			fi
@@ -1197,11 +1197,11 @@ checkInputFiles () {
 				case "$inputFile" in
 					*.flac|*.wv|*.ape|*.m4a|*.mp3|*.ogg|*.opus) addToSourceFiles='true' ;;
 					*)
-						if [ "$ignoreUnsupportedFiles" = 'true' ]; then
-							continue
-						else
-							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.' ; exitCode=$Ex_Data_Err ; continue
+						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+							exitCode=$Ex_Data_Err
 						fi
+						continue
 						;;
 				esac
 			fi
@@ -1218,8 +1218,8 @@ checkInputFiles () {
 							addToSourceFiles='false'
 							if [ "$ignoreUnsupportedFiles" = 'false' ]; then
 								printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension"
+								exitCode=$Ex_Data_Err
 							fi
-							exitCode=$Ex_Data_Err
 							continue
 						fi
 						;;
@@ -1227,8 +1227,8 @@ checkInputFiles () {
 					*)
 						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
 							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+							exitCode=$Ex_Data_Err
 						fi
-						exitCode=$Ex_Data_Err
 						continue
 						;;
 				esac
@@ -1240,8 +1240,8 @@ checkInputFiles () {
 					*)
 						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
 							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+							exitCode=$Ex_Data_Err
 						fi
-						exitCode=$Ex_Data_Err
 						continue
 						;;
 				esac
@@ -6593,6 +6593,7 @@ setupControlDir
 setupSwapDir
 # endTimer "setupSwapDir()"
 # endTimer "setup"
+
 
 numberOfOutputFiles=$(( numberOfSourceFiles * nCodecs ))
 
