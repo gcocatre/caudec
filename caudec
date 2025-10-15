@@ -2892,7 +2892,7 @@ importArtworkIntoAPEv2 () {
 			description="$( cat "$descFile" 2>> "$Self_Errors_File" )"
 		fi
 		picTypeLabel="$( getAPEv2TrackPictureTypeLabel "$picType" )"
-		argString="${argString}\\x00-a\\x00Cover Art (${picTypeLabel})=${picFile}"
+		argString="${argString}\\x00-b\\x00Cover Art (${picTypeLabel})=${picFile}"
 	done
 
 	if [ -n "$argString" ]; then
