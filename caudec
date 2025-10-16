@@ -3104,7 +3104,13 @@ processWavFile () {
 	fi
 	if [ -z "$samplingRate" -a -n "$maxSamplingRate" ]; then
 		if [ $wavSamplingRate -gt $maxSamplingRate ]; then
-			samplingRate="$maxSamplingRate"
+			samplingRate="$wavSamplingRate"
+			until test $samplingRate -le $maxSamplingRate; do
+				samplingRate=$(( samplingRate / 2 ))
+			done
+			if [ $samplingRate -lt 44100 ]; then
+				samplingRate=$minimumSamplingRate
+			fi
 		fi
 	fi
 
@@ -5946,7 +5952,7 @@ keepExistingFiles='false' keepNewerFiles='false' macHasVerify='false' outputMode
 checkFiles='false' displayInternalHash='false' touchFiles='false' peakReference=0 allFilesAreOpus='true'
 setArtworkParam='false' copyFilesParam='false' showInformation='false'
 
-maxChannels='' maxBitDepth='' maxSamplingRate=''
+maxChannels='' maxBitDepth='' maxSamplingRate='' minimumSamplingRate=44100
 
 if [ -n "$resamplingProfile" ]; then
 	resamplingProfileSlashes="$( echo "$resamplingProfile" | tr -cd [/] )"
