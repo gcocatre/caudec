@@ -3075,6 +3075,7 @@ processWavFile () {
 	if [ -e "$copyFile" ]; then
 		rm -f "$copyFile" "${copyFile}c"
 	fi
+
 	gainValue='' gaincmd=''
 	if [ "$applyGain" = 'true' ]; then
 		if [ "$applyGainType" = 'ALBUM' -o "$applyGainType" = 'TRACK' ]; then
@@ -6100,7 +6101,7 @@ while getopts '2a:B:b:C:c:df:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 				352|352.8) samplingRate=352800 ;;
 				48|96|192|384) samplingRate="${OPTARG}000" ;;
 				44100|48000|88200|96000|176400|192000|352800|384000) samplingRate=$OPTARG ;;
-				cd|CD) bitDepth=16 samplingRate=44100 convertToStereo='flat' ;;
+				cd|CD) bitDepth=16 samplingRate=44100 convertToStereo='true' ;;
 				dvd|DVD) bitDepth=16 samplingRate=48000 ;;
 				sacd|SACD) bitDepth=24 samplingRate=88200 ;;
 				dvda|DVDA|dvdaudio|DVDAUDIO|DVDAudio|bd|BD|bluray|BLURAY|BluRay) bitDepth=24 samplingRate=96000 ;;
@@ -6115,7 +6116,7 @@ while getopts '2a:B:b:C:c:df:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 			if [ -n "$lastCodec" -a "$Self_Called_As" != "$Self_Decode_Name" ]; then
 				printMessage 'error' 'usage' 'command_line' "$Self_Name -2: parameter must be given before -c" ; exit $Ex_Usage
 			fi
-			convertToStereo='flat' wavMustBeProcessed='true'
+			convertToStereo='true' wavMustBeProcessed='true'
 			;;
 
 # -----------------------------------------------------------------------------
