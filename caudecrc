@@ -76,6 +76,9 @@ preloadSources='false' # cache source files to temporary directory (e.g. a fast 
 # strategy for processing files in order of duration: 'longest', 'shortest' or 'none':
 orderStrategy='none'
 
+# Automatically downsample if needed. Format: 'channels/bits per sample/sampling rate' (see caudec -h)
+resamplingProfile=''
+
 preventClipping='true' # reduce volume to prevent clipping, when resampling or applying gain
 computeAudioPeaks='false' # when computing ReplayGain, also include audio peaks in dBFS
 

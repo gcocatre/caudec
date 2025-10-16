@@ -50,21 +50,27 @@ Applying gain after decoding and before encoding:
 
 Resampling after decoding and before encoding:
 
-  -b BITS   bit depth (16, 24)
-  -r HZ     sampling rate in Hz (44100, 48000, 88200, 96000, 176400, 192000,
-            352800, 384000)
-  -r KHZ    sampling rate in kHz (44[.1], 48, 88[.2], 96, 176[.4], 192, 352[.8],
-            384)
-  -r cd     equivalent to -b 16 -r 44100 -2 (includes conversion to stereo)
-  -r dvd    equivalent to -b 16 -r 48000
-  -r sacd   equivalent to -b 24 -r 88200
-  -r dvda   equivalent to -b 24 -r 96000
-  -r bluray equivalent to -b 24 -r 96000
-  -r pono   equivalent to -b 24 -r 192000
-  -r dxd    equivalent to -b 24 -r 352800
   -2        convert to stereo: 2.1, 4.0, 5.0, 5.1 and 7.1 audio will be
             downmixed, using proper channel mappings; mono audio will be
             upmixed to dual-mono (stereo with two identical channels)
+
+  -b BITS   bit depth (16, 24)
+
+  -r HZ     sampling rate in Hz (44100, 48000, 88200, 96000, 176400, 192000,
+            352800, 384000)
+  -r KHZ    sampling rate in kHz (44.1, 48, 88.2, 96, 176.4, 192, 352.8, 384)
+  -r cd     equivalent to -b 16 -r 44100 -2 (includes conversion to stereo)
+  -r dvd    equivalent to -b 16 -r 48000
+  -r sacd   equivalent to -b 24 -r 88200
+  -r studio equivalent to -b 24 -r 96000
+  -r hires  equivalent to -b 24 -r 192000
+  -r dxd    equivalent to -b 24 -r 352800
+
+Resampling profiles that will be applied automatically only if the source is
+higher resolution than the specified values:
+
+  -r B/R    profile equivalent to -b B and -r R (e.g. -r '24/96')
+  -r 2/B/R  profile equivalent to -2, -b B and -r R (e.g. -r '2/24/96')
 
 -------------------------------------------------------------------------------
 

@@ -283,21 +283,28 @@ Applying gain after decoding and before encoding:
 
 Resampling after decoding and before encoding:
 
-  -b BITS   bit depth (16, 24)
-  -r HZ     sampling rate in Hz (44100, 48000, 88200, 96000, 176400, 192000,
-            352800, 384000)
-  -r KHZ    sampling rate in kHz (44[.1], 48, 88[.2], 96, 176[.4], 192, 352[.8],
-            384)
-  -r cd     equivalent to -b 16 -r 44100 -2 (includes conversion to stereo)
-  -r dvd    equivalent to -b 16 -r 48000
-  -r sacd   equivalent to -b 24 -r 88200
-  -r dvda   equivalent to -b 24 -r 96000
-  -r bluray equivalent to -b 24 -r 96000
-  -r pono   equivalent to -b 24 -r 192000
-  -r dxd    equivalent to -b 24 -r 352800
   -2        convert to stereo: 2.1, 4.0, 5.0, 5.1 and 7.1 audio will be
             downmixed, using proper channel mappings; mono audio will be
             upmixed to dual-mono (stereo with two identical channels)
+
+  -b BITS   bit depth (16, 24)
+
+  -r HZ     sampling rate in Hz (44100, 48000, 88200, 96000, 176400, 192000,
+            352800, 384000)
+  -r KHZ    sampling rate in kHz (44.1, 48, 88.2, 96, 176.4, 192, 352.8, 384)
+  -r cd     equivalent to -b 16 -r 44100 -2 (includes conversion to stereo)
+  -r dvd    equivalent to -b 16 -r 48000
+  -r sacd   equivalent to -b 24 -r 88200
+  -r studio equivalent to -b 24 -r 96000
+  -r hires  equivalent to -b 24 -r 192000
+  -r dxd    equivalent to -b 24 -r 352800
+
+Resampling profiles that will be applied automatically only if the source is
+higher resolution than the specified values:
+
+  -r B/R    profile equivalent to -b B and -r R (e.g. -r '24/96')
+  -r 2/B/R  profile equivalent to -2, -b B and -r R (e.g. -r '2/24/96')
+
 
 -------------------------------------------------------------------------------
 
@@ -3070,13 +3077,64 @@ isWavProcessed () {
 }
 
 processWavFile () {
-	local exitCode=$Ex_Ok
+	local exitCode=$Ex_Ok wavChannels wavBitDepth wavSamplingRate
+	local gaincmd='' gainValue='' ratecmd='' bitdepthcmd='' dithercmd='' gainPeak='' soxGuard=''
 
 	if [ -e "$copyFile" ]; then
 		rm -f "$copyFile" "${copyFile}c"
 	fi
 
-	gainValue='' gaincmd=''
+	wavChannels="$( echo "$( soxi -c "$wavFile" )" | tr -cd [0-9] )"
+	wavBitDepth="$( echo "$( soxi -b "$wavFile" )" | tr -cd [0-9] )"
+	wavSamplingRate="$( echo "$( soxi -r "$wavFile" )" | tr -cd [0-9] )"
+	if [ -z "$wavChannels" -o -z "$wavBitDepth" -o -z "$wavSamplingRate" ]; then
+		printMessage 'error' 'processing' "file:${sourceFile}" $processNumber "threads:1" "unable to get WAV info"
+		return $Ex_Io_Err
+	fi
+
+	if [ "$maxChannels" = '2' ]; then
+		if [ $wavChannels -gt $maxChannels ]; then
+			convertToStereo='true'
+		fi
+	fi
+	if [ -z "$bitDepth" -a -n "$maxBitDepth" ]; then
+		if [ $wavBitDepth -gt $maxBitDepth ]; then
+			bitDepth="$maxBitDepth"
+		fi
+	fi
+	if [ -z "$samplingRate" -a -n "$maxSamplingRate" ]; then
+		if [ $wavSamplingRate -gt $maxSamplingRate ]; then
+			samplingRate="$maxSamplingRate"
+		fi
+	fi
+
+	if [ "$convertToStereo" = 'false' -a -z "$bitDepth" -a -z "$samplingRate" -a "$applyGain" = 'false' ]; then
+		wavMustBeProcessed='false'
+		return $Ex_Ok
+	fi
+
+	nChannels=$wavChannels
+
+	if [ -n "$bitDepth" ]; then
+		if [ $bitDepth -ne $wavBitDepth ]; then
+			bitdepthcmd="-b $bitDepth"
+		fi
+	fi
+
+	if [ -n "$samplingRate" ]; then
+		if [ $samplingRate -ne $wavSamplingRate ]; then
+			ratecmd="rate -v $samplingRate"
+		fi
+	fi
+
+	if [ -n "$bitdepthcmd" -o -n "$ratecmd" ]; then
+		dithercmd='dither -a -s' # FL, FR, C, LFE, SL, SR, BL, BR; 1/4
+	fi
+
+	if [ "$preventClipping" = 'true' ]; then
+		soxGuard='-G'
+	fi
+
 	if [ "$applyGain" = 'true' ]; then
 		if [ "$applyGainType" = 'ALBUM' -o "$applyGainType" = 'TRACK' ]; then
 			if [ "$applyGainType" = 'ALBUM' ]; then
@@ -3133,32 +3191,12 @@ processWavFile () {
 	fi
 
 	if [ "$applyGain" = 'true' -a -z "$gainValue" ]; then
-		printMessage 'warning' 'processing' "file:${sourceFile}" $processNumber "threads:1" "no gain value"
-	fi
-
-	nChannels=$( getNumberOfChannels "$wavFile" )
-	if [ -z "$nChannels" -o "$nChannels" = '0' ]; then
-		nChannels=2
-	fi
-
-	if [ "$preventClipping" = 'true' ]; then
-		soxGuard='-G'
-	fi
-
-	if [ -n "$bitDepth" ]; then
-		bitdepthcmd="-b $bitDepth"
-	fi
-
-	if [ -n "$samplingRate" ]; then
-		ratecmd="rate -v $samplingRate"
-	fi
-
-	if [ -n "$bitDepth" -o -n "$samplingRate" ]; then
-		dithercmd='dither -a -s' # FL, FR, C, LFE, SL, SR, BL, BR; 1/4
+		printMessage 'error' 'processing' "file:${sourceFile}" $processNumber "threads:1" "no gain value"
+		return $Ex_Io_Err
 	fi
 
 	# convert to stereo (and at the same time, resample and / or apply gain if requested)
-	if [ "$convertToStereo" != 'false' ]; then
+	if [ "$convertToStereo" = 'true' -a $wavChannels -ne 2 ]; then
 		if [ $nChannels -gt 2 ]; then
 			downmixToStereo || exitCode=$Ex_Io_Err
 		elif [ $nChannels -eq 1 ]; then
@@ -3201,9 +3239,7 @@ processWavFile () {
 }
 
 decode () {
-	local exitCode=$Ex_Ok sourceTagFormat
-	local soxGuard='' kfm='' nChannels=2 gaincmd='' ratecmd='' bitdepthcmd='' dithercmd='' gainPeak=''
-	local destFileTargetPath copyFileTargetPath gotWavOutputCodec
+	local exitCode=$Ex_Ok sourceTagFormat kfm='' nChannels=2 destFileTargetPath copyFileTargetPath gotWavOutputCodec
 
 	isWavProcessed 'false' ; ec=$?
 	if [ -e "$copyFile" ]; then
@@ -3303,7 +3339,7 @@ decode () {
 		exitCode=$Ex_Ko
 	fi
 
-	if [ $exitCode -eq $Ex_Ok -a "$wavMustBeProcessed" = 'true' ]; then
+	if [ $exitCode -eq $Ex_Ok -a "$wavMustBeProcessed" != 'false' ]; then
 		processWavFile ; exitCode=$?
 	fi
 
@@ -5848,6 +5884,27 @@ endTimer () {
 	debug ">>> $1 → $timerSeconds seconds"
 }
 
+checkMaxBitDepth () {
+	case "$1" in
+		16|24) maxBitDepth="$1" ;;
+		*) return $Ex_Ko ;;
+	esac
+	return $Ex_Ok
+}
+
+checkMaxSamplingRate () {
+	case "$1" in
+		44.1) maxSamplingRate=44100 ;;
+		88.2) maxSamplingRate=88200 ;;
+		176.4) maxSamplingRate=176400 ;;
+		352.8) maxSamplingRate=352800 ;;
+		48|96|192|384) maxSamplingRate="${1}000" ;;
+		44100|48000|88200|96000|176400|192000|352800|384000) maxSamplingRate="$1" ;;
+		*) return $Ex_Ko ;;
+	esac
+	return $Ex_Ok
+}
+
 # main() =======================================================================
 
 checkMainBinaries
@@ -5884,11 +5941,39 @@ verbose='true'
 outputCodecs='' lastCodec='' nCodecs=0 gotWavOutputCodec='false'
 defaultDestDir="$PWD" linkDir='' gotLinkedDir='false'
 bitDepth='' samplingRate='' preserveMetadata='' applyGain='false' applyGainType='' preamp='' convertToStereo='false'
-wavMustBeProcessed='false'
 computeReplayGain='false' reverseReplayGain='false'
 keepExistingFiles='false' keepNewerFiles='false' macHasVerify='false' outputMode='human'
 checkFiles='false' displayInternalHash='false' touchFiles='false' peakReference=0 allFilesAreOpus='true'
 setArtworkParam='false' copyFilesParam='false' showInformation='false'
+
+maxChannels='' maxBitDepth='' maxSamplingRate=''
+
+if [ -n "$resamplingProfile" ]; then
+	resamplingProfileSlashes="$( echo "$resamplingProfile" | tr -cd [/] )"
+	numberOfResamplingSlashes="${#resamplingProfileSlashes}"
+	if [ $numberOfResamplingSlashes -eq 2 ]; then
+		maxChannels="$( echo "$resamplingProfile" | cut -d '/' -f 1 2>/dev/null | tr -cd [0-9] 2>/dev/null )"
+		if [ "$maxChannels" != "2" ]; then
+			printMessage 'error' 'usage' 'bad_value' "$Self_Name resamplingProfile: the number of channels must be 2."
+			exit $Ex_Usage
+		fi
+	fi
+	resamplingProfileFieldNumber=$numberOfResamplingSlashes
+	maxBitDepth="$( echo "$resamplingProfile" | cut -d '/' -f $resamplingProfileFieldNumber 2>/dev/null | tr -cd [0-9] 2>/dev/null )"
+	if ! checkMaxBitDepth "$maxBitDepth" ; then
+		printMessage 'error' 'usage' 'bad_value' "$Self_Name resamplingProfile: bit depth must be either 16 or 24"
+		exit $Ex_Usage
+	fi
+	(( resamplingProfileFieldNumber++ ))
+	maxSamplingRate="$( echo "$resamplingProfile" | cut -d '/' -f $resamplingProfileFieldNumber 2>/dev/null | tr -cd [0-9\.] 2>/dev/null )"
+	if ! checkMaxSamplingRate "$maxSamplingRate" ; then
+		printMessage 'error' 'usage' 'bad_value' "$Self_Name resamplingProfile: sampling rate must be one of 44.1 or 44100, 48000, 88.2 or 88200, 96000, 176.4 or 176400, 192000, 352.8 or 352800, 384000"
+		exit $Ex_Usage
+	fi
+	wavMustBeProcessed='true'
+else
+	wavMustBeProcessed='false'
+fi
 
 if [ "$Self_Called_As" = "$Self_Decode_Name" ]; then
 	lastCodec='WAV' gotWavOutputCodec='true'
@@ -6072,10 +6157,17 @@ while getopts '2a:B:b:C:c:df:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 # -----------------------------------------------------------------------------
 
+		2)
+			if [ -n "$lastCodec" -a "$Self_Called_As" != "$Self_Decode_Name" ]; then
+				printMessage 'error' 'usage' 'command_line' "$Self_Name -2: parameter must be given before -c" ; exit $Ex_Usage
+			fi
+			convertToStereo='true' wavMustBeProcessed='forced'
+			;;
+
 		b)
 			if [ -z "$lastCodec" ]; then
 				case "$OPTARG" in
-					16|24) bitDepth=$OPTARG wavMustBeProcessed='true' ;;
+					16|24) bitDepth=$OPTARG wavMustBeProcessed='forced' ;;
 					*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -b: bit depth must be either 16 or 24" ; exit $Ex_Usage
 				esac
 			else
@@ -6094,29 +6186,49 @@ while getopts '2a:B:b:C:c:df:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 			if [ -n "$lastCodec" -a "$Self_Called_As" != "$Self_Decode_Name" ]; then
 				printMessage 'error' 'usage' 'command_line' "$Self_Name -r: parameter must be given before -c" ; exit $Ex_Usage
 			fi
+
 			case "$OPTARG" in
-				44|44.1) samplingRate=44100 ;;
-				88|88.2) samplingRate=88200 ;;
-				176|176.4) samplingRate=176400 ;;
-				352|352.8) samplingRate=352800 ;;
+				44.1) samplingRate=44100 ;;
+				88.2) samplingRate=88200 ;;
+				176.4) samplingRate=176400 ;;
+				352.8) samplingRate=352800 ;;
 				48|96|192|384) samplingRate="${OPTARG}000" ;;
 				44100|48000|88200|96000|176400|192000|352800|384000) samplingRate=$OPTARG ;;
-				cd|CD) bitDepth=16 samplingRate=44100 convertToStereo='true' ;;
-				dvd|DVD) bitDepth=16 samplingRate=48000 ;;
-				sacd|SACD) bitDepth=24 samplingRate=88200 ;;
-				dvda|DVDA|dvdaudio|DVDAUDIO|DVDAudio|bd|BD|bluray|BLURAY|BluRay) bitDepth=24 samplingRate=96000 ;;
-				pono|Pono|PONO) bitDepth=24 samplingRate=192000 ;;
-				dxd|DXD) bitDepth=24 samplingRate=352800 ;;
-				*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -r: sampling rate must be one of 44[100], 48[000], 88[200], 96[000], 176[400], 192[000], 352[800], 384[000], cd, dvd, sacd, dvda, bluray, pono or dxd" ; exit $Ex_Usage
+				cd) bitDepth=16 samplingRate=44100 convertToStereo='true' ;;
+				dvd) bitDepth=16 samplingRate=48000 ;;
+				sacd) bitDepth=24 samplingRate=88200 ;;
+				studio) bitDepth=24 samplingRate=96000 ;;
+				hires|highres) bitDepth=24 samplingRate=192000 ;;
+				dxd) bitDepth=24 samplingRate=352800 ;;
+				*/*/*)
+					maxChannels="$( echo "$OPTARG" | cut -d '/' -f 1 2>/dev/null | tr -cd [0-9] 2>/dev/null )"
+					if [ "$maxChannels" != "2" ]; then
+						printMessage 'error' 'usage' 'bad_value' "$Self_Name -r C/B/R: the number of channels must be 2." ; exit $Ex_Usage
+					fi
+					maxBitDepth="$( echo "$OPTARG" | cut -d '/' -f 2 2>/dev/null | tr -cd [0-9] 2>/dev/null )"
+					if ! checkMaxBitDepth "$maxBitDepth" ; then
+						printMessage 'error' 'usage' 'bad_value' "$Self_Name -r C/B/R: bit depth must be either 16 or 24" ; exit $Ex_Usage
+					fi
+					maxSamplingRate="$( echo "$OPTARG" | cut -d '/' -f 3 2>/dev/null | tr -cd [0-9\.] 2>/dev/null )"
+					if ! checkMaxSamplingRate "$maxSamplingRate" ; then
+						printMessage 'error' 'usage' 'bad_value' "$Self_Name -r C/B/R: sampling rate must be one of 44.1 or 44100, 48000, 88.2 or 88200, 96000, 176.4 or 176400, 192000, 352.8 or 352800, 384000" ; exit $Ex_Usage
+					fi
+					resamplingProfile="$OPTARG"
+					;;
+				*/*)
+					maxBitDepth="$( echo "$OPTARG" | cut -d '/' -f 1 2>/dev/null | tr -cd [0-9] 2>/dev/null )"
+					if ! checkMaxBitDepth "$maxBitDepth" ; then
+						printMessage 'error' 'usage' 'bad_value' "$Self_Name -r B/R: bit depth must be either 16 or 24" ; exit $Ex_Usage
+					fi
+					maxSamplingRate="$( echo "$OPTARG" | cut -d '/' -f 2 2>/dev/null | tr -cd [0-9\.] 2>/dev/null )"
+					if ! checkMaxSamplingRate "$maxSamplingRate" ; then
+						printMessage 'error' 'usage' 'bad_value' "$Self_Name -r B/R: sampling rate must be one of 44.1 or 44100, 48000, 88.2 or 88200, 96000, 176.4 or 176400, 192000, 352.8 or 352800, 384000" ; exit $Ex_Usage
+					fi
+					resamplingProfile="$OPTARG"
+					;;
+				*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -r: sampling rate must be one of 44.1 or 44100, 48000, 88.2 or 88200, 96000, 176.4 or 176400, 192000, 352.8 or 352800, 384000" ; exit $Ex_Usage
 			esac
-			 wavMustBeProcessed='true'
-			;;
-
-		2)
-			if [ -n "$lastCodec" -a "$Self_Called_As" != "$Self_Decode_Name" ]; then
-				printMessage 'error' 'usage' 'command_line' "$Self_Name -2: parameter must be given before -c" ; exit $Ex_Usage
-			fi
-			convertToStereo='true' wavMustBeProcessed='true'
+			wavMustBeProcessed='true'
 			;;
 
 # -----------------------------------------------------------------------------
@@ -6413,7 +6525,7 @@ fi
 outputCodecs="${outputCodecs# }"
 
 if [ "$outputCodecs" = 'WAV' -a "$applyGain" = 'true' ]; then
-	wavMustBeProcessed='true'
+	wavMustBeProcessed='forced'
 fi
 
 # transcode, test, replaygain, touch, hash
