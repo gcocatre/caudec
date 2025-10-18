@@ -159,6 +159,8 @@ case "$ID3Padding" in
 esac
 
 # true by default
+if [ "$transferInternalArtwork" = 'false' ]; then transferInternalArtwork='false'; else transferInternalArtwork='true'; fi
+if [ "$transferInternalBinaries" = 'false' ]; then transferInternalBinaries='false'; else transferInternalBinaries='true'; fi
 if [ "$preventClipping" = 'false' ]; then preventClipping='false'; else preventClipping='true'; fi
 
 # false by default
@@ -3302,9 +3304,19 @@ processWavFile () {
 
 decode () {
 	local exitCode=$Ex_Ok sourceTagFormat kfm='' nChannels=2 destFileTargetPath copyFileTargetPath gotWavOutputCodec
+	local doEmbedCoverArt='false' doEmbedCoverArtForCodec
 
 	isWavProcessed 'false' ; ec=$?
+
 	if [ -e "$copyFile" ]; then
+		for outputCodec in "$outputCodecs"; do
+			doEmbedCoverArtForCodec="$( shouldEmbedCoverArt "$outputCodec" )"
+			if [ "$doEmbedCoverArtForCodec" = 'true' ]; then
+				doEmbedCoverArt='true'
+				break
+			fi
+		done
+
 		case "$sourceExtension" in
 			wav)
 				sourceTagFormat='vc'
@@ -3348,7 +3360,7 @@ decode () {
 				fi
 				if [ $exitCode -eq $Ex_Ok ]; then
 					metaflac --no-utf8-convert --export-tags-to="$sourceTagFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-					if [ $exitCode -eq $Ex_Ok ]; then
+					if [ $exitCode -eq $Ex_Ok -a "$doEmbedCoverArt" = 'true' -a "$transferInternalArtwork" = 'true' ]; then
 						extractFlacArtwork || exitCode=$Ex_Ko
 					fi
 					if [ $exitCode -eq $Ex_Ok -a -e "$sourceTagFile" ]; then
@@ -3366,8 +3378,12 @@ decode () {
 				wvunpack -q $kfm -m --threads=$nThreads -o "$wavFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
-					extractAPEv2Artwork
-					extractAPEv2Binaries
+					if [ "$doEmbedCoverArt" = 'true' -a "$transferInternalArtwork" = 'true' ]; then
+						extractAPEv2Artwork
+					fi
+					if [ "$transferInternalBinaries" = 'true' ]; then
+						extractAPEv2Binaries
+					fi
 				fi
 				;;
 
@@ -3378,8 +3394,12 @@ decode () {
 				mac "$copyFile" "$wavFile" -d -threads=$nThreads 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
-					extractAPEv2Artwork
-					extractAPEv2Binaries
+					if [ "$doEmbedCoverArt" = 'true' -a "$transferInternalArtwork" = 'true' ]; then
+						extractAPEv2Artwork
+					fi
+					if [ "$transferInternalBinaries" = 'true' ]; then
+						extractAPEv2Binaries
+					fi
 				fi
 				;;
 
