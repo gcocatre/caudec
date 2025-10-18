@@ -2590,6 +2590,39 @@ getTrackPictureFileName () {
 	echo "${paddedFileIndex}_picture_${picType}_${picNumber}-placeholder.${picExt}"
 }
 
+getAPEv2PictureFileName () {
+	local paddedFileIndex="$1" fieldName="$2" picNumber="99" picExt="$3" picType lowerCaseFieldName
+
+	lowerCaseFieldName="$( echo "$fieldName" | tr '[:upper:]' '[:lower:]' 2>/dev/null )"
+
+	case "$lowerCaseFieldName" in
+		'cover art (other)') picType=0 ;;
+		'cover art (icon)') picType=1 ;;
+		'cover art (other icon)') picType=2 ;;
+		'cover art (front)') picType=3 ;;
+		'cover art (back)') picType=4 ;;
+		'cover art (leaflet)') picType=5 ;;
+		'cover art (media)') picType=6 ;;
+		'cover art (lead artist)') picType=7 ;;
+		'cover art (artist)') picType=8 ;;
+		'cover art (conductor)') picType=9 ;;
+		'cover art (band)') picType=10 ;;
+		'cover art (composer)') picType=11 ;;
+		'cover art (lyricist)') picType=12 ;;
+		'cover art (recording location)') picType=13 ;;
+		'cover art (during recording)') picType=14 ;;
+		'cover art (during performance)') picType=15 ;;
+		'cover art (video)') picType=16 ;;
+		'cover art (a bright colored fish)') picType=17 ;;
+		'cover art (illustration)') picType=18 ;;
+		'cover art (band logo)') picType=19 ;;
+		'cover art (publisher logo)') picType=20 ;;
+		*) picType=0 ;;
+	esac
+
+	echo "${paddedFileIndex}_picture_${picType}_${picNumber}-placeholder.${picExt}"
+}
+
 extractFlacArtwork () {
 	local exitCode=$Ex_Ok pattern blockNumber withinPictureBlock='false'
 	local picType=0 picNumber=1 picExt picFile description descFile picTypesList=''
@@ -2646,8 +2679,8 @@ extractFlacArtwork () {
 }
 
 extractAPEv2Artwork () {
-	local exitCode=$Ex_Ok pattern picType=0 picNumber=1 picTypeLabel='other' picExt='' picFile
-	local picTypesList='' argString=''
+	local exitCode=$Ex_Ok pattern argString='' line fieldName binaryIndex=1 paddedBinaryIndex dirName picFileName
+	local binaryFile binaryFileExt
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
@@ -2656,22 +2689,42 @@ extractAPEv2Artwork () {
 		pattern="x${outputCodec}Y"
 		if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then continue; fi
 
-		for picTypeLabel in 'other' 'icon' 'other icon' 'front' 'back' 'leaflet' 'media' 'lead artist' 'artist' 'conductor' 'band' 'composer' 'lyricist' 'recording location' 'during recording' 'during performance' 'video' 'a bright colored fish' 'illustration' 'band logo' 'publisher logo'; do
-			picFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$picTypeLabel" "$picNumber" "$picExt" )"
-			argString="${argString}\\x00-d\\x00cover art (${picTypeLabel})=${picFile}"
-			(( picType++ ))
-			(( picNumber++ ))
-		done
+		while read line; do
+			paddedBinaryIndex="$( printf "%03i" $binaryIndex )"
+			if mkdir -p "${binariesDir}/${paddedBinaryIndex}_artwork" 1>/dev/null 2>> "$Self_Errors_File"; then
+				fieldName="${line%%=*}"
+				echo "$fieldName" > "${binariesDir}/${paddedBinaryIndex}_artwork/${Self_Name}_field_name.txt" 2>/dev/null
+				argString="${argString}\\x00-d\\x00${fieldName}=${binariesDir}/${paddedBinaryIndex}_artwork/"
+				(( binaryIndex++ ))
+			else
+				exitCode=$Ex_Ko
+			fi
+		done < <( APEv2 -C "$copyFile" 2>/dev/null | grep -F '=artwork:' 2>/dev/null )
+
 		if [ -n "$argString" ]; then
 			echo -en "-z${argString}\x00${copyFile}" | xargs -0 APEv2 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 		fi
+	done
+
+	for dirName in "${binariesDir}"/*_artwork; do
+		if [ ! -d "$dirName" ]; then break; fi
+		read fieldName < "${dirName}/${Self_Name}_field_name.txt"
+		for binaryFile in "$dirName"/*; do
+			if [ ! -e "$binaryFile" -o "$binaryFile" = "${dirName}/${Self_Name}_field_name.txt" ]; then
+				continue
+			fi
+			binaryFileExt="${binaryFile##*.}"
+			break
+		done
+		picFileName="$( getAPEv2PictureFileName "$paddedFileIndex" "$fieldName" "$binaryFileExt" )"
+		mv "$binaryFile" "${Self_Swap_Dir}/${picFileName}" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	done
 
 	return $exitCode
 }
 
 extractAPEv2Binaries () {
-	local exitCode=$Ex_Ok pattern argString='' fieldName='' binaryIndex=1 paddedBinaryIndex
+	local exitCode=$Ex_Ok pattern argString='' line fieldName binaryIndex=1 paddedBinaryIndex
 
 	for outputCodec in $outputCodecs; do
 		case "$outputCodec" in
@@ -2679,15 +2732,17 @@ extractAPEv2Binaries () {
 				pattern="x${outputCodec}Y"
 				if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then continue; fi
 
-				if [ ! -d "$binariesDir" ]; then
-					mkdir -p "$binariesDir" 1>/dev/null 2>&1
-				fi
-				while read fieldName; do
+				while read line; do
 					paddedBinaryIndex="$( printf "%03i" $binaryIndex )"
-					echo "$fieldName" > "${binariesDir}/${paddedBinaryIndex}.txt" 2>/dev/null
-					argString="${argString}\\x00-d\\x00${fieldName}=${binariesDir}/${paddedBinaryIndex}.bin"
-					( (binaryIndex++ ))
-				done < <( APEv2 -z "$copyFile" 2>/dev/null | grep -F '=data:' 2>/dev/null | cut -d '=' -f 1 2>/dev/null )
+					if mkdir -p "${binariesDir}/${paddedBinaryIndex}_binary" 1>/dev/null 2>> "$Self_Errors_File"; then
+						fieldName="${line%%=*}"
+						echo "$fieldName" > "${binariesDir}/${paddedBinaryIndex}_binary/${Self_Name}_field_name.txt" 2>/dev/null
+						argString="${argString}\\x00-d\\x00${fieldName}=${binariesDir}/${paddedBinaryIndex}_binary/"
+						(( binaryIndex++ ))
+					else
+						exitCode=$Ex_Ko
+					fi
+				done < <( APEv2 -C "$copyFile" 2>/dev/null | grep -F '=data:' 2>/dev/null )
 
 				if [ -n "$argString" ]; then
 					echo -en "-z${argString}\x00${copyFile}" | xargs -0 APEv2 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
@@ -2870,7 +2925,7 @@ genOpusArtworkCommandLine () {
 }
 
 importArtworkIntoAPEv2 () {
-	local exitCode=$Ex_Ok pattern picFile picBasename picType picTypeLabel argString=''
+	local exitCode=$Ex_Ok pattern picFile picBasename picType lastPicType='-1' picTypeLabel argString=''
 
 	pattern="x${outputCodec}Y"
 	if [ "$preserveMetadata" = "${preserveMetadata//$pattern/@}" ]; then
@@ -2892,14 +2947,13 @@ importArtworkIntoAPEv2 () {
 		fi
 		picBasename="${picFile##*/}"
 		picType="$( echo "$picBasename" | cut -d '_' -f 3 | tr -cd [0-9] )"
-		picNumber="$( echo "$picBasename" | cut -d '_' -f 4 | tr -cd [0-9] )"
-		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$picType" "$picNumber" "txt" )"
-		description=''
-		if [ -r "$descFile" ]; then
-			description="$( cat "$descFile" 2>> "$Self_Errors_File" )"
+		if [ "$picType" = "$lastPicType" ]; then
+			continue
 		fi
+		lastPicType="$picType"
+		picNumber="$( echo "$picBasename" | cut -d '_' -f 4 | tr -cd [0-9] )"
 		picTypeLabel="$( getAPEv2TrackPictureTypeLabel "$picType" )"
-		argString="${argString}\\x00-b\\x00Cover Art (${picTypeLabel})=${picFile}"
+		argString="${argString}\\x00-a\\x00Cover Art (${picTypeLabel})=${picFile}"
 	done
 
 	if [ -n "$argString" ]; then
@@ -2910,7 +2964,8 @@ importArtworkIntoAPEv2 () {
 }
 
 importBinariesIntoAPEv2 () {
-	local exitCode=$Ex_Ok pattern argString='' fieldName binaryFile
+	local exitCode=$Ex_Ok pattern argString='' dirName fieldName  binaryFile
+	local paddedBinaryIndex paddedBinaryIndex
 
 	if [ ! -d "$binariesDir" ]; then return $Ex_Ok; fi
 
@@ -2919,16 +2974,17 @@ importBinariesIntoAPEv2 () {
 		return $Ex_Ok
 	fi
 
-	# "${binariesDir}/${paddedBinaryIndex}.txt"
-	for binaryFile in "${binariesDir}"/*.txt; do
-		if [ ! -f "$binaryFile" ]; then # there are no binaries for this file
-			exit $Ex_Ok
+	for dirName in "${binariesDir}"/*_binary; do
+		if [ -d "$dirName" ]; then
+			read fieldName < "${dirName}/${Self_Name}_field_name.txt"
+			for binaryFile in "$dirName"/*; do
+				if [ ! -e "$binaryFile" -o "$binaryFile" = "${dirName}/${Self_Name}_field_name.txt" ]; then
+					continue
+				fi
+				argString="${argString}\\x00-b\\x00${fieldName}=${binaryFile}"
+				break
+			done
 		fi
-		if [ ! -r "$binaryFile" ]; then
-			continue
-		fi
-		fieldName="$( cat "$binaryFile" )"
-		argString="${argString}\\x00-b\\x00${fieldName}=${binaryFile/.txt/.bin}"
 	done
 
 	if [ -n "$argString" ]; then
@@ -3310,7 +3366,8 @@ decode () {
 				wvunpack -q $kfm -m --threads=$nThreads -o "$wavFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
-					extractAPEv2Artwork && extractAPEv2Binaries
+					extractAPEv2Artwork
+					extractAPEv2Binaries
 				fi
 				;;
 
@@ -3321,7 +3378,8 @@ decode () {
 				mac "$copyFile" "$wavFile" -d -threads=$nThreads 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					APEv2 -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
-					extractAPEv2Artwork && extractAPEv2Binaries
+					extractAPEv2Artwork
+					extractAPEv2Binaries
 				fi
 				;;
 
