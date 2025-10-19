@@ -69,7 +69,7 @@ copyOtherFilesByDefault="" # copy certain files when transcoding to lossless (se
 copyOtherFilesForLosslessByDefault="" # copy certain files when transcoding to lossless (see caudec -h for format)
 copyOtherFilesForLossyByDefault="" # copy certain files when transcoding to lossy (see caudec -h for format)
 
-transferInternalArtwork='true' # transfer internal artwork or not
+transferInternalArtwork='true' # transfer internal artwork or not (-a and setCoverArtworkFile* have priority)
 transferInternalBinaries='true' # transfer embedded APEv2 binaries or not
 
 maxInstances=10 # maximum number of caudec instances allowed to run concurrently

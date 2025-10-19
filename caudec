@@ -2837,30 +2837,40 @@ getPictureFileElements () {
 	return $Ex_Ok
 }
 
-importCoverArt () {
-	local exitCode=$Ex_Ok userSpecifiedArtwork coverArtType=3 picNumber=0 picExt picFile descFile
+gotUserCoverArt () {
+	local outputCodec="$1"
 
-	# "${paddedFileIndex}_picture_${picType}_${picNumber}_placeholder.${picExt}"
 	userSpecifiedArtwork="$( getCodecCoverArtFile "$outputCodec" )"
 	if [ -n "$userSpecifiedArtwork" ]; then
 		userSpecifiedArtwork="${sourceDirname}/${userSpecifiedArtwork}"
 		if [ ! -f "$userSpecifiedArtwork" ]; then
-			return $Ex_Ok
+			return $Ex_No_Input
 		elif [ ! -r "$userSpecifiedArtwork" ]; then
-			return $Ex_Ko
+			return $Ex_Io_Err
+		else
+			return $Ex_Ok
 		fi
 	else
-		return $Ex_Ok
+		return $Ex_No_Input
 	fi
+}
 
-	picExt="${userSpecifiedArtwork##*.}"
-	picFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$coverArtType" "$picNumber" "$picExt" )"
-	descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$coverArtType" "$picNumber" "txt" )"
-	cp -f "$userSpecifiedArtwork" "$picFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-	touch "$descFile" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-	touch "${descFile}"
+importCoverArt () {
+	local exitCode userSpecifiedArtwork coverArtType=3 picNumber=0 picExt picFile descFile
 
-	return $exitCode
+	gotUserCoverArt "$outputCodec"; exitCode=$?
+	if [ $exitCode -eq $Ex_Ok ]; then
+		picExt="${userSpecifiedArtwork##*.}"
+		picFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$coverArtType" "$picNumber" "$picExt" )"
+		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$coverArtType" "$picNumber" "txt" )"
+		cp -f "$userSpecifiedArtwork" "$picFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+		touch "$descFile" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+		touch "${descFile}"
+	elif [ $exitCode -eq $Ex_No_Input ]; then
+		return $Ex_Ok
+	else
+		return $Ex_Ko
+	fi
 }
 
 importArtworkIntoFLAC () {
