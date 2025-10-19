@@ -96,6 +96,7 @@ declare -r Self_Permissions='u=rwX,go=rX'
 
 declare -r Flac_Max_Threads=128
 declare -r WavPack_Max_Threads=12
+declare -r Internal_APEv2_CoverPicNumber=99
 
 if [ -n "$LC_ALL" ]; then
 #	export LANG="$LC_ALL"
@@ -2579,17 +2580,17 @@ getTrackPictureFileName () {
 }
 
 getAPEv2PictureFileName () {
-	local paddedFileIndex="$1" fieldName="$2" picExt="$3" picType  picNumber="99"
+	local paddedFileIndex="$1" fieldName="$2" picExt="$3" picType
 
 	shopt -qs nocasematch
 	case "$fieldName" in
 		'cover art ('*)
 			picType="${fieldName#*(}"
 			picType="${picType%*)}"
-			getTrackPictureFileName "$paddedFileIndex" "$picType" "$picNumber" "$picExt"
+			getTrackPictureFileName "$paddedFileIndex" "$picType" "$Internal_APEv2_CoverPicNumber" "$picExt"
 			;;
 
-		*) getTrackPictureFileName "$paddedFileIndex" '0' "$picNumber" "$picExt"
+		*) getTrackPictureFileName "$paddedFileIndex" '0' "$Internal_APEv2_CoverPicNumber" "$picExt"
 	esac
 	shopt -qu nocasematch
 }
@@ -2840,12 +2841,14 @@ gotUserCoverArt () {
 }
 
 importCoverArt () {
-	local exitCode userSpecifiedArtwork coverArtType=3 picNumber=0 picExt picFile descFile
+	local exitCode userSpecifiedArtwork coverArtType=3 picNumber=0 picExt picFile APEv2CoverFile descFile
 
 	gotUserCoverArt "$outputCodec"; exitCode=$?
 	if [ $exitCode -eq $Ex_Ok ]; then
 		picExt="${userSpecifiedArtwork##*.}"
 		picFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$coverArtType" "$picNumber" "$picExt" )"
+		APEv2CoverFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$coverArtType" "$Internal_APEv2_CoverPicNumber" "$picExt" )"
+		rm -f "$APEv2CoverFile"
 		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$coverArtType" "$picNumber" "txt" )"
 		cp -f "$userSpecifiedArtwork" "$picFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 		touch "$descFile" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
@@ -3705,10 +3708,10 @@ encode () {
 				if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="Encoding=$Self_Name $Self_Version / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
 				printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 schag -z 1>/dev/null 2>> "$Self_Errors_File"
 				if [ "$doEmbedUserCoverArt" = 'true' ]; then
-					importArtworkIntoAPEv2
+					importArtworkIntoAPEv2 || exitCode=$Ex_Ko
 				fi
 				if [ "$transferInternalBinaries" = 'true' ]; then
-					importBinariesIntoAPEv2 # FIXME with a new -F parameter
+					importBinariesIntoAPEv2 || exitCode=$Ex_Ko
 				fi
 			fi
 			;;
@@ -3725,10 +3728,10 @@ encode () {
 				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 					if [ "$doEmbedUserCoverArt" = 'true' ]; then
-						importArtworkIntoAPEv2
+						importArtworkIntoAPEv2 || exitCode=$Ex_Ko
 					fi
 					if [ "$transferInternalBinaries" = 'true' ]; then
-						importBinariesIntoAPEv2 # FIXME with a new -F parameter
+						importBinariesIntoAPEv2 || exitCode=$Ex_Ko
 					fi
 				fi
 			fi
@@ -3755,10 +3758,10 @@ encode () {
 			printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -c${compression_WavPack} -b${average_bitrate_WavPackLossy} --no-utf8-convert 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 				if [ "$doEmbedUserCoverArt" = 'true' ]; then
-					importArtworkIntoAPEv2
+					importArtworkIntoAPEv2 || exitCode=$Ex_Ko
 				fi
 				if [ "$transferInternalBinaries" = 'true' ]; then
-					importBinariesIntoAPEv2 # FIXME with a new -F parameter
+					importBinariesIntoAPEv2 || exitCode=$Ex_Ko
 				fi
 			fi
 			;;
@@ -3787,10 +3790,10 @@ encode () {
 				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -$compression_WavPack -b${average_bitrate_WavPackLossy} --no-utf8-convert 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 					if [ "$doEmbedUserCoverArt" = 'true' ]; then
-						importArtworkIntoAPEv2
+						importArtworkIntoAPEv2 || exitCode=$Ex_Ko
 					fi
 					if [ "$transferInternalBinaries" = 'true' ]; then
-						importBinariesIntoAPEv2 # FIXME with a new -F parameter
+						importBinariesIntoAPEv2 || exitCode=$Ex_Ko
 					fi
 				fi
 			fi
