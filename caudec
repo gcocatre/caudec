@@ -3335,10 +3335,10 @@ decode () {
 				if [ $exitCode -eq $Ex_Ok ]; then
 					schag -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
 					if [ "$transferInternalArtwork" = 'true' ]; then
-						extractAPEv2Artwork
+						extractAPEv2Artwork || exitCode=$Ex_Ko
 					fi
 					if [ "$transferInternalBinaries" = 'true' ]; then
-						extractAPEv2Binaries
+						extractAPEv2Binaries || exitCode=$Ex_Ko
 					fi
 				fi
 				;;
@@ -3351,10 +3351,10 @@ decode () {
 				if [ $exitCode -eq $Ex_Ok ]; then
 					schag -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
 					if [ "$transferInternalArtwork" = 'true' ]; then
-						extractAPEv2Artwork
+						extractAPEv2Artwork || exitCode=$Ex_Ko
 					fi
 					if [ "$transferInternalBinaries" = 'true' ]; then
-						extractAPEv2Binaries
+						extractAPEv2Binaries || exitCode=$Ex_Ko
 					fi
 				fi
 				;;
