@@ -3707,7 +3707,9 @@ encode () {
 				if [ "$doEmbedUserCoverArt" = 'true' ]; then
 					importArtworkIntoAPEv2
 				fi
-				importBinariesIntoAPEv2 # FIXME with a new -F parameter
+				if [ "$transferInternalBinaries" = 'true' ]; then
+					importBinariesIntoAPEv2 # FIXME with a new -F parameter
+				fi
 			fi
 			;;
 
@@ -3725,7 +3727,9 @@ encode () {
 					if [ "$doEmbedUserCoverArt" = 'true' ]; then
 						importArtworkIntoAPEv2
 					fi
-					importBinariesIntoAPEv2 # FIXME with a new -F parameter
+					if [ "$transferInternalBinaries" = 'true' ]; then
+						importBinariesIntoAPEv2 # FIXME with a new -F parameter
+					fi
 				fi
 			fi
 			;;
@@ -3753,7 +3757,9 @@ encode () {
 				if [ "$doEmbedUserCoverArt" = 'true' ]; then
 					importArtworkIntoAPEv2
 				fi
-				importBinariesIntoAPEv2 # FIXME with a new -F parameter
+				if [ "$transferInternalBinaries" = 'true' ]; then
+					importBinariesIntoAPEv2 # FIXME with a new -F parameter
+				fi
 			fi
 			;;
 
@@ -3783,7 +3789,9 @@ encode () {
 					if [ "$doEmbedUserCoverArt" = 'true' ]; then
 						importArtworkIntoAPEv2
 					fi
-					importBinariesIntoAPEv2 # FIXME with a new -F parameter
+					if [ "$transferInternalBinaries" = 'true' ]; then
+						importBinariesIntoAPEv2 # FIXME with a new -F parameter
+					fi
 				fi
 			fi
 			;;
