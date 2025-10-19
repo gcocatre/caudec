@@ -2807,6 +2807,36 @@ getEmbeddedArtworkSize () {
 	return $exitCode
 }
 
+# "${paddedFileIndex}_picture_${picType}_${picNumber}_placeholder.${picExt}"
+getPictureFileElements () {
+	local picFile="$1"
+
+	picType=''
+	picNumber=''
+	description=''
+
+	if [ ! -f "$picFile" ]; then # there are no pictures for this track
+		return $Ex_Ko
+	fi
+	case "$picFile" in
+		*.txt|*.bin) return $Ex_Ko ;;
+	esac
+	if [ ! -r "$picFile" ]; then
+		return $Ex_Ko
+	fi
+
+	picBasename="${picFile##*/}"
+	picType="$( echo "$picBasename" | cut -d '_' -f 3 | tr -cd [0-9] )"
+	picNumber="$( echo "$picBasename" | cut -d '_' -f 4 | tr -cd [0-9] )"
+	descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$picType" "$picNumber" "txt" )"
+	description=''
+	if [ -r "$descFile" ]; then
+		description="$( cat "$descFile" 2>> "$Self_Errors_File" )"
+	fi
+
+	return $Ex_Ok
+}
+
 importCoverArt () {
 	local exitCode=$Ex_Ok userSpecifiedArtwork coverArtType=3 picNumber=0 picExt picFile descFile
 
@@ -2843,26 +2873,10 @@ importArtworkIntoFLAC () {
 
 	importCoverArt || exitCode=$Ex_Ko
 
-	# "${paddedFileIndex}_picture_${picType}_${picNumber}_placeholder.${picExt}"
 	for picFile in "${Self_Swap_Dir}/${paddedFileIndex}_picture_"*; do
-		if [ ! -f "$picFile" ]; then # there are no pictures for this file
-			return $Ex_Ok
+		if getPictureFileElements "$picFile"; then
+			metaflac --import-picture-from="${picType}||${description}||${picFile}" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 		fi
-		case "$picFile" in
-			*.txt|*.bin) continue ;;
-		esac
-		if [ ! -r "$picFile" ]; then
-			continue
-		fi
-		picBasename="${picFile##*/}"
-		picType="$( echo "$picBasename" | cut -d '_' -f 3 | tr -cd [0-9] )"
-		picNumber="$( echo "$picBasename" | cut -d '_' -f 4 | tr -cd [0-9] )"
-		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$picType" "$picNumber" "txt" )"
-		description=''
-		if [ -r "$descFile" ]; then
-			description="$( cat "$descFile" 2>> "$Self_Errors_File" )"
-		fi
-		metaflac --import-picture-from="${picType}||${description}||${picFile}" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	done
 
 	return $exitCode
@@ -2871,8 +2885,7 @@ importArtworkIntoFLAC () {
 genOpusArtworkCommandLine () {
 	local exitCode=$Ex_Ok pattern picFile picBasename picType picNumber descFile description cmdline='' doEmbedUserCoverArt
 
-	doEmbedUserCoverArt="$( shouldEmbedUserCoverArt "$outputCodec" )"
-	if [ "$doEmbedUserCoverArt" = 'false' -o "$transferInternalArtwork" = 'false' ]; then
+	if [ "$doEmbedUserCoverArt" = 'false' ]; then
 		echo "$cmdline"
 		return $Ex_Ok
 	fi
@@ -2885,26 +2898,10 @@ genOpusArtworkCommandLine () {
 
 	importCoverArt || exitCode=$Ex_Ko
 
-	# "${paddedFileIndex}_picture_${picType}_${picNumber}_placeholder.${picExt}"
 	for picFile in "${Self_Swap_Dir}/${paddedFileIndex}_picture_"*; do
-		if [ ! -f "$picFile" ]; then # there are no pictures for this file
-			return $Ex_Ok
+		if getPictureFileElements "$picFile"; then
+			cmdline="${cmdline}\x00--picture=${picType}||${description}||${picFile}"
 		fi
-		case "$picFile" in
-			*.txt|*.bin) continue ;;
-		esac
-		if [ ! -r "$picFile" ]; then
-			continue
-		fi
-		picBasename="${picFile##*/}"
-		picType="$( echo "$picBasename" | cut -d '_' -f 3 | tr -cd [0-9] )"
-		picNumber="$( echo "$picBasename" | cut -d '_' -f 4 | tr -cd [0-9] )"
-		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$picType" "$picNumber" "txt" )"
-		description=''
-		if [ -r "$descFile" ]; then
-			description="$( cat "$descFile" 2>> "$Self_Errors_File" )"
-		fi
-		cmdline="${cmdline}\x00--picture=${picType}||${description}||${picFile}"
 	done
 	echo "$cmdline"
 
@@ -2921,26 +2918,11 @@ importArtworkIntoAPEv2 () {
 
 	importCoverArt || exitCode=$Ex_Ko
 
-	# "${paddedFileIndex}_picture_${picType}_${picNumber}_placeholder.${picExt}"
 	for picFile in "${Self_Swap_Dir}/${paddedFileIndex}_picture_"*; do
-		if [ ! -f "$picFile" ]; then # there are no pictures for this file
-			return $Ex_Ok
+		if getPictureFileElements "$picFile"; then
+			picTypeLabel="$( getAPEv2TrackPictureTypeLabel "$picType" )"
+			argString="${argString}\\x00-a\\x00Cover Art (${picTypeLabel})=${picFile}"
 		fi
-		case "$picFile" in
-			*.txt|*.bin) continue ;;
-		esac
-		if [ ! -r "$picFile" ]; then
-			continue
-		fi
-		picBasename="${picFile##*/}"
-		picType="$( echo "$picBasename" | cut -d '_' -f 3 | tr -cd [0-9] )"
-		if [ "$picType" = "$lastPicType" ]; then
-			continue
-		fi
-		lastPicType="$picType"
-		picNumber="$( echo "$picBasename" | cut -d '_' -f 4 | tr -cd [0-9] )"
-		picTypeLabel="$( getAPEv2TrackPictureTypeLabel "$picType" )"
-		argString="${argString}\\x00-a\\x00Cover Art (${picTypeLabel})=${picFile}"
 	done
 
 	if [ -n "$argString" ]; then
@@ -3714,7 +3696,7 @@ encode () {
 			nThreads=$( getNumberOfAvailableThreads "$fileIndex" $Flac_Max_Threads )
 			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -j $nThreads -P $padding $kfm -${compression_FLAC} -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok ]; then
-				if [ "$doEmbedUserCoverArt" = 'true' -o "$transferInternalArtwork" = 'true' ]; then
+				if [ "$doEmbedUserCoverArt" = 'true' ]; then
 					importArtworkIntoFLAC || exitCode=$Ex_Ko
 				fi
 			fi
@@ -3728,7 +3710,7 @@ encode () {
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 				if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="Encoding=$Self_Name $Self_Version / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
 				printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z 1>/dev/null 2>> "$Self_Errors_File"
-				if [ "$doEmbedUserCoverArt" = 'true' -o "$transferInternalArtwork" = 'true' ]; then
+				if [ "$doEmbedUserCoverArt" = 'true' ]; then
 					importArtworkIntoAPEv2
 				fi
 				importBinariesIntoAPEv2 # FIXME with a new -F parameter
@@ -3746,7 +3728,7 @@ encode () {
 				if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack"; fi
 				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
-					if [ "$doEmbedUserCoverArt" = 'true' -o "$transferInternalArtwork" = 'true' ]; then
+					if [ "$doEmbedUserCoverArt" = 'true' ]; then
 						importArtworkIntoAPEv2
 					fi
 					importBinariesIntoAPEv2 # FIXME with a new -F parameter
@@ -3774,7 +3756,7 @@ encode () {
 			fi
 			printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -c${compression_WavPack} -b${average_bitrate_WavPackLossy} --no-utf8-convert 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
-				if [ "$doEmbedUserCoverArt" = 'true' -o "$transferInternalArtwork" = 'true' ]; then
+				if [ "$doEmbedUserCoverArt" = 'true' ]; then
 					importArtworkIntoAPEv2
 				fi
 				importBinariesIntoAPEv2 # FIXME with a new -F parameter
@@ -3804,7 +3786,7 @@ encode () {
 				fi
 				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -o "$encodedFile" -$compression_WavPack -b${average_bitrate_WavPackLossy} --no-utf8-convert 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
-					if [ "$doEmbedUserCoverArt" = 'true' -o "$transferInternalArtwork" = 'true' ]; then
+					if [ "$doEmbedUserCoverArt" = 'true' ]; then
 						importArtworkIntoAPEv2
 					fi
 					importBinariesIntoAPEv2 # FIXME with a new -F parameter
@@ -3838,7 +3820,7 @@ encode () {
 			printf -- "--totally-silent`tagline -T`\x00%s" "$namedPipe" | xargs -0 flac -j $nThreads -P $padding -5 -e -p -b 512 -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			rm -f "$namedPipe"
 			if [ $exitCode -eq $Ex_Ok ]; then
-				if [ "$doEmbedUserCoverArt" = 'true' -o "$transferInternalArtwork" = 'true' ]; then
+				if [ "$doEmbedUserCoverArt" = 'true' ]; then
 					importArtworkIntoFLAC || exitCode=$Ex_Ko
 				fi
 			fi
@@ -3877,7 +3859,7 @@ encode () {
 					printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 				if [ $exitCode -eq $Ex_Ok ]; then
-					if [ "$doEmbedUserCoverArt" = 'true' -o "$transferInternalArtwork" = 'true' ]; then
+					if [ "$doEmbedUserCoverArt" = 'true' ]; then
 						importArtworkIntoMP3 || exitCode=$Ex_Ko
 					fi
 				fi
@@ -5885,7 +5867,7 @@ shouldEmbedUserCoverArt () {
 	local outputCodec="$1" coverArtFile=""
 
 	coverArtFile="$( getCodecCoverArtFile "$outputCodec" )"
-	if [ -n "$coverArtFile" ]; then
+	if [ -n "$coverArtFile" -o "$transferInternalArtwork" = 'true' ]; then
 		echo 'true'
 	else
 		echo 'false'
