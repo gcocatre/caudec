@@ -986,16 +986,7 @@ cleanExit () {
 		fi
 	fi
 
-	if [ "$preloadSources" = 'true' ]; then
-		for ioLockFile in "$Self_Io_Dir"/* ; do
-			if [ -e "$ioLockFile" ]; then
-				echo '' > "${ioLockFile}.lock" 2>/dev/null
-				mv "${ioLockFile}.lock" "${ioLockFile}" 1>/dev/null 2>&1
-			fi
-		done
-	fi
-
-	test -d "$Self_Io_Dir" && rm -rf "$Self_Io_Dir"
+	rm -rf "$Self_Instance_Dir"
 
 	exit $exitCode
 }
