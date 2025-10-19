@@ -2563,6 +2563,7 @@ getTrackPictureFileName () {
 		[0-9]) picNumber="0${picNumber}" ;;
 	esac
 
+	shopt -qs nocasematch
 	case "$picType" in
 		[0-9]|1[0-9]|20) picType=$picType ;;
 		'other') picType=0 ;;
@@ -2588,41 +2589,25 @@ getTrackPictureFileName () {
 		'publisher logo') picType=20 ;;
 		*) picType=0 ;;
 	esac
+	shopt -qu nocasematch
 
 	echo "${paddedFileIndex}_picture_${picType}_${picNumber}-placeholder.${picExt}"
 }
 
 getAPEv2PictureFileName () {
-	local paddedFileIndex="$1" fieldName="$2" picNumber="99" picExt="$3" picType lowerCaseFieldName
+	local paddedFileIndex="$1" fieldName="$2" picExt="$3" picType  picNumber="99"
 
-	lowerCaseFieldName="$( echo "$fieldName" | tr '[:upper:]' '[:lower:]' 2>/dev/null )"
+	shopt -qs nocasematch
+	case "$fieldName" in
+		'cover art ('*)
+			picType="${fieldName#*(}"
+			picType="${picType%*)}"
+			getTrackPictureFileName "$paddedFileIndex" "$picType" "$picNumber" "$picExt"
+			;;
 
-	case "$lowerCaseFieldName" in
-		'cover art (other)') picType=0 ;;
-		'cover art (icon)') picType=1 ;;
-		'cover art (other icon)') picType=2 ;;
-		'cover art (front)') picType=3 ;;
-		'cover art (back)') picType=4 ;;
-		'cover art (leaflet)') picType=5 ;;
-		'cover art (media)') picType=6 ;;
-		'cover art (lead artist)') picType=7 ;;
-		'cover art (artist)') picType=8 ;;
-		'cover art (conductor)') picType=9 ;;
-		'cover art (band)') picType=10 ;;
-		'cover art (composer)') picType=11 ;;
-		'cover art (lyricist)') picType=12 ;;
-		'cover art (recording location)') picType=13 ;;
-		'cover art (during recording)') picType=14 ;;
-		'cover art (during performance)') picType=15 ;;
-		'cover art (video)') picType=16 ;;
-		'cover art (a bright colored fish)') picType=17 ;;
-		'cover art (illustration)') picType=18 ;;
-		'cover art (band logo)') picType=19 ;;
-		'cover art (publisher logo)') picType=20 ;;
-		*) picType=0 ;;
+		*) getTrackPictureFileName "$paddedFileIndex" '0' "$picNumber" "$picExt"
 	esac
-
-	echo "${paddedFileIndex}_picture_${picType}_${picNumber}-placeholder.${picExt}"
+	shopt -qu nocasematch
 }
 
 extractFlacArtwork () {
