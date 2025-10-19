@@ -198,9 +198,6 @@ esac
 if [ -n "$rootPreloadSources" ]; then preloadSources="$rootPreloadSources"; fi
 if [ "$preloadSources" = 'false' ]; then preloadSources='false'; else preloadSources='true'; fi
 
-# FIXME: handle preloadSources
-preloadSources='false'
-
 # true by default
 if [ "$enableColors" = 'false' ]; then
 	Clr_Ok="" Clr_Ko="" Clr_Wg="" Clr_Rst="" Clr_N_Bk="" Clr_B_Bk="" Clr_N_Rd="" Clr_B_Rd="" Clr_N_Gr="" Clr_B_Gr=""
@@ -990,16 +987,15 @@ cleanExit () {
 	fi
 
 	if [ "$preloadSources" = 'true' ]; then
-		# FIXME
-		for ioLockFile in "$Self_Instance_Dir"/ioLockFiles/* ; do
+		for ioLockFile in "$Self_Io_Dir"/* ; do
 			if [ -e "$ioLockFile" ]; then
-				echo '' > "${Self_Io_Dir}/${ioLockFile##*/}.lock" 2>/dev/null
-				mv "${Self_Io_Dir}/${ioLockFile##*/}.lock" "${Self_Io_Dir}/${ioLockFile##*/}" 1>/dev/null 2>&1
+				echo '' > "${ioLockFile}.lock" 2>/dev/null
+				mv "${ioLockFile}.lock" "${ioLockFile}" 1>/dev/null 2>&1
 			fi
 		done
 	fi
 
-	test -d "$Self_Instance_Dir" && rm -rf "$Self_Instance_Dir"
+	test -d "$Self_Io_Dir" && rm -rf "$Self_Io_Dir"
 
 	exit $exitCode
 }
@@ -4096,7 +4092,7 @@ prepareSource () {
 		until test "$copyDone" = 'true' ; do
 			# if test -f "$copyLockFile" && mv "$copyLockFile" "${copyLockFile}.lock" 1>/dev/null 2>&1; then
 			if getAndRenameLock "$copyLockFile" "${copyLockFile}.lock"; then
-				touch "${Self_Instance_Dir}/ioLockFiles/${copyLockFile##*/}"
+				touch "$copyLockFile"
 				echo "$$" > "${copyLockFile}.lock"
 
 				if [ "$gnudate" = 'true' ]; then
@@ -4110,7 +4106,7 @@ prepareSource () {
 
 				echo '' > "${copyLockFile}.lock" 2>/dev/null
 				mv "${copyLockFile}.lock" "$copyLockFile" 1>/dev/null 2>&1 &&
-				rm -f "${Self_Instance_Dir}/ioLockFiles/${copyLockFile##*/}" 1>/dev/null 2>&1
+				rm -f "$copyLockFile}" 1>/dev/null 2>&1
 				copyDone='true'
 
 				if [ -n "$cptimer1" ]; then
@@ -5547,7 +5543,7 @@ printHumanStats () {
 	fi
 	printf "${Clr_B_Bk} * ${Clr_Rst}%.2f seconds" $seconds
 
-	readDuration="$( { echo -n 'scale=6; ' ; cat "${Self_Data_Dir}/readTimes.txt" ; echo ; } | bc )"
+	readDuration="$( { echo -n 'scale=6; 0' ; cat "${Self_Data_Dir}/readTimes.txt" ; echo ; } | bc )"
 	if [ "$readDuration" = '0' -o -z "$readDuration" ]; then # prevent division by 0 situations
 		if [ "$seconds" = '0' ]; then
 			readDuration='1'
