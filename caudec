@@ -1499,26 +1499,22 @@ isProcessRunning () {
 cleanUpInstances () {
 	local pid tdir lockFile
 
-	for d in "${Self_Pid_Dir}/instance".???????? ; do
-		if [ -d "$d" -a -f "${d}/PID" ]; then
-			pid="$( cat "${d}/PID" 2>/dev/null )"
-			if ! isProcessRunning $pid ; then
-				tdir="$( cat "${d}/tdir" 2>/dev/null )"
-				if [ -d "$tdir" ]; then
-					rm -rf "$tdir" 1>/dev/null 2>&1
+	for tempDir in "$TMPDIR" '/tmp'; do
+		if [ -n "$tempDir" -a -d "$tempDir" ]; then
+			for instanceDir in "$tempDir"/"$Self_Name".*; do
+				if [ ! -d "$instanceDir" ]; then continue; fi
+				if [ -f "${instanceDir}/pid.txt" ]; then
+					read pid < "${instanceDir}/pid.txt"
+					if ! isProcessRunning "$pid"; then
+						if [ -h "${instanceDir}/swap" ]; then
+							rm -rf "$( readlink -f "${instanceDir}/swap" )"
+						fi
+						rm -rf "$instanceDir"
+					fi
 				fi
-				rm -rf "$d" 1>/dev/null 2>&1
-			fi
+			done
 		fi
 	done
-
-	if [ "$preloadSources" = 'true' ]; then
-		for lockFile in "${Self_Io_Dir}"/*.lock ; do
-			if [ -f "$lockFile" ]; then
-				cleanUpCopyLockFile "${lockFile%.lock}"
-			fi
-		done
-	fi
 }
 
 handleInstance () {
@@ -1532,6 +1528,8 @@ handleInstance () {
 	# ${TMPDIR}/caudec.XXXXXXXX/jobs/
 	# ${TMPDIR}/caudec.XXXXXXXX/PID
 	# ${TMPDIR}/caudec.XXXXXXXX/swap/
+
+	cleanUpInstances
 
 	if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
 
@@ -1666,13 +1664,12 @@ setupSwapDir () {
 			cleanExit $Ex_No_Perm
 		fi
 
-		mkdir -m "$Self_Permissions" -p "${CAUDEC_SWAP_DIR}.${Self_Random_Suffix}" 1>/dev/null || cleanExit $Ex_Cant_Create
-		ln -s "${CAUDEC_SWAP_DIR}.${Self_Random_Suffix}" "$Self_Swap_Dir"
+		mkdir -m "$Self_Permissions" -p "${CAUDEC_SWAP_DIR}/${Self_Name}.${Self_Random_Suffix}" 1>/dev/null || cleanExit $Ex_Cant_Create
+		ln -s "${CAUDEC_SWAP_DIR}/${Self_Name}.${Self_Random_Suffix}" "$Self_Swap_Dir"
 	else
 		mkdir -m "$Self_Permissions" -p "${Self_Swap_Dir}" 1>/dev/null || cleanExit $Ex_Cant_Create
 	fi
 
-	# FIXME: this should go to io dir
 	if [ "$preloadSources" = 'true' ]; then
 		for (( index=0; index < ${#sourceFiles[@]}; index++ )); do
 			if [ "$gnustat" = 'true' ]; then
@@ -4057,20 +4054,6 @@ getAndRenameLock () {
 	fi
 }
 
-cleanUpCopyLockFile () {
-	local copyLockFile="$1" pid
-
-	if [ -e "${copyLockFile}.lock" ]; then
-		pid="$( cat "${copyLockFile}.lock" )"
-		if [ -n "$pid" ]; then
-			if ! isProcessRunning $pid ; then
-				echo '' > "${copyLockFile}.lock" 2>/dev/null
-				mv "${copyLockFile}.lock" "$copyLockFile" 1>/dev/null 2>&1
-			fi
-		fi
-	fi
-}
-
 prepareSource () {
 	local exitCode=$Ex_Ok sourcePath copyLockFile copyDone='false' cptimer1 cptimer2 cpseconds attemptNumber=0
 
@@ -4080,12 +4063,13 @@ prepareSource () {
 		else
 			copyLockFile="${Self_Io_Dir}/$( $statcmd -f '%d' "$sourceFile" 2>> "$Self_Errors_File" )"
 		fi
-		until test "$copyDone" = 'true' ; do
-			# if test -f "$copyLockFile" && mv "$copyLockFile" "${copyLockFile}.lock" 1>/dev/null 2>&1; then
-			if getAndRenameLock "$copyLockFile" "${copyLockFile}.lock"; then
-				touch "$copyLockFile"
-				echo "$$" > "${copyLockFile}.lock"
 
+		until test "$copyDone" = 'true'; do
+			if [ ! -e "$copyLockFile" ]; then
+				touch "$copyLockFile"
+			fi
+
+			if getLock "$copyLockFile"; then
 				if [ "$gnudate" = 'true' ]; then
 					cptimer1="$( $datecmd '+%s.%N' )"
 				fi
@@ -4095,9 +4079,6 @@ prepareSource () {
 					cp "${sourceFile}c" "${copyFile}c" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 
-				echo '' > "${copyLockFile}.lock" 2>/dev/null
-				mv "${copyLockFile}.lock" "$copyLockFile" 1>/dev/null 2>&1 &&
-				rm -f "$copyLockFile}" 1>/dev/null 2>&1
 				copyDone='true'
 
 				if [ -n "$cptimer1" ]; then
@@ -4110,15 +4091,10 @@ prepareSource () {
 					fi
 				fi
 			else
-				if [ $attemptNumber -ge 100 ]; then
-					cleanUpCopyLockFile "$copyLockFile"
-					attemptNumber=0
-				else
-					sleep 0.1
-					(( attemptNumber++ ))
-				fi
+				sleep 0.1
 			fi
 		done
+		getLock "$copyLockFile"
 	else
 		if [ "${sourceFile:0:1}" = '/' ]; then # sourceFile is an absolute path
 			sourcePath="$sourceFile"
@@ -4207,7 +4183,11 @@ transcode () {
 					ls "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info 1>/dev/null 2>&1 || allCodecsDone='true'
 					if [ "$allCodecsDone" = 'true' ]; then
 						touch "$wasProcessedFile"
-						rm -rf "$wavFile" "$binariesDir" "${Self_Swap_Dir}/${paddedFileIndex}_picture_"* 1>/dev/null 2>&1
+						rm -rf "$copyFile" "${copyFile}c" "$wavFile" "$resampledFile" "$binariesDir" \
+							"${Self_Swap_Dir}/${paddedFileIndex}_tags_"*.txt \
+							"${Self_Swap_Dir}/${paddedFileIndex}_picture_"* \
+							"${Self_Ctrl_Dir}/${paddedFileIndex}"_*.job \
+							1>/dev/null 2>&1
 					fi
 				fi
 			done
