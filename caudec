@@ -1394,7 +1394,7 @@ checkBinaries () {
 			case "$sourceFile" in
 				*.flac) checkBinary 'metaflac' ;;
 				*.wv) checkBinary 'wvunpack' 'wvgain' 'wvtag' ;;
-				*.ape) checkBinary 'rsgain' 'APEv2' ;;
+				*.ape) checkBinary 'rsgain' 'schag' ;;
 				*.ogg) checkBinary 'ogginfo' 'vorbisgain' 'vorbiscomment' ;;
 				*.mp3) checkBinary 'ffprobe' 'mp3gain'; if [ "$applyGain" = 'false' ]; then checkBinary 'eyeD3'; fi ;;
 				*.opus) checkBinary 'opusinfo' 'opusgain' ;; # https://github.com/FrancisRussell/zoog
@@ -1405,7 +1405,7 @@ checkBinaries () {
 			case "$sourceFile" in
 				*.flac) checkBinary 'metaflac' ;;
 				*.wv) checkBinary 'wvtag' ;;
-				*.ape) checkBinary 'APEv2' ;;
+				*.ape) checkBinary 'schag' ;;
 				*.ogg) checkBinary 'vorbiscomment' ;;
 				*.opus) checkBinary 'opusgain' ;;
 				*.mp3) checkBinary 'mp3gain' ;;
@@ -1428,7 +1428,7 @@ checkBinaries () {
 				*.m4a) checkBinary 'ffmpeg' 'ffprobe' ;;
 				*.opus) checkBinary 'opusinfo' ;;
 				*.wv) checkBinary 'wvtag' 'wvunpack' ;;
-				*.ape) checkBinary 'mac' 'APEv2' 'ffprobe' ;;
+				*.ape) checkBinary 'mac' 'schag' 'ffprobe' ;;
 				*.mp3) checkBinary 'ffmpeg' ;;
 			esac
 		done
@@ -1452,8 +1452,8 @@ checkBinaries () {
 			case "$sourceFile" in
 				*.aiff|*.caf) checkBinary 'sox' ;;
 				*.flac) checkBinary 'flac' 'metaflac' ;;
-				*.wv) checkBinary 'wvunpack' 'APEv2' ;;
-				*.ape) checkBinary 'mac' 'APEv2' ;;
+				*.wv) checkBinary 'wvunpack' 'schag' ;;
+				*.ape) checkBinary 'mac' 'schag' ;;
 				*.m4a) checkBinary 'ffmpeg' 'ffprobe' ;;
 			esac
 		done
@@ -1467,8 +1467,8 @@ checkBinaries () {
 		case "$outputCodec" in
 			AIFF|CAF) checkBinary 'sox' ;;
 			FLAC) checkBinary 'flac' ;;
-			WavPack|WavPackHybrid|WavPackLossy) checkBinary 'wavpack' 'APEv2' ;;
-			MonkeysAudio) checkBinary 'mac' 'APEv2' ;;
+			WavPack|WavPackHybrid|WavPackLossy) checkBinary 'wavpack' 'schag' ;;
+			MonkeysAudio) checkBinary 'mac' 'schag' ;;
 			lossyFLAC) checkBinary 'lossywav' 'sox' 'soxi' 'flac' ;;
 			OggVorbis) checkBinary 'oggenc' ;;
 			MP3) checkBinary 'lame' 'eyeD3' ;;
@@ -2686,10 +2686,10 @@ extractAPEv2Artwork () {
 			else
 				exitCode=$Ex_Ko
 			fi
-		done < <( APEv2 -C "$copyFile" 2>/dev/null | grep -F '=artwork:' 2>/dev/null )
+		done < <( schag -C "$copyFile" 2>/dev/null | grep -F '=artwork:' 2>/dev/null )
 
 		if [ -n "$argString" ]; then
-			echo -en "-z${argString}\x00${copyFile}" | xargs -0 APEv2 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			echo -en "-z${argString}\x00${copyFile}" | xargs -0 schag 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 		fi
 	done
 
@@ -2729,10 +2729,10 @@ extractAPEv2Binaries () {
 					else
 						exitCode=$Ex_Ko
 					fi
-				done < <( APEv2 -C "$copyFile" 2>/dev/null | grep -F '=data:' 2>/dev/null )
+				done < <( schag -C "$copyFile" 2>/dev/null | grep -F '=data:' 2>/dev/null )
 
 				if [ -n "$argString" ]; then
-					echo -en "-z${argString}\x00${copyFile}" | xargs -0 APEv2 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					echo -en "-z${argString}\x00${copyFile}" | xargs -0 schag 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 				;;
 
@@ -2936,7 +2936,7 @@ importArtworkIntoAPEv2 () {
 	done
 
 	if [ -n "$argString" ]; then
-		echo -en "-z${argString}\x00${encodedFile}" | xargs -0 APEv2 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+		echo -en "-z${argString}\x00${encodedFile}" | xargs -0 schag 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	fi
 
 	return $exitCode
@@ -2967,7 +2967,7 @@ importBinariesIntoAPEv2 () {
 	done
 
 	if [ -n "$argString" ]; then
-		echo -en "-z${argString}\x00${encodedFile}" | xargs -0 APEv2 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+		echo -en "-z${argString}\x00${encodedFile}" | xargs -0 schag 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	fi
 
 	return $exitCode
@@ -3346,7 +3346,7 @@ decode () {
 				nThreads=$( getNumberOfAvailableThreads "$fileIndex" $WavPack_Max_Threads )
 				wvunpack -q $kfm -m --threads=$nThreads -o "$wavFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
-					APEv2 -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
+					schag -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
 					if [ "$transferInternalArtwork" = 'true' ]; then
 						extractAPEv2Artwork
 					fi
@@ -3362,7 +3362,7 @@ decode () {
 				nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
 				mac "$copyFile" "$wavFile" -d -threads=$nThreads 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
-					APEv2 -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
+					schag -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
 					if [ "$transferInternalArtwork" = 'true' ]; then
 						extractAPEv2Artwork
 					fi
@@ -3719,7 +3719,7 @@ encode () {
 			mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 -threads=${nThreads} 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 				if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="Encoding=$Self_Name $Self_Version / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
-				printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 APEv2 -z 1>/dev/null 2>> "$Self_Errors_File"
+				printf -- "-R`tagline -t`\x00%s" "$encodedFile" | xargs -0 schag -z 1>/dev/null 2>> "$Self_Errors_File"
 				if [ "$doEmbedUserCoverArt" = 'true' ]; then
 					importArtworkIntoAPEv2
 				fi
@@ -4556,7 +4556,7 @@ saveGain () {
 		*.ape)
 			if [ "$gainType" = 'ALBUM' ]; then
 				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
-					APEv2 \
+					scahg \
 						-r "replaygain_album_gain" \
 						-r "replaygain_album_peak" \
 						-r "audio_album_peak" \
@@ -4565,7 +4565,7 @@ saveGain () {
 						-t "audio_album_peak=${peakDbfs} dBFS" \
 						"$destFile" 1>/dev/null 2>/dev/null || exitCode=$Ex_Ko
 				else
-					APEv2 \
+					scahg \
 						-r "replaygain_album_gain" \
 						-r "replaygain_album_peak" \
 						-t "replaygain_album_gain=${gain} dB" \
@@ -4574,7 +4574,7 @@ saveGain () {
 				fi
 			else
 				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
-					APEv2 \
+					scahg \
 						-r "replaygain_track_gain" \
 						-r "replaygain_track_peak" \
 						-t "replaygain_track_gain=${gain} dB" \
@@ -4583,7 +4583,7 @@ saveGain () {
 						-t "audio_track_peak=${peakDbfs} dBFS" \
 						"$destFile" 1>/dev/null 2>/dev/null || exitCode=$Ex_Ko
 				else
-					APEv2 \
+					scahg \
 						-r "replaygain_track_gain" \
 						-r "replaygain_track_peak" \
 						-t "replaygain_track_gain=${gain} dB" \
@@ -4727,7 +4727,7 @@ computeTrackGain () {
 							replaygain_track_gain=*) trackGain="$( echo "$line" | cut -d '=' -f 2 | cut -d ' ' -f 1 | tr -d '+' )" ;;
 							replaygain_track_peak=*) trackPeak="$( echo "$line" | cut -d '=' -f 2 )" ;;
 						esac
-					done < <( APEv2 -z "$sourceFile" 2>> "$Self_Errors_File" | grep -iE '^replaygain_track_(gain|peak)' 2>/dev/null )
+					done < <( schag -z "$sourceFile" 2>> "$Self_Errors_File" | grep -iE '^replaygain_track_(gain|peak)' 2>/dev/null )
 					shopt -qu nocasematch
 				fi
 				if [ -n "$trackGain" -a -n "$trackPeak" ]; then
@@ -5007,7 +5007,7 @@ reverseTrackGain () {
 				"$sourceFile" 1>/dev/null 2>/dev/null ; exitCode=$?
 				;;
 
-			*.ape) APEv2 -z \
+			*.ape) schag -z \
 				-r "Replaygain_Reference_Loudness" \
 				-r "Replaygain_Track_Gain" \
 				-r "Replaygain_Track_Peak" \
@@ -5106,7 +5106,7 @@ computeTrackDateTime () {
 				*.ogg) date=$( vorbiscomment "$sourceFile" | grep -iF "date=" | tr -cd "[:digit:]-" ) ;;
 				*.m4a) date=$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | grep -iE '^format.tags.date' | cut -d '.' -f 3- | tr -cd "[:digit:]-" ) ;;
 				*.wv) date=$( wvtag -x Year "$sourceFile" 2>/dev/null | tr -cd "[:digit:]-" ) ;;
-				*.ape) date=$( APEv2 -z "$sourceFile" 2>/dev/null | grep -iF year= | tr -cd "[:digit:]-" ) ;;
+				*.ape) date=$( schag -z "$sourceFile" 2>/dev/null | grep -iF year= | tr -cd "[:digit:]-" ) ;;
 				*.opus) date=$( opusinfo "$sourceFile" | grep -iF "date=" | tr -cd "[:digit:]-" ) ;;
 				*.mp3) date=$( ffmpeg -i "$sourceFile" -f ffmetadata - 2>/dev/null | grep -iE "^(date|TDOR|TDRC|TDRL)=[0-9]{4}" | head -n 1 | tr -cd "[:digit:]-" ) ;;
 			esac
