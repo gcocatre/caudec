@@ -1565,7 +1565,7 @@ handleInstance () {
 	Self_Pid_File="${Self_Instance_Dir}/pid.txt"
 	Self_Swap_Dir="${Self_Instance_Dir}/swap"
 	mkdir -m "$Self_Permissions" -p "$Self_Control_Dir" "$Self_Data_Dir" "$Self_Io_Dir" "$Self_Jobs_Dir" 1>/dev/null 2>&1 || cleanExit $Ex_Temp_Fail
-	echo "$$" > "${Self_Pid_File}" 1>/dev/null 2>&1 || cleanExit $Ex_Temp_Fail
+	echo "$$" > "${Self_Pid_File}" 2>&1 || cleanExit $Ex_Temp_Fail
 	touch "$Self_Errors_File" 1>/dev/null 2>&1 || cleanExit $Ex_Temp_Fail
 	echo -n "0" > "${Self_Data_Dir}/readTimes.txt" 1>/dev/null 2>&1 || cleanExit $Ex_Temp_Fail
 
