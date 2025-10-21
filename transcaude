@@ -224,15 +224,15 @@ computeReplayGain () {
       fi
       if [ "$lastCodec" = "MP3" ]; then
         if [ $Self_Verbose = true ]; then
-          caudec -Z -G album "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -Z -i -G album "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -z -G album "${files[@]}" 1> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -z -i -G album "${files[@]}" 1> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       else
         if [ $Self_Verbose = true ]; then
-          caudec -Z -g "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -Z -i -g "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -z -g "${files[@]}" 1> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -z -i -g "${files[@]}" 1> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       fi
 
@@ -272,15 +272,15 @@ touchFiles () {
         echo "Touching directory for $lastCodec in $lastDir:"
         if [ -n "$linkDir" -a -d "$linkDir" ]; then
           echo "Touching linked directory for $lastCodec in $linkDir:"
-          caudec -Z -T -l "$linkDir" "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -Z -i -T -l "$linkDir" "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -Z -T "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -Z -i -T "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       else
         if [ -n "$linkDir" -a -d "$linkDir" ]; then
-          caudec -z -T -l "$linkDir" "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -z -i -T -l "$linkDir" "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -z -T "$lastDir" 1> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -z -i -T "$lastDir" 1> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       fi
 
@@ -312,9 +312,9 @@ touchFiles () {
 
 if [ $Self_Verbose = true ]; then
   echo "Transcoding files:"
-  caudec -Z "$@" 2> "$Self_Encoding_Log"; exitCode=$?
+  caudec -Z -i "$@" 2> "$Self_Encoding_Log"; exitCode=$?
 else
-  caudec -z "$@" 1> "$Self_Encoding_Log"; exitCode=$?
+  caudec -z -i "$@" 1> "$Self_Encoding_Log"; exitCode=$?
 fi
 
 if [ $exitCode -eq $Ex_Ok ]; then
