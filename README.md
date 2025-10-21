@@ -16,7 +16,7 @@ It leverages multi-core CPUs and runs multiple processes concurrently (one per f
 * Transcoding to several different codecs at once is possible. In that case, decoding of input files is done only once.
 * Metadata is preserved (as much as possible) from one codec to another.
 * Artwork can be embedded into each file, and / or copied to the output directory. It can be done selectively (e.g. embed and / or copy one image for lossless files, and another image for lossy files).
-* Audio can be resampled (e.g. 48kHz to 44.1kHz) and downmixed (e.g. 6 channels to stereo). A profile can be provided to set a maximum value for the number of channels, bit depth and sampling rate. When a profile is provided, the source will only be altered after decoding and before encoding only if some metric of the source is above the given profile.
+* Audio can be resampled (e.g. 48kHz to 44.1kHz) and downmixed (e.g. 6 channels to stereo). A profile can be provided to set a maximum value for the number of channels, bit depth and sampling rate. When a profile is provided, the source will only be altered after decoding and before encoding, if some metric of the source is above the given profile.
 * **Multiprocess ReplayGain scanner** for FLAC, WavPack, MP3, Ogg Vorbis, Opus.
 * Ability to hard link lossy files to a different directory when encoding to WavPack Hybrid. The point is to have two libraries that takes the storage of just one, with a lossy collection that has its own root directory and that's easy to drag and drop to a device such as a smartphone or a Digital Audio Player (DAP).
 * Ability to touch files and album directories using metadata to reflect the music's release date and duration (see example below).
@@ -215,7 +215,7 @@ If the source has more than 2 channels, caudec will automatically downmix to ste
 $ caudec -r 2/24/48 -c flac "Daft Punk/Random Access Memories [2013]"
 ```
 
-Here, if the source is a CD (stereo, 16 bit, 44.1kHz), caudec will leave the source untouched. The provided profile only sets a maximum and will not touch the source unless needed, and it will never upscale or upsample (although that can be done with -b and -r separately). The profile can be provided with `-r` but also set in `~/.caudecrc`:
+Here, if the source is a CD (stereo, 16 bit, 44.1kHz), caudec will leave the source untouched. The provided profile only sets a maximum and will not touch the source unless needed, and it will never upmix, upscale, or upsample (although that can be done with -2, -b and -r separately). The profile can be provided with `-r` but also set in `~/.caudecrc`:
 
 ```
 resamplingProfile='2/24/48'
