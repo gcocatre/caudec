@@ -15,9 +15,8 @@ It leverages multi-core CPUs and runs multiple processes concurrently (one per f
 * **Supported platforms**: macOS, Linux.
 * Transcoding to several different codecs at once is possible. In that case, decoding of input files is done only once.
 * Metadata is preserved (as much as possible) from one codec to another.
-* Artwork can be embedded into each file, and or copied to the output directory. It can be done selectively (e.g. embed and / or copy one image for lossless files, and another image for lossy files).
-* Hashes can be computed and stored as metadata, for convenience when comparing different versions of the same song.
-* Audio can be resampled (e.g. 48kHz to 44.1kHz) and downmixed (e.g. 6 channels to stereo).
+* Artwork can be embedded into each file, and / or copied to the output directory. It can be done selectively (e.g. embed and / or copy one image for lossless files, and another image for lossy files).
+* Audio can be resampled (e.g. 48kHz to 44.1kHz) and downmixed (e.g. 6 channels to stereo). A profile can be provided to set a maximum value for the number of channels, bit depth and sampling rate. When a profile is provided, the source will only be altered after decoding and before encoding only if some metric of the source is above the given profile.
 * **Multiprocess ReplayGain scanner** for FLAC, WavPack, MP3, Ogg Vorbis, Opus.
 * Ability to hard link lossy files to a different directory when encoding to WavPack Hybrid. The point is to have two libraries that takes the storage of just one, with a lossy collection that has its own root directory and that's easy to drag and drop to a device such as a smartphone or a Digital Audio Player (DAP).
 * Ability to touch files and album directories using metadata to reflect the music's release date and duration (see example below).
@@ -56,6 +55,8 @@ Source:             418.4 MiB     44.1%     623 kbps
 FLAC:               377.9 MiB     39.9%     562 kbps
 ```
 
+---
+
 #### Ideal example of using FLAC's internal multithreading on an ALAC album that's a single track:
 
 ```
@@ -67,6 +68,8 @@ WAV:                459.9 MiB    100.0%
 Source:             349.3 MiB     76.0%    1071 kbps
 FLAC:               340.7 MiB     74.1%    1045 kbps
 ```
+
+---
 
 #### Result of 'touching' a WavPack album with `caudec -T`:
 
@@ -90,6 +93,7 @@ total 113M
 $ d -d "The Dave Brubeck Quartet/Time Out [1959]"
 drwxr-xr-x 10 user group 320 1959-01-01 00:38:22 'The Dave Brubeck Quartet/Time Out [1959]'
 ```
+---
 
 #### Transcoding an album to Ogg Vorbis, using `transcaude`:
 
@@ -102,12 +106,16 @@ transcaude -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "Artist/Album"/*.fl
 
 Since it invokes `caudec`, multiple codecs may be specified at once:
 
+---
+
 #### Transcoding an album to both FLAC and Ogg Vorbis, using `transcaude`:
 
 ```
 $ cd ~/Music/WavPack
 transcaude -c flac -q 8 -P ~/Music/FLAC -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "Artist/Album"/*.wv
 ```
+
+---
 
 #### Specifying source directories instead of source files, and use default compression settings:
 
@@ -127,6 +135,8 @@ $ caudec -c flac -P ~/Music/FLAC/ -c vorbis -P ~/Music/OggVorbis "Miles Davis/Bi
 $ transcaude -c flac -P ~/Music/FLAC/ -c vorbis -P ~/Music/OggVorbis "Miles Davis/Bitches Brew [1970]"
 ```
 
+---
+
 #### Specifying default target directories for lossless and lossy:
 
 ```
@@ -141,6 +151,8 @@ $ caudec -c flac -c vorbis "Miles Davis/Bitches Brew [1970]"
 ```
 $ transcaude -c flac -c vorbis "Miles Davis/Bitches Brew [1970]"
 ```
+
+---
 
 #### Hard linking WavPack lossy files when transcoding to WavPack Hybrid:
 
@@ -169,6 +181,8 @@ $ transcaude -c wvh "Miles Davis/Bitches Brew [1970]"
 
 There, `~/Music/lossless` would contain both *.wv and *.wvc files, while `~/Music/lossy` would only contain hard linked *.wv files, which could be conveniently transfered to an external device (e.g. a portable player), and which wouldn't take additional storage space.
 
+---
+
 #### Transcoding multiple albums using `transcaude`:
 
 ```
@@ -186,6 +200,27 @@ done
 ```
 
 Use `transcaude -s` in order to be silent and only display errors.
+
+---
+
+#### Using a profile to downmix or upmix, downscale and / or downsample before encoding, only if needed:
+
+```
+$ caudec -r 2/24/48 -c flac "Pink Floyd/The Dark Side of the Moon [50th anniversary remaster] (1973)"
+```
+
+If the source has more than 2 channels, caudec will automatically downmix to stereo. If the source is 24 bit, caudec will keep the bit depth unaltered. Finally, if the source is 92kHz, caudec will resample to 48 kHz.
+
+```
+$ caudec -r 2/24/48 -c flac "Daft Punk/Random Access Memories [2013]"
+```
+
+Here, if the source is a CD (stereo, 16 bit, 44.1kHz), caudec will leave the source untouched. The provided profile only sets a maximum and will not touch the source unless needed, and it will never upscale or upsample (although that can be done with -b and -r separately). The profile can be provided with `-r` but also set in `~/.caudecrc`:
+
+```
+resamplingProfile='2/24/48'
+```
+
 
 ## Requirements
 
@@ -217,7 +252,4 @@ caudec uses common UNIX tools (bc, cut, date/gdate, find, grep, head, mktemp, ps
 
 #### Miscellaneous
 * schag (for files with APEv2 metadata): https://github.com/gcocatre/schag
-* cksfv (for hashing CRC32): https://zakalwe.fi/~shd/foss/cksfv/
-* md5sum (Linux) or md5 (macOS) for hashing MD5 sums
-* sha1sum, sha256sum, sha512sum (Linux) or shasum (macOS) for hashing SHA sums
 * eyeD3 (for MP3 tagging): https://eyed3.readthedocs.io/en/latest/
