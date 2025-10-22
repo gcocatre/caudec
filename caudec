@@ -567,9 +567,9 @@ getHumanReadableString () {
 	fi
 
 	if [ -n "$fileName" ]; then
-		pathOrFile=" (\"$fileName\")"
+		pathOrFile="$fileName"
 	elif [ -n "$path" ]; then
-		pathOrFile=" (\"$path\")"
+		pathOrFile="$path"
 	else
 		pathOrFile=''
 	fi
@@ -655,18 +655,18 @@ getHumanReadableString () {
 				fi
 			elif [ "$statusInfo" = 'characteristics' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$characteristics" "$fileName" )"
-			elif [ -n "$file" ]; then
+			elif [ -n "$pathOrFile" ]; then
 				if [ -n "$msg" ]; then
 					if [ -n "$processNumber" ]; then
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $processNumber "$fileName" "$msg" )"
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $processNumber "$pathOrFile" "$msg" )"
 					else
-						str="$( printf "${Clr_B_Bk} * ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}: %s\n" "$fileName" "$msg" )"
+						str="$( printf "${Clr_B_Bk} * ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}: %s\n" "$pathOrFile" "$msg" )"
 					fi
 				else
 					if [ -n "$processNumber" ]; then
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$pathOrFile" )"
 					else
-						str="$( printf "${Clr_B_Bk} * ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}\n" "$fileName" )"
+						str="$( printf "${Clr_B_Bk} * ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}\n" "$pathOrFile" )"
 					fi
 				fi
 			elif [ -n "$msg" ]; then

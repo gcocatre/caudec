@@ -194,25 +194,25 @@ computeReplayGain () {
 
   case "$lastCodec" in
     FLAC|WavPack*|lossyFLAC|MonkeysAudio|OggVorbis|MP3|Opus)
-      if [ $Self_Verbose = true ]; then
+      if [ "$Self_Verbose" = 'true' ]; then
         echo
         echo "Computing ReplayGain for $lastCodec in \"$lastDir\":"
       fi
       if [ "$lastCodec" = 'MP3' ]; then
-        if [ $Self_Verbose = true ]; then
+        if [ "$Self_Verbose" = 'true' ]; then
           caudec -Z -i -G album "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
           caudec -z -i -G album "${files[@]}" 1> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       else
-        if [ $Self_Verbose = true ]; then
+        if [ "$Self_Verbose" = 'true' ]; then
           caudec -Z -i -g "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
           caudec -z -i -g "${files[@]}" 1> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       fi
 
-      if [ $Self_Verbose = false ]; then
+      if [ "$Self_Verbose" = 'false' ]; then
         # processId|status|context|data|message|path
         while read processId status context data message path; do
           message="${message//¦/|}"
@@ -225,7 +225,7 @@ computeReplayGain () {
       ;;
 
     *)
-      if [ $Self_Verbose = true ]; then
+      if [ "$Self_Verbose" = 'true' ]; then
         echo
         status="warning"
         message="Not computing ReplayGain for unsupported codec $lastCodec in \"$lastDir\"."
@@ -243,7 +243,7 @@ touchFiles () {
 
   case "$lastCodec" in
     FLAC|ALAC|WavPack*|lossyFLAC|OggVorbis|AAC|MonkeysAudio|MP3|Opus)
-      if [ $Self_Verbose = true ]; then
+      if [ "$Self_Verbose" = 'true' ]; then
         echo
         echo "Touching directory for $lastCodec in \"$lastDir\":"
         if [ -n "$linkDir" -a -d "$linkDir" ]; then
@@ -260,7 +260,7 @@ touchFiles () {
         fi
       fi
 
-      if [ $Self_Verbose = false ]; then
+      if [ "$Self_Verbose" = 'false' ]; then
         # processId|status|context|data|message|path
         while read processId status context data message path; do
           message="${message//¦/|}"
@@ -273,7 +273,7 @@ touchFiles () {
       ;;
 
     *)
-      if [ $Self_Verbose = true ]; then
+      if [ "$Self_Verbose" = 'true' ]; then
         echo
         status="warning"
         message="Not touching directory for unsupported codec $lastCodec in \"$lastDir\"."
@@ -290,7 +290,7 @@ transcodeAudioDirectory () {
   local exitCode=$Ex_Ok audioDirectory="$1" OIFS index lastCodec lastDir lastMessage processId status context data
   local message path dir codec files
 
-  if [ $Self_Verbose = true ]; then
+  if [ "$Self_Verbose" = 'true' ]; then
     echo "Transcoding \"$audioDirectory\":"
     caudec -Z -i "${caudecParams[@]}" "$audioDirectory" 2> "$Self_Encoding_Log"; exitCode=$?
   else
@@ -334,7 +334,7 @@ transcodeAudioDirectory () {
       if [ "$status" = 'success' ]; then
         files[$index]="$path"
         index=$(( index + 1 ))
-      elif [ $Self_Verbose = false -a -n "$path" ]; then
+      elif [ "$Self_Verbose" = 'false' -a -n "$path" ]; then
         outputWarningOrError
         exitCode=$Ex_Ko
       fi
@@ -343,17 +343,17 @@ transcodeAudioDirectory () {
       lastMessage="$message"
     done < <( grep -F "|encoding|" "$Self_Encoding_Log" 2>/dev/null )
     IFS="$OIFS"
-  # else
-  #   OIFS="$IFS"
-  #   IFS="|"
-  #   while read processId status context data message path; do
-  #     message="${message//¦/|}"
-  #     outputWarningOrError
-  #   done < <( grep -vF "|success|" "$Self_Encoding_Log" 2>/dev/null )
-  #   IFS="$OIFS"
+  elif [ "$Self_Verbose" = 'false' ]; then
+    OIFS="$IFS"
+    IFS="|"
+    while read processId status context data message path; do
+      message="${message//¦/|}"
+      outputWarningOrError
+    done < <( grep -vF "|success|" "$Self_Encoding_Log" 2>/dev/null )
+    IFS="$OIFS"
   fi
 
-  if [ $Self_Verbose = true ]; then
+  if [ "$Self_Verbose" = 'true' ]; then
     echo
   fi
 
