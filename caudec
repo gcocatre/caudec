@@ -1061,7 +1061,10 @@ getInputFiles () {
 			else
 				printMessage 'warning' 'usage' 'filesystem' "path:${fileOrDir}" 'directory is not readable (permission denied).' ; exitCode=$Ex_No_Input
 			fi
-			} 2>/dev/null || exitCode=$Ex_Io_Err
+			} 2>/dev/null
+			if [ $fileIndex -eq 0 ]; then
+				exitCode=$Ex_Io_Err
+			fi
 			if [ $exitCode -eq $Ex_Io_Err ]; then
 				printMessage 'warning' 'usage' 'filesystem' "the operating system cannot handle this many files."
 			fi
