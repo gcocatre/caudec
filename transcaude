@@ -89,7 +89,7 @@ if [ -r "${HOME}/.caudecrc" ]; then
 	. "${HOME}/.caudecrc"
 fi
 
-if [ "$transcaudeTouchFiles" != "false" ]; then
+if [ "$transcaudeTouchFiles" != 'false' ]; then
   transcaudeTouchFiles="true"
 fi
 
@@ -192,7 +192,7 @@ computeReplayGain () {
         echo
         echo "Computing ReplayGain for $lastCodec in \"$lastDir\":"
       fi
-      if [ "$lastCodec" = "MP3" ]; then
+      if [ "$lastCodec" = 'MP3' ]; then
         if [ $Self_Verbose = true ]; then
           caudec -Z -i -G album "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
@@ -210,7 +210,7 @@ computeReplayGain () {
         # processId|status|context|data|message|path
         while read processId status context data message path; do
           message="${message//¦/|}"
-          if [ "$status" != "success" ]; then
+          if [ "$status" != 'success' ]; then
             outputWarningOrError
             exitCode=$Ex_Ko
           fi
@@ -258,7 +258,7 @@ touchFiles () {
         # processId|status|context|data|message|path
         while read processId status context data message path; do
           message="${message//¦/|}"
-          if [ "$status" != "success" ]; then
+          if [ "$status" != 'success' ]; then
             outputWarningOrError
             exitCode=$Ex_Ko
           fi
@@ -309,7 +309,7 @@ transcodeAudioDirectory () {
       codec="$data"
       if [ -n "$lastCodec" -a -n "$lastDir" ]; then
         if [ "$codec" != "$lastCodec" -o "$dir" != "$lastDir" ]; then
-          if [ "$computeLosslessReplayGain" = "false" ]; then
+          if [ "$computeLosslessReplayGain" = 'false' ]; then
             case "$lastCodec" in
               FLAC|WavPack*|MonkeysAudio) true ;;
               *) computeReplayGain || exitCode=$Ex_Ko ;;
@@ -317,7 +317,7 @@ transcodeAudioDirectory () {
           else
             computeReplayGain || exitCode=$Ex_Ko
           fi
-          if [ "$transcaudeTouchFiles" = "true" ]; then
+          if [ "$transcaudeTouchFiles" = 'true' ]; then
             touchFiles "$lastMessage" || exitCode=$Ex_Ko
           fi
           unset files
@@ -325,7 +325,7 @@ transcodeAudioDirectory () {
           index=0
         fi
       fi
-      if [ "$status" = "success" ]; then
+      if [ "$status" = 'success' ]; then
         files[$index]="$path"
         index=$(( index + 1 ))
       elif [ $Self_Verbose = false -a -n "$path" ]; then
