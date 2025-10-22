@@ -186,20 +186,10 @@ There, `~/Music/lossless` would contain both *.wv and *.wvc files, while `~/Musi
 #### Transcoding multiple albums using `transcaude`:
 
 ```
-$ transcaude -i -c flac -P ~/Music/FLAC -c vorbis -P ~/Music/OggVorbis "Pink Floyd"/*
+$ transcaude -c flac -P ~/Music/FLAC -c vorbis -P ~/Music/OggVorbis "Pink Floyd" "Daft Punk"
 ```
 
-Here we specify a list of (album) directories instead of a list of files (with `-i`, but that can be replaced with setting `ignoreUnsupportedFiles=true` in `~/.caudecrc`).
-
-When transcoding an entire library, loop over artist or album directories in order to avoid hitting the operating system limit of how many files can be specified in a single command (e.g. 1000):
-
-```
-$ for d in ~/Music/*; do
-  transcaude -i -c flac -P ~/Transcoded/FLAC -c vorbis -P ~/Transcoded/OggVorbis "$d"
-done
-```
-
-Use `transcaude -s` in order to be silent and only display errors.
+Here we specify a list of (album) directories instead of a list of files. Use `transcaude -s` in order to be silent and only display errors.
 
 ---
 
