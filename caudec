@@ -473,7 +473,7 @@ file: path of the file that is affected by the status (if applicable)."
 
 # processId|status|context|data|message|path
 getMachineParsableString () {
-	local pid=''
+	local pid='' pathOrFile
 
 	if [ -n "$BASHPID" ]; then
 		pid="$BASHPID"
@@ -483,6 +483,14 @@ getMachineParsableString () {
 
 	# replace pipes ('|', Unicode: U+007C) with 'broken bar' signs ('¦', Unicode: U+00A6)
 	msg="${msg//|/¦}"
+
+	if [ -n "$file" ]; then
+		pathOrFile="$file"
+	elif [ -n "$path" ]; then
+		pathOrFile="$path"
+	else
+		pathOrFile=''
+	fi
 
 	case "$msgType" in
 		abort) str="$( printf "%s|%s|%s|%s|%s|%s\n" '0' "$msgType" 'aborting' '' 'Aborting.' '' )" ;;
@@ -531,7 +539,7 @@ getMachineParsableString () {
 			elif [ "$statusInfo" = 'album_gain' ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" '' '' "$msg" )"
 			else
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$file" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$pathOrFile" )"
 			fi
 			;;
 
@@ -541,7 +549,7 @@ getMachineParsableString () {
 			elif [ -n "$hashError" ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashError" "$msg" "$file" )"
 			else
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$file" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$pathOrFile" )"
 			fi
 			;;
 	esac
@@ -556,6 +564,14 @@ getHumanReadableString () {
 
 	if [ -z "$numberOfThreads" ]; then
 		numberOfThreads=0
+	fi
+
+	if [ -n "$fileName" ]; then
+		pathOrFile=" ($fileName)"
+	elif [ -n "$path" ]; then
+		pathOrFile=" ($path)"
+	else
+		pathOrFile=''
 	fi
 
 	case "$msgType" in
@@ -655,9 +671,9 @@ getHumanReadableString () {
 				fi
 			elif [ -n "$msg" ]; then
 				if [ -n "$processNumber" ]; then
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER${Clr_Rst}: %s\n" $processNumber "$msg" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER${Clr_Rst}: %s%s\n" $processNumber "$msg" "$pathOrFile" )"
 				else
-					str="$( printf "${Clr_B_Bk} * ${Clr_Ko}ER${Clr_Rst}: %s\n" "$msg" )"
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ko}ER${Clr_Rst}: %s%s\n" "$msg" "$pathOrFile" )"
 				fi
 			fi
 			;;
