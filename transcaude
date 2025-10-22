@@ -153,6 +153,12 @@ debug () {
 outputWarningOrError () {
   local fileName="${path##*/}"
 
+  if [ -f "${path##*/}" ]; then
+    fileName="${path##*/}"
+  else
+    fileName="$path"
+  fi
+
   # processId|status|context|data|message|path
 	case "$status" in
 		error)
@@ -289,7 +295,7 @@ transcodeAudioDirectory () {
     caudec -Z -i "${caudecParams[@]}" "$audioDirectory" 2> "$Self_Encoding_Log"; exitCode=$?
   else
     echo "$audioDirectory"
-    caudec -z -i "${caudecParams[@]}" "$audioDirectory" 1> "$Self_Encoding_Log"; exitCode=$?
+    caudec -z -i "${caudecParams[@]}" "$audioDirectory" &> "$Self_Encoding_Log"; exitCode=$?
   fi
 
   if [ $exitCode -eq $Ex_Ok ]; then
@@ -337,6 +343,14 @@ transcodeAudioDirectory () {
       lastMessage="$message"
     done < <( grep -F "|encoding|" "$Self_Encoding_Log" 2>/dev/null )
     IFS="$OIFS"
+  # else
+  #   OIFS="$IFS"
+  #   IFS="|"
+  #   while read processId status context data message path; do
+  #     message="${message//¦/|}"
+  #     outputWarningOrError
+  #   done < <( grep -vF "|success|" "$Self_Encoding_Log" 2>/dev/null )
+  #   IFS="$OIFS"
   fi
 
   if [ $Self_Verbose = true ]; then
@@ -475,13 +489,13 @@ for (( argIndex=0; argIndex < numberOfArguments; argIndex++ )); do
         cleanExit $Ex_Cant_Create
       else
         argPlusOne="${arguments[$argPlusOneIndex]}"
-        if [ ! -d "$argPlusOne" ]; then
-          echo "$Self_Name -o: error: no such directory \"${argPlusOne}\"" 1>&2
-          cleanExit $Ex_Cant_Create
-        elif [ ! -w "$argPlusOne" ]; then
-          echo "$Self_Name -o: error: output directory \"${argPlusOne}\" is not writable" 1>&2
-          cleanExit $Ex_No_Perm
-        fi
+        # if [ ! -d "$argPlusOne" ]; then
+        #   echo "$Self_Name -o: error: no such directory \"${argPlusOne}\"" 1>&2
+        #   cleanExit $Ex_Cant_Create
+        # elif [ ! -w "$argPlusOne" ]; then
+        #   echo "$Self_Name -o: error: output directory \"${argPlusOne}\" is not writable" 1>&2
+        #   cleanExit $Ex_No_Perm
+        # fi
       fi
     fi
   fi
@@ -500,9 +514,9 @@ for (( audioDirIndex=$lastAudioDirIndex; audioDirIndex > -1; audioDirIndex-- ));
     audioDirectory="${directoryArguments[$audioDirIndex]}"
     while read audioDirectory; do
       transcodeAudioDirectory "$audioDirectory"; returnCode=$?
-      if [ $returnCode -ne $Ex_Ok ]; then
-        echo "$Self_Name: an error occurred while transcoding \"${audioDirectory}\"" 1>&2
-      fi
+      # if [ $returnCode -ne $Ex_Ok ]; then
+      #   echo "$Self_Name: an error occurred while transcoding \"${audioDirectory}\"" 1>&2
+      # fi
     done < <( findAudioDirectories "$audioDirectory" 2>/dev/null )
 done
 
