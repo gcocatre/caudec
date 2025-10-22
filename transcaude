@@ -286,10 +286,10 @@ transcodeAudioDirectory () {
 
   if [ $Self_Verbose = true ]; then
     echo "Transcoding "$audioDirectory":"
-    caudec -Z -i ${caudecParams[@]} "$audioDirectory" 2> "$Self_Encoding_Log"; exitCode=$?
+    caudec -Z -i "${caudecParams[@]}" "$audioDirectory" 2> "$Self_Encoding_Log"; exitCode=$?
   else
     echo "$audioDirectory" 1>&2
-    caudec -z -i ${caudecParams[@]} "$audioDirectory" 1> "$Self_Encoding_Log"; exitCode=$?
+    caudec -z -i "${caudecParams[@]}" "$audioDirectory" 1> "$Self_Encoding_Log"; exitCode=$?
   fi
 
   if [ $exitCode -eq $Ex_Ok ]; then
@@ -374,7 +374,7 @@ cleanExit () {
 
 cleanAbort () {
 	echo
-	printMessage 'abort'
+	echo "$Self_Name: aborting." 1>&2
 	kill $( jobs -p ) 1>/dev/null 2>&1
 	cleanExit $Ex_Interrupt
 }
@@ -465,19 +465,9 @@ declare -a caudecParams=()
 numberOfCaudecParams=0
 for (( argIndex=0; argIndex < numberOfArguments; argIndex++ )); do
   arg="${arguments[$argIndex]}"
-  argMinusOneIndex=$(( argIndex - 1 ))
-  if [ $argMinusOneIndex -ge 0 ]; then
-    argMinusOne="${arguments[$argMinusOneIndex]}"
-  else
-    argMinusOne=""
-  fi
-  if [ -e "$arg" -a -d "$arg" ]; then
-    if [ "$argMinusOne" = '-o' -o "$argMinusOne" = '-O' -o "$argMinusOne" = '-P' ]; then
-      gotOutputDirectory='true'
-      caudecParams[$numberOfCaudecParams]="$arg"
-    else
-      continue
-    fi
+  if [ "$arg" = "${directoryArguments[0]}" ]; then break; fi
+  if [ "$arg" = '-o' -o "$arg" = '-O' -o "$arg" = '-P' ]; then
+    gotOutputDirectory='true'
   fi
   caudecParams[$numberOfCaudecParams]="$arg"
   (( numberOfCaudecParams++ ))
