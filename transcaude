@@ -136,8 +136,8 @@ Global parameters:
 
   -R        do not compute ReplayGain to lossless targets (useful if you know
             that your lossless source already has ReplayGain data)
-  -s        be silent, only print to STDERR what directory is being transcoded,
-            as well as errors
+  -s        be silent, only print to STDOUT what directory is being transcoded,
+            and errors to STDERR
 
 -------------------------------------------------------------------------------
 
@@ -288,7 +288,7 @@ transcodeAudioDirectory () {
     echo "Transcoding \"$audioDirectory\":"
     caudec -Z -i "${caudecParams[@]}" "$audioDirectory" 2> "$Self_Encoding_Log"; exitCode=$?
   else
-    echo "$audioDirectory" 1>&2
+    echo "$audioDirectory"
     caudec -z -i "${caudecParams[@]}" "$audioDirectory" 1> "$Self_Encoding_Log"; exitCode=$?
   fi
 
