@@ -190,7 +190,7 @@ computeReplayGain () {
     FLAC|WavPack*|lossyFLAC|MonkeysAudio|OggVorbis|MP3|Opus)
       if [ $Self_Verbose = true ]; then
         echo
-        echo "Computing ReplayGain for $lastCodec in $lastDir:"
+        echo "Computing ReplayGain for $lastCodec in \"$lastDir\":"
       fi
       if [ "$lastCodec" = "MP3" ]; then
         if [ $Self_Verbose = true ]; then
@@ -222,7 +222,7 @@ computeReplayGain () {
       if [ $Self_Verbose = true ]; then
         echo
         status="warning"
-        message="Not computing ReplayGain for unsupported codec $lastCodec in $lastDir."
+        message="Not computing ReplayGain for unsupported codec $lastCodec in \"$lastDir\"."
         outputWarningOrError
         exitCode=$Ex_Ko
       fi
@@ -239,9 +239,9 @@ touchFiles () {
     FLAC|ALAC|WavPack*|lossyFLAC|OggVorbis|AAC|MonkeysAudio|MP3|Opus)
       if [ $Self_Verbose = true ]; then
         echo
-        echo "Touching directory for $lastCodec in $lastDir:"
+        echo "Touching directory for $lastCodec in \"$lastDir\":"
         if [ -n "$linkDir" -a -d "$linkDir" ]; then
-          echo "Touching linked directory for $lastCodec in $linkDir:"
+          echo "Touching linked directory for $lastCodec in \"$linkDir\":"
           caudec -Z -i -T -l "$linkDir" "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
           caudec -Z -i -T "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
@@ -270,7 +270,7 @@ touchFiles () {
       if [ $Self_Verbose = true ]; then
         echo
         status="warning"
-        message="Not touching directory for unsupported codec $lastCodec in $lastDir."
+        message="Not touching directory for unsupported codec $lastCodec in \"$lastDir\"."
         outputWarningOrError
         exitCode=$Ex_Ko
       fi
@@ -285,7 +285,7 @@ transcodeAudioDirectory () {
   local message path dir codec files
 
   if [ $Self_Verbose = true ]; then
-    echo "Transcoding "$audioDirectory":"
+    echo "Transcoding \"$audioDirectory\":"
     caudec -Z -i "${caudecParams[@]}" "$audioDirectory" 2> "$Self_Encoding_Log"; exitCode=$?
   else
     echo "$audioDirectory" 1>&2
@@ -468,6 +468,22 @@ for (( argIndex=0; argIndex < numberOfArguments; argIndex++ )); do
   if [ "$arg" = "${directoryArguments[0]}" ]; then break; fi
   if [ "$arg" = '-o' -o "$arg" = '-O' -o "$arg" = '-P' ]; then
     gotOutputDirectory='true'
+    if [ "$arg" = '-o' ]; then
+      argPlusOneIndex=$(( argIndex + 1 ))
+      if [ $argPlusOneIndex -ge $numberOfArguments ]; then
+        echo "$Self_Name -o: error: no output directory provided" 1>&2
+        cleanExit $Ex_Cant_Create
+      else
+        argPlusOne="${arguments[$argPlusOneIndex]}"
+        if [ ! -d "$argPlusOne" ]; then
+          echo "$Self_Name -o: error: no such directory \"${argPlusOne}\"" 1>&2
+          cleanExit $Ex_Cant_Create
+        elif [ ! -w "$argPlusOne" ]; then
+          echo "$Self_Name -o: error: output directory \"${argPlusOne}\" is not writable" 1>&2
+          cleanExit $Ex_No_Perm
+        fi
+      fi
+    fi
   fi
   caudecParams[$numberOfCaudecParams]="$arg"
   (( numberOfCaudecParams++ ))
