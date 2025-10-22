@@ -121,10 +121,11 @@ printUsage () {
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
-Usage: $Self_Name [ GLOBAL PARAMS ] [ CAUDEC PARAMS ] [ DIR | FILES ]
-Operate on all audio files of an album at once, in parallel.
-A single directory (with -i), or a list of files, may be passed as arguments.
-Run 'caudec -h' to learn about CAUDEC PARAMS.
+Usage: $Self_Name [ GLOBAL PARAMS ] [ CAUDEC PARAMS ] DIR(S)
+Mass transcode albums using caudec, while optionally computing ReplayGain,
+and touching the resulting directories to reflect their date of release, and
+track durations. A single directory, or multiple directories, must be passed as
+arguments. Run 'caudec -h' to learn about CAUDEC PARAMS.
 
 -------------------------------------------------------------------------------
 
@@ -135,7 +136,8 @@ Global parameters:
 
   -R        do not compute ReplayGain to lossless targets (useful if you know
             that your lossless source already has ReplayGain data)
-  -s        be silent, only print errors
+  -s        be silent, only print to STDERR what directory is being transcoded,
+            as well as errors
 
 -------------------------------------------------------------------------------
 
@@ -207,7 +209,7 @@ computeReplayGain () {
       if [ $Self_Verbose = false ]; then
         # processId|status|context|data|message|path
         while read processId status context data message path; do
-          msg="${msg//¦/|}"
+          message="${message//¦/|}"
           if [ "$status" != "success" ]; then
             outputWarningOrError
             exitCode=$Ex_Ko
@@ -255,7 +257,7 @@ touchFiles () {
       if [ $Self_Verbose = false ]; then
         # processId|status|context|data|message|path
         while read processId status context data message path; do
-          msg="${msg//¦/|}"
+          message="${message//¦/|}"
           if [ "$status" != "success" ]; then
             outputWarningOrError
             exitCode=$Ex_Ko
@@ -274,6 +276,74 @@ touchFiles () {
       fi
       ;;
   esac
+
+  return $exitCode
+}
+
+transcodeAudioDirectory () {
+  local exitCode=$Ex_Ok audioDirectory="$1" OIFS index lastCodec lastDir lastMessage processId status context data
+  local message path dir codec files
+
+  if [ $Self_Verbose = true ]; then
+    echo "Transcoding "$audioDirectory":"
+    caudec -Z -i ${caudecParams[@]} "$audioDirectory" 2> "$Self_Encoding_Log"; exitCode=$?
+  else
+    echo "$audioDirectory" 1>&2
+    caudec -z -i ${caudecParams[@]} "$audioDirectory" 1> "$Self_Encoding_Log"; exitCode=$?
+  fi
+
+  if [ $exitCode -eq $Ex_Ok ]; then
+    sort "$Self_Encoding_Log" > "${Self_Encoding_Log}2" && mv "${Self_Encoding_Log}2" "$Self_Encoding_Log"
+    echo "12345678|encoding|zzzzzzzz|zzzzzzzz|zzzzzzzz|" 1>> "$Self_Encoding_Log"
+    OIFS="$IFS"
+    IFS="|"
+    declare -a files=()
+    index=0
+    lastCodec=""
+    lastDir=""
+    lastMessage=""
+    # processId|status|context|data|message|path
+    while read processId status context data message path; do
+      message="${message//¦/|}"
+      dir="$( dirname "$path" )"
+      codec="$data"
+      if [ -n "$lastCodec" -a -n "$lastDir" ]; then
+        if [ "$codec" != "$lastCodec" -o "$dir" != "$lastDir" ]; then
+          if [ "$computeLosslessReplayGain" = "false" ]; then
+            case "$lastCodec" in
+              FLAC|WavPack*|MonkeysAudio) true ;;
+              *) computeReplayGain || exitCode=$Ex_Ko ;;
+            esac
+          else
+            computeReplayGain || exitCode=$Ex_Ko
+          fi
+          if [ "$transcaudeTouchFiles" = "true" ]; then
+            touchFiles "$lastMessage" || exitCode=$Ex_Ko
+          fi
+          unset files
+          declare -a files=()
+          index=0
+        fi
+      fi
+      if [ "$status" = "success" ]; then
+        files[$index]="$path"
+        index=$(( index + 1 ))
+      elif [ $Self_Verbose = false -a -n "$path" ]; then
+        outputWarningOrError
+        exitCode=$Ex_Ko
+      fi
+      lastCodec="$codec"
+      lastDir="$dir"
+      lastMessage="$message"
+    done < <( grep -F "|encoding|" "$Self_Encoding_Log" 2>/dev/null )
+    IFS="$OIFS"
+  fi
+
+  if [ $Self_Verbose = true ]; then
+    echo
+  fi
+
+  rm -f "${Self_Tmp_Dir}"/*
 
   return $exitCode
 }
@@ -324,15 +394,15 @@ fi
 Self_Encoding_Log="${Self_Tmp_Dir}/encoding_log"
 Self_ReplayGain_Log="${Self_Tmp_Dir}/replay_gain_log"
 Self_Touch_Log="${Self_Tmp_Dir}/touch_log"
-Self_Verbose=true
+Self_Verbose='true'
 
-computeLosslessReplayGain=true
+computeLosslessReplayGain='true'
 
 for arg in "$@"; do
   case "$arg" in
     '-h') printUsage ; cleanExit $Ex_Ok ;;
-    '-R') computeLosslessReplayGain=false ; shift 1 ;;
-    '-s') Self_Verbose=false ; shift 1 ;;
+    '-R') computeLosslessReplayGain='false' ; shift 1 ;;
+    '-s') Self_Verbose='false' ; shift 1 ;;
     '-V') echo "$Self_Name $Self_Version" ; cleanExit $Ex_Ok ;;
     '-z'|'-Z') echo "$Self_Name: error: don't specify either -z or -Z." 1>&2; cleanExit $Ex_Usage ;;
   esac
@@ -356,7 +426,9 @@ numberOfArguments=${#arguments[@]}
 lastArgIndex=$(( numberOfArguments - 1 ))
 declare -a directoryArguments
 numberOfDirectyArguments=0
+gotOutputDirectory='false'
 
+# list target directories
 for (( argIndex=lastArgIndex; argIndex > -1; argIndex-- )); do
   arg="${arguments[$argIndex]}"
   if [ $argIndex = 2 -a $numberOfDirectyArguments -eq 0 ]; then
@@ -367,10 +439,9 @@ for (( argIndex=lastArgIndex; argIndex > -1; argIndex-- )); do
     argMinusOne="${arguments[$argMinusOneIndex]}"
     argMinusTwoIndex=$(( argIndex - 2 ))
     argMinusTwo="${arguments[$argMinusTwoIndex]}"
-    # if [ "${argMinusTwo:0:1}" = '-']; then break; fi
     if [ -d "$arg" ]; then
       if [ "$argMinusOne" = '-o' -o "$argMinusOne" = '-O' -o "$argMinusOne" = '-P' ]; then
-        gotOutputDirectory=true
+        gotOutputDirectory='true'
         break
       else
         case "$arg" in
@@ -389,8 +460,9 @@ if [ $numberOfDirectyArguments -eq 0 ]; then
   cleanExit $Ex_Usage
 fi
 
-declare -a caudecArgs=()
-numberOfCaudecArgs=0
+# list caudec parameters and arguments
+declare -a caudecParams=()
+numberOfCaudecParams=0
 for (( argIndex=0; argIndex < numberOfArguments; argIndex++ )); do
   arg="${arguments[$argIndex]}"
   argMinusOneIndex=$(( argIndex - 1 ))
@@ -401,90 +473,31 @@ for (( argIndex=0; argIndex < numberOfArguments; argIndex++ )); do
   fi
   if [ -e "$arg" -a -d "$arg" ]; then
     if [ "$argMinusOne" = '-o' -o "$argMinusOne" = '-O' -o "$argMinusOne" = '-P' ]; then
-      gotOutputDirectory=true
-      caudecArgs[$numberOfCaudecArgs]="$arg"
+      gotOutputDirectory='true'
+      caudecParams[$numberOfCaudecParams]="$arg"
     else
       continue
     fi
   fi
-  caudecArgs[$numberOfCaudecArgs]="$arg"
-  (( numberOfCaudecArgs++ ))
+  caudecParams[$numberOfCaudecParams]="$arg"
+  (( numberOfCaudecParams++ ))
 done
 
+if [ "$gotOutputDirectory" = 'false' ]; then
+  echo "$Self_Name: error: at least one output directory must be provided, with -o, -O or -P" 1>&2
+  cleanExit $Ex_Usage
+fi
+
+exitCode=$Ex_Ok
 lastAudioDirIndex=$(( numberOfDirectyArguments - 1 ))
 for (( audioDirIndex=$lastAudioDirIndex; audioDirIndex > -1; audioDirIndex-- )); do
-    arg="${directoryArguments[$audioDirIndex]}"
+    audioDirectory="${directoryArguments[$audioDirIndex]}"
     while read audioDirectory; do
-      if [ $Self_Verbose = true ]; then
-        echo "Transcoding ${audioDirectory}:"
-        # caudec -Z -i "$@" 2> "$Self_Encoding_Log"; exitCode=$?
-      else
-        true
-        # caudec -z -i "$@" 1> "$Self_Encoding_Log"; exitCode=$?
+      transcodeAudioDirectory "$audioDirectory"; returnCode=$?
+      if [ $returnCode -ne $Ex_Ok ]; then
+        echo "$Self_Name: an error occurred while transcoding \"${audioDirectory}\"" 1>&2
       fi
-    done < <( findAudioDirectories "$arg" 2>/dev/null )
+    done < <( findAudioDirectories "$audioDirectory" 2>/dev/null )
 done
-
-cleanExit $Ex_Ok
-
-
-
-if [ $Self_Verbose = true ]; then
-  echo "Transcoding files:"
-  caudec -Z -i "$@" 2> "$Self_Encoding_Log"; exitCode=$?
-else
-  caudec -z -i "$@" 1> "$Self_Encoding_Log"; exitCode=$?
-fi
-
-if [ $exitCode -eq $Ex_Ok ]; then
-  sort "$Self_Encoding_Log" > "${Self_Encoding_Log}2" && mv "${Self_Encoding_Log}2" "$Self_Encoding_Log"
-  echo "12345678|encoding|zzzzzzzz|zzzzzzzz|zzzzzzzz|" 1>> "$Self_Encoding_Log"
-  OIFS="$IFS"
-  IFS="|"
-  declare -a files=()
-  index=0
-  lastCodec=""
-  lastDir=""
-  lastMessage=""
-  # processId|status|context|data|message|path
-  while read processId status context data message path; do
-    msg="${msg//¦/|}"
-    dir="$( dirname "$path" )"
-    codec="$data"
-    if [ -n "$lastCodec" -a -n "$lastDir" ]; then
-      if [ "$codec" != "$lastCodec" -o "$dir" != "$lastDir" ]; then
-        if [ "$computeLosslessReplayGain" = "false" ]; then
-          case "$lastCodec" in
-            FLAC|WavPack*|MonkeysAudio) true ;;
-            *) computeReplayGain || exitCode=$Ex_Ko ;;
-          esac
-        else
-          computeReplayGain || exitCode=$Ex_Ko
-        fi
-        if [ "$transcaudeTouchFiles" = "true" ]; then
-          touchFiles "$lastMessage" || exitCode=$Ex_Ko
-        fi
-        unset files
-        declare -a files=()
-        index=0
-      fi
-    fi
-    if [ "$status" = "success" ]; then
-      files[$index]="$path"
-      index=$(( index + 1 ))
-    elif [ $Self_Verbose = false -a -n "$path" ]; then
-      outputWarningOrError
-      exitCode=$Ex_Ko
-    fi
-    lastCodec="$codec"
-    lastDir="$dir"
-    lastMessage="$message"
-  done < <( grep -F "|encoding|" "$Self_Encoding_Log" 2>/dev/null )
-  IFS="$OIFS"
-fi
-
-if [ $Self_Verbose = true ]; then
-  echo
-fi
 
 cleanExit $exitCode
