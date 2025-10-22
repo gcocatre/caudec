@@ -93,6 +93,29 @@ if [ "$transcaudeTouchFiles" != "false" ]; then
   transcaudeTouchFiles="true"
 fi
 
+datecmd='date' gnudate='true'
+findcmd='find' gnufind='true'
+sedcmd='sed' gnused='true'
+statcmd='stat' gnustat='true'
+if which 'uname' 1>/dev/null 2>&1 ; then
+	OS="$( uname -s )"
+	if [ "$OS" = 'Darwin' ]; then
+		gnudate='false' gnufind='false' gnused='false' gnustat='false'
+		if which 'gdate' 1>/dev/null 2>&1; then
+			datecmd='gdate' gnudate='true'
+		fi
+		if which 'gfind' 1>/dev/null 2>&1; then
+			findcmd='gfind' gnufind='true'
+		fi
+		if which 'gsed' 1>/dev/null 2>&1; then
+			sedcmd='gsed' gnused='true'
+		fi
+		if which 'gstat' 1>/dev/null 2>&1; then
+			statcmd='gstat' gnustat='true'
+		fi
+	fi
+fi
+
 printUsage () {
   echo "$Self_Name ${Self_Version}: transcode an album, compute ReplayGain and touch files
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
@@ -124,61 +147,6 @@ debug () {
 	local str="$1"
 	echo -e "${Clr_Wg}>>> DEBUG:${Clr_Rst} $str" 1>&2
 }
-
-if [ $# -eq 0 ]; then
-  printUsage
-  exit $Ex_Usage
-fi
-
-if [ "$1" = "-h" ]; then
-  printUsage
-  exit $Ex_Ok
-fi
-
-if [ "$1" = "-V" ]; then
-  echo "$Self_Name $Self_Version"
-  exit $Ex_Ok
-fi
-
-Self_Verbose=true
-computeLosslessReplayGain=true
-
-if [ "$1" = "-s" -a "$2" = "-R" ]; then
-  Self_Verbose=false computeLosslessReplayGain=false ; shift 2
-elif [ "$1" = "-R" -a "$2" = "-s" ]; then
-  Self_Verbose=false computeLosslessReplayGain=false ; shift 2
-elif [ "$1" = "-s" ]; then
-  Self_Verbose=false ; shift 1
-elif [ "$1" = "-R" ]; then
-  computeLosslessReplayGain=false ; shift 1
-fi
-
-for arg in "$@"; do
-  if [ "$arg" = "-z" -o "$arg" = "-Z" ]; then
-    echo "$Self_Name: error: don't specify either -z or -Z." 1>&2; exit $Ex_Usage
-  elif [ "$arg" = "-h" -o "$arg" = "-V" -o "$arg" = "-s" ]; then
-    echo "$Self_Name: error: please specify $arg only once, as the first parameter." 1>&2; exit $Ex_Usage
-  fi
-done
-
-if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
-Self_Tmp_Dir="$( mktemp -d "${mktempDir}/${Self_Name}.XXXXXXXX" )"
-if [ ! -e "$Self_Tmp_Dir" ]; then
-  echo "$Self_Name: error: cannot create temporary directory" 1>&2; exitCode=$Ex_Cant_Create
-  exit $exitCode
-elif [ ! -d "$Self_Tmp_Dir" ]; then
-  echo "$Self_Name: error: cannot create temporary directory" 1>&2; exitCode=$Ex_Cant_Create
-  rm -rf "$Self_Tmp_Dir"
-  exit $exitCode
-elif [ ! -w "$Self_Tmp_Dir" ]; then
-  echo "$Self_Name: error: temporary directory is not writable" 1>&2; exitCode=$Ex_No_Perm
-  rm -rf "$Self_Tmp_Dir"
-  exit $exitCode
-fi
-
-Self_Encoding_Log="${Self_Tmp_Dir}/encoding_log"
-Self_ReplayGain_Log="${Self_Tmp_Dir}/replay_gain_log"
-Self_Touch_Log="${Self_Tmp_Dir}/touch_log"
 
 outputWarningOrError () {
   local fileName="${path##*/}"
@@ -310,6 +278,157 @@ touchFiles () {
   return $exitCode
 }
 
+findAudioDirectories () {
+	local arg="$1"
+
+	if [ "$gnufind" = 'true' ]; then
+		$findcmd "$arg" -type f -regextype 'posix-egrep' -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' 2>/dev/null | sed -e 's@/[^/]*\.*$@@' -e 's@^\./@@' | sort -u
+	else
+		$findcmd -E "$arg" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' 2>/dev/null | sed -e 's@/[^/]*\.*$@@' -e 's@^\./@@' | sort -u
+	fi
+}
+
+cleanExit () {
+	local exitCode=$1
+
+	if [ -n "$Self_Tmp_Dir" ]; then
+		if [ -h "$Self_Tmp_Dir" ]; then
+			rm -rf "$( readlink -f "$Self_Tmp_Dir" )"
+		else
+			rm -rf "$Self_Tmp_Dir"
+		fi
+	fi
+
+	exit $exitCode
+}
+
+cleanAbort () {
+	echo
+	printMessage 'abort'
+	kill $( jobs -p ) 1>/dev/null 2>&1
+	cleanExit $Ex_Interrupt
+}
+
+if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
+Self_Tmp_Dir="$( mktemp -d "${mktempDir}/${Self_Name}.XXXXXXXX" )"
+if [ ! -e "$Self_Tmp_Dir" ]; then
+  cleanExit $exitCode
+elif [ ! -d "$Self_Tmp_Dir" ]; then
+  echo "$Self_Name: error: cannot create temporary directory" 1>&2
+  cleanExit $Ex_Cant_Create
+elif [ ! -w "$Self_Tmp_Dir" ]; then
+  echo "$Self_Name: error: temporary directory is not writable" 1>&2
+  cleanExit $Ex_No_Perm
+fi
+
+Self_Encoding_Log="${Self_Tmp_Dir}/encoding_log"
+Self_ReplayGain_Log="${Self_Tmp_Dir}/replay_gain_log"
+Self_Touch_Log="${Self_Tmp_Dir}/touch_log"
+Self_Verbose=true
+
+computeLosslessReplayGain=true
+
+for arg in "$@"; do
+  case "$arg" in
+    '-h') printUsage ; cleanExit $Ex_Ok ;;
+    '-R') computeLosslessReplayGain=false ; shift 1 ;;
+    '-s') Self_Verbose=false ; shift 1 ;;
+    '-V') echo "$Self_Name $Self_Version" ; cleanExit $Ex_Ok ;;
+    '-z'|'-Z') echo "$Self_Name: error: don't specify either -z or -Z." 1>&2; cleanExit $Ex_Usage ;;
+  esac
+done
+
+if [ $# -eq 0 ]; then
+  printUsage
+  cleanExit $Ex_Usage
+fi
+
+for signal in INT TERM ABRT PIPE; do
+	trap "cleanAbort" $signal
+done
+
+# if [ $numberOfDirecties = 0 ]; then
+#   echo "$Self_Name: error: one or more directory containing audio files must be provided" 1>&2; exitCode=$Ex_Usage
+# fi
+
+declare -a arguments=("$@")
+numberOfArguments=${#arguments[@]}
+lastArgIndex=$(( numberOfArguments - 1 ))
+declare -a directoryArguments
+numberOfDirectyArguments=0
+
+for (( argIndex=lastArgIndex; argIndex > -1; argIndex-- )); do
+  arg="${arguments[$argIndex]}"
+  if [ $argIndex = 2 -a $numberOfDirectyArguments -eq 0 ]; then
+    echo "$Self_Name: error: at least one directory containing audio files must be provided" 1>&2
+    cleanExit $Ex_Usage
+  else
+    argMinusOneIndex=$(( argIndex - 1 ))
+    argMinusOne="${arguments[$argMinusOneIndex]}"
+    argMinusTwoIndex=$(( argIndex - 2 ))
+    argMinusTwo="${arguments[$argMinusTwoIndex]}"
+    # if [ "${argMinusTwo:0:1}" = '-']; then break; fi
+    if [ -d "$arg" ]; then
+      if [ "$argMinusOne" = '-o' -o "$argMinusOne" = '-O' -o "$argMinusOne" = '-P' ]; then
+        gotOutputDirectory=true
+        break
+      else
+        case "$arg" in
+          .*|./*|../*) true ;;
+          *) directoryArguments[$numberOfDirectyArguments]="$arg" ; (( numberOfDirectyArguments++ )) ;;
+        esac
+      fi
+    else
+      break
+    fi
+  fi
+done
+
+if [ $numberOfDirectyArguments -eq 0 ]; then
+  echo "$Self_Name: error: at least one directory containing audio files must be provided" 1>&2
+  cleanExit $Ex_Usage
+fi
+
+declare -a caudecArgs=()
+numberOfCaudecArgs=0
+for (( argIndex=0; argIndex < numberOfArguments; argIndex++ )); do
+  arg="${arguments[$argIndex]}"
+  argMinusOneIndex=$(( argIndex - 1 ))
+  if [ $argMinusOneIndex -ge 0 ]; then
+    argMinusOne="${arguments[$argMinusOneIndex]}"
+  else
+    argMinusOne=""
+  fi
+  if [ -e "$arg" -a -d "$arg" ]; then
+    if [ "$argMinusOne" = '-o' -o "$argMinusOne" = '-O' -o "$argMinusOne" = '-P' ]; then
+      gotOutputDirectory=true
+      caudecArgs[$numberOfCaudecArgs]="$arg"
+    else
+      continue
+    fi
+  fi
+  caudecArgs[$numberOfCaudecArgs]="$arg"
+  (( numberOfCaudecArgs++ ))
+done
+
+lastAudioDirIndex=$(( numberOfDirectyArguments - 1 ))
+for (( audioDirIndex=$lastAudioDirIndex; audioDirIndex > -1; audioDirIndex-- )); do
+    arg="${directoryArguments[$audioDirIndex]}"
+    while read audioDirectory; do
+      if [ $Self_Verbose = true ]; then
+        echo "Transcoding ${audioDirectory}:"
+        # caudec -Z -i "$@" 2> "$Self_Encoding_Log"; exitCode=$?
+      else
+        true
+        # caudec -z -i "$@" 1> "$Self_Encoding_Log"; exitCode=$?
+      fi
+    done < <( findAudioDirectories "$arg" 2>/dev/null )
+done
+
+cleanExit $Ex_Ok
+
+
+
 if [ $Self_Verbose = true ]; then
   echo "Transcoding files:"
   caudec -Z -i "$@" 2> "$Self_Encoding_Log"; exitCode=$?
@@ -367,5 +486,5 @@ fi
 if [ $Self_Verbose = true ]; then
   echo
 fi
-rm -rf "$Self_Tmp_Dir"
-exit $exitCode
+
+cleanExit $exitCode
