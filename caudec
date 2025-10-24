@@ -21,7 +21,7 @@
 declare -r Self_Name='caudec'
 declare -r Self_Decode_Name='decaude'
 declare -r Self_Called_As="${0##*/}"
-declare -r Self_Version='4.1.0'
+declare -r Self_Version='4.1.1'
 
 # Ex_Usage: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # Ex_Data_Err: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -1107,7 +1107,7 @@ checkInputFiles () {
 
 	for inputFile in "${inputFiles[@]}" ; do
 		addToSourceFiles='false'
-		inputDirName="${inputFile%/*}"
+		inputDirName="$( dirname "$inputFile" )"
 		if [ ! -e "$inputFile" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'no such file.' ; exitCode=$Ex_No_Input
 		elif [ ! -f "$inputFile" ]; then
@@ -4170,7 +4170,7 @@ transcode () {
 		allFilesDone='true'
 		while read milliseconds paddedFileIndex fileIndex; do
 			sourceFile="${sourceFiles[$fileIndex]}"
-			sourceFilename="${sourceFile##*/}"
+			sourceFilename="$( basename "$sourceFile" )"
 			sourceExtension="${sourceFile##*.}"
 			transcodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 			decodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_decoding.job"
@@ -4269,7 +4269,7 @@ testFiles () {
 	local exitCode=$Ex_Ok jobFile
 	while read milliseconds paddedFileIndex fileIndex; do
 		sourceFile="${sourceFiles[$fileIndex]}"
-		sourceFilename="${sourceFile##*/}"
+		sourceFilename="$( basename "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
 		copyFile="${Self_Swap_Dir}/${paddedFileIndex}_input.${sourceExtension}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
@@ -4312,7 +4312,7 @@ showInternalHashes () {
 	local exitCode=$Ex_Ok jobFile
 	while read milliseconds paddedFileIndex fileIndex; do
 		sourceFile="${sourceFiles[$fileIndex]}"
-		sourceFilename="${sourceFile##*/}"
+		sourceFilename="$( basename "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
 		copyFile="${Self_Swap_Dir}/${paddedFileIndex}_input.${sourceExtension}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
@@ -4433,7 +4433,7 @@ showTracksInformation () {
 
 	while read milliseconds paddedFileIndex fileIndex; do
 		sourceFile="${sourceFiles[$fileIndex]}"
-		sourceFilename="${sourceFile##*/}"
+		sourceFilename="$( basename "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
@@ -4811,7 +4811,7 @@ computeTrackGains () {
 	while read milliseconds paddedFileIndex fileIndex; do
 		sourceFile="${sourceFiles[$fileIndex]}"
 		destFile="$sourceFile"
-		sourceFilename="${sourceFile##*/}"
+		sourceFilename="$( basename "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
@@ -5145,7 +5145,7 @@ computeTrackDateTimes () {
 
 	while read milliseconds paddedFileIndex fileIndex; do
 		sourceFile="${sourceFiles[$fileIndex]}"
-		sourceFilename="${sourceFile##*/}"
+		sourceFilename="$( basename "$sourceFile" )"
 		sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
@@ -5178,7 +5178,7 @@ touchAllFiles () {
 
 	for (( fileIndex=0, dirIndex=0; fileIndex < ${#sourceFiles[@]}; fileIndex++ )); do
 		sourceFile="${sourceFiles[$fileIndex]}"
-		sourceDirname="${sourceFile%/*}"
+		sourceDirname="$( dirname "$sourceFile" )"
 		curDir="$( readlink -f "$sourceDirname" )"
 		if [ "$curDir" != "$lastDir" ]; then
 			discDirs[$dirIndex]="$curDir"
@@ -5196,7 +5196,7 @@ touchAllFiles () {
 
 		for (( fileIndex=0, audioFileIndex=0, otherFileIndex=0; fileIndex < ${#sourceFiles[@]}; fileIndex++ )); do
 			sourceFile="${sourceFiles[$fileIndex]}"
-			sourceDirname="${sourceFile%/*}"
+			sourceDirname="$( dirname "$sourceFile" )"
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			case "$sourceFile" in
@@ -5208,7 +5208,7 @@ touchAllFiles () {
 		done
 
 		for audioFile in "${audioFiles[@]}"; do
-			audioFileDirname="${audioFile%/*}"
+			audioFileDirname="$( dirname "$audioFile" )"
 			dirPath="$( readlink -f "$audioFileDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			if [ "$gotLinkedDir" = 'true' -a -z "$linkPath" ]; then
@@ -5217,7 +5217,7 @@ touchAllFiles () {
 				if [ -n "$inode" ]; then
 					while read linkedFile; do
 						if [ -z "$linkPath" ]; then
-							linkPath="${linkedFile%/*}"
+							linkPath="$( dirname "$linkedFile" )"
 							linkedDiscDirs[$dirIndex]="$linkPath"
 							break
 						fi
@@ -5230,7 +5230,7 @@ touchAllFiles () {
 
 		while read milliseconds paddedFileIndex fileIndex; do
 			sourceFile="${sourceFiles[$fileIndex]}"
-			sourceDirname="${sourceFile%/*}"
+			sourceDirname="$( dirname "$sourceFile" )"
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
@@ -5282,7 +5282,7 @@ touchAllFiles () {
 		for (( dirIndex=0; dirIndex < ${#discDirs[@]}; dirIndex++ )); do
 			curDir="${discDirs[$dirIndex]}"
 			curLinkedDir="${linkedDiscDirs[$dirIndex]}"
-			albumDir="${curDir%/*}"
+			albumDir="$( dirname "$curDir" )"
 
 			if [ ! -w "$albumDir" ]; then
 				printMessage 'warning' 'usage' 'filesystem' "path:${albumDir}" 'refusing to touch directory that is read-only.'
@@ -5292,7 +5292,7 @@ touchAllFiles () {
 			fi
 
 			if [ -n "$curLinkedDir" ]; then
-				albumLinkDir="${curLinkedDir%/*}"
+				albumLinkDir="$( dirname "$curLinkedDir" )"
 				if [ ! -w "$albumLinkDir" ]; then
 					printMessage 'warning' 'usage' 'filesystem' "path:${albumLinkDir}" 'refusing to touch directory that is read-only.'
 				else
@@ -5365,8 +5365,8 @@ getOutputCodecDestFile () {
 	local sourceFile="$1" outputCodec="$2" sourceFilename sourceDirname sourceBasename sourceIsLossyWAV
 	local sourceExtension destExtension destDir destFilename copyPath destPath
 
-	sourceFilename="${sourceFile##*/}"
-	sourceDirname="${sourceFile%/*}"
+	sourceFilename="$( basename "$sourceFile" )"
+	sourceDirname="$( dirname "$sourceFile" )"
 	sourceBasename="${sourceFilename%.*}"
 	if [ "$sourceBasename" != "${sourceBasename%.lossy}" ]; then
 		sourceIsLossyWAV='true'
@@ -5398,8 +5398,8 @@ getFileProps () {
 	local outputCodec="$2"
 
 	sourceFile="$1"
-	sourceFilename="${sourceFile##*/}"
-	sourceDirname="${sourceFile%/*}"
+	sourceFilename="$( basename "$sourceFile" )"
+	sourceDirname="$( dirname "$sourceFile" )"
 	sourceBasename="${sourceFilename%.*}"
 	if [ "$sourceBasename" != "${sourceBasename%.lossy}" ]; then
 		sourceIsLossyWAV='true'
