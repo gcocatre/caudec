@@ -21,7 +21,7 @@
 declare -r Self_Name='caudec'
 declare -r Self_Decode_Name='decaude'
 declare -r Self_Called_As="${0##*/}"
-declare -r Self_Version='4.1.2'
+declare -r Self_Version='4.1.3'
 
 # Ex_Usage: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # Ex_Data_Err: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -3769,7 +3769,7 @@ encode () {
 			fi
 			if [ "$tagCompressionSetting" = 'true' ]; then
 				if [ "${average_bitrate_WavPackLossy%.*}" -lt 24 ]; then
-					compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack / $average_bitrate_WavPackLossy bits per sample (ABR)"
+					compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack / $average_bitrate_WavPackLossy bits per sample"
 				else
 					compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack / $average_bitrate_WavPackLossy kbps (ABR)"
 				fi
@@ -3800,8 +3800,8 @@ encode () {
 					nThreads=1
 				fi
 				if [ "$tagCompressionSetting" = 'true' ]; then
-					if [ -z "$compression_WavPack" ]; then
-						compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / default / $average_bitrate_WavPackLossy bits per sample (ABR)"
+					if [ "${average_bitrate_WavPackLossy%.*}" -lt 24 ]; then
+						compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack / $average_bitrate_WavPackLossy bits per sample"
 					else
 						compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack / $average_bitrate_WavPackLossy kbps (ABR)"
 					fi
