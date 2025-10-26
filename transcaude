@@ -454,8 +454,15 @@ for (( argIndex=lastArgIndex; argIndex > -1; argIndex-- )); do
       elif [ "$argMinusOne" = '-l' -o "$argMinusOne" = '-L' ]; then
         break
       else
+        if [ "$arg" = "$PWD" ]; then
+          echo "$Self_Name: error: the current path (\$PWD) is not allowed as a source directory" 1>&2
+          cleanExit $Ex_Usage
+        fi
         case "$arg" in
-          .*|./*|../*) true ;;
+          .*|./*|../*)
+            echo "$Self_Name: error: relative paths are not allowed as source directories" 1>&2
+            cleanExit $Ex_Usage
+           ;;
           *) directoryArguments[$numberOfDirectyArguments]="$arg" ; (( numberOfDirectyArguments++ )) ;;
         esac
       fi
