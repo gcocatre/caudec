@@ -429,10 +429,6 @@ for signal in INT TERM ABRT PIPE; do
 	trap "cleanAbort" $signal
 done
 
-# if [ $numberOfDirecties = 0 ]; then
-#   echo "$Self_Name: error: one or more directory containing audio files must be provided" 1>&2; exitCode=$Ex_Usage
-# fi
-
 declare -a arguments=("$@")
 numberOfArguments=${#arguments[@]}
 lastArgIndex=$(( numberOfArguments - 1 ))
@@ -473,31 +469,34 @@ if [ $numberOfDirectyArguments -eq 0 ]; then
   echo "$Self_Name: error: at least one directory containing audio files must be provided" 1>&2
   cleanExit $Ex_Usage
 fi
+lastAudioDirIndex=$(( numberOfDirectyArguments - 1 ))
 
 # list caudec parameters and arguments
 declare -a caudecParams=()
 numberOfCaudecParams=0
 for (( argIndex=0; argIndex < numberOfArguments; argIndex++ )); do
   arg="${arguments[$argIndex]}"
-  if [ "$arg" = "${directoryArguments[0]}" ]; then break; fi
-  if [ "$arg" = '-o' -o "$arg" = '-O' -o "$arg" = '-P' ]; then
-    gotOutputDirectory='true'
-    if [ "$arg" = '-o' ]; then
+  if [ "$arg" = "${directoryArguments[$lastAudioDirIndex]}" ]; then break; fi
+  if [ "$arg" = '-o' -o "$arg" = '-O' -o "$arg" = '-P' -o "$arg" = '-l' -o "$arg" = '-L' ]; then
       argPlusOneIndex=$(( argIndex + 1 ))
       if [ $argPlusOneIndex -ge $numberOfArguments ]; then
-        echo "$Self_Name -o: error: no output directory provided" 1>&2
-        cleanExit $Ex_Cant_Create
+        echo "$Self_Name ${arg}: error: no directory provided" 1>&2
+        cleanExit $Ex_Usage
       else
         argPlusOne="${arguments[$argPlusOneIndex]}"
-        # if [ ! -d "$argPlusOne" ]; then
-        #   echo "$Self_Name -o: error: no such directory \"${argPlusOne}\"" 1>&2
-        #   cleanExit $Ex_Cant_Create
-        # elif [ ! -w "$argPlusOne" ]; then
-        #   echo "$Self_Name -o: error: output directory \"${argPlusOne}\" is not writable" 1>&2
-        #   cleanExit $Ex_No_Perm
-        # fi
+        if [ "$arg" = '-o' -o "$arg" = '-l' ]; then
+          if [ ! -d "$argPlusOne" ]; then
+            echo "$Self_Name ${arg}: error: no such directory \"${argPlusOne}\"" 1>&2
+            cleanExit $Ex_Cant_Create
+          elif [ ! -w "$argPlusOne" ]; then
+            echo "$Self_Name ${arg}: error: output directory \"${argPlusOne}\" is not writable" 1>&2
+            cleanExit $Ex_No_Perm
+          fi
+        fi
       fi
-    fi
+      if [ "$arg" = '-o' -o "$arg" = '-O' -o "$arg" = '-P' ]; then
+        gotOutputDirectory='true'
+      fi
   fi
   caudecParams[$numberOfCaudecParams]="$arg"
   (( numberOfCaudecParams++ ))
@@ -509,14 +508,13 @@ if [ "$gotOutputDirectory" = 'false' ]; then
 fi
 
 exitCode=$Ex_Ok
-lastAudioDirIndex=$(( numberOfDirectyArguments - 1 ))
 for (( audioDirIndex=$lastAudioDirIndex; audioDirIndex > -1; audioDirIndex-- )); do
     audioDirectory="${directoryArguments[$audioDirIndex]}"
     while read audioDirectory; do
       transcodeAudioDirectory "$audioDirectory"; returnCode=$?
-      # if [ $returnCode -ne $Ex_Ok ]; then
-      #   echo "$Self_Name: an error occurred while transcoding \"${audioDirectory}\"" 1>&2
-      # fi
+      if [ $returnCode -ne $Ex_Ok ]; then
+        echo "$Self_Name: an error occurred while transcoding \"${audioDirectory}\"" 1>&2
+      fi
     done < <( findAudioDirectories "$audioDirectory" 2>/dev/null )
 done
 
