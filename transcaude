@@ -252,7 +252,7 @@ touchFiles () {
         fi
       else
         if [ -n "$linkDir" -a -d "$linkDir" ]; then
-          caudec -z -i -T -l "$linkDir" "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -z -i -T -l "$linkDir" "$lastDir" 1> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
           caudec -z -i -T "$lastDir" 1> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
