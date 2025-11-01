@@ -3052,37 +3052,42 @@ downmixToStereo () {
 	# Front ($fv): factor 1, LFE ($hv): factor 0.5 (1/2), everything else ($pv): factor 0.7071 (1 / sqrt(2))
 	# http://www.academia.edu/2397757/A_downmix_approach
 	case "$nChannels" in
-		3) # FL, FR, LFE
+		3)
+			# FL, FR, LFE
 			surroundConfig='2.1'
 			getDownmixFactors '1.55'
 			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${hv} 2v${fv},3v${hv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
-		4) # FL, FR, SL, SR
+		4)
+			# FL, FR, SL, SR
 			surroundConfig='4.0'
 			getDownmixFactors '1.75'
 			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv} 2v${fv},4v${pv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
-		5) # FL, FR, C, SL, SR
+		5)
+			# FL, FR, C, SL, SR
 			surroundConfig='5.0'
 			getDownmixFactors '2.5'
 			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${pv} 2v${fv},3v${pv},5v${pv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
-		6) # FL, FR, C, LFE, SL, SR
+		6)
+			# FL, FR, C, LFE, SL, SR
 			surroundConfig='5.1'
 			getDownmixFactors '3'
 			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${hv},5v${pv} 2v${fv},3v${pv},4v${hv},6v${pv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
-		8) # FL, FR, C, LFE, SL, SR, BL, BR
+		8)
+			# FL, FR, C, LFE, SL, SR, BL, BR
 			surroundConfig='7.1'
 			getDownmixFactors '3.75'
 			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${hv},5v${pv},7v${pv} 2v${fv},3v${pv},4v${hv},6v${pv},8v${pv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
-		*) return $Ex_Ok ;; # nothing to do
+		*) return $Ex_Ok ;;
 	esac
 
 	unset fv pv hv
@@ -3255,30 +3260,25 @@ processWavFile () {
 	# make sure to test both wavProcessed != 'true' and ec = Ex_Ok, because wavProcessed will only be true if prior processing succeeded
 	if [ $exitCode -eq $Ex_Ok ]; then
 		if ! isWavProcessed ; then # no prior processing, resampling has not yet be done
-			if [ -n "$bitdepthcmd" -o -n "$ratecmd" ]; then
-				sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $gaincmd $ratecmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
-				if [ $exitCode -eq $Ex_Ok -a -f "$resampledWavFile" ]; then
+			if [ -n "$ratecmd" ]; then
+				if [ -n "$bitdepthcmd" -o -n "$gaincmd" ]; then
+					sox $soxGuard "$wavFile" -p $ratecmd $dithercmd | sox $soxGuard -p $bitdepthcmd "$resampledWavFile" $gaincmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+				else
+					sox $soxGuard "$wavFile" "$resampledWavFile" $ratecmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+				fi
+			elif [ -n "$bitdepthcmd" -o -n "$gaincmd" ]; then
+				sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $gaincmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+			fi
+			if [ -f "$resampledWavFile" ]; then
+				if [ $exitCode -eq $Ex_Ok ]; then
 					rm -f "$wavFile" &&  mv -f "$resampledWavFile" "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
 					if [ $exitCode -eq $Ex_Ok ]; then
 						isWavProcessed 'true'
 					fi
-				fi
-				if [ -e "$resampledWavFile" ]; then rm -f "$resampledWavFile"; fi
-			fi
-		fi
-	fi
-
-	# apply gain if not already done
-	if [ $exitCode -eq $Ex_Ok -a -n "$gaincmd" ]; then # gain may not yet have been applied
-		if ! isWavProcessed ; then # no prior processing
-			sox $soxGuard "$wavFile" "$resampledWavFile" $gaincmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
-			if [ $exitCode -eq $Ex_Ok -a -f "$resampledWavFile" ]; then
-				rm -f "$wavFile" &&  mv -f "$resampledWavFile" "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
-				if [ $exitCode -eq $Ex_Ok ]; then
-					isWavProcessed 'true'
+				else
+					rm -f "$resampledWavFile"
 				fi
 			fi
-			if [ -e "$resampledWavFile" ]; then rm -f "$resampledWavFile"; fi
 		fi
 	fi
 
