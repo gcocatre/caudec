@@ -21,7 +21,7 @@
 declare -r Self_Name='caudec'
 declare -r Self_Decode_Name='decaude'
 declare -r Self_Called_As="${0##*/}"
-declare -r Self_Version='4.1.4'
+declare -r Self_Version='4.2.0'
 
 # Ex_Usage: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # Ex_Data_Err: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -1599,7 +1599,7 @@ handleInstance () {
 }
 
 createControlFiles () {
-	local jobIndex=$1 filesPerJob=$2 fileIndex paddedFileIndex threadIndex fileMilliseconds outputCodec
+	local exitCode=$Ex_Ok jobIndex=$1 filesPerJob=$2 fileIndex paddedFileIndex threadIndex fileMilliseconds outputCodec
 
 	for (( threadIndex=0; threadIndex < filesPerJob; threadIndex++ )); do
 		fileIndex=$(( jobIndex * filesPerJob + threadIndex ))
@@ -1607,37 +1607,72 @@ createControlFiles () {
 			return
 		fi
 		paddedFileIndex="$( printf "%03i" $fileIndex )"
-		touch "${Self_Control_Dir}/${paddedFileIndex}_any.job"
+		touch "${Self_Control_Dir}/${paddedFileIndex}_any.job" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 
 		fileMilliseconds="$( getFileMilliseconds "${sourceFiles[$fileIndex]}" 2>> "$Self_Errors_File" )"
-		echo "$fileMilliseconds $paddedFileIndex $fileIndex" > "${Self_Data_Dir}/${paddedFileIndex}.ms"
+		echo "$fileMilliseconds $paddedFileIndex $fileIndex" > "${Self_Data_Dir}/${paddedFileIndex}.ms" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 
 		for outputCodec in $outputCodecs; do
-			# touch "${Self_Control_Dir}/${paddedFileIndex}_${outputCodec}.job"
-			touch "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
-			touch "${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
+			touch "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			touch "${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 		done
 	done
+
+	return $exitCode
+}
+
+createSortedControlFiles () {
+	local exitCode=$Ex_Ok sourceFile fileIndex paddedFileIndex fileMilliseconds outputCodec
+
+	for sourceFile in ${sourceFiles[@]}; do
+		echo "$sourceFile" >> "${Self_Data_Dir}/sortedSourceFiles.list"
+	done
+	sort "${Self_Data_Dir}/sortedSourceFiles.list" > "${Self_Data_Dir}/sortedSourceFiles.list.tmp" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+	mv "${Self_Data_Dir}/sortedSourceFiles.list.tmp" "${Self_Data_Dir}/sortedSourceFiles.list" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+
+	if [ $exitCode -eq $Ex_Ok ]; then
+		fileIndex=0
+		while read sourceFile; do
+			paddedFileIndex="$( printf "%03i" $fileIndex )"
+			touch "${Self_Control_Dir}/${paddedFileIndex}_any.job"
+			fileMilliseconds="$( getFileMilliseconds "$sourceFile" 2>> "$Self_Errors_File" )"
+			echo "$fileMilliseconds $paddedFileIndex $fileIndex" > "${Self_Data_Dir}/${paddedFileIndex}.ms"
+			for outputCodec in $outputCodecs; do
+				touch "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
+				touch "${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
+			done
+			(( fileIndex++ ))
+		done < "${Self_Data_Dir}/sortedSourceFiles.list"
+	fi
+
+	return $exitCode
 }
 
 setupControlDir () {
-	local fileIndex maxThreads filesPerJob threadIndex
+	local exitCode=$Ex_Ok fileIndex maxThreads filesPerJob threadIndex sourceFile
 
-	maxThreads=$(( maxProcessesSetByUser * 2 ))
-	if [ $maxThreads -ge $numberOfSourceFiles ]; then
-		maxThreads=$numberOfSourceFiles
-		filesPerJob=1
-	elif [ $maxThreads -lt $numberOfSourceFiles ]; then\
-		filesPerJob="$( printf "%.0f" "$( echo "scale=3; $numberOfSourceFiles / $maxThreads + (1 / 2)" | bc )" )"
-	fi
-	for (( threadIndex=0; threadIndex < maxThreads; threadIndex++ )); do
-		createControlFiles "$threadIndex" "$filesPerJob" &
-	done
-	for threadIndex in $( jobs -p ); do wait $threadIndex || exitCode=$Ex_Ko ; done
+	if [ "$linearResamplingRequired" = 'true' ]; then
+		createSortedControlFiles
+		if [ $exitCode -ne $Ex_Ok ]; then
+			cleanExit $exitCode
+		fi
+	else
+		maxThreads=$(( maxProcessesSetByUser * 2 ))
+		if [ $maxThreads -ge $numberOfSourceFiles ]; then
+			maxThreads=$numberOfSourceFiles
+			filesPerJob=1
+		elif [ $maxThreads -lt $numberOfSourceFiles ]; then\
+			filesPerJob="$( printf "%.0f" "$( echo "scale=3; $numberOfSourceFiles / $maxThreads + (1 / 2)" | bc )" )"
+		fi
+		for (( threadIndex=0; threadIndex < maxThreads; threadIndex++ )); do
+			createControlFiles "$threadIndex" "$filesPerJob" &
+		done
+		for threadIndex in $( jobs -p ); do wait $threadIndex || exitCode=$Ex_Ko ; done
 
-	if [ $exitCode -eq $Ex_Ko ]; then
-		wait
-		cleanExit $exitCode
+		if [ $exitCode -eq $Ex_Ko ]; then
+			wait
+			cleanExit $exitCode
+		fi
 	fi
 
 	if [ "$touchFiles" = 'true' ]; then
@@ -1645,12 +1680,14 @@ setupControlDir () {
 	fi
 
 	case "$orderStrategy" in
-		longest) sort -n -r "${Self_Data_Dir}/"*.ms > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
-		shortest) sort -n "${Self_Data_Dir}/"*.ms > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
-		*) cat "${Self_Data_Dir}/"*.ms > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
+		longest) sort -n -r "${Self_Data_Dir}/"*.ms > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko ;;
+		shortest) sort -n "${Self_Data_Dir}/"*.ms > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko ;;
+		*) cat "${Self_Data_Dir}/"*.ms > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko ;;
 	esac
 
-	rm -f "${Self_Data_Dir}/"*.ms
+	rm -f "${Self_Data_Dir}/"*.ms 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+
+	return $exitCode
 }
 
 
@@ -5993,7 +6030,7 @@ allCodecsString="${losslessCodecsString} ${lossyCodecsString}"
 # Set default values
 verbose='true'
 outputCodecs='' lastCodec='' nCodecs=0 gotWavOutputCodec='false'
-defaultDestDir="$PWD" linkDir='' gotLinkedDir='false'
+defaultDestDir="$PWD" linkDir='' gotLinkedDir='false' linearResamplingRequired='false'
 bitDepth='' samplingRate='' preserveMetadata='' applyGain='false' applyGainType='' preamp='' convertToStereo='false'
 computeReplayGain='false' reverseReplayGain='false'
 keepExistingFiles='false' keepNewerFiles='false' macHasVerify='false' outputMode='human'
@@ -6248,7 +6285,7 @@ while getopts '2a:B:b:C:c:df:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 				352.8) samplingRate=352800 ;;
 				48|96|192|384) samplingRate="${OPTARG}000" ;;
 				44100|48000|88200|96000|176400|192000|352800|384000) samplingRate=$OPTARG ;;
-				cd) bitDepth=16 samplingRate=44100 convertToStereo='true' ;;
+				cd|cdda) bitDepth=16 samplingRate=44100 convertToStereo='true' linearResamplingRequired='true' ;;
 				dvd) bitDepth=16 samplingRate=48000 ;;
 				sacd) bitDepth=24 samplingRate=88200 ;;
 				studio) bitDepth=24 samplingRate=96000 ;;
