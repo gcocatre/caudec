@@ -3326,7 +3326,7 @@ decode () {
 	local exitCode=$Ex_Ok sourceTagFormat kfm='' nChannels=2 destFileTargetPath copyFileTargetPath gotWavOutputCodec
 	local doEmbedUserCoverArt='false' doEmbedUserCoverArtForCodec
 
-	isWavProcessed 'false' ; ec=$?
+	isWavProcessed 'false'
 
 	if [ -e "$copyFile" ]; then
 		case "$sourceExtension" in
@@ -3435,7 +3435,7 @@ decode () {
 		exitCode=$Ex_Ko
 	fi
 
-	if [ $exitCode -eq $Ex_Ok -a "$wavMustBeProcessed" != 'false' ]; then
+	if [ $exitCode -eq $Ex_Ok -a "$wavMustBeProcessed" != 'false' -a "$linearResamplingRequired" = 'false' ]; then
 		processWavFile ; exitCode=$?
 	fi
 
@@ -4103,6 +4103,39 @@ encode () {
 	return $exitCode
 }
 
+getRateDepthAndSamples () {
+	local sourceFile="$1" bitDepth
+
+	case "$sourceFile" in
+		*.flac)
+			read -d '\n' sourceBitDepth sourceSamplingRate sourceSamples < <( metaflac --show-bps --show-sample-rate --show-total-samples "$sourceFile" 2>/dev/null )
+			;;
+
+		*.wv)
+			line="$( wvunpack -f "$sourceFile" 2>/dev/null )"
+			OIFS="$IFS"
+			IFS=";"
+			read sourceSamplingRate sourceBitDepth floatOrInt nChannels something sourceSamples rest <<< "$line"
+			IFS="$OIFS"
+			;;
+
+		*)
+			while read line; do
+				case $line in
+					bits_per_raw_sample*|bits_per_sample*)
+						if [ -z "$bitDepth" -o "$bitDepth" = "0" ]; then
+							sourceBitDepth="${line##*=}"
+							sourceBitDepth="$( echo "$sourceBitDepth" | tr -cd [0-9] )"
+						fi
+						;;
+					duration_ts*) sourceSamples="${line##*=}" ;;
+					sample_rate*) sourceSamplingRate="${line##*=}" ;;
+				esac
+			done < <( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$sourceFile" 2>/dev/null )
+			;;
+	esac
+}
+
 getLock () {
 	local lockFile="$1"
 	if [ "$OS" = 'Darwin' ]; then
@@ -4196,6 +4229,95 @@ setControlVariables () {
 	wavProcessedStatusFile="${Self_Control_Dir}/${paddedFileIndex}_wav_processed.info"
 	sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
 	binariesDir="${Self_Swap_Dir}/${paddedFileIndex}_binaries"
+}
+
+transcodeAndResampleLinearly () {
+	local exitCode=$Ex_Ok allFilesDone allCodecsDone milliseconds fileIndex paddedFileIndex transcodingJobFile
+	local decodingJobFile lastCodec="${outputCodecs##* }" copyDone='false' encodingDone='false'
+	local nDecodingThreads=1 encodingNeedsWavFile sleepTime="0.05"
+	local targetUnitSamples totalUnits=0 totalTargetSamples=0 origUnitSamples=0 nextFileIndex
+
+	declare -a trackUnits=()
+
+	while read sourceFile; do
+		sourceFilename="$( basename "$sourceFile" )"
+		sourceExtension="${sourceFile##*.}"
+		transcodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
+		decodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_decoding.job"
+
+		if getLock "$decodingJobFile"; then
+			setControlVariables
+			getFileProps "$sourceFile"
+			prepareSource &&
+			decode || exitCode=$Ex_Ko
+			if [ -n "$nThreads" ]; then
+				nDecodingThreads=$nThreads
+			else
+				nDecodingThreads=1
+			fi
+			rm -f "$decodingJobFile" 1>/dev/null 2>&1
+		fi
+	done < "${Self_Data_Dir}/sortedSourceFiles.list"
+
+	fileIndex=0
+	while read sourceFile; do
+		sourceFilename="$( basename "$sourceFile" )"
+		sourceExtension="${sourceFile##*.}"
+		setControlVariables
+		getFileProps "$sourceFile"
+		getRateDepthAndSamples "$sourceFile"
+		targetUnitSamples=$(( samplingRate / unit ))
+		# bitDepth=16 samplingRate=44100
+
+		nextFileIndex=$(( fileIndex + 1 ))
+		origUnitSamples=$(( sourceSampleRate / unit ))
+		truncatedFileUnits=$(( sourceSamples / origUnitSamples ))
+		truncatedFileSamples=$(( truncatedFileUnits * origUnitSamples ))
+		trackUnits[$fileIndex]=$(( ${trackUnits[$fileIndex]} + truncatedFileUnits ))
+		totalUnits=$(( totalUnits + ${trackUnits[$fileIndex]} ))
+		if [ $truncatedFileSamples -lt $sourceSamples ]; then
+			trackUnits[$nextFileIndex]=1
+		fi
+		(( fileIndex++ ))
+	done < "${Self_Data_Dir}/sortedSourceFiles.list"
+
+	totalResampledSamples=$(( totalUnits * targetUnitSamples ))
+
+	bitDepthCmd=""
+	bitDepthDitheringCmd=""
+	if [ "$sourceBitDepth" != "$bitDepth" ]; then
+		bitDepthCmd="-b ${bitDepth}"
+		bitDepthDitheringCmd="dither -a -s"
+	fi
+
+	echo "Merging and resampling album of $# tracks…"
+	printMessage 'info' 'resampling' "file:${sourceFile}"
+	if [ "$sourceSampleRate" = "$samplingRate" ]; then
+		sox -G "${Self_Swap_Dir}"/*.wav $bitDepthCmd "${Self_Swap_Dir}/album.flac" $bitDepthDitheringCmd trim 0s "${totalResampledSamples}s" 2>/dev/null
+	else
+		sox -G "${Self_Swap_Dir}"/*.wav -p rate -v $samplingRate dither -a -s 2>/dev/null | sox -G -p $bitDepthCmd "${Self_Swap_Dir}/album.flac" $bitDepthDitheringCmd trim 0s "${totalResampledSamples}s" 2>/dev/null
+	fi
+	rm -rf "${Self_Swap_Dir}"/*.wav
+
+	totalTargetSamples="$( metaflac --show-total-samples "${Self_Swap_Dir}/album.flac" )"
+
+	position=0
+	cumulatedSamples=0
+	fileIndex=0
+	while read sourceFile; do
+		nextFileIndex=$(( fileIndex + 1 ))
+		trackResampledSamples=$(( ${trackUnits[$fileIndex]} * targetUnitSamples ))
+		cumulatedSamples=$(( cumulatedSamples + trackResampledSamples ))
+		if [ $nextFileIndex -eq $fileIndex ]; then
+			extraSamples=$(( cumulatedSamples - totalTargetSamples ))
+			trackResampledSamples=$(( (trackResampledSamples - extraSamples) / targetUnitSamples * targetUnitSamples ))
+		fi
+		resampledFileName="${fileNames[$fileIndex]}"
+		resampledFileName="${resampledFileName%%.flac}.wav"
+		# echo "sox \"album.flac\" \"${resampledFileName}\" trim ${position}s ${trackResampledSamples}s"
+		sox "${Self_Swap_Dir}/album.flac" "${resampledFileName}" trim ${position}s ${trackResampledSamples}s 2>/dev/null
+		position=$(( position + trackResampledSamples ))
+	done < "${Self_Data_Dir}/sortedSourceFiles.list"
 }
 
 transcode () {
@@ -6030,7 +6152,7 @@ allCodecsString="${losslessCodecsString} ${lossyCodecsString}"
 # Set default values
 verbose='true'
 outputCodecs='' lastCodec='' nCodecs=0 gotWavOutputCodec='false'
-defaultDestDir="$PWD" linkDir='' gotLinkedDir='false' linearResamplingRequired='false'
+defaultDestDir="$PWD" linkDir='' gotLinkedDir='false' linearResamplingRequired='false' resamplingUnit=75
 bitDepth='' samplingRate='' preserveMetadata='' applyGain='false' applyGainType='' preamp='' convertToStereo='false'
 computeReplayGain='false' reverseReplayGain='false'
 keepExistingFiles='false' keepNewerFiles='false' macHasVerify='false' outputMode='human'
