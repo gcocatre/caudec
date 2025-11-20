@@ -1624,7 +1624,7 @@ createControlFiles () {
 createSortedControlFiles () {
 	local exitCode=$Ex_Ok sourceFile fileIndex paddedFileIndex fileMilliseconds outputCodec
 
-	for sourceFile in ${sourceFiles[@]}; do
+	for sourceFile in "${sourceFiles[@]}"; do
 		echo "$sourceFile" >> "${Self_Data_Dir}/sortedSourceFiles.list"
 	done
 	sort "${Self_Data_Dir}/sortedSourceFiles.list" > "${Self_Data_Dir}/sortedSourceFiles.list.tmp" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
@@ -4237,28 +4237,30 @@ transcodeAndResampleLinearly () {
 	local nDecodingThreads=1 encodingNeedsWavFile sleepTime="0.05"
 	local targetUnitSamples totalUnits=0 totalTargetSamples=0 origUnitSamples=0 nextFileIndex
 
-	declare -a trackUnits=()
-
+	printMessage 'info' 'resampling' "Decoding tracks before resampling…"
+	fileIndex=0
 	while read sourceFile; do
+		paddedFileIndex="$( printf "%03i" $fileIndex )"
 		sourceFilename="$( basename "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
 		transcodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 		decodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_decoding.job"
 
-		if getLock "$decodingJobFile"; then
+		if getAndRenameLock "$transcodingJobFile" "$decodingJobFile"; then
 			setControlVariables
 			getFileProps "$sourceFile"
 			prepareSource &&
 			decode || exitCode=$Ex_Ko
-			if [ -n "$nThreads" ]; then
-				nDecodingThreads=$nThreads
-			else
-				nDecodingThreads=1
-			fi
 			rm -f "$decodingJobFile" 1>/dev/null 2>&1
 		fi
+		(( fileIndex++ ))
 	done < "${Self_Data_Dir}/sortedSourceFiles.list"
 
+	if [ $exitCode -ne $Ex_Ok ]; then
+		return $Ex_Ko
+	fi
+
+	declare -a trackUnits=()
 	fileIndex=0
 	while read sourceFile; do
 		sourceFilename="$( basename "$sourceFile" )"
@@ -4266,11 +4268,12 @@ transcodeAndResampleLinearly () {
 		setControlVariables
 		getFileProps "$sourceFile"
 		getRateDepthAndSamples "$sourceFile"
-		targetUnitSamples=$(( samplingRate / unit ))
+		targetUnitSamples=$(( samplingRate / resamplingUnit ))
 		# bitDepth=16 samplingRate=44100
 
+		# debug "sourceSamplingRate=[$sourceSamplingRate] sourceSamples=[$sourceSamples]"
 		nextFileIndex=$(( fileIndex + 1 ))
-		origUnitSamples=$(( sourceSampleRate / unit ))
+		origUnitSamples=$(( sourceSamplingRate / resamplingUnit ))
 		truncatedFileUnits=$(( sourceSamples / origUnitSamples ))
 		truncatedFileSamples=$(( truncatedFileUnits * origUnitSamples ))
 		trackUnits[$fileIndex]=$(( ${trackUnits[$fileIndex]} + truncatedFileUnits ))
@@ -4280,6 +4283,7 @@ transcodeAndResampleLinearly () {
 		fi
 		(( fileIndex++ ))
 	done < "${Self_Data_Dir}/sortedSourceFiles.list"
+	nFiles=$fileIndex
 
 	totalResampledSamples=$(( totalUnits * targetUnitSamples ))
 
@@ -4290,9 +4294,8 @@ transcodeAndResampleLinearly () {
 		bitDepthDitheringCmd="dither -a -s"
 	fi
 
-	echo "Merging and resampling album of $# tracks…"
-	printMessage 'info' 'resampling' "file:${sourceFile}"
-	if [ "$sourceSampleRate" = "$samplingRate" ]; then
+	printMessage 'info' 'resampling' "Merging and resampling album of $nFiles tracks…"
+	if [ "$sourceSamplingRate" = "$samplingRate" ]; then
 		sox -G "${Self_Swap_Dir}"/*.wav $bitDepthCmd "${Self_Swap_Dir}/album.flac" $bitDepthDitheringCmd trim 0s "${totalResampledSamples}s" 2>/dev/null
 	else
 		sox -G "${Self_Swap_Dir}"/*.wav -p rate -v $samplingRate dither -a -s 2>/dev/null | sox -G -p $bitDepthCmd "${Self_Swap_Dir}/album.flac" $bitDepthDitheringCmd trim 0s "${totalResampledSamples}s" 2>/dev/null
@@ -4304,7 +4307,8 @@ transcodeAndResampleLinearly () {
 	position=0
 	cumulatedSamples=0
 	fileIndex=0
-	while read sourceFile; do
+	for (( fileIndex=0; fileIndex < nFiles; fileIndex++ )); do
+		paddedFileIndex="$( printf "%03i" $fileIndex )"
 		nextFileIndex=$(( fileIndex + 1 ))
 		trackResampledSamples=$(( ${trackUnits[$fileIndex]} * targetUnitSamples ))
 		cumulatedSamples=$(( cumulatedSamples + trackResampledSamples ))
@@ -4312,12 +4316,56 @@ transcodeAndResampleLinearly () {
 			extraSamples=$(( cumulatedSamples - totalTargetSamples ))
 			trackResampledSamples=$(( (trackResampledSamples - extraSamples) / targetUnitSamples * targetUnitSamples ))
 		fi
-		resampledFileName="${fileNames[$fileIndex]}"
-		resampledFileName="${resampledFileName%%.flac}.wav"
-		# echo "sox \"album.flac\" \"${resampledFileName}\" trim ${position}s ${trackResampledSamples}s"
-		sox "${Self_Swap_Dir}/album.flac" "${resampledFileName}" trim ${position}s ${trackResampledSamples}s 2>/dev/null
+		resampledFileName="${Self_Swap_Dir}/${paddedFileIndex}_resampled.wav"
+		printMessage 'info' 'resampling' "Splitting file ${nextFileIndex}…"
+		sox "${Self_Swap_Dir}/album.flac" "$resampledFileName" trim ${position}s ${trackResampledSamples}s 2>/dev/null &&
+		mv "$resampledFileName" "${Self_Swap_Dir}/${paddedFileIndex}.wav"
 		position=$(( position + trackResampledSamples ))
-	done < "${Self_Data_Dir}/sortedSourceFiles.list"
+	done
+
+	rm -rf "${Self_Swap_Dir}/album.flac"
+
+	allFilesDone='false'
+	while read milliseconds paddedFileIndex fileIndex; do
+		for outputCodec in $outputCodecs; do
+			sourceFile="${sourceFiles[$fileIndex]}"
+			sourceFilename="$( basename "$sourceFile" )"
+			sourceExtension="${sourceFile##*.}"
+			encodingNeedsWavFile="${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
+			encodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
+			# if test -e "$encodingJobFile" && unlink "$encodingJobFile" 2>/dev/null; then
+			if test -e "$encodingJobFile" && getLock "$encodingJobFile"; then
+				allFilesDone='false' allCodecsDone='false'
+				setControlVariables
+				getFileProps "$sourceFile" "$outputCodec"
+				encode $nDecodingThreads || exitCode=$Ex_Ko
+				copyOrLinkOtherFiles "$outputCodec"
+				if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
+					copyOrLinkOtherFiles "WavPackLossy"
+				fi
+				rm -f "$encodingNeedsWavFile"
+
+				# Do this in this loop because it is conditional on getting a lock on an encoding job.
+				# Doing it outside of this loop would run the following code every $sleepTime seconds per process.
+				ls "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info 1>/dev/null 2>&1 || allCodecsDone='true'
+				if [ "$allCodecsDone" = 'true' ]; then
+					touch "$wasProcessedFile"
+					rm -rf "$copyFile" "${copyFile}c" "$wavFile" "$resampledFile" "$binariesDir" \
+						"${Self_Swap_Dir}/${paddedFileIndex}_tags_"*.txt \
+						"${Self_Swap_Dir}/${paddedFileIndex}_picture_"* \
+						"${Self_Ctrl_Dir}/${paddedFileIndex}"_*.job \
+						1>/dev/null 2>&1
+				fi
+			fi
+		done
+
+		if [ -n "$destPath" -a -d "$destPath" -a -w "$destPath" ]; then
+			chmod u+rwX "$destPath" "${destPath}"/* 2>/dev/null
+		fi
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+
+	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
+	return $exitCode
 }
 
 transcode () {
@@ -6946,9 +6994,14 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
-		transcode &
-	done
+	if [ "$linearResamplingRequired" ]; then
+		processNumber=0
+		transcodeAndResampleLinearly ; exitCode=$?
+	else
+		for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
+			transcode &
+		done
+	fi
 elif [ "$checkFiles" = 'true' ]; then
 	adjustNumberOfProcesses $numberOfSourceFiles
 	if [ "$gnudate" = 'true' ]; then
