@@ -21,7 +21,7 @@
 declare -r Self_Name='caudec'
 declare -r Self_Decode_Name='decaude'
 declare -r Self_Called_As="${0##*/}"
-declare -r Self_Version='4.1.4'
+declare -r Self_Version='4.1.5'
 
 # Ex_Usage: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # Ex_Data_Err: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -3056,35 +3056,35 @@ downmixToStereo () {
 			# FL, FR, LFE
 			surroundConfig='2.1'
 			getDownmixFactors '1.55'
-			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${hv} 2v${fv},3v${hv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${hv} 2v${fv},3v${hv} $gaincmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
 		4)
 			# FL, FR, SL, SR
 			surroundConfig='4.0'
 			getDownmixFactors '1.75'
-			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv} 2v${fv},4v${pv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv} 2v${fv},4v${pv} $gaincmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
 		5)
 			# FL, FR, C, SL, SR
 			surroundConfig='5.0'
 			getDownmixFactors '2.5'
-			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${pv} 2v${fv},3v${pv},5v${pv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${pv} 2v${fv},3v${pv},5v${pv} $gaincmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
 		6)
 			# FL, FR, C, LFE, SL, SR
 			surroundConfig='5.1'
 			getDownmixFactors '3'
-			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${hv},5v${pv} 2v${fv},3v${pv},4v${hv},6v${pv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${hv},5v${pv} 2v${fv},3v${pv},4v${hv},6v${pv} $gaincmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
 		8)
 			# FL, FR, C, LFE, SL, SR, BL, BR
 			surroundConfig='7.1'
 			getDownmixFactors '3.75'
-			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${hv},5v${pv},7v${pv} 2v${fv},3v${pv},4v${hv},6v${pv},8v${pv} $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd remix -m 1v${fv},3v${pv},4v${hv},5v${pv},7v${pv} 2v${fv},3v${pv},4v${hv},6v${pv},8v${pv} $gaincmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			;;
 
 		*) return $Ex_Ok ;;
@@ -3260,15 +3260,10 @@ processWavFile () {
 	# make sure to test both wavProcessed != 'true' and ec = Ex_Ok, because wavProcessed will only be true if prior processing succeeded
 	if [ $exitCode -eq $Ex_Ok ]; then
 		if ! isWavProcessed ; then # no prior processing, resampling has not yet be done
-			if [ -n "$ratecmd" ]; then
-				if [ -n "$bitdepthcmd" -o -n "$gaincmd" ]; then
-					sox $soxGuard "$wavFile" -p $ratecmd $dithercmd | sox $soxGuard -p $bitdepthcmd "$resampledWavFile" $gaincmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
-				else
-					sox $soxGuard "$wavFile" "$resampledWavFile" $ratecmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
-				fi
-			elif [ -n "$bitdepthcmd" -o -n "$gaincmd" ]; then
-				sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $gaincmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+			if [ -n "$bitdepthcmd" -o -n "$ratecmd" -o -n "$gaincmd" ]; then
+				sox $soxGuard "$wavFile" $bitdepthcmd "$resampledWavFile" $ratecmd $gaincmd $dithercmd 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
 			fi
+
 			if [ -f "$resampledWavFile" ]; then
 				if [ $exitCode -eq $Ex_Ok ]; then
 					rm -f "$wavFile" &&  mv -f "$resampledWavFile" "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
