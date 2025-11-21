@@ -607,9 +607,9 @@ getHumanReadableString () {
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hashType" "$fileName" )"
 				fi
 			elif [ "$statusInfo" = 'duration' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}TIME ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${duration}" "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}LENGTH ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${duration}" "$fileName" )"
 			elif [ "$statusInfo" = 'album_duration' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}→ ${Clr_Rst}%s ${Clr_Rst}%s${Clr_Rst}\n" "$duration" "Total duration" )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}ALL ${Clr_Rst}%s ${Clr_Rst}%s${Clr_Rst}\n" "$duration" "Total duration" )"
 			elif [ "$statusInfo" = 'characteristics' ]; then
 				data="${characteristics}"
 				data="${data//;/|}"
