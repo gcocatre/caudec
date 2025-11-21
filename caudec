@@ -416,7 +416,7 @@ Information:
 
   -h        display this help and exit
   -D        display track & total durations
-  -I        display channels, sample size and sampling rate
+  -I        display channels, bit depth, sampling rate and bit rate
   -V        output version information and exit
 
 -------------------------------------------------------------------------------
