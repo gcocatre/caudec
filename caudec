@@ -613,8 +613,10 @@ getHumanReadableString () {
 			elif [ "$statusInfo" = 'characteristics' ]; then
 				data="${characteristics}"
 				data="${data//;/|}"
-				if [ "${msg}" = "CDDA" ]; then
+				if [ "${msg}" = 'CDDA' ]; then
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}CD ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$fileName" )"
+				elif [ "${msg}" = 'CDDA-compatible' ]; then
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}DM ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$fileName" )"
 				else
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bl}OM ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$fileName" )"
 				fi
@@ -4389,8 +4391,8 @@ showTracksDurations () {
 
 
 showTrackInformation () {
-	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples cddaSamples sectorSize=588 mediaType
-	local floatOrInt floatStr="" something rest bitrate=0 bytesLossy bytesLossless
+	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples evenSamples sectorSize mediaType='non-CDDA'
+	local floatOrInt something rest bitrate=0 bytesLossy bytesLossless
 
 	if [ -e "$sourceFile" ]; then
 		case "$sourceFile" in
@@ -4404,11 +4406,6 @@ showTrackInformation () {
 				IFS=";"
 				read samplingRate bitDepth floatOrInt nChannels something nSamples rest <<< "$line"
 				IFS="$OIFS"
-
-				# FIXME
-				# if [ "$floatOrInt" = "float" ]; then
-				# 	floatStr=".0"
-				# fi
 				;;
 
 			*)
@@ -4418,10 +4415,6 @@ showTrackInformation () {
 						bits_per_raw_sample*|bits_per_sample*)
 							if [ -z "$bitDepth" -o "$bitDepth" = "0" ]; then
 								bitDepth="${line##*=}"
-								# FIXME
-								# if [ "${bitDepth:0:1}" = "f" -o "${bitDepth:0:1}" = "d" ]; then
-								# 	floatStr=".0"
-								# fi
 								bitDepth="$( echo "$bitDepth" | tr -cd [0-9] )"
 							fi
 							;;
@@ -4441,12 +4434,17 @@ showTrackInformation () {
 		case "$sourceFile" in
 			*.flac|*.wv|*.ape|*.m4a)
 				if [ -n "$nSamples" ]; then
+					sectorSize=$(( samplingRate / 75 ))
 					multiples=$(( nSamples / sectorSize ))
-					cddaSamples=$(( multiples * sectorSize ))
-					if [ $nSamples -eq $cddaSamples -a "$nChannels" = "2" -a "$bitDepth" = "16" -a "$samplingRate" = "44100" ]; then
-						mediaType="CDDA"
+					evenSamples=$(( multiples * sectorSize ))
+					if [ $nSamples -eq $evenSamples ]; then
+						if [ "$nChannels" = "2" -a "$bitDepth" = "16" -a "$samplingRate" = "44100" ]; then
+							mediaType='CDDA'
+						else
+							mediaType='CDDA-compatible'
+						fi
 					else
-						mediaType="non-CDDA"
+						mediaType='non-CDDA'
 					fi
 				fi
 				;;
