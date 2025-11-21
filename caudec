@@ -6614,7 +6614,7 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		h) printUsage; exit $Ex_Ok ;;
 
-		D) showDurations='true' ;;
+		D) showDurations='true' orderStrategy='none' ;;
 
 		I) showInformation='true' ;;
 
