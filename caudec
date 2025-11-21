@@ -21,7 +21,7 @@
 declare -r Self_Name='caudec'
 declare -r Self_Decode_Name='decaude'
 declare -r Self_Called_As="${0##*/}"
-declare -r Self_Version='4.1.5'
+declare -r Self_Version='4.2.0'
 
 # Ex_Usage: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # Ex_Data_Err: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -415,6 +415,7 @@ Touching file times (mutually exclusive from all other actions):
 Information:
 
   -h        display this help and exit
+  -D        display track & total durations
   -I        display channels, sample size and sampling rate
   -V        output version information and exit
 
@@ -508,9 +509,7 @@ getMachineParsableString () {
 			;;
 
 		success)
-			if [ "$statusInfo" = 'track_gain' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$gain" "$msg" "$file" )"
-			elif [ "$statusInfo" = 'album_gain' ]; then
+			if [ "$statusInfo" = 'track_gain' -o "$statusInfo" = 'album_gain' ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$gain" "$msg" "$file" )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$dateTime" "$msg" "$file" )"
@@ -522,6 +521,8 @@ getMachineParsableString () {
 				else
 					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashType" '' "$file" )"
 				fi
+			elif [ "$statusInfo" = 'duration' -o "$statusInfo" = 'album_duration' ]; then
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$duration" "$msg" "$file" )"
 			elif [ "$statusInfo" = 'characteristics' ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$characteristics" "$msg" "$file" )"
 			else
@@ -605,6 +606,10 @@ getHumanReadableString () {
 				else
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hashType" "$fileName" )"
 				fi
+			elif [ "$statusInfo" = 'duration' ]; then
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}TIME ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${duration}" "$fileName" )"
+			elif [ "$statusInfo" = 'album_duration' ]; then
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}→ ${Clr_Rst}%s ${Clr_Rst}%s${Clr_Rst}\n" "$duration" "Total duration" )"
 			elif [ "$statusInfo" = 'characteristics' ]; then
 				data="${characteristics}"
 				data="${data//;/|}"
@@ -653,6 +658,8 @@ getHumanReadableString () {
 				else
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 				fi
+			elif [ "$statusInfo" = 'duration' ]; then
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$duration" "$fileName" )"
 			elif [ "$statusInfo" = 'characteristics' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$characteristics" "$fileName" )"
 			elif [ -n "$pathOrFile" ]; then
@@ -719,7 +726,7 @@ printMessageToStdoutOrStderr () {
 printMessage () {
 	local msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo='' statusData=''
 	local file='' path='' fileDir='' msg='' p='' numberOfThreads='' hashError='' gain='' bitrate=''
-	local codec='' outputCodec='' str='' characteristics='' processingRate='' msgArg
+	local codec='' outputCodec='' str='' duration='' characteristics='' processingRate='' msgArg
 
 	for msgArg in "$@"; do
 		case "$msgArg" in
@@ -729,7 +736,7 @@ printMessage () {
 			verbose) msgVerbose='verbose' ;;
 			debug) msgDebug='debug' statusInfo='debugging' ;;
 			stderr) msgOut='stderr' ;;
-			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|touch_file|touch_files|characteristics) statusInfo="$msgArg" ;;
+			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|touch_file|touch_files|duration|album_duration|characteristics) statusInfo="$msgArg" ;;
 			unsupported|quota|bad_value|filesystem|command_line|internal) statusData="$msgArg" ;;
 			file:*) file="${msgArg#file:}"; fileDir="${file%/*}"; fileName="${file##*/}" ;;
 			path:*) path="${msgArg#path:}" ;;
@@ -744,6 +751,7 @@ printMessage () {
 			threads:[0-9]*) numberOfThreads="${msgArg#threads:}" ;;
 			dateTime:[0-9]*) dateTime="${msgArg#dateTime:}" ;;
 			albumTime:[0-9:]*) albumTime="${msgArg#albumTime:}" ;;
+			duration:*) duration="${msgArg#duration:}" ;;
 			characteristics:*) characteristics="${msgArg#characteristics:}" ;;
 			mediaType:*) msg="${msgArg#mediaType:}" ;;
 			no_hash|bad_internal_hash) hashError="$msgArg" ;;
@@ -1209,7 +1217,7 @@ checkInputFiles () {
 				esac
 			fi
 
-			if [ "$showInformation" = 'true' ]; then
+			if [ "$showInformation" = 'true' -o "$showDurations" = 'true' ]; then
 				case "$inputFile" in
 					*.flac|*.wv|*.ape|*.m4a|*.mp3|*.ogg|*.opus) addToSourceFiles='true' ;;
 					*)
@@ -1439,7 +1447,7 @@ checkBinaries () {
 				*.mp3) checkBinary 'ffmpeg' ;;
 			esac
 		done
-	elif [ "$showInformation" = 'true' ]; then
+	elif [ "$showDurations" = 'true' -o "$showInformation" = 'true' ]; then
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
 				*.flac) checkBinary 'metaflac' 'ffprobe' ;;
@@ -4325,6 +4333,61 @@ showInternalHashes () {
 	return $exitCode
 }
 
+showAlbumDuration () {
+	local msLeft=$1 hours=0 minutes=0 seconds=0 milliseconds=0 formated=''
+
+	while read milliseconds paddedFileIndex fileIndex; do
+		msLeft=$(( msLeft + milliseconds ))
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+
+	hours=$(( msLeft / 3600000 ))
+	msLeft=$(( msLeft - (hours * 3600000) ))
+	minutes=$(( msLeft / 60000 ))
+	msLeft=$(( msLeft - (minutes * 60000) ))
+	seconds=$(( msLeft / 1000 ))
+	milliseconds=$(( msLeft - (seconds * 1000) ))
+
+	formated="$( printf "%02i:%02i:%02i.%03i" $hours $minutes $seconds $milliseconds )"
+	msg="$( printf "%02ih %02im %02is %03ims" $hours $minutes $seconds $milliseconds )"
+
+	printMessage 'success' 'album_duration' "duration:${formated}" "Length: $msg"
+}
+
+showTrackDuration () {
+	local msLeft=$1 hours=0 minutes=0 seconds=0 milliseconds=0 formated='' msg=''
+
+	minutes=$(( msLeft / 60000 ))
+	msLeft=$(( msLeft - (minutes * 60000) ))
+	seconds=$(( msLeft / 1000 ))
+	milliseconds=$(( msLeft - (seconds * 1000) ))
+
+	formated="$( printf "%02i:%02i.%03i" $minutes $seconds $milliseconds )"
+	msg="$( printf "%02im %02is %03ims" $minutes $seconds $milliseconds )"
+
+	printMessage 'success' "duration" "duration:${formated}" "Length: $msg" "file:${sourceFile}" $processNumber
+}
+
+showTracksDurations () {
+	local exitCode=$Ex_Ok jobFile
+
+	while read milliseconds paddedFileIndex fileIndex; do
+		sourceFile="${sourceFiles[$fileIndex]}"
+		sourceFilename="$( basename "$sourceFile" )"
+		sourceExtension="${sourceFile##*.}"
+		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
+		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
+
+		if getLock "$jobFile"; then
+			showTrackDuration $milliseconds || exitCode=$Ex_Ko
+			touch "$wasProcessedFile"
+		fi
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+
+	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
+	return $exitCode
+}
+
+
 showTrackInformation () {
 	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples cddaSamples sectorSize=588 mediaType
 	local floatOrInt floatStr="" something rest bitrate=0 bytesLossy bytesLossless
@@ -4416,7 +4479,7 @@ showTrackInformation () {
 	esac
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth}${floatStr};${samplingRate};${bitrate}" "mediaType:${mediaType}" "file:${sourceFile}" $processNumber
+		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth};${samplingRate};${bitrate}" "mediaType:${mediaType}" "file:${sourceFile}" $processNumber
 	else
 		printMessage 'error' 'characteristics' "characteristics:0;00;00000;0" "mediaType:${mediaType}" "file:${sourceFile}" $processNumber
 	fi
@@ -5993,7 +6056,7 @@ bitDepth='' samplingRate='' preserveMetadata='' applyGain='false' applyGainType=
 computeReplayGain='false' reverseReplayGain='false'
 keepExistingFiles='false' keepNewerFiles='false' macHasVerify='false' outputMode='human'
 checkFiles='false' displayInternalHash='false' touchFiles='false' peakReference=0 allFilesAreOpus='true'
-setArtworkParam='false' copyFilesParam='false' showInformation='false'
+setArtworkParam='false' copyFilesParam='false' showInformation='false' showDurations='false'
 
 maxChannels='' maxBitDepth='' maxSamplingRate='' minimumSamplingRate=44100
 
@@ -6168,7 +6231,7 @@ if [ -n "$copyOtherFilesForLossyByDefault" ]; then
 	setCodecOtherFiles "lossy" "$copyOtherFilesForLossyByDefault"
 fi
 
-while getopts '2a:B:b:C:c:df:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
+while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 	case $o in
 # -----------------------------------------------------------------------------
 
@@ -6553,6 +6616,8 @@ while getopts '2a:B:b:C:c:df:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		h) printUsage; exit $Ex_Ok ;;
 
+		D) showDurations='true' orderStrategy='none' ;;
+
 		I) showInformation='true' ;;
 
 		V) echo "$Self_Name $Self_Version"; exit $Ex_Ok ;;
@@ -6581,7 +6646,9 @@ if [ "$outputCodecs" = 'WAV' -a "$applyGain" = 'true' ]; then
 fi
 
 # transcode, test, replaygain, touch, hash
-if [ -z "$outputCodecs" -a "$checkFiles" = 'false' -a "$computeReplayGain" = 'false' -a "$reverseReplayGain" = 'false' -a "$touchFiles" = 'false' -a "$displayInternalHash" = 'false' -a "$showInformation" = 'false' ]; then
+if [ -z "$outputCodecs" -a "$checkFiles" = 'false' -a "$computeReplayGain" = 'false' -a "$reverseReplayGain" = 'false' \
+	-a "$touchFiles" = 'false' -a "$displayInternalHash" = 'false' -a "$showDurations" = 'false' \
+	-a "$showInformation" = 'false' ]; then
 	printMessage 'error' 'usage' 'command_line' "$Self_Name: no action specified"
 	exit $Ex_Usage
 fi
@@ -6624,6 +6691,10 @@ if [ -n "$outputCodecs" ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -c/-d and -t are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
+	if [ "$showDurations" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -c/-d and -D are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
 	if [ "$showInformation" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -c/-d and -I are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
@@ -6642,6 +6713,10 @@ if [ "$checkFiles" = 'true' ]; then
 	fi
 	if [ "$displayInternalHash" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -t and -H are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$showDurations" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -t and -D are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
 	if [ "$showInformation" = 'true' ]; then
@@ -6664,6 +6739,10 @@ if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -g/-G and -H are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
+	if [ "$showDurations" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -g/-G and -D are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
 	if [ "$showInformation" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -g/-G and -I are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
@@ -6682,6 +6761,10 @@ if [ "$touchFiles" = 'true' ]; then
 	fi
 	if [ "$displayInternalHash" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -T and -H are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$showDurations" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -T and -D are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
 	if [ "$showInformation" = 'true' ]; then
@@ -6704,8 +6787,36 @@ if [ "$displayInternalHash" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -H and -T are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
+	if [ "$showDurations" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -H and -D are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
 	if [ "$showInformation" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -H and -I are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+fi
+
+# Show durations
+if [ "$showDurations" = 'true' ]; then
+	if [ "$checkFiles" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -D and -t are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -D and -g/-G are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$touchFiles" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -D and -T are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$displayInternalHash" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -D and -H are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$showInformation" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -D and -I are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
 fi
@@ -6726,6 +6837,10 @@ if [ "$showInformation" = 'true' ]; then
 	fi
 	if [ "$displayInternalHash" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -I and -H are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$showDurations" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -H and -D are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
 fi
@@ -6839,6 +6954,20 @@ elif [ "$displayInternalHash" = 'true' ]; then
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		showInternalHashes &
 	done
+elif [ "$showDurations" = 'true' ]; then
+	adjustNumberOfProcesses $numberOfSourceFiles
+	if [ "$gnudate" = 'true' ]; then
+		time1="$( $datecmd '+%s.%N' )"
+	else
+		time1="$( $datecmd '+%s' ).0"
+	fi
+	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
+		if [ "$outputMode" = 'machine' ]; then
+			showTracksDurations &
+		else
+			showTracksDurations
+		fi
+	done
 elif [ "$showInformation" = 'true' ]; then
 	adjustNumberOfProcesses $numberOfSourceFiles
 	if [ "$gnudate" = 'true' ]; then
@@ -6863,6 +6992,8 @@ if [ $exitCode -eq $Ex_Ok ]; then
 		fi
 	elif [ "$touchFiles" = 'true' ]; then
 		touchAllFiles || exitCode=$Ex_Ko
+	elif [ "$showDurations" = 'true' ]; then
+		showAlbumDuration || exitCode=$Ex_Ko
 	fi
 fi
 

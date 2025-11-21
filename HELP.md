@@ -1,5 +1,5 @@
 ```
-caudec 4.1.5: multiprocess audio converter
+caudec 4.2.0: multiprocess audio converter
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
@@ -181,6 +181,7 @@ Touching file times (mutually exclusive from all other actions):
 Information:
 
   -h        display this help and exit
+  -D        display track & total durations
   -I        display channels, sample size and sampling rate
   -V        output version information and exit
 
