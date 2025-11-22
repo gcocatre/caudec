@@ -524,6 +524,7 @@ getMachineParsableString () {
 			elif [ "$statusInfo" = 'duration' -o "$statusInfo" = 'album_duration' ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$duration" "$msg" "$file" )"
 			elif [ "$statusInfo" = 'characteristics' ]; then
+				characteristics="${characteristics// /}"
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$characteristics" "$msg" "$file" )"
 			else
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$file" )"
@@ -589,11 +590,11 @@ getHumanReadableString () {
 			if [ "$statusInfo" = 'track_gain' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%9s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$gain dB" "$fileName" )"
 			elif [ "$statusInfo" = 'album_gain' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}OK ${Clr_Rst}%9s ${Clr_Rst}%s\n" "$gain dB" 'Album gain' )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}OK ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst}\n" "$gain dB" 'Album gain' )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$dateTime" "$fileName" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}OK ${Clr_Rst}%10s ${Clr_Rst}%s\n" "$albumTime" "Album length" )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}OK ${Clr_Rst}%10s ${Clr_B_Bl}%s${Clr_Rst}\n" "$albumTime" "Album length" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$numberOfThreads" ]; then
 					if [ $numberOfThreads -lt 2 ]; then
@@ -609,7 +610,7 @@ getHumanReadableString () {
 			elif [ "$statusInfo" = 'duration' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}LENGTH ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${duration}" "$fileName" )"
 			elif [ "$statusInfo" = 'album_duration' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}ALL ${Clr_Rst}%s ${Clr_Rst}%s${Clr_Rst}\n" "$duration" "Total duration" )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}ALL ${Clr_Rst}%s ${Clr_B_Bl}%s${Clr_Rst}\n" "$duration" "Total duration" )"
 			elif [ "$statusInfo" = 'characteristics' ]; then
 				data="${characteristics}"
 				data="${data//;/|}"
@@ -4475,6 +4476,8 @@ showTrackInformation () {
 		[0-9]*) true ;;
 		"000"|*) bitrate=0 ;;
 	esac
+
+	bitrate="$( printf "%7i" "$bitrate" )"
 
 	if [ $exitCode -eq $Ex_Ok ]; then
 		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth};${samplingRate};${bitrate}" "mediaType:${mediaType}" "file:${sourceFile}" $processNumber
