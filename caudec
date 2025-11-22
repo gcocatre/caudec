@@ -6554,8 +6554,6 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		t) checkFiles='true' ;;
 
-		H) displayInternalHash='true' ;;
-
 # -----------------------------------------------------------------------------
 
 		g) computeReplayGain='true' ;;
@@ -6616,7 +6614,9 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		D) showDurations='true' orderStrategy='none' ;;
 
-		I) showInformation='true' ;;
+		H) displayInternalHash='true' orderStrategy='none' ;;
+
+		I) showInformation='true' orderStrategy='none' ;;
 
 		V) echo "$Self_Name $Self_Version"; exit $Ex_Ok ;;
 
@@ -6960,11 +6960,7 @@ elif [ "$showDurations" = 'true' ]; then
 		time1="$( $datecmd '+%s' ).0"
 	fi
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
-		if [ "$outputMode" = 'machine' ]; then
-			showTracksDurations &
-		else
-			showTracksDurations
-		fi
+		showTracksDurations &
 	done
 elif [ "$showInformation" = 'true' ]; then
 	adjustNumberOfProcesses $numberOfSourceFiles
