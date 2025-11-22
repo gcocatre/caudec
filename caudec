@@ -562,7 +562,7 @@ getMachineParsableString () {
 }
 
 getHumanReadableString () {
-	local data
+	local data hours msms
 
 	if [ -z "$numberOfThreads" ]; then
 		numberOfThreads=0
