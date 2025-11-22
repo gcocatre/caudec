@@ -610,16 +610,16 @@ getHumanReadableString () {
 			elif [ "$statusInfo" = 'duration' ]; then
 				hours="${duration%%:*}" msms="${duration#*:}"
 				if [ "$hours" = '00' ]; then
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}[→] ${Clr_B_Bk}%s:${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hours" "$msms" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}HMS ${Clr_B_Bk}%s:${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hours" "$msms" "$fileName" )"
 				else
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}[→] ${Clr_Rst}%s:%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hours" "$msms" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}HMS ${Clr_Rst}%s:%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hours" "$msms" "$fileName" )"
 				fi
 			elif [ "$statusInfo" = 'album_duration' ]; then
 				hours="${duration%%:*}" msms="${duration#*:}"
 				if [ "$hours" = '00' ]; then
-					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}[→] ${Clr_B_Bk}%s:${Clr_Rst}%s ${Clr_B_Bl}%s${Clr_Rst}\n" "$hours" "$msms" "Total duration" )"
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}HMS ${Clr_B_Bk}%s:${Clr_Rst}%s ${Clr_B_Bl}%s${Clr_Rst}\n" "$hours" "$msms" "Total duration" )"
 				else
-					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}[→] ${Clr_Rst}%s:%s ${Clr_B_Bl}%s${Clr_Rst}\n" "$hours" "$msms" "Total duration" )"
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}HMS ${Clr_Rst}%s:%s ${Clr_B_Bl}%s${Clr_Rst}\n" "$hours" "$msms" "Total duration" )"
 				fi
 			elif [ "$statusInfo" = 'characteristics' ]; then
 				data="${characteristics}"
