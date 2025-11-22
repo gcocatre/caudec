@@ -6554,7 +6554,7 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		t) checkFiles='true' ;;
 
-		H) displayInternalHash='true' ;;
+		H) displayInternalHash='true' orderStrategy='none' ;;
 
 # -----------------------------------------------------------------------------
 
@@ -6616,7 +6616,7 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		D) showDurations='true' orderStrategy='none' ;;
 
-		I) showInformation='true' ;;
+		I) showInformation='true' orderStrategy='none' ;;
 
 		V) echo "$Self_Name $Self_Version"; exit $Ex_Ok ;;
 
@@ -6950,7 +6950,11 @@ elif [ "$displayInternalHash" = 'true' ]; then
 		time1="$( $datecmd '+%s' ).0"
 	fi
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
-		showInternalHashes &
+		if [ "$outputMode" = 'machine' ]; then
+			showInternalHashes &
+		else
+			showInternalHashes
+		fi
 	done
 elif [ "$showDurations" = 'true' ]; then
 	adjustNumberOfProcesses $numberOfSourceFiles
@@ -6974,7 +6978,11 @@ elif [ "$showInformation" = 'true' ]; then
 		time1="$( $datecmd '+%s' ).0"
 	fi
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
-		showTracksInformation &
+		if [ "$outputMode" = 'machine' ]; then
+			showTracksInformation &
+		else
+			showTracksInformation
+		fi
 	done
 fi
 exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
