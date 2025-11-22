@@ -151,7 +151,6 @@ Decoding parameters (all mutually exlusive from each other and other actions):
 
   -d        decode to WAV (input: AIFF, ALAC, APE, CAF, FLAC, WavPack)
   -t        test file integrity
-  -H        show internal hash, if available
 
 -------------------------------------------------------------------------------
 
@@ -182,6 +181,7 @@ Information:
 
   -h        display this help and exit
   -D        display track & total durations
+  -H        show internal hash, if available
   -I        display channels, bit depth, sampling rate and bit rate
   -V        output version information and exit
 
