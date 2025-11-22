@@ -1028,10 +1028,10 @@ cleanAbort () {
 findInputFiles () {
 	local location="$1"
 
-	if [ "$gnufind" = 'true' ]; then
-		$findcmd "$location" -type f -regextype 'posix-egrep' -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
+	if [ "$OS" = 'Darwin' ]; then
+		find -s -E "$location" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
 	else
-		$findcmd -E "$location" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
+		find "$location" -type f -regextype 'posix-egrep' -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
 	fi
 }
 
@@ -6554,7 +6554,7 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		t) checkFiles='true' ;;
 
-		H) displayInternalHash='true' orderStrategy='none' ;;
+		H) displayInternalHash='true' ;;
 
 # -----------------------------------------------------------------------------
 
@@ -6616,7 +6616,7 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		D) showDurations='true' orderStrategy='none' ;;
 
-		I) showInformation='true' orderStrategy='none' ;;
+		I) showInformation='true' ;;
 
 		V) echo "$Self_Name $Self_Version"; exit $Ex_Ok ;;
 
@@ -6950,11 +6950,7 @@ elif [ "$displayInternalHash" = 'true' ]; then
 		time1="$( $datecmd '+%s' ).0"
 	fi
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
-		if [ "$outputMode" = 'machine' ]; then
-			showInternalHashes &
-		else
-			showInternalHashes
-		fi
+		showInternalHashes &
 	done
 elif [ "$showDurations" = 'true' ]; then
 	adjustNumberOfProcesses $numberOfSourceFiles
@@ -6978,11 +6974,7 @@ elif [ "$showInformation" = 'true' ]; then
 		time1="$( $datecmd '+%s' ).0"
 	fi
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
-		if [ "$outputMode" = 'machine' ]; then
-			showTracksInformation &
-		else
-			showTracksInformation
-		fi
+		showTracksInformation &
 	done
 fi
 exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
