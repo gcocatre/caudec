@@ -608,9 +608,19 @@ getHumanReadableString () {
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hashType" "$fileName" )"
 				fi
 			elif [ "$statusInfo" = 'duration' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}LENGTH ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${duration}" "$fileName" )"
+				hours="${duration%%:*}" msms="${duration#*:}"
+				if [ "$hours" = '00' ]; then
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}[→] ${Clr_B_Bk}%s:${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hours" "$msms" "$fileName" )"
+				else
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}[→] ${Clr_Rst}%s:%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hours" "$msms" "$fileName" )"
+				fi
 			elif [ "$statusInfo" = 'album_duration' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}ALL ${Clr_Rst}%s ${Clr_B_Bl}%s${Clr_Rst}\n" "$duration" "Total duration" )"
+				hours="${duration%%:*}" msms="${duration#*:}"
+				if [ "$hours" = '00' ]; then
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}[→] ${Clr_B_Bk}%s:${Clr_Rst}%s ${Clr_B_Bl}%s${Clr_Rst}\n" "$hours" "$msms" "Total duration" )"
+				else
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}[→] ${Clr_Rst}%s:%s ${Clr_B_Bl}%s${Clr_Rst}\n" "$hours" "$msms" "Total duration" )"
+				fi
 			elif [ "$statusInfo" = 'characteristics' ]; then
 				data="${characteristics}"
 				data="${data//;/|}"
@@ -4337,7 +4347,7 @@ showInternalHashes () {
 }
 
 showAlbumDuration () {
-	local msLeft=$1 hours=0 minutes=0 seconds=0 milliseconds=0 formated=''
+	local msLeft=$1 hours=0 minutes=0 seconds=0 milliseconds=0 paddedDuration msg
 
 	while read milliseconds paddedFileIndex fileIndex; do
 		msLeft=$(( msLeft + milliseconds ))
@@ -4350,24 +4360,26 @@ showAlbumDuration () {
 	seconds=$(( msLeft / 1000 ))
 	milliseconds=$(( msLeft - (seconds * 1000) ))
 
-	formated="$( printf "%02i:%02i:%02i.%03i" $hours $minutes $seconds $milliseconds )"
+	paddedDuration="$( printf "%02i:%02i:%02i.%03i" $hours $minutes $seconds $milliseconds )"
 	msg="$( printf "%02ih %02im %02is %03ims" $hours $minutes $seconds $milliseconds )"
 
-	printMessage 'success' 'album_duration' "duration:${formated}" "Length: $msg"
+	printMessage 'success' 'album_duration' "duration:${paddedDuration}" "Duration: $msg"
 }
 
 showTrackDuration () {
-	local msLeft=$1 hours=0 minutes=0 seconds=0 milliseconds=0 formated='' msg=''
+	local msLeft=$1 hours=0 minutes=0 seconds=0 milliseconds=0 paddedDuration msg
 
+	hours=$(( msLeft / 3600000 ))
+	msLeft=$(( msLeft - (hours * 3600000) ))
 	minutes=$(( msLeft / 60000 ))
 	msLeft=$(( msLeft - (minutes * 60000) ))
 	seconds=$(( msLeft / 1000 ))
 	milliseconds=$(( msLeft - (seconds * 1000) ))
 
-	formated="$( printf "%02i:%02i.%03i" $minutes $seconds $milliseconds )"
-	msg="$( printf "%02im %02is %03ims" $minutes $seconds $milliseconds )"
+	paddedDuration="$( printf "%02i:%02i:%02i.%03i" $hours $minutes $seconds $milliseconds )"
+	msg="$( printf "%02ih %02im %02is %03ims" $hours $minutes $seconds $milliseconds )"
 
-	printMessage 'success' "duration" "duration:${formated}" "Length: $msg" "file:${sourceFile}" $processNumber
+	printMessage 'success' "duration" "duration:${paddedDuration}" "Duration: $msg" "file:${sourceFile}" $processNumber
 }
 
 showTracksDurations () {
