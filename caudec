@@ -21,7 +21,7 @@
 declare -r Self_Name='caudec'
 declare -r Self_Decode_Name='decaude'
 declare -r Self_Called_As="${0##*/}"
-declare -r Self_Version='4.2.0'
+declare -r Self_Version='4.2.1'
 
 # Ex_Usage: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # Ex_Data_Err: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -3841,7 +3841,7 @@ encode () {
 				printMessage 'warning' 'encoding' "file:${sourceBasename}" $processNumber "${outputCodec}: source is already lossy"
 				exitCode=$Ex_Ko
 			fi
-			namedPipe="${Self_Control_Dir}/${paddedIndexFile}_lossyWAV_pipe.wav"
+			namedPipe="${Self_Control_Dir}/${paddedFileIndex}_lossyWAV_pipe.wav"
 			if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="ENCODING=$Self_Name $Self_Version / lossyWAV $lossywavVersion / -q $compression_lossyWAV"; fi
 			padding=$FLACPadding
 			if [ "$doEmbedUserCoverArt" = 'true' ]; then
@@ -3853,7 +3853,7 @@ encode () {
 			bitsPerSample="$( soxi -b "$wavFile" 2>/dev/null )"
 			mkfifo "$namedPipe"
 			if [ -n "$bitsPerSample" -a $bitsPerSample -lt 24 ]; then
-				sox "$wavFile" -b 24 -D -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent 1>/dev/null 2>> "$Self_Errors_File" > "$namedPipe" &
+				sox -D "$wavFile" -b 24 -t wav - 2>/dev/null | lossywav - -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent 1>/dev/null 2>> "$Self_Errors_File" > "$namedPipe" &
 			else
 				lossywav "$wavFile" -q $compression_lossyWAV -a 6 -s w -A --scale "$lossyWAV_scale" --stdout --silent 1>/dev/null 2>> "$Self_Errors_File" > "$namedPipe" &
 			fi
