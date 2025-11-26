@@ -1957,6 +1957,7 @@ vorbisCommentsToAPEv2 () {
 				fi
 				;;
 			tracktotal|totaltracks) continue ;;
+			version)               echo "Version=$value" ;;
 			*)                     echo "${field}=${value}" ;;
 		esac
 	done < "$sourceTagFile"
@@ -2233,6 +2234,7 @@ APEv2ToVorbisComments () {
 			subtitle)              echo "SUBTITLE=$value" ;;
 			title)                 echo "TITLE=$value" ;;
 			track)                 printf 'TRACKNUMBER=%g\n' "$( getTrackOrDiscNumber "$value" )" ;;
+			version)               echo "VERSION=$value" ;;
 			year|date)             echo "DATE=$value" ;;
 			*)                     echo "${field}=${value}" ;;
 		esac
