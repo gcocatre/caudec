@@ -1919,6 +1919,7 @@ vorbisCommentsToAPEv2 () {
 			conductor)             echo "Conductor=$value" ;;
 			copyright)             echo "Copyright=$value" ;;
 			crc32)                 echo "CRC32=$value" ;;
+			dr)                    echo "DR=$value" ;;
 			date|year)             echo "Year=$value" ;;
 			description|comment)   echo "Comment=$value" ;;
 			discnumber)
@@ -2210,6 +2211,7 @@ APEv2ToVorbisComments () {
 			conductor)             echo "CONDUCTOR=$value" ;;
 			copyright)             echo "COPYRIGHT=$value" ;;
 			crc32)                 echo "CRC32=$value" ;;
+			dr)                    echo "DR=$value" ;;
 			ean/upc)               echo "EAN/UPC=$value" ;;
 			encoder|encoding)      continue ;;
 			genre)                 echo "GENRE=$value" ;;
