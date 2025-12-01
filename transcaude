@@ -19,7 +19,7 @@
 # Global variables =============================================================
 
 declare -r Self_Name='transcaude'
-declare -r Self_Version='4.2.2'
+declare -r Self_Version='4.3.0'
 
 # Ex_Usage: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # Ex_Data_Err: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -136,6 +136,8 @@ Global parameters:
 
   -R        do not compute ReplayGain to lossless targets (useful if you know
             that your lossless source already has ReplayGain data)
+  -T        do not touch files and directorties modification times
+
   -s        be silent, only print to STDOUT what directory is being transcoded,
             and errors to STDERR
 
@@ -413,8 +415,9 @@ computeLosslessReplayGain='true'
 for arg in "$@"; do
   case "$arg" in
     '-h') printUsage ; cleanExit $Ex_Ok ;;
-    '-R') computeLosslessReplayGain='false' ; shift 1 ;;
     '-s') Self_Verbose='false' ; shift 1 ;;
+    '-R') computeLosslessReplayGain='false' ; shift 1 ;;
+    '-T') transcaudeTouchFiles='false' ; shift 1 ;;
     '-V') echo "$Self_Name $Self_Version" ; cleanExit $Ex_Ok ;;
     '-z'|'-Z') echo "$Self_Name: error: don't specify either -z or -Z." 1>&2; cleanExit $Ex_Usage ;;
   esac
