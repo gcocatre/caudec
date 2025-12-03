@@ -102,7 +102,7 @@ $ cd ~/Music/FLAC
 transcaude -c vorbis -q 6 -P ~/Music/OggVorbis -f folder.jpg "Artist/Album"/*.flac
 ```
 
-`transcaude` is a small utility that uses `caudec` to transcode an album, then compute ReplayGain and touch files (when the output format is compatible). It does all 3 caudec commands in the previous example, in one fell swoop. In order to prevent `transcaude` from touching files, use `-M` or set `transcaudeTouchFiles="false"` in `~/.caudecrc`. You may also tell it to only compute ReplayGain values from lossless to lossy with the `-R` parameter.
+`transcaude` is a small utility that uses `caudec` to transcode an album (or several albums, or an entire collection), then compute ReplayGain and touch files (when the output format is compatible). It does all 3 caudec commands in the previous example, in one fell swoop. In order to prevent `transcaude` from touching files, use `-M` or set `transcaudeTouchFiles='false'` in `~/.caudecrc`. You may also tell it to not compute ReplayGain values from lossless to lossless with the `-R` parameter, or set `computeLosslessReplayGain='false'` in `~/.caudecrc` (useful when you know that the source already has ReplayGain data).
 
 Since it invokes `caudec`, multiple codecs may be specified at once:
 

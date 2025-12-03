@@ -90,7 +90,10 @@ if [ -r "${HOME}/.caudecrc" ]; then
 fi
 
 if [ "$transcaudeTouchFiles" != 'false' ]; then
-  transcaudeTouchFiles="true"
+  transcaudeTouchFiles='true'
+fi
+if [ "$computeLosslessReplayGain" != 'false' ]; then
+  computeLosslessReplayGain='true'
 fi
 
 datecmd='date' gnudate='true'

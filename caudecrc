@@ -37,6 +37,8 @@ ID3Padding=512 # size in bytes of padding to add to ID3v2 tags
 
 # When using transcaude, give files a timestamp that matches the music's release date and duration times
 transcaudeTouchFiles='true'
+# When using transcaude, compute ReplayGain on lossless files even if the lossless source already has ReplayGain data
+computeLosslessReplayGain='true'
 
 # Default destination is the current directory. This can be overridden by the following destinations variables:
 
