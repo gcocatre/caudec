@@ -142,7 +142,7 @@ Disable additional actions:
 
   -R        do not compute ReplayGain to lossless targets (useful if you know
             that your lossless source already has ReplayGain data)
-  -M        do not touch files and directories modification times
+  -M        do not touch target files and directories modification times
 
 -------------------------------------------------------------------------------
 
