@@ -121,7 +121,7 @@ printUsage () {
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
-Usage: $Self_Name [ GLOBAL PARAMS ] [ CAUDEC PARAMS ] DIR(S)
+Usage: $Self_Name [ PARAMS ] [ CAUDEC PARAMS ] DIR(S)
 Mass transcode albums using caudec, while optionally computing ReplayGain,
 and touching the resulting directories to reflect their date of release, and
 track durations. A single directory, or multiple directories, must be passed as
@@ -133,13 +133,16 @@ Global parameters:
 
   -h        display this help and exit
   -V        output version information and exit
+  -s        be silent, only print to STDOUT what directory is being transcoded,
+            and errors to STDERR
+
+-------------------------------------------------------------------------------
+
+Disable additional actions:
 
   -R        do not compute ReplayGain to lossless targets (useful if you know
             that your lossless source already has ReplayGain data)
-  -T        do not touch files and directorties modification times
-
-  -s        be silent, only print to STDOUT what directory is being transcoded,
-            and errors to STDERR
+  -M        do not touch files and directories modification times
 
 -------------------------------------------------------------------------------
 
@@ -415,9 +418,9 @@ computeLosslessReplayGain='true'
 for arg in "$@"; do
   case "$arg" in
     '-h') printUsage ; cleanExit $Ex_Ok ;;
-    '-s') Self_Verbose='false' ; shift 1 ;;
+    '-M') transcaudeTouchFiles='false' ; shift 1 ;;
     '-R') computeLosslessReplayGain='false' ; shift 1 ;;
-    '-T') transcaudeTouchFiles='false' ; shift 1 ;;
+    '-s') Self_Verbose='false' ; shift 1 ;;
     '-V') echo "$Self_Name $Self_Version" ; cleanExit $Ex_Ok ;;
     '-z'|'-Z') echo "$Self_Name: error: don't specify either -z or -Z." 1>&2; cleanExit $Ex_Usage ;;
   esac
