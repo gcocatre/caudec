@@ -5119,7 +5119,7 @@ reverseOpusTrackGains () {
 }
 
 reverseTrackGain () {
-	local exitCode=$Ex_Ok mp3GainExitCode1=$Ex_Ok mp3GainExitCode2=$Ex_Ok
+	local exitCode=$Ex_Ok mp3GainExitCode1=$Ex_Ok mp3GainExitCode2=$Ex_Ok mp3GainExitCode3=$Ex_Ok
 
 	if [ -e "$sourceFile" ]; then
 		case "$sourceFile" in
@@ -5167,7 +5167,8 @@ reverseTrackGain () {
 				;;
 
 			*.mp3)
-				mp3gain -s d "$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || mp3GainExitCode1=$Ex_Ko
+				mp3gain -u "$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || mp3GainExitCode1=$Ex_Ko
+				mp3gain -s d "$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || mp3GainExitCode2=$Ex_Ko
 
 				eyeD3 --quiet --to-v2.4 \
 					--user-text-frame="AUDIO_TRACK_PEAK" \
@@ -5178,11 +5179,9 @@ reverseTrackGain () {
 					--user-text-frame="REPLAYGAIN_ALBUM_GAIN" \
 					--user-text-frame="REPLAYGAIN_VERSION" \
 					--user-text-frame="REPLAYGAIN_REFERENCE_LEVEL" \
-					"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || mp3GainExitCode2=$Ex_Ko
+					"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || mp3GainExitCode3=$Ex_Ko
 
-				mp3gain -u "$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || mp3GainExitCode2=$Ex_Ko
-
-				if [ $mp3GainExitCode1 -ne $Ex_Ok -a $mp3GainExitCode2 -ne $Ex_Ok ]; then
+				if [ $mp3GainExitCode1 -ne $Ex_Ok -a $mp3GainExitCode2 -ne $Ex_Ok -a $mp3GainExitCode3 -ne $Ex_Ok ]; then
 					exitCode=$Ex_Ko
 				fi
 				;;
