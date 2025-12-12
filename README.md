@@ -235,9 +235,8 @@ caudec uses common UNIX tools (bc, cut, date/gdate, find, grep, head, mktemp, ps
 
 #### ReplayGain
 
-* Monkey's Audio (rsgain): https://github.com/complexlogic/rsgain
+* FLAC, WavPack, Monkey's Audio, Ogg Vorbis (rsgain): https://github.com/complexlogic/rsgain
 * MP3 (mp3gain): https://mp3gain.sourceforge.net/
-* Ogg Vorbis (vorbisgain): http://sjeng.org/vorbisgain.html
 * Opus (opusgain): https://github.com/FrancisRussell/zoog
 
 #### Miscellaneous
