@@ -99,7 +99,7 @@ declare -r WavPack_Max_Threads=12
 declare -r Internal_APEv2_CoverPicNumber=99
 
 # https://wiki.hydrogenaudio.org/index.php?title=ReplayGain
-declare -r REPLAYGAIN_REFERENCE_LOUDNESS='-18' # LUFS
+declare -r REPLAYGAIN_REFERENCE_LOUDNESS='-18.00' # LUFS
 
 # https://www.itu.int/rec/r-rec-bs.1770/
 declare -r REPLAYGAIN_ALGORITHM='ITU-R BS.1770'
@@ -4718,7 +4718,7 @@ saveGain () {
 		*.wv|*.ape)
 			if [ "$gainType" = 'ALBUM' ]; then
 				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
-					schag \
+					schag -z \
 						-r "AUDIO_ALBUM_PEAK" \
 						-r "REPLAYGAIN_ALBUM_PEAK" \
 						-r "REPLAYGAIN_ALBUM_GAIN" \
@@ -4733,7 +4733,7 @@ saveGain () {
 						-t "REPLAYGAIN_REFERENCE_LOUDNESS=${REPLAYGAIN_REFERENCE_LOUDNESS} LUFS" \
 						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
-					schag \
+					schag -z \
 						-r "AUDIO_ALBUM_PEAK" \
 						-r "REPLAYGAIN_ALBUM_PEAK" \
 						-r "REPLAYGAIN_ALBUM_GAIN" \
@@ -4749,7 +4749,7 @@ saveGain () {
 				fi
 			else # track gain
 				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
-					schag \
+					schag -z \
 						-r "AUDIO_TRACK_PEAK" \
 						-r "REPLAYGAIN_TRACK_PEAK" \
 						-r "REPLAYGAIN_TRACK_GAIN" \
@@ -4764,7 +4764,7 @@ saveGain () {
 						-t "REPLAYGAIN_REFERENCE_LOUDNESS=${REPLAYGAIN_REFERENCE_LOUDNESS} LUFS" \
 						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
-					schag \
+					schag -z \
 						-r "AUDIO_TRACK_PEAK" \
 						-r "REPLAYGAIN_TRACK_PEAK" \
 						-r "REPLAYGAIN_TRACK_GAIN" \
