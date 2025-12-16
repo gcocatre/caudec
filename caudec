@@ -1076,9 +1076,9 @@ getInputFiles () {
 					if [ -e "$file" ]; then
 						inputFiles[$fileIndex]="$file"
 						fileExtension="${fileOrDir##*.}"
-						if [ "$fileExtension" != "opus" ]; then
-							allFilesAreOpus='false'
-						fi
+						case "$fileExtension" in
+							flac|wv|wvc|ape|mp3|ogg) allFilesAreOpus='false' ;;
+						esac
 						if [ "$fileExtension" = "wvc" ]; then
 							continue
 						fi
@@ -1101,9 +1101,9 @@ getInputFiles () {
 			fi
 		else
 			fileExtension="${fileOrDir##*.}"
-			if [ "$fileExtension" != "opus" ]; then
-				allFilesAreOpus='false'
-			fi
+			case "$fileExtension" in
+				flac|wv|wvc|ape|mp3|ogg) allFilesAreOpus='false' ;;
+			esac
 			if [ "$fileExtension" = "wvc" ]; then
 				continue
 			fi
@@ -5063,7 +5063,7 @@ computeOpusAlbumGain () {
 			if [ "${signedTrackGain:0:1}" != '-' -a "${signedTrackGain:0:1}" != '+' ]; then
 				signedTrackGain="+${signedTrackGain}"
 			fi
-			printMessage 'success' 'track_gain' 0 "$signedTrackGain dB" "file:${sourceFile}"
+			printMessage 'success' 'track_gain' $processNumber "$signedTrackGain dB" "Track gain: $signedTrackGain dB" "file:${sourceFile}"
 		done
 		signedAlbumGain="$albumPlaybackGain"
 		if [ "${signedAlbumGain:0:1}" != '-' -a "${signedAlbumGain:0:1}" != '+' ]; then
@@ -7008,9 +7008,11 @@ elif [ "$computeReplayGain" = 'true' ]; then
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
-		computeTrackGains &
-	done
+	if [ "$allFilesAreOpus" != 'true' ]; then
+		for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
+			computeTrackGains &
+		done
+	fi
 elif [ "$reverseReplayGain" = 'true' ]; then
 	adjustNumberOfProcesses $numberOfSourceFiles
 	if [ "$gnudate" = 'true' ]; then
@@ -7071,6 +7073,7 @@ exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$E
 if [ $exitCode -eq $Ex_Ok ]; then
 	if [ "$computeReplayGain" = 'true' ]; then
 		if [ "$allFilesAreOpus" = 'true' ]; then
+			processNumber=0
 			computeOpusAlbumGain || exitCode=$Ex_Ko
 		else
 			if [ "$applyGain" = 'false' -o "$applyGainType" = 'ALBUM' ]; then
