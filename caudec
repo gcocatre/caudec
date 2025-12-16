@@ -7021,6 +7021,7 @@ elif [ "$reverseReplayGain" = 'true' ]; then
 		time1="$( $datecmd '+%s' ).0"
 	fi
 	if [ "$allFilesAreOpus" = 'true' ]; then
+		processNumber=0
 		reverseOpusTrackGains || exitCode=$Ex_Ko
 	else
 		for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
