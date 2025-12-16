@@ -1075,7 +1075,7 @@ getInputFiles () {
 				while IFS= read -d $'\0' -r file ; do
 					if [ -e "$file" ]; then
 						inputFiles[$fileIndex]="$file"
-						fileExtension="${fileOrDir##*.}"
+						fileExtension="${file##*.}"
 						case "$fileExtension" in
 							flac|wv|wvc|ape|mp3|ogg) allFilesAreOpus='false' ;;
 						esac
