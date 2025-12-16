@@ -156,10 +156,10 @@ Decoding parameters (all mutually exlusive from each other and other actions):
 
 ReplayGain parameters (mutually exclusive from all other actions):
 
-  -g        generate ReplayGain metadata
+  -g        generate ReplayGain metadata, using the new ITU-R BS.1770 algorithm
 
   -G ARG    MP3: apply ReplayGain ('album' or 'track') using MP3's gain header.
-            It is the standard way for MP3 and is reversible.
+            This uses the original ReplayGain algorithm.
 
   -G undo   MP3: reverse ReplayGain using MP3's gain header.
             Other codecs: remove ReplayGain metadata.
