@@ -4850,56 +4850,55 @@ grepReplayGainTags () {
 
 computeTrackGain () {
 	local exitCode=$Ex_Ok line nLines=0 decimals trackGain trackPeak albumGain destTagFile clippingPreventionParam=""
-	local nThreads line
+	local nThreads fileExtension line rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment
 
 	if [ -e "$sourceFile" ]; then
 		shopt -qs nocasematch
+		fileExtension="${sourceFile##*.}"
 		case "$sourceFile" in
-			*.flac|*.wv|*.ape|*.ogg)
-				rsgain custom -q -s i -l "$REPLAYGAIN_REFERENCE_LOUDNESS" "$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-				if [ $exitCode -eq $Ex_Ok ]; then
-					while read line; do
-						case "$line" in
-							replaygain_track_gain=*) trackGain="$( echo "$line" | cut -d '=' -f 2 | cut -d ' ' -f 1 | tr -d '+' )" ;;
-							replaygain_track_peak=*) trackPeak="$( echo "$line" | cut -d '=' -f 2 )" ;;
-						esac
-					done < <( grepReplayGainTags "$sourceFile" )
-				fi
-				if [ -n "$trackGain" -a -n "$trackPeak" ]; then
-					echo "$trackGain" > "$trackGainFile"
-					echo "$trackPeak" > "$trackPeakFile"
-				else
-					exitCode=$Ex_Ko
-				fi
-				;;
-
-			*.opus) break ;;
-
-			*.mp3)
-				# FIXME
-				mp3gain -u "$sourceFile" 1>/dev/null 2>/dev/null
-				mp3gain -s d "$sourceFile" 1>/dev/null 2>/dev/null
-				if [ "$preventClipping" = 'true' ]; then
-					clippingPreventionParam="-k"
-				fi
-				line="$( mp3gain -e $clippingPreventionParam -o -T -q "$sourceFile" 2>> "$Self_Errors_File" | grep -Fv 'MP3 gain' | tr '\t' '|' | tr -d '+' | cut -d '|' -f 3-4 )" ; exitCode=$?
-				if [ $exitCode -eq $Ex_Ok -a -n "$line" ]; then
-					trackGain="${line%|*}"
-					decimals="${trackGain#*.}"
-					trackGain="${trackGain%.*}.${decimals:0:2}"
-					trackPeak="${line#*|}"; trackPeak="${trackPeak%.*}"
-					trackPeak="$( echo "scale=8; $trackPeak / 32767" | bc )"
-					if [ "${trackPeak:0:1}" = '.' ]; then
-						trackPeak="0${trackPeak}"
+			*.flac|*.wv|*.ape|*.ogg|*.mp3)
+				if [ "$fileExtension" = 'mp3' ]; then
+					mp3gain -u "$sourceFile" 1>/dev/null 2>/dev/null
+					mp3gain -s d "$sourceFile" 1>/dev/null 2>/dev/null
+					if [ "$applyGain" = 'true' ]; then
+						if [ "$preventClipping" = 'true' ]; then
+							clippingPreventionParam="-k"
+						fi
+						line="$( mp3gain -e $clippingPreventionParam -o -T -q "$sourceFile" 2>> "$Self_Errors_File" | grep -Fv 'MP3 gain' | tr '\t' '|' | tr -d '+' | cut -d '|' -f 3-4 )" ; exitCode=$?
+						if [ $exitCode -eq $Ex_Ok -a -n "$line" ]; then
+							trackGain="${line%|*}"
+							decimals="${trackGain#*.}"
+							trackGain="${trackGain%.*}.${decimals:0:2}"
+							trackPeak="${line#*|}"; trackPeak="${trackPeak%.*}"
+							trackPeak="$( echo "scale=8; $trackPeak / 32767" | bc )"
+							if [ "${trackPeak:0:1}" = '.' ]; then
+								trackPeak="0${trackPeak}"
+							fi
+							if [ -n "$trackGain" -a -n "$trackPeak" ]; then
+								echo "$trackGain" > "$trackGainFile"
+								echo "$trackPeak" > "$trackPeakFile"
+							else
+								exitCode=$Ex_Ko
+							fi
+						else
+							exitCode=$Ex_Ko
+						fi
 					fi
+				fi
+
+				if [ "$fileExtension" != 'mp3' -o "$applyGain" != 'true' ]; then
+					OIFS="$IFS"
+					IFS="$( echo -en "\t" )"
+					read rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment < <( rsgain custom -q -O -s i -l "$REPLAYGAIN_REFERENCE_LOUDNESS" "$sourceFile" 2>> "$Self_Errors_File" | grep -vF 'Loudness (LUFS)' )
+					IFS="$OIFS"
+					trackGain="${rsGain#+*}"
+					trackPeak="$rsPeak"
 					if [ -n "$trackGain" -a -n "$trackPeak" ]; then
 						echo "$trackGain" > "$trackGainFile"
 						echo "$trackPeak" > "$trackPeakFile"
 					else
 						exitCode=$Ex_Ko
 					fi
-				else
-					exitCode=$Ex_Ko
 				fi
 				;;
 
