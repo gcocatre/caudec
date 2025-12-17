@@ -4889,7 +4889,7 @@ computeTrackGain () {
 				if [ "$fileExtension" != 'mp3' -o "$applyGain" != 'true' ]; then
 					OIFS="$IFS"
 					IFS="$( echo -en "\t" )"
-					read rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment < <( rsgain custom -q -O -s i -l "$REPLAYGAIN_REFERENCE_LOUDNESS" "$sourceFile" 2>> "$Self_Errors_File" | grep -vF 'Loudness (LUFS)' )
+					read rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment < <( rsgain custom -q -O -t -s i -l "$REPLAYGAIN_REFERENCE_LOUDNESS" "$sourceFile" 2>> "$Self_Errors_File" | grep -vF 'Loudness (LUFS)' )
 					IFS="$OIFS"
 					trackGain="${rsGain#+*}"
 					trackPeak="$rsPeak"
