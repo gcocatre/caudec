@@ -4859,7 +4859,7 @@ getFileMilliseconds () {
 computeTrackDR () {
 	local file="$1" drValue=0
 
-	printf "%.6f" "$( ffmpeg -hide_banner -i "$file" -af drmeter -f wav -y /dev/null 2>&1 | grep -F "Overall DR:" | cut -d ':' -f 2 | tr -cd '[0-9.]' )"
+	printf "%.6f" "$( ffmpeg -hide_banner -i "$file" -af drmeter -f wav -y /dev/null 2>&1 | grep -F "Overall DR:" | cut -d ':' -f 2 | tr -cd '[0-9.]' )" 2>/dev/null
 }
 
 computeGainFromPeak () {
@@ -4941,6 +4941,9 @@ computeTrackGain () {
 
 	if [ $exitCode -eq $Ex_Ok -a "$computeAudioCharacteristics" = 'true' ]; then
 		audioTrackDR="$( computeTrackDR "$sourceFile" )"
+		if [ -z "$audioTrackDR" ]; then
+			audioTrackDR=0
+		fi
 		echo "$audioTrackDR" > "$trackDrFile"
 		DR="$( printf "%.0f" "$audioTrackDR" )"
 	fi
