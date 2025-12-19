@@ -84,8 +84,9 @@ orderStrategy='none'
 # Automatically downsample if needed. Format: 'channels/bits per sample/sampling rate' (see caudec -h)
 resamplingProfile=''
 
+# https://dr.loudness-war.info/faq
+computeAudioCharacteristics='false' # when computing ReplayGain, also include audio peaks in dBFS, and dynamic range (DR)
 preventClipping='true' # reduce volume to prevent clipping, when resampling or applying gain
-computeAudioCharacteristics='false' # when computing ReplayGain, also include audio peaks in dBFS, and dynamic range
 
 setCompilationFlagWithAlbumArtist='false' # always true when ALBUMARTIST="Various Artists" regardless of this setting
 keepWavMetadata='false' # set to true to keep WAV metadata with FLAC and WavPack
