@@ -21,7 +21,7 @@
 declare -r Self_Name='caudec'
 declare -r Self_Decode_Name='decaude'
 declare -r Self_Called_As="${0##*/}"
-declare -r Self_Version='4.4.1'
+declare -r Self_Version='4.5.0'
 
 # Ex_Usage: The command was used incorrectly, e.g., with the wrong number of arguments, a bad flag, a bad syntax in a parameter, or whatever.
 # Ex_Data_Err: The input data was incorrect in some way. This should only be used for user's data & not system files.
@@ -171,7 +171,7 @@ if [ "$transferInternalBinaries" = 'false' ]; then transferInternalBinaries='fal
 if [ "$preventClipping" = 'false' ]; then preventClipping='false'; else preventClipping='true'; fi
 
 # false by default
-if [ "$computeAudioPeaks" = 'true' ]; then computeAudioPeaks='true'; else computeAudioPeaks='false'; fi
+if [ "$computeAudioCharacteristics" = 'true' -o "$computeAudioPeaks" = 'true' ]; then computeAudioCharacteristics='true'; else computeAudioCharacteristics='false'; fi
 if [ "$ignoreUnsupportedFiles" = 'true' ]; then ignoreUnsupportedFiles='true'; else ignoreUnsupportedFiles='false'; fi
 if [ "$keepWavMetadata" = 'true' ]; then keepWavMetadata='true'; else keepWavMetadata='false'; fi
 if [ "$setCompilationFlagWithAlbumArtist" = 'true' ]; then setCompilationFlagWithAlbumArtist='true'; else setCompilationFlagWithAlbumArtist='false'; fi
@@ -1424,6 +1424,9 @@ checkBinaries () {
 	done
 
 	if [ "$computeReplayGain" = 'true' ]; then
+		if [ "$computeAudioCharacteristics" = 'true' ]; then
+			checkBinary 'ffmpeg'
+		fi
 		for sourceFile in "${sourceFiles[@]}" ; do
 			case "$sourceFile" in
 				*.flac) checkBinary 'rsgain' ;;
@@ -4528,13 +4531,15 @@ showTracksInformation () {
 saveReplaygainToMP3 () {
 	local exitCode=$Ex_Ok
 
-	if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
+	if [ "$computeAudioCharacteristics" = 'true' -a -n "$peakDbfs" -a -n "$DR" ]; then
 		eyeD3 --quiet --to-v2.4 \
+			--user-text-frame="AUDIO_${gainType}_DR" \
 			--user-text-frame="AUDIO_${gainType}_PEAK" \
 			--user-text-frame="REPLAYGAIN_${gainType}_PEAK" \
 			--user-text-frame="REPLAYGAIN_${gainType}_GAIN" \
 			--user-text-frame="REPLAYGAIN_ALGORITHM" \
 			--user-text-frame="REPLAYGAIN_REFERENCE_LEVEL" \
+			--user-text-frame="AUDIO_${gainType}_DR:${DR}" \
 			--user-text-frame="AUDIO_${gainType}_PEAK:${peakDbfs} dBFS" \
 			--user-text-frame="REPLAYGAIN_${gainType}_PEAK:${peak}" \
 			--user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
@@ -4543,6 +4548,7 @@ saveReplaygainToMP3 () {
 			"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	else
 		eyeD3 --quiet --to-v2.4 \
+			--user-text-frame="AUDIO_${gainType}_DR" \
 			--user-text-frame="AUDIO_${gainType}_PEAK" \
 			--user-text-frame="REPLAYGAIN_${gainType}_PEAK" \
 			--user-text-frame="REPLAYGAIN_${gainType}_GAIN" \
@@ -4571,7 +4577,7 @@ saveGain () {
 		gain="+${gain}"
 	fi
 
-	if [ "$computeAudioPeaks" = 'true' ]; then
+	if [ "$computeAudioCharacteristics" = 'true' ]; then
 		peakDbfs="$( computeGainFromPeak "$peak" )"
 		if [ -n "$peakDbfs" ]; then
 			if [ "$peakDbfs" = "-0.00" ]; then
@@ -4585,8 +4591,9 @@ saveGain () {
 	case "$destFile" in
 		*.flac)
 			if [ "$gainType" = 'ALBUM' ]; then
-				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
+				if [ "$computeAudioCharacteristics" = 'true' -a -n "$peakDbfs" -a -n "$DR" ]; then
 					metaflac \
+						--remove-tag="AUDIO_ALBUM_DR" \
 						--remove-tag="AUDIO_ALBUM_PEAK" \
 						--remove-tag="REPLAYGAIN_ALBUM_PEAK" \
 						--remove-tag="REPLAYGAIN_ALBUM_GAIN" \
@@ -4594,6 +4601,7 @@ saveGain () {
 						--remove-tag="REPLAYGAIN_ALGORITHM" \
 						--remove-tag="REPLAYGAIN_REFERENCE_LEVEL" \
 						--remove-tag="REPLAYGAIN_REFERENCE_LOUDNESS" \
+						--set-tag="AUDIO_ALBUM_DR=${DR}" \
 						--set-tag="AUDIO_ALBUM_PEAK=${peakDbfs} dBFS" \
 						--set-tag="REPLAYGAIN_ALBUM_PEAK=${peak}" \
 						--set-tag="REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
@@ -4602,6 +4610,7 @@ saveGain () {
 						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					metaflac \
+						--remove-tag="AUDIO_ALBUM_DR" \
 						--remove-tag="AUDIO_ALBUM_PEAK" \
 						--remove-tag="REPLAYGAIN_ALBUM_PEAK" \
 						--remove-tag="REPLAYGAIN_ALBUM_GAIN" \
@@ -4616,8 +4625,9 @@ saveGain () {
 						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			else # track gain
-				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
+				if [ "$computeAudioCharacteristics" = 'true' -a -n "$peakDbfs" -a -n "$DR" ]; then
 					metaflac \
+						--remove-tag="AUDIO_TRACK_DR" \
 						--remove-tag="AUDIO_TRACK_PEAK" \
 						--remove-tag="REPLAYGAIN_TRACK_PEAK" \
 						--remove-tag="REPLAYGAIN_TRACK_GAIN" \
@@ -4625,6 +4635,7 @@ saveGain () {
 						--remove-tag="REPLAYGAIN_ALGORITHM" \
 						--remove-tag="REPLAYGAIN_REFERENCE_LEVEL" \
 						--remove-tag="REPLAYGAIN_REFERENCE_LOUDNESS" \
+						--set-tag="AUDIO_TRACK_DR=${DR}" \
 						--set-tag="AUDIO_TRACK_PEAK=${peakDbfs} dBFS" \
 						--set-tag="REPLAYGAIN_TRACK_PEAK=${peak}" \
 						--set-tag="REPLAYGAIN_TRACK_GAIN=${gain} dB" \
@@ -4651,8 +4662,9 @@ saveGain () {
 
 		*.ogg)
 			if [ "$gainType" = 'ALBUM' ]; then
-				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
+				if [ "$computeAudioCharacteristics" = 'true' -a -n "$peakDbfs" -a -n "$DR" ]; then
 					vorbiscomment -a \
+						-d "AUDIO_ALBUM_DR" \
 						-d "AUDIO_ALBUM_PEAK" \
 						-d "REPLAYGAIN_ALBUM_PEAK" \
 						-d "REPLAYGAIN_ALBUM_GAIN" \
@@ -4660,6 +4672,7 @@ saveGain () {
 						-d "REPLAYGAIN_ALGORITHM" \
 						-d "REPLAYGAIN_REFERENCE_LEVEL" \
 						-d "REPLAYGAIN_REFERENCE_LOUDNESS" \
+						-t "AUDIO_ALBUM_DR=${DR}" \
 						-t "AUDIO_ALBUM_PEAK=${peakDbfs} dBFS" \
 						-t "REPLAYGAIN_ALBUM_PEAK=${peak}" \
 						-t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
@@ -4668,6 +4681,7 @@ saveGain () {
 						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					vorbiscomment -a \
+						-d "AUDIO_ALBUM_DR" \
 						-d "AUDIO_ALBUM_PEAK" \
 						-d "REPLAYGAIN_ALBUM_PEAK" \
 						-d "REPLAYGAIN_ALBUM_GAIN" \
@@ -4682,8 +4696,9 @@ saveGain () {
 						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			else # track gain
-				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
+				if [ "$computeAudioCharacteristics" = 'true' -a -n "$peakDbfs" -a -n "$DR" ]; then
 					vorbiscomment -a \
+						-d "AUDIO_TRACK_DR" \
 						-d "AUDIO_TRACK_PEAK" \
 						-d "REPLAYGAIN_TRACK_PEAK" \
 						-d "REPLAYGAIN_TRACK_GAIN" \
@@ -4691,6 +4706,7 @@ saveGain () {
 						-d "REPLAYGAIN_ALGORITHM" \
 						-d "REPLAYGAIN_REFERENCE_LEVEL" \
 						-d "REPLAYGAIN_REFERENCE_LOUDNESS" \
+						-t "AUDIO_TRACK_DR=${DR}" \
 						-t "AUDIO_TRACK_PEAK=${peakDbfs} dBFS" \
 						-t "REPLAYGAIN_TRACK_PEAK=${peak}" \
 						-t "REPLAYGAIN_TRACK_GAIN=${gain} dB" \
@@ -4699,6 +4715,7 @@ saveGain () {
 						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					vorbiscomment -a \
+						-d "AUDIO_TRACK_DR" \
 						-d "AUDIO_TRACK_PEAK" \
 						-d "REPLAYGAIN_TRACK_PEAK" \
 						-d "REPLAYGAIN_TRACK_GAIN" \
@@ -4717,8 +4734,9 @@ saveGain () {
 
 		*.wv|*.ape)
 			if [ "$gainType" = 'ALBUM' ]; then
-				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
+				if [ "$computeAudioCharacteristics" = 'true' -a -n "$peakDbfs" -a -n "$DR" ]; then
 					schag -z \
+						-r "AUDIO_ALBUM_DR" \
 						-r "AUDIO_ALBUM_PEAK" \
 						-r "REPLAYGAIN_ALBUM_PEAK" \
 						-r "REPLAYGAIN_ALBUM_GAIN" \
@@ -4726,6 +4744,7 @@ saveGain () {
 						-r "REPLAYGAIN_ALGORITHM" \
 						-r "REPLAYGAIN_REFERENCE_LEVEL" \
 						-r "REPLAYGAIN_REFERENCE_LOUDNESS" \
+						-t "AUDIO_ALBUM_DR=${DR}" \
 						-t "AUDIO_ALBUM_PEAK=${peakDbfs} dBFS" \
 						-t "REPLAYGAIN_ALBUM_PEAK=${peak}" \
 						-t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
@@ -4734,6 +4753,7 @@ saveGain () {
 						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					schag -z \
+						-r "AUDIO_ALBUM_DR" \
 						-r "AUDIO_ALBUM_PEAK" \
 						-r "REPLAYGAIN_ALBUM_PEAK" \
 						-r "REPLAYGAIN_ALBUM_GAIN" \
@@ -4748,8 +4768,9 @@ saveGain () {
 						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			else # track gain
-				if [ "$computeAudioPeaks" = 'true' -a -n "$peakDbfs" ]; then
+				if [ "$computeAudioCharacteristics" = 'true' -a -n "$peakDbfs" -a -n "$DR" ]; then
 					schag -z \
+						-r "AUDIO_TRACK_DR" \
 						-r "AUDIO_TRACK_PEAK" \
 						-r "REPLAYGAIN_TRACK_PEAK" \
 						-r "REPLAYGAIN_TRACK_GAIN" \
@@ -4757,6 +4778,7 @@ saveGain () {
 						-r "REPLAYGAIN_ALGORITHM" \
 						-r "REPLAYGAIN_REFERENCE_LEVEL" \
 						-r "REPLAYGAIN_REFERENCE_LOUDNESS" \
+						-t "AUDIO_TRACK_DR=${DR}" \
 						-t "AUDIO_TRACK_PEAK=${peakDbfs} dBFS" \
 						-t "REPLAYGAIN_TRACK_PEAK=${peak}" \
 						-t "REPLAYGAIN_TRACK_GAIN=${gain} dB" \
@@ -4765,6 +4787,7 @@ saveGain () {
 						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					schag -z \
+						-r "AUDIO_TRACK_DR" \
 						-r "AUDIO_TRACK_PEAK" \
 						-r "REPLAYGAIN_TRACK_PEAK" \
 						-r "REPLAYGAIN_TRACK_GAIN" \
@@ -4833,6 +4856,12 @@ getFileMilliseconds () {
 	return $exitCode
 }
 
+computeTrackDR () {
+	local file="$1" drValue=0
+
+	printf "%.6f" "$( ffmpeg -hide_banner -i "$file" -af drmeter -f wav -y /dev/null 2>&1 | grep -F "Overall DR:" | cut -d ':' -f 2 | tr -cd '[0-9.]' )"
+}
+
 computeGainFromPeak () {
 	local floatingPointPeak="$1"
 	printf "%.2f" "$( echo "scale=10; 20 * l(${floatingPointPeak}) / l(10)" | bc -l 2>> "$Self_Errors_File" )"
@@ -4851,6 +4880,7 @@ grepReplayGainTags () {
 computeTrackGain () {
 	local exitCode=$Ex_Ok line nLines=0 decimals trackGain trackPeak albumGain destTagFile clippingPreventionParam=""
 	local nThreads fileExtension line rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment
+	local audioTrackDR DR
 
 	if [ -e "$sourceFile" ]; then
 		shopt -qs nocasematch
@@ -4909,6 +4939,12 @@ computeTrackGain () {
 		exitCode=$Ex_Ko
 	fi
 
+	if [ $exitCode -eq $Ex_Ok -a "$computeAudioCharacteristics" = 'true' ]; then
+		audioTrackDR="$( computeTrackDR "$sourceFile" )"
+		echo "$audioTrackDR" > "$trackDrFile"
+		DR="$( printf "%.0f" "$audioTrackDR" )"
+	fi
+
 	if [ "$sourceExtension" != "opus" ]; then
 		if [ $exitCode -eq $Ex_Ok ]; then
 			if [ "$applyGain" = 'false' -o "$applyGainType" = "TRACK" ]; then
@@ -4942,6 +4978,7 @@ computeTrackGains () {
 		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
 		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain.txt"
 		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak.txt"
+		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr.txt"
 
 		if getLock "$jobFile"; then
 			computeTrackGain || exitCode=$Ex_Ko
@@ -4958,16 +4995,21 @@ computeAlbumGain () {
 	# A comparison between gains on 754 albums revealed max differences ranging from -2.06 dB to +1.50 dB.
 	# PINK_REF="64.82" is from flac/src/share/replaygain_analysis/replaygain_analysis.c
 	local exitCode=$Ex_Ok PINK_REF_COMPLEMENT="35.18" index processIndex secondsIndex rank trackGain trackSeconds=1
-	local increment=0 trackGainFile trackPeakFile albumPeak albumAudioPeak albumGain
+	local albumSeconds=0 increment=0 trackGainFile trackPeakFile trackDrFile albumPeak albumAudioPeak audioAlbumDR=0 DR
+	local albumGain
 
 	while read milliseconds paddedFileIndex fileIndex; do
 		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain.txt"
 		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak.txt"
+		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr.txt"
 		trackGain="$( cat "$trackGainFile" )"
+		audioTrackDR="$( cat "$trackDrFile" )"
 		trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
 		if [ -z "$trackSeconds" ]; then
 			trackSeconds=1
 		fi
+		albumSeconds=$(( albumSeconds + trackSeconds ))
+		audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
 		for (( secondsIndex=0; secondsIndex < trackSeconds; secondsIndex++ )); do
 			echo "$trackGain" >> "${Self_Data_Dir}/trackgains"
 			(( increment++ ))
@@ -4975,6 +5017,7 @@ computeAlbumGain () {
 		cat "$trackPeakFile" >> "${Self_Data_Dir}/trackpeaks" 2>/dev/null
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
+	DR="$( printf "%.0f" "$( echo "scale=6; $audioAlbumDR / $albumSeconds" | bc )" )"
 	albumPeak="$( sort -n "${Self_Data_Dir}/trackpeaks" 2>/dev/null | tail -n 1 )"
 	if [ -z "$albumPeak" ]; then
 		return $Ex_Ko
@@ -5109,9 +5152,11 @@ reverseTrackGain () {
 	if [ -e "$sourceFile" ]; then
 		case "$sourceFile" in
 			*.flac) metaflac \
+				--remove-tag="AUDIO_ALBUM_DR" \
 				--remove-tag="AUDIO_ALBUM_PEAK" \
 				--remove-tag="REPLAYGAIN_ALBUM_PEAK" \
 				--remove-tag="REPLAYGAIN_ALBUM_GAIN" \
+				--remove-tag="AUDIO_TRACK_DR" \
 				--remove-tag="AUDIO_TRACK_PEAK" \
 				--remove-tag="REPLAYGAIN_TRACK_PEAK" \
 				--remove-tag="REPLAYGAIN_TRACK_GAIN" \
@@ -5122,9 +5167,11 @@ reverseTrackGain () {
 				"$sourceFile" 1>/dev/null 2>/dev/null ; exitCode=$? ;;
 
 			*.ogg) vorbiscomment \
+				-d "AUDIO_ALBUM_DR" \
 				-d "AUDIO_ALBUM_PEAK" \
 				-d "REPLAYGAIN_ALBUM_PEAK" \
 				-d "REPLAYGAIN_ALBUM_GAIN" \
+				-d "AUDIO_TRACK_DR" \
 				-d "AUDIO_TRACK_PEAK" \
 				-d "REPLAYGAIN_TRACK_PEAK" \
 				-d "REPLAYGAIN_TRACK_GAIN" \
@@ -5136,9 +5183,11 @@ reverseTrackGain () {
 				;;
 
 			*.wv|*.ape) schag -z \
+				-r "AUDIO_ALBUM_DR" \
 				-r "AUDIO_ALBUM_PEAK" \
 				-r "REPLAYGAIN_ALBUM_PEAK" \
 				-r "REPLAYGAIN_ALBUM_GAIN" \
+				-r "AUDIO_TRACK_DR" \
 				-r "AUDIO_TRACK_PEAK" \
 				-r "REPLAYGAIN_TRACK_PEAK" \
 				-r "REPLAYGAIN_TRACK_GAIN" \
@@ -5154,9 +5203,11 @@ reverseTrackGain () {
 				mp3gain -s d "$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || mp3GainExitCode2=$Ex_Ko
 
 				eyeD3 --quiet --to-v2.4 \
+					--user-text-frame="AUDIO_ALBUM_DR" \
 					--user-text-frame="AUDIO_ALBUM_PEAK" \
 					--user-text-frame="REPLAYGAIN_ALBUM_PEAK" \
 					--user-text-frame="REPLAYGAIN_ALBUM_GAIN" \
+					--user-text-frame="AUDIO_TRACK_DR" \
 					--user-text-frame="AUDIO_TRACK_PEAK" \
 					--user-text-frame="REPLAYGAIN_TRACK_PEAK" \
 					--user-text-frame="REPLAYGAIN_TRACK_GAIN" \
@@ -5164,9 +5215,11 @@ reverseTrackGain () {
 					--user-text-frame="REPLAYGAIN_ALGORITHM" \
 					--user-text-frame="REPLAYGAIN_REFERENCE_LEVEL" \
 					--user-text-frame="REPLAYGAIN_REFERENCE_LOUDNESS" \
+					--user-text-frame="audio_album_dr" \
 					--user-text-frame="audio_album_peak" \
 					--user-text-frame="replaygain_album_peak" \
 					--user-text-frame="replaygain_album_gain" \
+					--user-text-frame="audio_track_dr" \
 					--user-text-frame="audio_track_peak" \
 					--user-text-frame="replaygain_track_peak" \
 					--user-text-frame="replaygain_track_gain" \
