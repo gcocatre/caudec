@@ -3897,9 +3897,9 @@ encode () {
 					if [ "$tagCompressionSetting" = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / 320 kbps (CBR)"; fi
 					lame -S --preset insane -q 4 --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
-					if [ "$bitrate_MP3" = '320']
+					if [ "$bitrate_MP3" = '320']; then q4Param= '-q4'; fi
 					if [ "$tagCompressionSetting" = 'true' ]; then id3CompressionTag="$Self_Name $Self_Version / LAME $lameVersion / $bitrate_MP3 kbps (CBR)"; fi
-					lame -S -b $bitrate_MP3 -q 4 --cbr --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					lame -S -b $bitrate_MP3 $q4Param --cbr --noreplaygain --id3v2-only --pad-id3v2-size $padding --ignore-tag-errors -o "$wavFile" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			fi
 			if [ $exitCode -ne $Ex_Ko ]; then
