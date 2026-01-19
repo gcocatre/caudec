@@ -2682,7 +2682,7 @@ extractFlacArtwork () {
 						echo "$description" > "$descFile"
 					fi
 
-					picNumber="$( echo -e "$picTypesList" | grep -F "$picType" | wc -l | tr -cd [0-9] )"
+					picNumber="$( echo -e "$picTypesList" | grep -F "$picType" | wc -l | tr -cd '[0-9]' )"
 					picFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$picType" "$picNumber" "$picExt" )"
 					metaflac --block-number=$blockNumber --export-picture-to="$picFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 					if [ $exitCode -ne $Ex_Ok ]; then
@@ -2860,8 +2860,8 @@ getPictureFileElements () {
 	fi
 
 	picBasename="${picFile##*/}"
-	picType="$( echo "$picBasename" | cut -d '_' -f 3 | tr -cd [0-9] )"
-	picNumber="$( echo "$picBasename" | cut -d '_' -f 4 | tr -cd [0-9] )"
+	picType="$( echo "$picBasename" | cut -d '_' -f 3 | tr -cd '[0-9]' )"
+	picNumber="$( echo "$picBasename" | cut -d '_' -f 4 | tr -cd '[0-9]' )"
 	descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$picType" "$picNumber" "txt" )"
 	description=''
 	if [ -r "$descFile" ]; then
@@ -3033,8 +3033,8 @@ importArtworkIntoMP3 () {
 			continue
 		fi
 		picBasename="${picFile##*/}"
-		picType="$( echo "$picBasename" | cut -d '_' -f 3 | tr -cd [0-9] )"
-		picNumber="$( echo "$picBasename" | cut -d '_' -f 4 | tr -cd [0-9] )"
+		picType="$( echo "$picBasename" | cut -d '_' -f 3 | tr -cd '[0-9]' )"
+		picNumber="$( echo "$picBasename" | cut -d '_' -f 4 | tr -cd '[0-9]' )"
 		descFile="${Self_Swap_Dir}/$( getTrackPictureFileName "$paddedFileIndex" "$picType" "$picNumber" "txt" )"
 		description=''
 		if [ -r "$descFile" ]; then
@@ -3160,9 +3160,9 @@ processWavFile () {
 		rm -f "$copyFile" "${copyFile}c"
 	fi
 
-	wavChannels="$( echo "$( soxi -c "$wavFile" )" | tr -cd [0-9] )"
-	wavBitDepth="$( echo "$( soxi -b "$wavFile" )" | tr -cd [0-9] )"
-	wavSamplingRate="$( echo "$( soxi -r "$wavFile" )" | tr -cd [0-9] )"
+	wavChannels="$( soxi -c "$wavFile" | tr -cd '[0-9]' )"
+	wavBitDepth="$( soxi -b "$wavFile" | tr -cd '[0-9]' )"
+	wavSamplingRate="$( soxi -r "$wavFile" | tr -cd '[0-9]' )"
 	if [ -z "$wavChannels" -o -z "$wavBitDepth" -o -z "$wavSamplingRate" ]; then
 		printMessage 'error' 'processing' "file:${sourceFile}" $processNumber "threads:1" "unable to get WAV info"
 		return $Ex_Io_Err
@@ -4439,7 +4439,7 @@ showTrackInformation () {
 						bits_per_raw_sample*|bits_per_sample*)
 							if [ -z "$bitDepth" -o "$bitDepth" = "0" ]; then
 								bitDepth="${line##*=}"
-								bitDepth="$( echo "$bitDepth" | tr -cd [0-9] )"
+								bitDepth="$( echo "$bitDepth" | tr -cd '[0-9]' )"
 							fi
 							;;
 						sample_rate*) samplingRate="${line##*=}" ;;
@@ -4489,11 +4489,11 @@ showTrackInformation () {
 				fi
 				bitrate="$( printf "%.0f" "$( echo "scale=3; ($bytesLossy + $bytesLossless) * 8 * $samplingRate / $nSamples" | bc )" )"
 			else
-				bitrate="$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | grep -E '^format.bit_rate=' | tr -cd [0-9] )"
+				bitrate="$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | grep -E '^format.bit_rate=' | tr -cd '[0-9]' )"
 			fi
 		;;
 
-		*) bitrate="$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | grep -E '^format.bit_rate=' | tr -cd [0-9] )" ;;
+		*) bitrate="$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | grep -E '^format.bit_rate=' | tr -cd '[0-9]' )" ;;
 	esac
 	case "$bitrate" in
 		[0-9]*) true ;;
@@ -6229,14 +6229,14 @@ if [ -n "$resamplingProfile" ]; then
 	resamplingProfileSlashes="$( echo "$resamplingProfile" | tr -cd [/] )"
 	numberOfResamplingSlashes="${#resamplingProfileSlashes}"
 	if [ $numberOfResamplingSlashes -eq 2 ]; then
-		maxChannels="$( echo "$resamplingProfile" | cut -d '/' -f 1 2>/dev/null | tr -cd [0-9] 2>/dev/null )"
+		maxChannels="$( echo "$resamplingProfile" | cut -d '/' -f 1 2>/dev/null | tr -cd '[0-9]' 2>/dev/null )"
 		if [ "$maxChannels" != "2" ]; then
 			printMessage 'error' 'usage' 'bad_value' "$Self_Name resamplingProfile: the number of channels must be 2."
 			exit $Ex_Usage
 		fi
 	fi
 	resamplingProfileFieldNumber=$numberOfResamplingSlashes
-	maxBitDepth="$( echo "$resamplingProfile" | cut -d '/' -f $resamplingProfileFieldNumber 2>/dev/null | tr -cd [0-9] 2>/dev/null )"
+	maxBitDepth="$( echo "$resamplingProfile" | cut -d '/' -f $resamplingProfileFieldNumber 2>/dev/null | tr -cd '[0-9]' 2>/dev/null )"
 	if ! checkMaxBitDepth "$maxBitDepth" ; then
 		printMessage 'error' 'usage' 'bad_value' "$Self_Name resamplingProfile: bit depth must be either 16 or 24"
 		exit $Ex_Usage
@@ -6478,11 +6478,11 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 				hires|highres) bitDepth=24 samplingRate=192000 ;;
 				dxd) bitDepth=24 samplingRate=352800 ;;
 				*/*/*)
-					maxChannels="$( echo "$OPTARG" | cut -d '/' -f 1 2>/dev/null | tr -cd [0-9] 2>/dev/null )"
+					maxChannels="$( echo "$OPTARG" | cut -d '/' -f 1 2>/dev/null | tr -cd '[0-9]' 2>/dev/null )"
 					if [ "$maxChannels" != "2" ]; then
 						printMessage 'error' 'usage' 'bad_value' "$Self_Name -r C/B/R: the number of channels must be 2." ; exit $Ex_Usage
 					fi
-					maxBitDepth="$( echo "$OPTARG" | cut -d '/' -f 2 2>/dev/null | tr -cd [0-9] 2>/dev/null )"
+					maxBitDepth="$( echo "$OPTARG" | cut -d '/' -f 2 2>/dev/null | tr -cd '[0-9]' 2>/dev/null )"
 					if ! checkMaxBitDepth "$maxBitDepth" ; then
 						printMessage 'error' 'usage' 'bad_value' "$Self_Name -r C/B/R: bit depth must be either 16 or 24" ; exit $Ex_Usage
 					fi
@@ -6493,7 +6493,7 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 					resamplingProfile="$OPTARG"
 					;;
 				*/*)
-					maxBitDepth="$( echo "$OPTARG" | cut -d '/' -f 1 2>/dev/null | tr -cd [0-9] 2>/dev/null )"
+					maxBitDepth="$( echo "$OPTARG" | cut -d '/' -f 1 2>/dev/null | tr -cd '[0-9]' 2>/dev/null )"
 					if ! checkMaxBitDepth "$maxBitDepth" ; then
 						printMessage 'error' 'usage' 'bad_value' "$Self_Name -r B/R: bit depth must be either 16 or 24" ; exit $Ex_Usage
 					fi
