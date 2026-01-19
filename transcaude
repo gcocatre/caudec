@@ -81,6 +81,13 @@ Clr_B_Cy="\\033[1;36m" # bright cyan
 Clr_N_Wh="\\033[0;37m" # bright gray
 Clr_B_Wh="\\033[1;37m" # white
 
+for arg in "$@"; do
+  if [ "${arg:0:2}" = '--' ]; then
+    echo "${Self_Name}: error: try -h" 1>&2
+    exit $Ex_Usage
+  fi
+done
+
 if [ -r '/etc/caudecrc' ]; then
 	. '/etc/caudecrc'
 fi
