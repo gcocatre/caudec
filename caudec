@@ -3735,7 +3735,7 @@ encode () {
 				padding=$(( padding + embeddedArtworkBytes ))
 			fi
 			nThreads=$( getNumberOfAvailableThreads "$fileIndex" $Flac_Max_Threads )
-			if [ $nThreads > 1 ]; then mParam='-M'; fi
+			if [ $nThreads -gt 1 ]; then mParam='-M'; fi
 
 			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac $mParam -j $nThreads -P $padding $kfm -${compression_FLAC} -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok ]; then
