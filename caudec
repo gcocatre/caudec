@@ -1141,7 +1141,7 @@ checkInputFiles () {
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'not a regular file.' ; exitCode=$Ex_Data_Err
 		elif [ ! -r "$inputFile" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for reading (permission denied).' ; exitCode=$Ex_No_Input
-		elif [ ! -w "$inputFile" -a "$computeReplayGain" = 'true' ]; then
+		elif [ ! -w "$inputFile" -a "$computeReplayGain" = 'true' -a -z "$outputCodecs" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
 		elif [ ! -w "$inputFile" -a "$reverseReplayGain" = 'true' ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
@@ -1646,6 +1646,9 @@ createControlFiles () {
 			# touch "${Self_Control_Dir}/${paddedFileIndex}_${outputCodec}.job"
 			touch "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
 			touch "${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
+			if [ "$outputCodec" != 'Opus' ]; then
+				touch "${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
+			fi
 		done
 	done
 }
@@ -4186,11 +4189,14 @@ setControlVariables () {
 	wavProcessedStatusFile="${Self_Control_Dir}/${paddedFileIndex}_wav_processed.info"
 	sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
 	binariesDir="${Self_Swap_Dir}/${paddedFileIndex}_binaries"
+	trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${outputCodec}.txt"
+	trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${outputCodec}.txt"
+	trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_${outputCodec}.txt"
 }
 
 transcode () {
 	local exitCode=$Ex_Ok allFilesDone allCodecsDone milliseconds fileIndex paddedFileIndex transcodingJobFile
-	local decodingJobFile lastCodec="${outputCodecs##* }" copyDone='false' encodingDone='false'
+	local decodingJobFile replaygainJobFile lastCodec="${outputCodecs##* }" copyDone='false' encodingDone='false'
 	local nDecodingThreads=1 encodingNeedsWavFile sleepTime="0.05"
 
 	until test "$allFilesDone" = 'true' ; do
@@ -4223,6 +4229,7 @@ transcode () {
 			for outputCodec in $outputCodecs; do
 				encodingNeedsWavFile="${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
 				encodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
+				replaygainJobFile="${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
 				# if test -e "$encodingJobFile" && unlink "$encodingJobFile" 2>/dev/null; then
 				if test -e "$encodingJobFile" && getLock "$encodingJobFile"; then
 					allFilesDone='false' allCodecsDone='false'
@@ -4237,7 +4244,7 @@ transcode () {
 
 					# Do this in this loop because it is conditional on getting a lock on an encoding job.
 					# Doing it outside of this loop would run the following code every $sleepTime seconds per process.
-					ls "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info 1>/dev/null 2>&1 || allCodecsDone='true'
+					ls "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info "${Self_Control_Dir}/${paddedFileIndex}_replaygain_"*.job 1>/dev/null 2>&1 || allCodecsDone='true'
 					if [ "$allCodecsDone" = 'true' ]; then
 						touch "$wasProcessedFile"
 						rm -rf "$copyFile" "${copyFile}c" "$wavFile" "$resampledFile" "$binariesDir" \
@@ -4248,6 +4255,32 @@ transcode () {
 					fi
 				fi
 			done
+
+			if [ "$computeReplayGain" = 'true' ]; then
+				for outputCodec in $outputCodecs; do
+					if [ "$outputCodec" = 'Opus' ]; then continue; fi
+					replaygainJobFile="${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
+					# if test -e "$replaygainJobFile" && unlink "$replaygainJobFile" 2>/dev/null; then
+					setControlVariables
+					getFileProps "$sourceFile" "$outputCodec"
+					if test -e "$replaygainJobFile" && test -e "$destFile" && getLock "$replaygainJobFile"; then
+						allFilesDone='false' allCodecsDone='false'
+						computeTrackGain "$destFile" || exitCode=$Ex_Ko
+
+						# Do this in this loop because it is conditional on getting a lock on an encoding job.
+						# Doing it outside of this loop would run the following code every $sleepTime seconds per process.
+						ls "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info "${Self_Control_Dir}/${paddedFileIndex}_replaygain_"*.job 1>/dev/null 2>&1 || allCodecsDone='true'
+						if [ "$allCodecsDone" = 'true' ]; then
+							touch "$wasProcessedFile"
+							rm -rf "$copyFile" "${copyFile}c" "$wavFile" "$resampledFile" "$binariesDir" \
+								"${Self_Swap_Dir}/${paddedFileIndex}_tags_"*.txt \
+								"${Self_Swap_Dir}/${paddedFileIndex}_picture_"* \
+								"${Self_Ctrl_Dir}/${paddedFileIndex}"_*.job \
+								1>/dev/null 2>&1
+						fi
+					fi
+				done
+			fi
 
 			if [ -n "$destPath" -a -d "$destPath" -a -w "$destPath" ]; then
 				chmod u+rwX "$destPath" "${destPath}"/* 2>/dev/null
@@ -4572,7 +4605,7 @@ saveReplaygainToMP3 () {
 }
 
 saveGain () {
-	local exitCode=$Ex_Ok gainType="$1" gainTypeText gain peak peakDbfs uGain mp3GainSteps clippingPreventionParam=''
+	local exitCode=$Ex_Ok gainType="$1" file="$2" gainTypeText gain peak peakDbfs uGain mp3GainSteps clippingPreventionParam=''
 
 	if [ "$gainType" = 'TRACK' ]; then
 		gain="$trackGain" peak="$trackPeak" uGain="$trackGain"
@@ -4595,7 +4628,7 @@ saveGain () {
 		fi
 	fi
 
-	case "$destFile" in
+	case "$file" in
 		*.flac)
 			if [ "$gainType" = 'ALBUM' ]; then
 				if [ "$computeAudioCharacteristics" = 'true' -a -n "$peakDbfs" -a -n "$DR" ]; then
@@ -4615,7 +4648,7 @@ saveGain () {
 						--set-tag="REPLAYGAIN_ALBUM_PEAK=${peak}" \
 						--set-tag="REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
 						--set-tag="REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
-						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					metaflac \
 						--remove-tag="AUDIO_ALBUM_DR" \
@@ -4630,7 +4663,7 @@ saveGain () {
 						--set-tag="REPLAYGAIN_ALBUM_PEAK=${peak}" \
 						--set-tag="REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
 						--set-tag="REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
-						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			else # track gain
 				if [ "$computeAudioCharacteristics" = 'true' -a -n "$peakDbfs" -a -n "$DR" ]; then
@@ -4650,7 +4683,7 @@ saveGain () {
 						--set-tag="REPLAYGAIN_TRACK_PEAK=${peak}" \
 						--set-tag="REPLAYGAIN_TRACK_GAIN=${gain} dB" \
 						--set-tag="REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
-						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					metaflac \
 						--remove-tag="AUDIO_TRACK_DR" \
@@ -4665,7 +4698,7 @@ saveGain () {
 						--set-tag="REPLAYGAIN_TRACK_PEAK=${peak}" \
 						--set-tag="REPLAYGAIN_TRACK_GAIN=${gain} dB" \
 						--set-tag="REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
-						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			fi
 			;;
@@ -4689,7 +4722,7 @@ saveGain () {
 						-t "REPLAYGAIN_ALBUM_PEAK=${peak}" \
 						-t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
 						-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
-						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					vorbiscomment -a \
 						-d "AUDIO_ALBUM_DR" \
@@ -4704,7 +4737,7 @@ saveGain () {
 						-t "REPLAYGAIN_ALBUM_PEAK=${peak}" \
 						-t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
 						-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
-						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			else # track gain
 				if [ "$computeAudioCharacteristics" = 'true' -a -n "$peakDbfs" -a -n "$DR" ]; then
@@ -4724,7 +4757,7 @@ saveGain () {
 						-t "REPLAYGAIN_TRACK_PEAK=${peak}" \
 						-t "REPLAYGAIN_TRACK_GAIN=${gain} dB" \
 						-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
-						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					vorbiscomment -a \
 						-d "AUDIO_TRACK_DR" \
@@ -4739,7 +4772,7 @@ saveGain () {
 						-t "REPLAYGAIN_TRACK_PEAK=${peak}" \
 						-t "REPLAYGAIN_TRACK_GAIN=${gain} dB" \
 						-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
-						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			fi
 			;;
@@ -4763,7 +4796,7 @@ saveGain () {
 						-t "REPLAYGAIN_ALBUM_PEAK=${peak}" \
 						-t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
 						-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
-						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					schag -z \
 						-r "AUDIO_ALBUM_DR" \
@@ -4778,7 +4811,7 @@ saveGain () {
 						-t "REPLAYGAIN_ALBUM_PEAK=${peak}" \
 						-t "REPLAYGAIN_ALBUM_GAIN=${gain} dB" \
 						-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
-						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			else # track gain
 				if [ "$computeAudioCharacteristics" = 'true' -a -n "$peakDbfs" -a -n "$DR" ]; then
@@ -4798,7 +4831,7 @@ saveGain () {
 						-t "REPLAYGAIN_TRACK_PEAK=${peak}" \
 						-t "REPLAYGAIN_TRACK_GAIN=${gain} dB" \
 						-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
-						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					schag -z \
 						-r "AUDIO_TRACK_DR" \
@@ -4813,7 +4846,7 @@ saveGain () {
 						-t "REPLAYGAIN_TRACK_PEAK=${peak}" \
 						-t "REPLAYGAIN_TRACK_GAIN=${gain} dB" \
 						-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
-						"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+						"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
 			fi
 			;;
@@ -4825,10 +4858,10 @@ saveGain () {
 				if [ "$preventClipping" = 'true' ]; then
 					clippingPreventionParam="-k"
 				fi
-				mp3gain -s d "$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-				mp3gain -c $clippingPreventionParam -g "$mp3GainSteps" "$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				mp3gain -s d "$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				mp3gain -c $clippingPreventionParam -g "$mp3GainSteps" "$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			else
-				mp3gain -s d "$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+				mp3gain -s d "$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				saveReplaygainToMP3 || exitCode=$Ex_Ko
 			fi
 			;;
@@ -4902,23 +4935,23 @@ grepReplayGainTags () {
 }
 
 computeTrackGain () {
-	local exitCode=$Ex_Ok line nLines=0 decimals trackGain trackPeak albumGain destTagFile clippingPreventionParam=""
+	local exitCode=$Ex_Ok file="$1" line nLines=0 decimals trackGain trackPeak albumGain destTagFile clippingPreventionParam=""
 	local nThreads fileExtension line rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment
 	local audioTrackDR DR
 
-	if [ -e "$sourceFile" ]; then
+	if [ -e "$file" ]; then
 		shopt -qs nocasematch
-		fileExtension="${sourceFile##*.}"
-		case "$sourceFile" in
+		fileExtension="${file##*.}"
+		case "$file" in
 			*.flac|*.wv|*.ape|*.ogg|*.mp3)
 				if [ "$fileExtension" = 'mp3' ]; then
-					mp3gain -u "$sourceFile" 1>/dev/null 2>/dev/null
-					mp3gain -s d "$sourceFile" 1>/dev/null 2>/dev/null
+					mp3gain -u "$file" 1>/dev/null 2>/dev/null
+					mp3gain -s d "$file" 1>/dev/null 2>/dev/null
 					if [ "$applyGain" = 'true' ]; then
 						if [ "$preventClipping" = 'true' ]; then
 							clippingPreventionParam="-k"
 						fi
-						line="$( mp3gain -e $clippingPreventionParam -o -T -q "$sourceFile" 2>> "$Self_Errors_File" | grep -Fv 'MP3 gain' | tr '\t' '|' | tr -d '+' | cut -d '|' -f 3-4 )" ; exitCode=$?
+						line="$( mp3gain -e $clippingPreventionParam -o -T -q "$file" 2>> "$Self_Errors_File" | grep -Fv 'MP3 gain' | tr '\t' '|' | tr -d '+' | cut -d '|' -f 3-4 )" ; exitCode=$?
 						if [ $exitCode -eq $Ex_Ok -a -n "$line" ]; then
 							trackGain="${line%|*}"
 							decimals="${trackGain#*.}"
@@ -4943,7 +4976,7 @@ computeTrackGain () {
 				if [ "$fileExtension" != 'mp3' -o "$applyGain" != 'true' ]; then
 					OIFS="$IFS"
 					IFS="$( echo -en "\t" )"
-					read rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment < <( rsgain custom -q -O -t -s i -l "$AUDIO_TARGET_LOUDNESS" "$sourceFile" 2>> "$Self_Errors_File" | grep -vF 'Loudness (LUFS)' )
+					read rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment < <( rsgain custom -q -O -t -s i -l "$AUDIO_TARGET_LOUDNESS" "$file" 2>> "$Self_Errors_File" | grep -vF 'Loudness (LUFS)' )
 					IFS="$OIFS"
 					trackGain="${rsGain#+*}"
 					trackPeak="$rsPeak"
@@ -4956,7 +4989,7 @@ computeTrackGain () {
 				fi
 				;;
 
-			*) printMessage 'warning' 'track_gain' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format' ; return $Ex_Ko ;;
+			*) printMessage 'warning' 'track_gain' 'unsupported' "file:${file}" $processNumber 'unsupported format' ; return $Ex_Ko ;;
 		esac
 		shopt -qu nocasematch
 	else
@@ -4964,7 +4997,7 @@ computeTrackGain () {
 	fi
 
 	if [ $exitCode -eq $Ex_Ok -a "$computeAudioCharacteristics" = 'true' ]; then
-		audioTrackDR="$( computeTrackDR "$sourceFile" )"
+		audioTrackDR="$( computeTrackDR "$file" )"
 		if [ -z "$audioTrackDR" ]; then
 			audioTrackDR=0
 		fi
@@ -4975,19 +5008,19 @@ computeTrackGain () {
 	if [ "$sourceExtension" != "opus" ]; then
 		if [ $exitCode -eq $Ex_Ok ]; then
 			if [ "$applyGain" = 'false' -o "$applyGainType" = "TRACK" ]; then
-				saveGain 'TRACK' || exitCode=$Ex_Ko
+				saveGain 'TRACK' "$file" || exitCode=$Ex_Ko
 			fi
 		fi
 
 		if [ $exitCode -eq $Ex_Ok ]; then
-			if [ "$verbose" = 'true' ]; then
+			if [ "$verbose" = 'true' -a -z "$outputCodecs" ]; then
 				if [ "${trackGain:0:1}" != '-' -a "${trackGain:0:1}" != '+' ]; then
 					trackGain="+${trackGain}"
 				fi
-				printMessage 'success' 'track_gain' $processNumber "$trackGain dB" "Track gain: $trackGain dB" "file:${sourceFile}"
+				printMessage 'success' 'track_gain' $processNumber "$trackGain dB" "Track gain: $trackGain dB" "file:${file}"
 			fi
 		else
-			printMessage 'error' 'track_gain' "file:${sourceFile}" $processNumber
+			printMessage 'error' 'track_gain' "file:${file}" $processNumber
 		fi
 	fi
 	return $exitCode
@@ -5008,7 +5041,7 @@ computeTrackGains () {
 		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr.txt"
 
 		if getLock "$jobFile"; then
-			computeTrackGain || exitCode=$Ex_Ko
+			computeTrackGain "$sourceFile" || exitCode=$Ex_Ko
 			touch "$wasProcessedFile"
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
@@ -5021,14 +5054,20 @@ computeAlbumGain () {
 	# This is a very fast way of computing the album gain, but it is also less precise than the official implementation.
 	# A comparison between gains on 754 albums revealed max differences ranging from -2.06 dB to +1.50 dB.
 	# PINK_REF="64.82" is from flac/src/share/replaygain_analysis/replaygain_analysis.c
-	local exitCode=$Ex_Ok PINK_REF_COMPLEMENT="35.18" index processIndex secondsIndex rank trackGain trackSeconds=1
+	local exitCode=$Ex_Ok codec="$1" PINK_REF_COMPLEMENT="35.18" index processIndex secondsIndex rank trackGain trackSeconds=1
 	local albumSeconds=0 increment=0 trackGainFile trackPeakFile trackDrFile albumPeak albumAudioPeak audioAlbumDR=0 DR
-	local albumGain audioAlbumDrSeconds=0
+	local albumGain audioAlbumDrSeconds=0 trackGainsFile trackPeaksFile
 
 	while read milliseconds paddedFileIndex fileIndex; do
-		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain.txt"
-		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak.txt"
-		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr.txt"
+		if [ -n "$codec" ]; then
+			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${codec}.txt"
+			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${codec}.txt"
+			trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_${codec}.txt"
+		else
+			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain.txt"
+			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak.txt"
+			trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr.txt"
+		fi
 		trackGain="$( cat "$trackGainFile" 2>/dev/null )"
 		audioTrackDR="$( cat "$trackDrFile" 2>/dev/null  )"
 		trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
@@ -5040,11 +5079,19 @@ computeAlbumGain () {
 			audioAlbumDrSeconds=$(( audioAlbumDrSeconds + trackSeconds ))
 			audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
 		fi
+
+		if [ -n "$codec" ]; then
+			trackGainsFile="${Self_Data_Dir}/trackgains_${codec}"
+			trackPeaksFile="${Self_Data_Dir}/trackpeaks_${codec}"
+		else
+			trackGainsFile="${Self_Data_Dir}/trackgains"
+			trackPeaksFile="${Self_Data_Dir}/trackpeaks"
+		fi
 		for (( secondsIndex=0; secondsIndex < trackSeconds; secondsIndex++ )); do
-			echo "$trackGain" >> "${Self_Data_Dir}/trackgains"
+			echo "$trackGain" >> "$trackGainsFile"
 			(( increment++ ))
 		done
-		cat "$trackPeakFile" >> "${Self_Data_Dir}/trackpeaks" 2>/dev/null
+		cat "$trackPeakFile" >> "$trackPeaksFile" 2>/dev/null
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 	if [ $audioAlbumDrSeconds -ne 0 ]; then
@@ -5052,7 +5099,7 @@ computeAlbumGain () {
 	else
 		DR=0
 	fi
-	albumPeak="$( sort -n "${Self_Data_Dir}/trackpeaks" 2>/dev/null | tail -n 1 )"
+	albumPeak="$( sort -n "$trackPeaksFile" 2>/dev/null | tail -n 1 )"
 	if [ -z "$albumPeak" ]; then
 		return $Ex_Ko
 	fi
@@ -5070,13 +5117,13 @@ computeAlbumGain () {
 			albumGain="-0"
 		fi
 	else
-		sort -n "${Self_Data_Dir}/trackgains" > "${Self_Data_Dir}/trackgains.tmp" 2>/dev/null
-		mv "${Self_Data_Dir}/trackgains.tmp" "${Self_Data_Dir}/trackgains"
+		sort -n "$trackGainsFile" > "${trackGainsFile}.tmp" 2>/dev/null
+		mv "${trackGainsFile}.tmp" "$trackGainsFile"
 
 		# By using PINK_REF_COMPLEMENT instead of PINK_REF, running 'head' MIGHT be slightly faster than
 		# running 'tail' with PINK_REF because 'head' will output fewer lines than 'tail'.
 		rank="$( printf "%.0f" "$( echo "scale=5; ((${PINK_REF_COMPLEMENT} / 100) * $increment + (1 / 2)) / 1" | bc 2>> "$Self_Errors_File" )" )"
-		albumGain="$( head -n $rank "${Self_Data_Dir}/trackgains" 2>/dev/null | tail -n 1 )"
+		albumGain="$( head -n $rank "$trackGainsFile" 2>/dev/null | tail -n 1 )"
 		if [ -z "$albumGain" ]; then
 			printMessage 'error' 'album_gain' "Album gain"
 			return $Ex_Ko
@@ -5091,14 +5138,18 @@ computeAlbumGain () {
 
 	processIndex=0
 	while read milliseconds paddedFileIndex fileIndex; do
-		if [ $processIndex -lt $nProcesses ]; then
+		if [ -n "$codec" ]; then
+			getOutputCodecDestFile "${sourceFiles[$fileIndex]}" "$codec"
+		else
 			destFile="${sourceFiles[$fileIndex]}"
-			saveGain 'ALBUM' &
+		fi
+		if [ $processIndex -lt $nProcesses ]; then
+			saveGain 'ALBUM' "$destFile" &
 		else
 			wait
 			processIndex=0
 			destFile="${sourceFiles[$fileIndex]}"
-			saveGain 'ALBUM' &
+			saveGain 'ALBUM' "$destFile" &
 		fi
 		(( processIndex++ ))
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
@@ -6857,7 +6908,7 @@ fi
 
 # transcode (test, replaygain, touch, hash, information)
 if [ -n "$outputCodecs" ]; then
-	if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
+	if [ "$reverseReplayGain" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -c/-d and -g/-G are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
@@ -7169,7 +7220,13 @@ if [ $exitCode -eq $Ex_Ok ]; then
 			computeOpusAlbumGain || exitCode=$Ex_Ko
 		else
 			if [ "$applyGain" = 'false' -o "$applyGainType" = 'ALBUM' ]; then
-				computeAlbumGain || exitCode=$Ex_Ko
+				if [ -z "$outputCodecs" ]; then
+					computeAlbumGain '' || exitCode=$Ex_Ko
+				else
+					for outputCodec in $outputCodecs; do
+						computeAlbumGain "$outputCodec" || exitCode=$Ex_Ko
+					done
+				fi
 			fi
 		fi
 	elif [ "$touchFiles" = 'true' ]; then
