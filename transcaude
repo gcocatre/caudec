@@ -143,6 +143,7 @@ Global parameters:
 
   -h        display this help and exit
   -V        output version information and exit
+  -1/-2/-3… set the number of processes to use (max: the number of CPU cores)
   -s        be silent, only print to STDOUT what directory is being transcoded,
             and errors to STDERR
 
@@ -213,15 +214,15 @@ computeReplayGain () {
       fi
       if [ "$lastCodec" = 'MP3' ]; then
         if [ "$Self_Verbose" = 'true' ]; then
-          caudec -Z -i -G album "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -Z -i -n $nProcesses -G album "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -z -i -G album "${files[@]}" 1> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -z -i -n $nProcesses -G album "${files[@]}" 1> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       else
         if [ "$Self_Verbose" = 'true' ]; then
-          caudec -Z -i -g "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -Z -i -n $nProcesses -g "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -z -i -g "${files[@]}" 1> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -z -i -n $nProcesses -g "${files[@]}" 1> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       fi
 
@@ -261,15 +262,15 @@ touchFiles () {
         echo "Touching directory for $lastCodec in \"$lastDir\":"
         if [ -n "$linkDir" -a -d "$linkDir" ]; then
           echo "Touching linked directory for $lastCodec in \"$linkDir\":"
-          caudec -Z -i -T -l "$linkDir" "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -Z -i -n $nProcesses -T -l "$linkDir" "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -Z -i -T "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -Z -i -n $nProcesses -T "$lastDir" 2> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       else
         if [ -n "$linkDir" -a -d "$linkDir" ]; then
-          caudec -z -i -T -l "$linkDir" "$lastDir" 1> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -z -i -n $nProcesses -T -l "$linkDir" "$lastDir" 1> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         else
-          caudec -z -i -T "$lastDir" 1> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
+          caudec -z -i -n $nProcesses -T "$lastDir" 1> "${Self_Touch_Log}_${lastCodec}" || exitCode=$Ex_Ko
         fi
       fi
 
@@ -305,10 +306,10 @@ transcodeAudioDirectory () {
 
   if [ "$Self_Verbose" = 'true' ]; then
     echo "Transcoding \"$audioDirectory\":"
-    caudec -Z -i "${caudecParams[@]}" "$audioDirectory" 2> "$Self_Encoding_Log"; exitCode=$?
+    caudec -Z -i -n $nProcesses "${caudecParams[@]}" "$audioDirectory" 2> "$Self_Encoding_Log"; exitCode=$?
   else
     echo "$audioDirectory"
-    caudec -z -i "${caudecParams[@]}" "$audioDirectory" &> "$Self_Encoding_Log"; exitCode=$?
+    caudec -z -i -n $nProcesses "${caudecParams[@]}" "$audioDirectory" &> "$Self_Encoding_Log"; exitCode=$?
   fi
 
   if [ $exitCode -eq $Ex_Ok ]; then
@@ -425,10 +426,29 @@ Self_Verbose='true'
 
 computeLosslessReplayGain='true'
 
+maxProcesses=''
+if which 'nproc' 1>/dev/null 2>&1; then # GNU Coreutils installed
+	maxProcesses="$( nproc 2>/dev/null )"
+elif which 'gnproc' 1>/dev/null 2>&1; then # GNU Coreutils installed on macOS
+	maxProcesses="$( gnproc 2>/dev/null )"
+elif [ -e '/proc/cpuinfo' ]; then # Linux
+	maxProcesses="$( grep -cF 'cpu MHz' /proc/cpuinfo 2>/dev/null )"
+elif [ "$OS" = 'Darwin' ]; then # macOS
+	# Many thanks to Tobias Link for helping me port caudec to macOS
+	maxProcesses="$( system_profiler -detailLevel full SPHardwareDataType 2>/dev/null | grep -F 'Total Number of Cores:' 2>/dev/null | cut -d ':' -f 2 2>/dev/null | tr -d ' ' | cut -d '(' -f 1 2>/dev/null )"
+fi
+
+nProcesses=1
+case "$maxProcesses" in
+	[1-9]*) nProcesses=$maxProcesses ;;
+esac
+maxProcessesSetByUser=$nProcesses
+
 for arg in "$@"; do
   case "$arg" in
     '-h') printUsage ; cleanExit $Ex_Ok ;;
     '-M') transcaudeTouchFiles='false' ; shift 1 ;;
+    -[1-9]|"-10"|"-11"|"-12"|"-13"|"-14"|"-15"|"-16"|"-17"|"-18"|"-19"|"-20") nProcesses=${arg:1}; shift 1 ;;
     '-R') computeLosslessReplayGain='false' ; shift 1 ;;
     '-s') Self_Verbose='false' ; shift 1 ;;
     '-V') echo "$Self_Name $Self_Version" ; cleanExit $Ex_Ok ;;
@@ -444,6 +464,10 @@ fi
 for signal in INT TERM ABRT PIPE; do
 	trap "cleanAbort" $signal
 done
+
+if [ $nProcesses -gt $maxProcesses ]; then
+  nProcesses=$maxProcesses
+fi
 
 declare -a arguments=("$@")
 numberOfArguments=${#arguments[@]}
