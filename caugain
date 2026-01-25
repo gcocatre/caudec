@@ -116,6 +116,13 @@ Global parameters:
   -s        be silent, only print to STDOUT what directory is being transcoded,
             and errors to STDERR
 
+  -z        produce machine-parsable output; must be the first parameter on the
+            command line to take effect. Run 'caudec -z' on its own to print
+            a description of the syntax.
+
+  -Z        produce human-readable output to STDOUT, and machine-parsable
+            output to STDERR
+
 -------------------------------------------------------------------------------
 
 For more help, see the online documentation:
@@ -167,11 +174,13 @@ scanAudioDirectory () {
   local message path dir codec files
 
   if [ "$Self_Verbose" = 'true' ]; then
-    echo "Scanning \"$audioDirectory\":"
-    caudec -i -g "$audioDirectory"; exitCode=$?
+    if [ "$zParam" != '-z' ]; then
+      echo "Scanning \"$audioDirectory\":"
+    fi
+    caudec $zParam -i -g "$audioDirectory"; exitCode=$?
   else
     echo "$audioDirectory"
-    caudec -s -i -g "$audioDirectory"; exitCode=$?
+    caudec $zParam -s -i -g "$audioDirectory"; exitCode=$?
   fi
 
   if [ "$Self_Verbose" = 'true' ]; then
@@ -205,13 +214,14 @@ cleanAbort () {
 }
 
 Self_Verbose='true'
+zParam=''
 
 for arg in "$@"; do
   case "$arg" in
     '-h') printUsage ; cleanExit $Ex_Ok ;;
     '-s') Self_Verbose='false' ; shift 1 ;;
     '-V') echo "$Self_Name $Self_Version" ; cleanExit $Ex_Ok ;;
-    '-z'|'-Z') echo "$Self_Name: error: don't specify either -z or -Z." 1>&2; cleanExit $Ex_Usage ;;
+    '-z'|'-Z') zParam="$arg" ;;
     *)
       if [ ! -d "$arg" ]; then
         echo "$Self_Name: error: argument must be a directory (\"$arg\")" 1>&2
