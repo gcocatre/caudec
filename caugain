@@ -88,14 +88,6 @@ for arg in "$@"; do
   fi
 done
 
-if [ -r '/etc/caudecrc' ]; then
-	. '/etc/caudecrc'
-fi
-
-if [ -r "${HOME}/.caudecrc" ]; then
-	. "${HOME}/.caudecrc"
-fi
-
 findcmd='find' gnufind='true'
 if which 'uname' 1>/dev/null 2>&1 ; then
 	OS="$( uname -s )"
