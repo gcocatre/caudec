@@ -516,7 +516,7 @@ getMachineParsableString () {
 
 		success)
 			if [ "$statusInfo" = 'track_gain' -o "$statusInfo" = 'album_gain' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$gain" "$msg" "$file" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$gain" "$msg" "$pathOrFile" )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$dateTime" "$msg" "$file" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
@@ -594,13 +594,13 @@ getHumanReadableString () {
 
 		success)
 			if [ "$statusInfo" = 'track_gain' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}TG ${Clr_Rst}%9s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$gain dB" "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$gain dB" "$fileName" )"
 			elif [ "$statusInfo" = 'album_gain' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}AG ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst}\n" "$gain dB" 'Album gain' )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst} \"${pathOrFile}\"\n" "$gain dB" 'Album gain' )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}TF ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$dateTime" "$fileName" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}AL ${Clr_Rst}%10s ${Clr_B_Bl}%s${Clr_Rst}\n" "$albumTime" "Album length" )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}TF ${Clr_Rst}%10s ${Clr_B_Bl}%s${Clr_Rst}\n" "$albumTime" "Album length" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$numberOfThreads" ]; then
 					if [ $numberOfThreads -lt 2 ]; then
@@ -670,13 +670,13 @@ getHumanReadableString () {
 			elif [ "$statusInfo" = 'processing' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}PR ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'album_gain' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}AG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}RG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'track_gain' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}TG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}RG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}TF ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}AL ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}TF ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$hashType" ]; then
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hashType" "$fileName" )"
@@ -5062,13 +5062,13 @@ computeAlbumGain () {
 	# This is a very fast way of computing the album gain, but it is also less precise than the official implementation.
 	# A comparison between gains on 754 albums revealed max differences ranging from -2.06 dB to +1.50 dB.
 	# PINK_REF="64.82" is from flac/src/share/replaygain_analysis/replaygain_analysis.c
-	local exitCode=$Ex_Ok codec="$1" albumPath="$2" PINK_REF_COMPLEMENT="35.18" index processIndex secondsIndex rank trackGain trackSeconds=1
+	local exitCode=$Ex_Ok codec="$1" albumPath="$2" processNumber=$3 PINK_REF_COMPLEMENT="35.18" index processIndex secondsIndex rank trackGain trackSeconds=1
 	local albumSeconds=0 increment=0 trackGainFile trackPeakFile trackDrFile albumPeak albumAudioPeak audioAlbumDR=0 DR
 	local albumGain audioAlbumDrSeconds=0 trackGainsFile trackPeaksFile
 
 	if [ -n "$codec" ]; then
-		trackGainsFile="${Self_Data_Dir}/trackgains_${codec}"
-		trackPeaksFile="${Self_Data_Dir}/trackpeaks_${codec}"
+		trackGainsFile="${Self_Data_Dir}/trackgains_${codec}_{$processNumber}"
+		trackPeaksFile="${Self_Data_Dir}/trackpeaks_${codec}_{$processNumber}"
 	else
 		trackGainsFile="${Self_Data_Dir}/trackgains"
 		trackPeaksFile="${Self_Data_Dir}/trackpeaks"
@@ -5161,24 +5161,31 @@ computeAlbumGain () {
 		else
 			destFile="${sourceFiles[$fileIndex]}"
 		fi
-		if [ $processIndex -lt $nProcesses ]; then
-			saveGain 'ALBUM' "$destFile" &
+		if [ -n "$codec" ]; then
+			saveGain 'ALBUM' "$destFile"
 		else
-			wait
-			processIndex=0
-			destFile="${sourceFiles[$fileIndex]}"
-			saveGain 'ALBUM' "$destFile" &
+			if [ $processIndex -lt $nProcesses ]; then
+				saveGain 'ALBUM' "$destFile" &
+			else
+				wait
+				processIndex=0
+				destFile="${sourceFiles[$fileIndex]}"
+				saveGain 'ALBUM' "$destFile" &
+			fi
+			(( processIndex++ ))
 		fi
-		(( processIndex++ ))
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
-	wait
+	if [ -z "$codec" ]; then
+		wait
+	fi
 
 	rm -f "$trackGainsFile" "$trackPeaksFile"
 
 	if [ "${albumGain:0:1}" != '-' ]; then
 		albumGain="+${albumGain}"
 	fi
-	printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB"
+	basePath="$( basename "$albumPath" )"
+	printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:${basePath}"
 
 	return $exitCode
 }
@@ -6811,7 +6818,16 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 # -----------------------------------------------------------------------------
 
-		g) computeReplayGain='true' ;;
+		g)
+			computeReplayGain='true'
+			if [ -n "$outputCodecs" ]; then
+				printMessage 'error' 'usage' 'command_line' "$Self_Name: when transcoding, -g must be specified first."
+				exit $Ex_Usage
+			elif [ "$outputCodecs" != "${outputCodecs//Opus/}" ]; then
+				printMessage 'error' 'usage' 'command_line' "$Self_Name: using -g with -c opus is not supported."
+				exit $Ex_Usage
+			fi
+			;;
 
 		# FIXME
 		G)
@@ -7105,6 +7121,8 @@ declare -a sourceFiles=()
 numberOfInputFiles=0
 numberOfSourceFiles=0
 
+printMessage 'info' "Setting up…"
+
 # startTimer
 getInputFiles
 # endTimer "getInputFiles()"
@@ -7150,7 +7168,7 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	printMessage 'info' "Transcoding files…"
+	printMessage 'info' "Transcoding ${numberOfOutputFiles} files…"
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		transcode &
 	done
@@ -7244,6 +7262,8 @@ if [ $exitCode -eq $Ex_Ok ]; then
 				if [ -z "$outputCodecs" ]; then
 					computeAlbumGain || exitCode=$Ex_Ko
 				else
+					echo
+					printMessage 'info' "Computing ReplayGain album gain(s)…"
 					for outputCodec in $outputCodecs; do
 						while read milliseconds paddedFileIndex fileIndex; do
 							getOutputCodecDestFile "${sourceFiles[$fileIndex]}" "$outputCodec"
@@ -7252,11 +7272,20 @@ if [ $exitCode -eq $Ex_Ok ]; then
 
 						sort -u "${Self_Data_Dir}/destPaths.txt" > "${Self_Data_Dir}/destPaths.txt.tmp"
 						mv "${Self_Data_Dir}/destPaths.txt.tmp" "${Self_Data_Dir}/destPaths.txt"
+						numberOfPaths="$( cat "${Self_Data_Dir}/destPaths.txt" | wc -l | tr -cd '[:digit:]' )"
 
+						adjustNumberOfProcesses $numberOfPaths
+						processNumber=0
 						while read destPath; do
-							printMessage 'info' "Computing album gain for \"${destPath}\"…"
-							computeAlbumGain "$outputCodec" "$destPath" || exitCode=$Ex_Ko
+							computeAlbumGain "$outputCodec" "$destPath" $processNumber &
+							(( processNumber++ ))
+							if [ $processNumber -eq $nProcesses ]; then
+								wait
+								processNumber=0
+							fi
 						done < "${Self_Data_Dir}/destPaths.txt"
+						wait
+						echo
 					done
 				fi
 			fi
