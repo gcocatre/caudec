@@ -1,5 +1,5 @@
 ```
-caudec 4.6.0: multiprocess audio converter
+caudec 4.6.3: multiprocess audio converter
 Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
@@ -154,7 +154,7 @@ Decoding parameters (all mutually exlusive from each other and other actions):
 
 -------------------------------------------------------------------------------
 
-ReplayGain parameters (mutually exclusive from all other actions):
+ReplayGain parameters (mutually exclusive from all other actions, except -g):
 
   -g        generate ReplayGain metadata, using the new ITU-R BS.1770 algorithm
 
