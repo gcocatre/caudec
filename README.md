@@ -193,6 +193,16 @@ Here we specify a list of (album) directories instead of a list of files. Use `t
 
 ---
 
+#### Scanning multiple albums for ReplayGain using `caugain`:
+
+```
+$ caugain "Pink Floyd" "Daft Punk"
+```
+
+Here again we specify a list of (album) directories instead of a list of files. Use `caugain -s` in order to be silent and only display errors.
+
+---
+
 #### Using a profile to downmix or upmix, downscale and / or downsample before encoding, only if needed:
 
 ```
