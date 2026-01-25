@@ -596,7 +596,9 @@ getHumanReadableString () {
 			if [ "$statusInfo" = 'track_gain' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%9s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$gain dB" "$fileName" )"
 			elif [ "$statusInfo" = 'album_gain' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}OK ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst}\n" "$gain dB" 'Album gain' )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}AG ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst}\n" "$gain dB" 'Album gain' )"
+			elif [ "$statusInfo" = 'track_gain' ]; then
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}TG ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst}\n" "$gain dB" 'Track gain' )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$dateTime" "$fileName" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
@@ -669,6 +671,12 @@ getHumanReadableString () {
 				fi
 			elif [ "$statusInfo" = 'processing' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}PR ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+			elif [ "$statusInfo" = 'album_gain' ]; then
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}AG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+			elif [ "$statusInfo" = 'track_gain' ]; then
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}TG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+			elif [ "$statusInfo" = 'touch_files' ]; then
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}TF ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$hashType" ]; then
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hashType" "$fileName" )"
@@ -5054,12 +5062,16 @@ computeAlbumGain () {
 	# This is a very fast way of computing the album gain, but it is also less precise than the official implementation.
 	# A comparison between gains on 754 albums revealed max differences ranging from -2.06 dB to +1.50 dB.
 	# PINK_REF="64.82" is from flac/src/share/replaygain_analysis/replaygain_analysis.c
-	local exitCode=$Ex_Ok codec="$1" PINK_REF_COMPLEMENT="35.18" index processIndex secondsIndex rank trackGain trackSeconds=1
+	local exitCode=$Ex_Ok codec="$1" albumPath="$2" PINK_REF_COMPLEMENT="35.18" index processIndex secondsIndex rank trackGain trackSeconds=1
 	local albumSeconds=0 increment=0 trackGainFile trackPeakFile trackDrFile albumPeak albumAudioPeak audioAlbumDR=0 DR
 	local albumGain audioAlbumDrSeconds=0 trackGainsFile trackPeaksFile
 
 	while read milliseconds paddedFileIndex fileIndex; do
 		if [ -n "$codec" ]; then
+			getOutputCodecDestFile "${sourceFiles[$fileIndex]}" "$codec"
+			if [ "$destPath" != "$albumPath" ]; then
+				continue
+			fi
 			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${codec}.txt"
 			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${codec}.txt"
 			trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_${codec}.txt"
@@ -5087,6 +5099,8 @@ computeAlbumGain () {
 			trackGainsFile="${Self_Data_Dir}/trackgains"
 			trackPeaksFile="${Self_Data_Dir}/trackpeaks"
 		fi
+		echo -n "" > "$trackGainsFile"
+		echo -n "" > "$trackPeaksFile"
 		for (( secondsIndex=0; secondsIndex < trackSeconds; secondsIndex++ )); do
 			echo "$trackGain" >> "$trackGainsFile"
 			(( increment++ ))
@@ -5140,6 +5154,9 @@ computeAlbumGain () {
 	while read milliseconds paddedFileIndex fileIndex; do
 		if [ -n "$codec" ]; then
 			getOutputCodecDestFile "${sourceFiles[$fileIndex]}" "$codec"
+			if [ "$destPath" != "$albumPath" ]; then
+				continue
+			fi
 		else
 			destFile="${sourceFiles[$fileIndex]}"
 		fi
@@ -5154,6 +5171,8 @@ computeAlbumGain () {
 		(( processIndex++ ))
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 	wait
+
+	rm -f "$trackGainsFile" "$trackPeaksFile"
 
 	if [ "${albumGain:0:1}" != '-' ]; then
 		albumGain="+${albumGain}"
@@ -5654,7 +5673,7 @@ getCodecFullName () {
 
 getOutputCodecDestFile () {
 	local sourceFile="$1" outputCodec="$2" sourceFilename sourceDirname sourceBasename sourceIsLossyWAV
-	local sourceExtension destExtension destDir destFilename copyPath destPath
+	local sourceExtension destExtension destDir destFilename copyPath
 
 	sourceFilename="$( basename "$sourceFile" )"
 	sourceDirname="$( dirname "$sourceFile" )"
@@ -7130,6 +7149,7 @@ if [ $nCodecs -gt 0 ]; then # action: transcode files
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
+	printMessage 'info' "Transcoding files…"
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		transcode &
 	done
@@ -7221,10 +7241,21 @@ if [ $exitCode -eq $Ex_Ok ]; then
 		else
 			if [ "$applyGain" = 'false' -o "$applyGainType" = 'ALBUM' ]; then
 				if [ -z "$outputCodecs" ]; then
-					computeAlbumGain '' || exitCode=$Ex_Ko
+					computeAlbumGain || exitCode=$Ex_Ko
 				else
 					for outputCodec in $outputCodecs; do
-						computeAlbumGain "$outputCodec" || exitCode=$Ex_Ko
+						while read milliseconds paddedFileIndex fileIndex; do
+							getOutputCodecDestFile "${sourceFiles[$fileIndex]}" "$outputCodec"
+							echo "$destPath" >> "${Self_Data_Dir}/destPaths.txt"
+						done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+
+						sort -u "${Self_Data_Dir}/destPaths.txt" > "${Self_Data_Dir}/destPaths.txt.tmp"
+						mv "${Self_Data_Dir}/destPaths.txt.tmp" "${Self_Data_Dir}/destPaths.txt"
+
+						while read destPath; do
+							printMessage 'info' "Computing album gain for \"${destPath}\"…"
+							computeAlbumGain "$outputCodec" "$destPath" || exitCode=$Ex_Ko
+						done < "${Self_Data_Dir}/destPaths.txt"
 					done
 				fi
 			fi
