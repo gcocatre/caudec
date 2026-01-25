@@ -594,15 +594,13 @@ getHumanReadableString () {
 
 		success)
 			if [ "$statusInfo" = 'track_gain' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%9s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$gain dB" "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}TG ${Clr_Rst}%9s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$gain dB" "$fileName" )"
 			elif [ "$statusInfo" = 'album_gain' ]; then
 				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}AG ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst}\n" "$gain dB" 'Album gain' )"
-			elif [ "$statusInfo" = 'track_gain' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}TG ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst}\n" "$gain dB" 'Track gain' )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$dateTime" "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}TF ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$dateTime" "$fileName" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}OK ${Clr_Rst}%10s ${Clr_B_Bl}%s${Clr_Rst}\n" "$albumTime" "Album length" )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}AL ${Clr_Rst}%10s ${Clr_B_Bl}%s${Clr_Rst}\n" "$albumTime" "Album length" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$numberOfThreads" ]; then
 					if [ $numberOfThreads -lt 2 ]; then
@@ -675,8 +673,10 @@ getHumanReadableString () {
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}AG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'track_gain' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}TG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
-			elif [ "$statusInfo" = 'touch_files' ]; then
+			elif [ "$statusInfo" = 'touch_file' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}TF ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+			elif [ "$statusInfo" = 'touch_files' ]; then
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}AL ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$hashType" ]; then
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hashType" "$fileName" )"
@@ -5066,6 +5066,16 @@ computeAlbumGain () {
 	local albumSeconds=0 increment=0 trackGainFile trackPeakFile trackDrFile albumPeak albumAudioPeak audioAlbumDR=0 DR
 	local albumGain audioAlbumDrSeconds=0 trackGainsFile trackPeaksFile
 
+	if [ -n "$codec" ]; then
+		trackGainsFile="${Self_Data_Dir}/trackgains_${codec}"
+		trackPeaksFile="${Self_Data_Dir}/trackpeaks_${codec}"
+	else
+		trackGainsFile="${Self_Data_Dir}/trackgains"
+		trackPeaksFile="${Self_Data_Dir}/trackpeaks"
+	fi
+	echo -n "" > "$trackGainsFile"
+	echo -n "" > "$trackPeaksFile"
+
 	while read milliseconds paddedFileIndex fileIndex; do
 		if [ -n "$codec" ]; then
 			getOutputCodecDestFile "${sourceFiles[$fileIndex]}" "$codec"
@@ -5092,15 +5102,6 @@ computeAlbumGain () {
 			audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
 		fi
 
-		if [ -n "$codec" ]; then
-			trackGainsFile="${Self_Data_Dir}/trackgains_${codec}"
-			trackPeaksFile="${Self_Data_Dir}/trackpeaks_${codec}"
-		else
-			trackGainsFile="${Self_Data_Dir}/trackgains"
-			trackPeaksFile="${Self_Data_Dir}/trackpeaks"
-		fi
-		echo -n "" > "$trackGainsFile"
-		echo -n "" > "$trackPeaksFile"
 		for (( secondsIndex=0; secondsIndex < trackSeconds; secondsIndex++ )); do
 			echo "$trackGain" >> "$trackGainsFile"
 			(( increment++ ))
@@ -7260,10 +7261,10 @@ if [ $exitCode -eq $Ex_Ok ]; then
 				fi
 			fi
 		fi
-	elif [ "$touchFiles" = 'true' ]; then
-		touchAllFiles || exitCode=$Ex_Ko
 	elif [ "$showDurations" = 'true' ]; then
 		showAlbumDuration || exitCode=$Ex_Ko
+	elif [ "$touchFiles" = 'true' ]; then
+		touchAllFiles || exitCode=$Ex_Ko
 	fi
 fi
 
