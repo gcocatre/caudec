@@ -596,11 +596,15 @@ getHumanReadableString () {
 			if [ "$statusInfo" = 'track_gain' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$gain dB" "$fileName" )"
 			elif [ "$statusInfo" = 'album_gain' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst} \"${pathOrFile}\"\n" "$gain dB" 'Album gain' )"
+				if [ -n "$pathOrFile" ]; then
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst} %s\n" "$gain dB" 'Album gain' "$pathOrFile" )"
+				else
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst}\n" "$gain dB" 'Album gain' )"
+				fi
 			elif [ "$statusInfo" = 'touch_file' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}TF ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$dateTime" "$fileName" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}TF ${Clr_Rst}%10s ${Clr_B_Bl}%s${Clr_Rst}\n" "$albumTime" "Album length" )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}TF ${Clr_Rst}%10s ${Clr_B_Bl}%s${Clr_Rst}\n" "$albumTime" 'Album length' )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$numberOfThreads" ]; then
 					if [ $numberOfThreads -lt 2 ]; then
@@ -670,13 +674,13 @@ getHumanReadableString () {
 			elif [ "$statusInfo" = 'processing' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}PR ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'album_gain' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}RG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}RG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber 'Album gain' )"
 			elif [ "$statusInfo" = 'track_gain' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}RG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}TF ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}TF ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}TF ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber 'Album length' )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$hashType" ]; then
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hashType" "$fileName" )"
@@ -5184,8 +5188,12 @@ computeAlbumGain () {
 	if [ "${albumGain:0:1}" != '-' ]; then
 		albumGain="+${albumGain}"
 	fi
-	basePath="$( basename "$albumPath" )"
-	printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:${basePath}"
+	if [ -n "$albumPath" ]; then
+		basePath="$( basename "$albumPath" )"
+		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:${basePath}"
+	else
+		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB"
+	fi
 
 	return $exitCode
 }
