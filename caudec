@@ -1993,40 +1993,40 @@ vorbisCommentsToEyeD3 () {
 		# and escape spaces
 		value="$( echo "$value" | $sedcmd -e 's@^-@‑@' -e 's@ -@ ‑@g' -e 's@ @\\ @g' )"
 		case "$field" in
-			album)                 echo "--album $value" ;;
+			album)                 echo "-A $value" ;;
 			albumartist|"album artist"|album_artist)
-				echo "--album-artist $value"
+				echo "-b $value"
 				if [ "$value" = 'Various Artists' -o "$setCompilationFlagWithAlbumArtist" = 'true' ]; then
-					echo "--text-frame=TCMP:1" # iTunes 'compilation' frame
+					echo "--text-frame TCMP:1" # iTunes 'compilation' frame
 				fi
 				;;
-			artist)                echo "--artist $value" ;;
+			artist)                echo "-a $value" ;;
 			composer)              echo "--composer $value" ;;
-			conductor)             echo "--text-frame=TPE3:$value" ;;
+			conductor)             echo "--text-frame TPE3:$value" ;;
 
 			copyright)
 				echo "$value" | grep -E '^[0-9]{4} '
 				if [ $? -eq $Ex_Ok ]; then
-					echo "--text-frame=TCOP:$value"
+					echo "--text-frame TCOP:$value"
 				fi
 				;;
 
 			date|year)             printf -- '--release-year %s\n--release-date %s\n--orig-release-date %s\n--recording-date %s\n' "${value:0:4}" "$value" "$value" "$value" ;;
-			description|comment)   echo "--text-frame=COMM:$value" ;;
-			discnumber)            printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
-			disctotal|totaldiscs)  printf -- '--disc-total %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs" ;;
+			description|comment)   echo "--text-frame COMM:$value" ;;
+			discnumber)            printf -- '-d %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
+			disctotal|totaldiscs)  printf -- '-D %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs" ;;
 			encoder|encoding)      continue ;;
-			genre)                 echo "--genre $value" ;;
-			isrc)                  echo "--text-frame=TSRC:$value" ;;
-			license) if [ "${value:0:7}" = 'http://' ]; then echo "--text-frame=WCOP:$value" ; fi ;;
-			lyricist)              echo "--text-frame=TEXT:$value" ;;
-			performer)             echo "--text-frame=TPE3:$value" ;;
+			genre)                 echo "-G $value" ;;
+			isrc)                  echo "--text-frame TSRC:$value" ;;
+			license) if [ "${value:0:7}" = 'http://' ]; then echo "--text-frame WCOP:$value" ; fi ;;
+			lyricist)              echo "--text-frame TEXT:$value" ;;
+			performer)             echo "--text-frame TPE3:$value" ;;
 			publisher)             echo "--publisher $value" ;;
-			subtitle)              echo "--text-frame=TIT3:$value" ;;
-			title)                 echo "--title $value" ;;
-			tracknumber)           printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
-			tracktotal|totaltracks) printf -- '--track-total %g\n' "$totalTracks" ;;
-			*)                     echo "--user-text-frame=${field}:${value}" ;;
+			subtitle)              echo "--text-frame TIT3:$value" ;;
+			title)                 echo "-t $value" ;;
+			tracknumber)           printf -- '-n %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
+			tracktotal|totaltracks) printf -- '-N %g\n' "$totalTracks" ;;
+			*)                     echo "--user-text-frame ${field}:${value}" ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -2159,46 +2159,46 @@ M4AToEyeD3 () {
 		# and escape spaces
 		value="$( echo "$value" | $sedcmd -e 's@^-@‑@' -e 's@ -@ ‑@g' -e 's@ @\\ @g' )"
 		case "$field" in
-			album)                 echo "--album $value" ;;
+			album)                 echo "-A $value" ;;
 			album_artist)
-				echo "--album-artist $value"
+				echo "-b $value"
 				if [ "$value" = 'Various Artists' -o "$setCompilationFlagWithAlbumArtist" = 'true' ]; then
-					echo "--text-frame=TCMP:1" # iTunes 'compilation' frame
+					echo "--text-frame TCMP:1" # iTunes 'compilation' frame
 				fi
 				;;
-			artist)                echo "--artist $value" ;;
-			comment)               echo "--text-frame=COMM:$value" ;;
+			artist)                echo "-a $value" ;;
+			comment)               echo "--text-frame COMM:$value" ;;
 			composer)              echo "--composer $value" ;;
 			copyright)
 				echo "$value" | grep -E '^[0-9]{4} '
 				if [ $? -eq $Ex_Ok ]; then
-					echo "--text-frame=TCOP:$value"
+					echo "--text-frame TCOP:$value"
 				fi
 				;;
 			date|year)             printf -- '--release-year %s\n--release-date %s\n--orig-release-date %s\n--recording-date %s\n' "${value:0:4}" "$value" "$value" "$value" ;;
 			disc)
 				case "$value" in
 					[0-9]*)
-						printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )"
+						printf -- '-d %g\n' "$( getTrackOrDiscNumber "$value" )"
 						if [ -n "$totalDiscs" ]; then
-							printf -- '--disc-total %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
+							printf -- '-D %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
 						fi
 						;;
 				esac
 				;;
 			encoder|encoding)      continue ;;
-			genre)                 echo "--genre $value" ;;
-			isrc)                  echo "--text-frame=TSRC:$value" ;;
-			title)                 echo "--title $value" ;;
+			genre)                 echo "-G $value" ;;
+			isrc)                  echo "--text-frame TSRC:$value" ;;
+			title)                 echo "-t $value" ;;
 			track)
 				if [ -n "$totalTracks" ]; then
-					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
-					printf -- '--track-total %g\n' "$totalTracks"
+					printf -- '-n %g\n' "$( getTrackOrDiscNumber "$value" )"
+					printf -- '-N %g\n' "$totalTracks"
 				else
-					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
+					printf -- '-n %g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
-			*)                     echo "--user-text-frame=${field}:${value}" ;;
+			*)                     echo "--user-text-frame ${field}:${value}" ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -2270,51 +2270,51 @@ APEv2ToEyeD3 () {
 		# and escape spaces
 		value="$( echo "$value" | $sedcmd -e 's@^-@‑@' -e 's@ -@ ‑@g' -e 's@ @\\ @g' )"
 		case "$field" in
-			album)                 echo "--album $value" ;;
+			album)                 echo "-A $value" ;;
 			albumartist|"album artist"|album_artist)
-				echo "--album-artist $value"
+				echo "-b $value"
 				if [ "$value" = 'Various Artists' -o "$setCompilationFlagWithAlbumArtist" = 'true' ]; then
-					echo "--text-frame=TCMP:1" # iTunes 'compilation' frame
+					echo "--text-frame TCMP:1" # iTunes 'compilation' frame
 				fi
 				;;
-			artist)                echo "--artist $value" ;;
-			comment)               echo "--text-frame=COMM:$value" ;;
+			artist)                echo "-a $value" ;;
+			comment)               echo "--text-frame COMM:$value" ;;
 			composer)              echo "--composer $value" ;;
 			copyright)
 				echo "$value" | grep -E '^[0-9]{4} '
 				if [ $? -eq $Ex_Ok ]; then
-					echo "--text-frame=TCOP:$value"
+					echo "--text-frame TCOP:$value"
 				fi
 				;;
-			conductor)             echo "--text-frame=TPE3:$value" ;;
+			conductor)             echo "--text-frame TPE3:$value" ;;
 			encoder|encoding)      continue ;;
-			genre)                 echo "--genre $value" ;;
-			isrc)                  echo "--text-frame=TSRC:$value" ;;
-			license) if [ "${value:0:7}" = 'http://' ]; then echo "--text-frame=WCOP:$value" ; fi ;;
+			genre)                 echo "-G $value" ;;
+			isrc)                  echo "--text-frame TSRC:$value" ;;
+			license) if [ "${value:0:7}" = 'http://' ]; then echo "--text-frame WCOP:$value" ; fi ;;
 			media|disc)
 				case "$value" in
 					[0-9]*)
-						printf -- '--disc-num %g\n' "$( getTrackOrDiscNumber "$value" )"
+						printf -- '-d %g\n' "$( getTrackOrDiscNumber "$value" )"
 						if [ -n "$totalDiscs" ]; then
-							printf -- '--disc-total %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
+							printf -- '-D %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
 						fi
 						;;
 				esac
 				;;
-			performer)             echo "--text-frame=TPE3:$value" ;;
+			performer)             echo "--text-frame TPE3:$value" ;;
 			publisher)             echo "--publisher $value" ;;
-			subtitle)              echo "--text-frame=TIT3:$value" ;;
-			title)                 echo "--title $value" ;;
+			subtitle)              echo "--text-frame TIT3:$value" ;;
+			title)                 echo "-t $value" ;;
 			track)
 				if [ -n "$totalTracks" ]; then
-					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
-					printf -- '--track-total %g\n' "$totalTracks"
+					printf -- '-n %g\n' "$( getTrackOrDiscNumber "$value" )"
+					printf -- '-N %g\n' "$totalTracks"
 				else
-					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
+					printf -- '-n %g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
 			year|date)             printf -- '--release-year %s\n--release-date %s\n--orig-release-date %s\n--recording-date %s\n' "${value:0:4}" "$value" "$value" "$value" ;;
-			*)                     echo "--user-text-frame=${field}:${value}" ;;
+			*)                     echo "--user-text-frame ${field}:${value}" ;;
 		esac
 	done < "$sourceTagFile"
 }
@@ -3052,7 +3052,7 @@ importArtworkIntoMP3 () {
 			description="$( cat "$descFile" 2>> "$Self_Errors_File" )"
 		fi
 		picTypeLabel="$( getID3v2TrackPictureTypeLabel "$picType" )"
-		eyeD3 --quiet --to-v2.4 --add-image="${picFile}:${picTypeLabel}:${description}" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+		eyeD3 --quiet --to-v2.4 --add-image "${picFile}:${picTypeLabel}:${description}" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	done
 
 	return $exitCode
@@ -3916,7 +3916,7 @@ encode () {
 			fi
 			if [ $exitCode -ne $Ex_Ko ]; then
 				if [ -n "$id3CompressionTag" ]; then
-					printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' --text-frame=TSSE:"$id3CompressionTag" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' --text-frame "TSSE:$id3CompressionTag" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				else
 					printf -- "`tagline`" | xargs -0 eyeD3 --quiet --to-v2.4 --force-update --encoding 'utf8' "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				fi
@@ -4576,36 +4576,36 @@ saveReplaygainToMP3 () {
 
 	if [ "$computeAudioCharacteristics" = 'true' -a -n "$peakDbfs" -a -n "$DR" ]; then
 		eyeD3 --quiet --to-v2.4 \
-			--user-text-frame="AUDIO_${gainType}_DR" \
-			--user-text-frame="AUDIO_${gainType}_PEAK" \
-			--user-text-frame="AUDIO_TARGET_LOUDNESS" \
-			--user-text-frame="REPLAYGAIN_${gainType}_PEAK" \
-			--user-text-frame="REPLAYGAIN_${gainType}_GAIN" \
-			--user-text-frame="REPLAYGAIN_ALGORITHM" \
-			--user-text-frame="REPLAYGAIN_REFERENCE_LEVEL" \
-			--user-text-frame="REPLAYGAIN_TARGET_LOUDNESS" \
-			--user-text-frame="REPLAYGAIN_VERSION" \
-			--user-text-frame="AUDIO_${gainType}_DR:${DR}" \
-			--user-text-frame="AUDIO_${gainType}_PEAK:${peakDbfs} dBFS" \
-			--user-text-frame="AUDIO_TARGET_LOUDNESS:${AUDIO_TARGET_LOUDNESS} LUFS" \
-			--user-text-frame="REPLAYGAIN_${gainType}_PEAK:${peak}" \
-			--user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
-			--user-text-frame="REPLAYGAIN_ALGORITHM:${REPLAYGAIN_ALGORITHM}" \
+			--user-text-frame "AUDIO_${gainType}_DR:" \
+			--user-text-frame "AUDIO_${gainType}_PEAK:" \
+			--user-text-frame "AUDIO_TARGET_LOUDNESS:" \
+			--user-text-frame "REPLAYGAIN_${gainType}_PEAK:" \
+			--user-text-frame "REPLAYGAIN_${gainType}_GAIN:" \
+			--user-text-frame "REPLAYGAIN_ALGORITHM:" \
+			--user-text-frame "REPLAYGAIN_REFERENCE_LEVEL:" \
+			--user-text-frame "REPLAYGAIN_TARGET_LOUDNESS:" \
+			--user-text-frame "REPLAYGAIN_VERSION:" \
+			--user-text-frame "AUDIO_${gainType}_DR:${DR}" \
+			--user-text-frame "AUDIO_${gainType}_PEAK:${peakDbfs} dBFS" \
+			--user-text-frame "AUDIO_TARGET_LOUDNESS:${AUDIO_TARGET_LOUDNESS} LUFS" \
+			--user-text-frame "REPLAYGAIN_${gainType}_PEAK:${peak}" \
+			--user-text-frame "REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
+			--user-text-frame "REPLAYGAIN_ALGORITHM:${REPLAYGAIN_ALGORITHM}" \
 			"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	else
 		eyeD3 --quiet --to-v2.4 \
-			--user-text-frame="AUDIO_${gainType}_DR" \
-			--user-text-frame="AUDIO_${gainType}_PEAK" \
-			--user-text-frame="AUDIO_TARGET_LOUDNESS" \
-			--user-text-frame="REPLAYGAIN_${gainType}_PEAK" \
-			--user-text-frame="REPLAYGAIN_${gainType}_GAIN" \
-			--user-text-frame="REPLAYGAIN_ALGORITHM" \
-			--user-text-frame="REPLAYGAIN_REFERENCE_LEVEL" \
-			--user-text-frame="REPLAYGAIN_TARGET_LOUDNESS" \
-			--user-text-frame="REPLAYGAIN_VERSION" \
-			--user-text-frame="REPLAYGAIN_${gainType}_PEAK:${peak}" \
-			--user-text-frame="REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
-			--user-text-frame="REPLAYGAIN_ALGORITHM:${REPLAYGAIN_ALGORITHM}" \
+			--user-text-frame "AUDIO_${gainType}_DR:" \
+			--user-text-frame "AUDIO_${gainType}_PEAK:" \
+			--user-text-frame "AUDIO_TARGET_LOUDNESS:" \
+			--user-text-frame "REPLAYGAIN_${gainType}_PEAK:" \
+			--user-text-frame "REPLAYGAIN_${gainType}_GAIN:" \
+			--user-text-frame "REPLAYGAIN_ALGORITHM:" \
+			--user-text-frame "REPLAYGAIN_REFERENCE_LEVEL:" \
+			--user-text-frame "REPLAYGAIN_TARGET_LOUDNESS:" \
+			--user-text-frame "REPLAYGAIN_VERSION:" \
+			--user-text-frame "REPLAYGAIN_${gainType}_PEAK:${peak}" \
+			--user-text-frame "REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
+			--user-text-frame "REPLAYGAIN_ALGORITHM:${REPLAYGAIN_ALGORITHM}" \
 			"$destFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	fi
 
@@ -5311,32 +5311,32 @@ reverseTrackGain () {
 				mp3gain -s d "$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || mp3GainExitCode2=$Ex_Ko
 
 				eyeD3 --quiet --to-v2.4 \
-					--user-text-frame="AUDIO_ALBUM_DR" \
-					--user-text-frame="AUDIO_ALBUM_PEAK" \
-					--user-text-frame="AUDIO_TRACK_DR" \
-					--user-text-frame="AUDIO_TRACK_PEAK" \
-					--user-text-frame="AUDIO_TARGET_LOUDNESS" \
-					--user-text-frame="REPLAYGAIN_ALBUM_PEAK" \
-					--user-text-frame="REPLAYGAIN_ALBUM_GAIN" \
-					--user-text-frame="REPLAYGAIN_TRACK_PEAK" \
-					--user-text-frame="REPLAYGAIN_TRACK_GAIN" \
-					--user-text-frame="REPLAYGAIN_ALGORITHM" \
-					--user-text-frame="REPLAYGAIN_REFERENCE_LEVEL" \
-					--user-text-frame="REPLAYGAIN_TARGET_LOUDNESS" \
-					--user-text-frame="REPLAYGAIN_VERSION" \
-					--user-text-frame="audio_album_dr" \
-					--user-text-frame="audio_album_peak" \
-					--user-text-frame="audio_track_dr" \
-					--user-text-frame="audio_track_peak" \
-					--user-text-frame="audio_target_loudness" \
-					--user-text-frame="replaygain_album_peak" \
-					--user-text-frame="replaygain_album_gain" \
-					--user-text-frame="replaygain_track_peak" \
-					--user-text-frame="replaygain_track_gain" \
-					--user-text-frame="replaygain_algorithm" \
-					--user-text-frame="replaygain_reference_level" \
-					--user-text-frame="replaygain_target_loudness" \
-					--user-text-frame="replaygain_version" \
+					--user-text-frame "AUDIO_ALBUM_DR:" \
+					--user-text-frame "AUDIO_ALBUM_PEAK:" \
+					--user-text-frame "AUDIO_TRACK_DR:" \
+					--user-text-frame "AUDIO_TRACK_PEAK:" \
+					--user-text-frame "AUDIO_TARGET_LOUDNESS:" \
+					--user-text-frame "REPLAYGAIN_ALBUM_PEAK:" \
+					--user-text-frame "REPLAYGAIN_ALBUM_GAIN:" \
+					--user-text-frame "REPLAYGAIN_TRACK_PEAK:" \
+					--user-text-frame "REPLAYGAIN_TRACK_GAIN:" \
+					--user-text-frame "REPLAYGAIN_ALGORITHM:" \
+					--user-text-frame "REPLAYGAIN_REFERENCE_LEVEL:" \
+					--user-text-frame "REPLAYGAIN_TARGET_LOUDNESS:" \
+					--user-text-frame "REPLAYGAIN_VERSION:" \
+					--user-text-frame "audio_album_dr:" \
+					--user-text-frame "audio_album_peak:" \
+					--user-text-frame "audio_track_dr:" \
+					--user-text-frame "audio_track_peak:" \
+					--user-text-frame "audio_target_loudness:" \
+					--user-text-frame "replaygain_album_peak:" \
+					--user-text-frame "replaygain_album_gain:" \
+					--user-text-frame "replaygain_track_peak:" \
+					--user-text-frame "replaygain_track_gain:" \
+					--user-text-frame "replaygain_algorithm:" \
+					--user-text-frame "replaygain_reference_level:" \
+					--user-text-frame "replaygain_target_loudness:" \
+					--user-text-frame "replaygain_version:" \
 					"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || mp3GainExitCode3=$Ex_Ko
 
 				if [ $mp3GainExitCode1 -ne $Ex_Ok -a $mp3GainExitCode2 -ne $Ex_Ok -a $mp3GainExitCode3 -ne $Ex_Ok ]; then
