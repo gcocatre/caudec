@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien <guillaume@cocatre.net>
+# Copyright © 2012 - 2026 Guillaume Cocatre-Zilgien <guillaume@cocatre.net>
 # https://github.com/gcocatre/caudec
 #
 # This program is free software: you can redistribute it and/or modify
@@ -230,7 +230,7 @@ debug () {
 printUsage () {
 	if [ "$Self_Called_As" = "$Self_Decode_Name" ]; then
 		echo "$Self_Name ${Self_Version}: multiprocess audio converter
-Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
+Copyright © 2012 - 2026 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
 Usage: $Self_Decode_Name FILES
@@ -239,7 +239,7 @@ Instead of multiple files, one or more directories may be specified.
 See also: $Self_Name -h"
 	else
 		echo "$Self_Name ${Self_Version}: multiprocess audio converter
-Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
+Copyright © 2012 - 2026 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
 Usage: $Self_Name [ GLOBAL PARAMETERS ] [ PROCESSING [ PARAMETERS ] ] FILES

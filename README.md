@@ -1,6 +1,6 @@
 # caudec: multiprocess audio converter
 
-Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
+Copyright © 2012 - 2026 Guillaume Cocatre-Zilgien
 
 https://github.com/gcocatre/caudec
 

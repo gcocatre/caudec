@@ -1,6 +1,6 @@
 ```
 caudec 4.7.2: multiprocess audio converter
-Copyright © 2012 - 2025 Guillaume Cocatre-Zilgien
+Copyright © 2012 - 2026 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
 Usage: caudec [ GLOBAL PARAMETERS ] [ PROCESSING [ PARAMETERS ] ] FILES
