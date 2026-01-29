@@ -727,6 +727,8 @@ getHumanReadableString () {
 				else
 					str="$( printf "${Clr_B_Bk} * ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" "$fileName" "$msg" )"
 				fi
+			elif [ -n "$pathOrFile" ]; then
+				str="$( printf "${Clr_B_Bk} * ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" "$pathOrFile" "$msg" )"
 			else
 				if [ -n "$processNumber" ]; then
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_Wg}WG${Clr_Rst}: %s\n" $processNumber "$msg" )"
@@ -1082,7 +1084,6 @@ getInputFiles () {
 
 	for fileOrDir in "${inputFilesAndDirs[@]}"; do
 		if [ -d "$fileOrDir" ]; then
-			{
 			if [ -r "$fileOrDir" ]; then
 				while IFS= read -d $'\0' -r file ; do
 					if [ -e "$file" ]; then
@@ -1096,11 +1097,10 @@ getInputFiles () {
 						fi
 						(( fileIndex++ ))
 					fi
-				done < <( findInputFiles "$fileOrDir" )
+				done < <( find "$fileOrDir" -type f -print0 2>/dev/null )
 			else
 				printMessage 'warning' 'usage' 'filesystem' "path:${fileOrDir}" 'directory is not readable (permission denied).' ; exitCode=$Ex_No_Input
 			fi
-			} 2>/dev/null
 			if [ $fileIndex -eq 0 ]; then
 				exitCode=$Ex_Io_Err
 			fi
