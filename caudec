@@ -6943,9 +6943,6 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 			if [ -n "$outputCodecs" ]; then
 				printMessage 'error' 'usage' 'command_line' "$Self_Name: when transcoding, -g must be specified first."
 				exit $Ex_Usage
-			elif [ "$outputCodecs" != "${outputCodecs//Opus/}" ]; then
-				printMessage 'error' 'usage' 'command_line' "$Self_Name: using -g with -c opus is not supported. Use transcaude instead."
-				exit $Ex_Usage
 			fi
 			;;
 
