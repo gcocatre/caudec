@@ -5140,9 +5140,9 @@ computeTrackGains () {
 		sourceExtension="${sourceFile##*.}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
-		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain.txt"
-		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak.txt"
-		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr.txt"
+		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
+		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
+		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
 
 		if getLock "$jobFile"; then
 			computeTrackGain "$sourceFile" || exitCode=$Ex_Ko
@@ -5154,6 +5154,26 @@ computeTrackGains () {
 	return $exitCode
 }
 
+processFilesForAlbumGain () {
+	trackGain="$( cat "$trackGainFile" 2>/dev/null )"
+	audioTrackDR="$( cat "$trackDrFile" 2>/dev/null  )"
+	trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
+	if [ -z "$trackSeconds" ]; then
+		trackSeconds=1
+	fi
+	albumSeconds=$(( albumSeconds + trackSeconds ))
+	if [ -n "$audioTrackDR" -a "$audioTrackDR" != '0' ]; then
+		audioAlbumDrSeconds=$(( audioAlbumDrSeconds + trackSeconds ))
+		audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
+	fi
+
+	for (( secondsIndex=0; secondsIndex < trackSeconds; secondsIndex++ )); do
+		echo "$trackGain" >> "$trackGainsFile"
+		(( increment++ ))
+	done
+	cat "$trackPeakFile" >> "$trackPeaksFile" 2>/dev/null
+}
+
 computeAlbumGain () {
 	# This is a very fast way of computing the album gain, but it is also less precise than the official implementation.
 	# A comparison between gains on 754 albums revealed max differences ranging from -2.06 dB to +1.50 dB.
@@ -5162,61 +5182,24 @@ computeAlbumGain () {
 	local trackGain albumGain trackSeconds=1 albumSeconds=0 increment=0 trackGainFile trackPeakFile trackDrFile albumPeak
 	local albumAudioPeak audioAlbumDR=0 DR audioAlbumDrSeconds=0 trackGainsFile trackPeaksFile albumGainFilesIndex
 
-	if [ -n "$codec" ]; then
-		trackGainsFile="${Self_Data_Dir}/trackgains_${codec}_{$processNumber}"
-		trackPeaksFile="${Self_Data_Dir}/trackpeaks_${codec}_{$processNumber}"
-	else
-		trackGainsFile="${Self_Data_Dir}/trackgains"
-		trackPeaksFile="${Self_Data_Dir}/trackpeaks"
-	fi
+	trackGainsFile="${Self_Data_Dir}/trackgains_${codec}_{$processNumber}"
+	trackPeaksFile="${Self_Data_Dir}/trackpeaks_${codec}_{$processNumber}"
 	echo -n "" > "$trackGainsFile"
 	echo -n "" > "$trackPeaksFile"
 
-	if [ -n "$codec" ]; then
+	if [ "$codec" != 'any' ]; then
 		while read outputCodec milliseconds paddedFileIndex fileIndex destPath; do
 			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${codec}.txt"
 			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${codec}.txt"
 			trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_${codec}.txt"
-			trackGain="$( cat "$trackGainFile" 2>/dev/null )"
-			audioTrackDR="$( cat "$trackDrFile" 2>/dev/null  )"
-			trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
-			if [ -z "$trackSeconds" ]; then
-				trackSeconds=1
-			fi
-			albumSeconds=$(( albumSeconds + trackSeconds ))
-			if [ -n "$audioTrackDR" -a "$audioTrackDR" != '0' ]; then
-				audioAlbumDrSeconds=$(( audioAlbumDrSeconds + trackSeconds ))
-				audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
-			fi
-
-			for (( secondsIndex=0; secondsIndex < trackSeconds; secondsIndex++ )); do
-				echo "$trackGain" >> "$trackGainsFile"
-				(( increment++ ))
-			done
-			cat "$trackPeakFile" >> "$trackPeaksFile" 2>/dev/null
+			processFilesForAlbumGain
 		done < <( grep -F "$albumPath" "${Self_Data_Dir}/destPaths.txt" )
 	else
 		while read milliseconds paddedFileIndex fileIndex; do
-			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain.txt"
-			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak.txt"
-			trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr.txt"
-			trackGain="$( cat "$trackGainFile" 2>/dev/null )"
-			audioTrackDR="$( cat "$trackDrFile" 2>/dev/null  )"
-			trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
-			if [ -z "$trackSeconds" ]; then
-				trackSeconds=1
-			fi
-			albumSeconds=$(( albumSeconds + trackSeconds ))
-			if [ -n "$audioTrackDR" -a "$audioTrackDR" != '0' ]; then
-				audioAlbumDrSeconds=$(( audioAlbumDrSeconds + trackSeconds ))
-				audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
-			fi
-
-			for (( secondsIndex=0; secondsIndex < trackSeconds; secondsIndex++ )); do
-				echo "$trackGain" >> "$trackGainsFile"
-				(( increment++ ))
-			done
-			cat "$trackPeakFile" >> "$trackPeaksFile" 2>/dev/null
+			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
+			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
+			trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
+			processFilesForAlbumGain
 		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 	fi
 
@@ -5264,7 +5247,7 @@ computeAlbumGain () {
 
 	declare -a albumGainFiles=()
 	albumGainFilesIndex=0
-	if [ -n "$codec" ]; then
+	if [ "$codec" != 'any' ]; then
 		while read outputCodec milliseconds paddedFileIndex fileIndex destFile; do
 			albumGainFiles[$albumGainFilesIndex]="$destFile"
 			(( albumGainFilesIndex++ ))
@@ -7363,7 +7346,7 @@ if [ $exitCode -eq $Ex_Ok ]; then
 		else
 			if [ "$applyGain" = 'false' -o "$applyGainType" = 'ALBUM' ]; then
 				if [ -z "$outputCodecs" ]; then
-					computeAlbumGain || exitCode=$Ex_Ko
+					computeAlbumGain 'any' '' $processNumber || exitCode=$Ex_Ko
 				else
 					# startTimer
 					processNumber=0
