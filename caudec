@@ -6737,10 +6737,18 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 				*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -c: invalid codec (try $Self_Name -h)" ; exit $Ex_Usage ;;
 			esac
 
-			outputCodecs="$outputCodecs $lastCodec"; (( nCodecs++ ))
-			if [ "$o" = 'c' ]; then
-				preserveMetadata="${preserveMetadata}x${lastCodec}Y"
+			if [ "$lastCodec" = 'Opus' ]; then
+				outputCodecs="$lastCodec $outputCodecs"
+				if [ "$o" = 'c' ]; then
+					preserveMetadata="x${lastCodec}Y${preserveMetadata}"
+				fi
+			else
+				outputCodecs="$outputCodecs $lastCodec"
+				if [ "$o" = 'c' ]; then
+					preserveMetadata="${preserveMetadata}x${lastCodec}Y"
+				fi
 			fi
+			(( nCodecs++ ))
 
 			grep -E "(WavPack.*WavPackLossy)|(WavPackLossy.*WavPack)" < <( echo "$outputCodecs" ) 1>/dev/null 2>/dev/null; exitCode=$?
 			if [ $exitCode -eq $Ex_Ok ]; then
