@@ -370,7 +370,7 @@ transcodeAudioDirectory () {
     echo
   fi
 
-  rm -f "${Self_Tmp_Dir}"/*
+  rm -f "${Self_Tmp_Dir}"/*_log
 
   return $exitCode
 }
@@ -421,6 +421,9 @@ fi
 Self_Encoding_Log="${Self_Tmp_Dir}/encoding_log"
 Self_ReplayGain_Log="${Self_Tmp_Dir}/replay_gain_log"
 Self_Touch_Log="${Self_Tmp_Dir}/touch_log"
+Self_Exit_Code="${Self_Tmp_Dir}/exit_code"
+echo $Ex_Ok > "$Self_Exit_Code"
+
 Self_Verbose='true'
 
 computeLosslessReplayGain='true'
@@ -533,12 +536,14 @@ fi
 exitCode=$Ex_Ok
 for (( audioDirIndex=$lastAudioDirIndex; audioDirIndex > -1; audioDirIndex-- )); do
     audioDirectory="${directoryArguments[$audioDirIndex]}"
-    while read audioDirectory; do
+    findAudioDirectories "$audioDirectory" 2>/dev/null | while read audioDirectory; do
       transcodeAudioDirectory "$audioDirectory"; returnCode=$?
       if [ $returnCode -ne $Ex_Ok ]; then
         echo "$Self_Name: an error occurred while transcoding \"${audioDirectory}\"" 1>&2
+        echo "$returnCode" > "$Self_Exit_Code"
       fi
-    done < <( findAudioDirectories "$audioDirectory" 2>/dev/null )
+    done
 done
 
+read exitCode < "$Self_Exit_Code"
 cleanExit $exitCode

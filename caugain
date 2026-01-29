@@ -203,6 +203,14 @@ findAudioDirectories () {
 cleanExit () {
 	local exitCode=$1
 
+	if [ -n "$Self_Tmp_Dir" ]; then
+		if [ -h "$Self_Tmp_Dir" ]; then
+			rm -rf "$( readlink -f "$Self_Tmp_Dir" )"
+		else
+			rm -rf "$Self_Tmp_Dir"
+		fi
+	fi
+
 	exit $exitCode
 }
 
@@ -212,6 +220,21 @@ cleanAbort () {
 	kill $( jobs -p ) 1>/dev/null 2>&1
 	cleanExit $Ex_Interrupt
 }
+
+if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
+Self_Tmp_Dir="$( mktemp -d "${mktempDir}/${Self_Name}.XXXXXXXX" )"
+if [ ! -e "$Self_Tmp_Dir" ]; then
+  cleanExit $exitCode
+elif [ ! -d "$Self_Tmp_Dir" ]; then
+  echo "$Self_Name: error: cannot create temporary directory" 1>&2
+  cleanExit $Ex_Cant_Create
+elif [ ! -w "$Self_Tmp_Dir" ]; then
+  echo "$Self_Name: error: temporary directory is not writable" 1>&2
+  cleanExit $Ex_No_Perm
+fi
+
+Self_Exit_Code="${Self_Tmp_Dir}/exit_code"
+echo $Ex_Ok > "$Self_Exit_Code"
 
 Self_Verbose='true'
 zParam=''
@@ -254,9 +277,14 @@ fi
 exitCode=$Ex_Ok
 for (( audioDirIndex=0; audioDirIndex < numberOfArguments; audioDirIndex++ )); do
     audioDirectory="${arguments[$audioDirIndex]}"
-    while read audioDirectory; do
+    findAudioDirectories "$audioDirectory" 2>/dev/null | while read audioDirectory; do
       scanAudioDirectory "$audioDirectory"; returnCode=$?
-    done < <( findAudioDirectories "$audioDirectory" 2>/dev/null )
+      if [ $returnCode -ne $Ex_Ok ]; then
+        echo "$Self_Name: an error occurred while scanning \"${audioDirectory}\"" 1>&2
+        echo "$returnCode" > "$Self_Exit_Code"
+      fi
+    done
 done
 
+read exitCode < "$Self_Exit_Code"
 cleanExit $exitCode
