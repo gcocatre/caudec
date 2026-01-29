@@ -755,9 +755,9 @@ printMessageToStdoutOrStderr () {
 }
 
 printMessage () {
-	local msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo='' statusData=''
-	local file='' path='' fileDir='' msg='' p='' numberOfThreads='' hashError='' gain='' bitrate=''
-	local codec='' outputCodec='' str='' duration='' characteristics='' processingRate='' msgArg
+	local msgArg msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo statusData
+	local file path fileDir fileName msg p numberOfThreads hashError gain bitrate
+	local codec outputCodec str duration characteristics processingRate dateTime albumTime
 
 	for msgArg in "$@"; do
 		case "$msgArg" in
@@ -1658,7 +1658,7 @@ createControlFiles () {
 			# touch "${Self_Control_Dir}/${paddedFileIndex}_${outputCodec}.job"
 			touch "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
 			touch "${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
-			if [ "$computeReplayGain" -a "$outputCodec" != 'Opus' ]; then
+			if [ "$computeReplayGain" ]; then
 				touch "${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
 				getOutputCodecDestFile "${sourceFiles[$fileIndex]}" "$outputCodec"
 				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${fileIndex} ${destFile}" >> "${Self_Data_Dir}/${paddedFileIndex}_${outputCodec}.destFile"
@@ -5181,6 +5181,7 @@ computeAlbumGain () {
 	local exitCode=$Ex_Ok codec="$1" albumPath="$2" processNumber=$3 PINK_REF_COMPLEMENT="35.18" secondsIndex rank
 	local trackGain albumGain trackSeconds=1 albumSeconds=0 increment=0 trackGainFile trackPeakFile trackDrFile albumPeak
 	local albumAudioPeak audioAlbumDR=0 DR audioAlbumDrSeconds=0 trackGainsFile trackPeaksFile albumGainFilesIndex
+	local outputCodec milliseconds paddedFileIndex fileIndex destPath destFile
 
 	trackGainsFile="${Self_Data_Dir}/trackgains_${codec}_{$processNumber}"
 	trackPeaksFile="${Self_Data_Dir}/trackpeaks_${codec}_{$processNumber}"
@@ -5278,24 +5279,41 @@ computeAlbumGain () {
 
 # https://github.com/FrancisRussell/zoog
 computeOpusAlbumGain () {
-	local exitCode=$Ex_Ok list sourceFile albumPlaybackGain trackPlaybackGain trackDecibels signedTrackGain signedAlbumGain
+	local exitCode=$Ex_Ok albumPath="$1" list trackFiles trackFile trackFileIndex=0 albumPlaybackGain trackPlaybackGain
+	local trackDecibels signedTrackGain signedAlbumGain
+	local outputCodec milliseconds paddedFileIndex fileIndex destFile basePath
 
-	for sourceFile in "${sourceFiles[@]}"; do
-		if [ -z "$list" ]; then
-			list="$sourceFile"
-		else
-			list="${list}\x00${sourceFile}"
-		fi
-	done
+	trackFiles=()
+	if [ -n "$albumPath" ]; then
+		while read outputCodec milliseconds paddedFileIndex fileIndex destFile; do
+			trackFiles[$trackFileIndex]="$destFile"
+			(( trackFileIndex++ ))
+			if [ -z "$list" ]; then
+				list="$destFile"
+			else
+				list="${list}\x00${destFile}"
+			fi
+		done < <( grep -F "$albumPath" "${Self_Data_Dir}/destFiles.txt" )
+	else
+		for sourceFile in "${sourceFiles[@]}"; do
+			trackFiles[$trackFileIndex]="$sourceFile"
+			(( trackFileIndex++ ))
+			if [ -z "$list" ]; then
+				list="$sourceFile"
+			else
+				list="${list}\x00${sourceFile}"
+			fi
+		done
+	fi
 	echo -en "$list" | xargs -0 opusgain -j $nProcesses -a -p r128 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 	if [ $exitCode -ne $Ex_Ko ]; then
 		# opusgain changes the rights on the files it touches, to u=rw,go=
-		chmod u=rw,go=r "${sourceFiles[@]}" 1>/dev/null 2>> "$Self_Errors_File"
+		chmod u=rw,go=r "${trackFiles[@]}" 1>/dev/null 2>> "$Self_Errors_File"
 
-		albumPlaybackGain="$( opusinfo "$sourceFile" 2>> "$Self_Errors_File" | grep -F "Playback gain: " | cut -d ':' -f 2 | cut -d ' ' -f 2 )"
+		albumPlaybackGain="$( opusinfo "${trackFiles[0]}" 2>> "$Self_Errors_File" | grep -F "Playback gain: " | cut -d ':' -f 2 | cut -d ' ' -f 2 )"
 		albumPlaybackGain="$( printf "%.2f" "$albumPlaybackGain" )"
-		for sourceFile in "${sourceFiles[@]}"; do
-			trackPlaybackGain="$( opusinfo "$sourceFile" | grep -F "R128_TRACK_GAIN=" | cut -d '=' -f 2 | cut -d ' ' -f 1 )"
+		for trackFile in "${trackFiles[@]}"; do
+			trackPlaybackGain="$( opusinfo "$trackFile" | grep -F "R128_TRACK_GAIN=" | cut -d '=' -f 2 | cut -d ' ' -f 1 )"
 			trackPlaybackGain="${trackPlaybackGain#+*}"
 			trackDecibels="$( echo "scale=3; ($albumPlaybackGain + ($trackPlaybackGain / 256)) / 1" | bc 2>> "$Self_Errors_File" )"
 			trackDecibels="$( printf "%.2f" "$trackDecibels" )"
@@ -5303,13 +5321,21 @@ computeOpusAlbumGain () {
 			if [ "${signedTrackGain:0:1}" != '-' -a "${signedTrackGain:0:1}" != '+' ]; then
 				signedTrackGain="+${signedTrackGain}"
 			fi
-			printMessage 'success' 'track_gain' $processNumber "$signedTrackGain dB" "Track gain: $signedTrackGain dB" "file:${sourceFile}"
+			if [ -z "$albumPath" ]; then
+				printMessage 'success' 'track_gain' $processNumber "$signedTrackGain dB" "Track gain: $signedTrackGain dB" "file:${trackFile}"
+			fi
 		done
 		signedAlbumGain="$albumPlaybackGain"
 		if [ "${signedAlbumGain:0:1}" != '-' -a "${signedAlbumGain:0:1}" != '+' ]; then
 			signedAlbumGain="+${signedAlbumGain}"
 		fi
-		printMessage 'success' 'album_gain' "$signedAlbumGain dB"
+
+		if [ -n "$albumPath" ]; then
+			basePath="$( basename "$albumPath" )"
+			printMessage 'success' 'album_gain' "${signedAlbumGain} dB" "Album gain: $signedAlbumGain dB" "path:${basePath}"
+		else
+			printMessage 'success' 'album_gain' "${signedAlbumGain} dB" "Album gain: $signedAlbumGain dB" "path:"
+		fi
 	else
 		printMessage 'error' 'album_gain' "Album gain"
 	fi
@@ -7340,33 +7366,37 @@ exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$E
 
 if [ $exitCode -eq $Ex_Ok ]; then
 	if [ "$computeReplayGain" = 'true' ]; then
-		if [ "$allFilesAreOpus" = 'true' ]; then
-			processNumber=0
-			computeOpusAlbumGain || exitCode=$Ex_Ko
-		else
-			if [ "$applyGain" = 'false' -o "$applyGainType" = 'ALBUM' ]; then
-				if [ -z "$outputCodecs" ]; then
-					computeAlbumGain 'any' '' $processNumber || exitCode=$Ex_Ko
-				else
-					# startTimer
+		if [ "$applyGain" = 'false' -o "$applyGainType" = 'ALBUM' ]; then
+			if [ -z "$outputCodecs" ]; then
+				if [ "$allFilesAreOpus" = 'true' ]; then
 					processNumber=0
-					for outputCodec in $outputCodecs; do
-						codecFullName="$( getCodecFullName "$outputCodec" )"
-						echo
-						printMessage 'info' "Computing ReplayGain album gain(s) for ${codecFullName}…"
-						while read destPath; do
+					computeOpusAlbumGain '' || exitCode=$Ex_Ko
+				else
+					computeAlbumGain 'any' '' $processNumber || exitCode=$Ex_Ko
+				fi
+			else
+				# startTimer
+				processNumber=0
+				for outputCodec in $outputCodecs; do
+					codecFullName="$( getCodecFullName "$outputCodec" )"
+					echo
+					printMessage 'info' "Computing ReplayGain album gain(s) for ${codecFullName}…"
+					while read destPath; do
+						if [ "$outputCodec" = 'Opus' ]; then
+							computeOpusAlbumGain "$destPath"
+						else
 							computeAlbumGain "$outputCodec" "$destPath" $processNumber &
 							(( processNumber++ ))
 							if [ $processNumber -eq $nProcesses ]; then
 								wait
 								processNumber=0
 							fi
-						done < <( grep -E "^${outputCodec} " "${Self_Data_Dir}/destPaths.txt" | cut -d ' ' -f 5-  | sort -u )
-						wait
-					done
-					echo
-					# endTimer "computeAlbumGains"
-				fi
+						fi
+					done < <( grep -E "^${outputCodec} " "${Self_Data_Dir}/destPaths.txt" | cut -d ' ' -f 5-  | sort -u )
+					wait
+				done
+				echo
+				# endTimer "computeAlbumGains"
 			fi
 		fi
 	elif [ "$showDurations" = 'true' ]; then
