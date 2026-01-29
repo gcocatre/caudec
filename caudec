@@ -2027,13 +2027,13 @@ vorbisCommentsToEyeD3 () {
 				;;
 
 			date|year)             printf -- '--release-year %s\n--release-date %s\n--orig-release-date %s\n--recording-date %s\n' "${value:0:4}" "$value" "$value" "$value" ;;
-			description|comment)   echo "--text-frame COMM:$value" ;;
+			description|comment)   echo "--add-comment $value" ;;
 			discnumber)            printf -- '-d %g\n' "$( getTrackOrDiscNumber "$value" )" ;;
 			disctotal|totaldiscs)  printf -- '-D %g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs" ;;
 			encoder|encoding)      continue ;;
 			genre)                 echo "-G $value" ;;
 			isrc)                  echo "--text-frame TSRC:$value" ;;
-			license) if [ "${value:0:7}" = 'http://' ]; then echo "--text-frame WCOP:$value" ; fi ;;
+			license) if [ "${value:0:7}" = 'http://' -o "${value:0:8}" = 'https://' ]; then echo "--url-frame $value" ; fi ;;
 			lyricist)              echo "--text-frame TEXT:$value" ;;
 			performer)             echo "--text-frame TPE3:$value" ;;
 			publisher)             echo "--publisher $value" ;;
@@ -2182,7 +2182,7 @@ M4AToEyeD3 () {
 				fi
 				;;
 			artist)                echo "-a $value" ;;
-			comment)               echo "--text-frame COMM:$value" ;;
+			comment)               echo "--add-comment $value" ;;
 			composer)              echo "--composer $value" ;;
 			copyright)
 				echo "$value" | grep -E '^[0-9]{4} '
@@ -2293,7 +2293,7 @@ APEv2ToEyeD3 () {
 				fi
 				;;
 			artist)                echo "-a $value" ;;
-			comment)               echo "--text-frame COMM:$value" ;;
+			comment)               echo "--add-comment $value" ;;
 			composer)              echo "--composer $value" ;;
 			copyright)
 				echo "$value" | grep -E '^[0-9]{4} '
@@ -2305,7 +2305,7 @@ APEv2ToEyeD3 () {
 			encoder|encoding)      continue ;;
 			genre)                 echo "-G $value" ;;
 			isrc)                  echo "--text-frame TSRC:$value" ;;
-			license) if [ "${value:0:7}" = 'http://' ]; then echo "--text-frame WCOP:$value" ; fi ;;
+			license) if [ "${value:0:7}" = 'http://' -o "${value:0:8}" = 'https://' ]; then echo "--url-frame $value" ; fi ;;
 			media|disc)
 				case "$value" in
 					[0-9]*)
