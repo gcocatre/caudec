@@ -1,5 +1,5 @@
 ```
-caudec 4.8.2: multiprocess audio converter
+caudec 4.8.3: multiprocess audio converter
 Copyright © 2012 - 2026 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
