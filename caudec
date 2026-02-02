@@ -1658,7 +1658,7 @@ createControlFiles () {
 			# touch "${Self_Control_Dir}/${paddedFileIndex}_${outputCodec}.job"
 			touch "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
 			touch "${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
-			if [ "$computeReplayGain" ]; then
+			if [ "$computeReplayGain" = 'true' ]; then
 				touch "${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
 				getOutputCodecDestFile "${sourceFiles[$fileIndex]}" "$outputCodec"
 				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${fileIndex} ${destFile}" >> "${Self_Data_Dir}/${paddedFileIndex}_${outputCodec}.destFile"
@@ -3454,9 +3454,12 @@ decode () {
 	fi
 
 	if [ $exitCode -ne $Ex_Ok ]; then
-		rm -f "$wavFile" "$copyFile" "${copyFile}c" "$resampledWavFile" "$wavProcessedStatusFile" # in case it exists
-		rm -f "${Self_Control_Dir}/${paddedFileIndex}_encoding_"*.job # delete all codec lock files
-		rm -f "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info # delete associated lock files
+		rm -f "$wavFile" "$copyFile" "${copyFile}c" "$resampledWavFile" "$wavProcessedStatusFile" \
+			"${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info \
+			"${Self_Control_Dir}/${paddedFileIndex}_encoding_"*.job \
+			"${Self_Control_Dir}/${paddedFileIndex}_replaygain_"*.job \
+			"$decodingJobFile" 1>/dev/null 2>&1
+		touch "$wasProcessedFile"
 		if [ $exitCode -eq $Ex_Io_Err ]; then
 			printMessage 'error' 'processing' "file:${sourceFile}" $processNumber
 		else
@@ -3482,6 +3485,8 @@ decode () {
 			esac
 		done
 	fi
+
+	rm -f "$decodingJobFile" 1>/dev/null 2>&1
 
 	return $exitCode
 }
@@ -4267,14 +4272,15 @@ transcode () {
 
 					# Do this in this loop because it is conditional on getting a lock on an encoding job.
 					# Doing it outside of this loop would run the following code every $sleepTime seconds per process.
-					ls "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info "${Self_Control_Dir}/${paddedFileIndex}_replaygain_"*.job 1>/dev/null 2>&1 || allCodecsDone='true'
-					if [ "$allCodecsDone" = 'true' ]; then
-						touch "$wasProcessedFile"
+					if ! ls "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info 1>/dev/null 2>&1 ; then
 						rm -rf "$copyFile" "${copyFile}c" "$wavFile" "$resampledFile" "$binariesDir" \
 							"${Self_Swap_Dir}/${paddedFileIndex}_tags_"*.txt \
 							"${Self_Swap_Dir}/${paddedFileIndex}_picture_"* \
-							"${Self_Ctrl_Dir}/${paddedFileIndex}"_*.job \
-							1>/dev/null 2>&1
+							"${Self_Control_Dir}/${paddedFileIndex}_encoding_"*.job 1>/dev/null 2>&1
+						if [ "$computeReplayGain" = 'false' ]; then
+							allCodecsDone='true'
+							touch "$wasProcessedFile"
+						fi
 					fi
 				fi
 			done
@@ -4292,14 +4298,10 @@ transcode () {
 
 						# Do this in this loop because it is conditional on getting a lock on an encoding job.
 						# Doing it outside of this loop would run the following code every $sleepTime seconds per process.
-						ls "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info "${Self_Control_Dir}/${paddedFileIndex}_replaygain_"*.job 1>/dev/null 2>&1 || allCodecsDone='true'
+						ls "${Self_Control_Dir}/${paddedFileIndex}_replaygain_"*.job 1>/dev/null 2>&1 || allCodecsDone='true'
 						if [ "$allCodecsDone" = 'true' ]; then
 							touch "$wasProcessedFile"
-							rm -rf "$copyFile" "${copyFile}c" "$wavFile" "$resampledFile" "$binariesDir" \
-								"${Self_Swap_Dir}/${paddedFileIndex}_tags_"*.txt \
-								"${Self_Swap_Dir}/${paddedFileIndex}_picture_"* \
-								"${Self_Ctrl_Dir}/${paddedFileIndex}"_*.job \
-								1>/dev/null 2>&1
+							rm -f "${Self_Control_Dir}/${paddedFileIndex}_replaygain_"*.job 1>/dev/null 2>&1
 						fi
 					fi
 				done
