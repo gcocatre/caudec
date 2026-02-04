@@ -5172,9 +5172,9 @@ processFilesForAlbumGain () {
 		rm -f "$trackDrFile"
 	fi
 
+	increment=$(( increment + trackSeconds ))
 	for (( secondsIndex=0; secondsIndex < trackSeconds; secondsIndex++ )); do
 		echo "$trackGain" >> "$trackGainsFile" 2>/dev/null
-		(( increment++ ))
 	done
 	cat "$trackPeakFile" >> "$trackPeaksFile" 2>/dev/null
 	rm -f "$trackGainFile" "$trackPeakFile"
