@@ -5157,8 +5157,9 @@ computeTrackGains () {
 }
 
 processFilesForAlbumGain () {
-	trackGain="$( cat "$trackGainFile" 2>/dev/null )"
-	audioTrackDR="$( cat "$trackDrFile" 2>/dev/null  )"
+	local trackGain
+	read audioTrackDR < "$trackDrFile" 2>/dev/null
+	read trackGain < "$trackGainFile" 2>/dev/null
 	trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
 	if [ -z "$trackSeconds" ]; then
 		trackSeconds=1
@@ -5167,13 +5168,15 @@ processFilesForAlbumGain () {
 	if [ -n "$audioTrackDR" -a "$audioTrackDR" != '0' ]; then
 		audioAlbumDrSeconds=$(( audioAlbumDrSeconds + trackSeconds ))
 		audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
+		rm -f "$trackDrFile"
 	fi
 
 	for (( secondsIndex=0; secondsIndex < trackSeconds; secondsIndex++ )); do
-		echo "$trackGain" >> "$trackGainsFile"
+		echo "$trackGain" >> "$trackGainsFile" 2>/dev/null
 		(( increment++ ))
 	done
 	cat "$trackPeakFile" >> "$trackPeaksFile" 2>/dev/null
+	rm -f "$trackGainFile" "$trackPeakFile"
 }
 
 computeAlbumGain () {
