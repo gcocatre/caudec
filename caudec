@@ -1659,7 +1659,9 @@ createControlFiles () {
 			touch "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
 			touch "${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
 			if [ "$computeReplayGain" = 'true' ]; then
-				touch "${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
+				if [ "$outputCodecs" != 'Opus' ]; then
+					touch "${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
+				fi
 				getOutputCodecDestFile "${sourceFiles[$fileIndex]}" "$outputCodec"
 				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${fileIndex} ${destFile}" >> "${Self_Data_Dir}/${paddedFileIndex}_${outputCodec}.destFile"
 				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${fileIndex} ${destPath}" >> "${Self_Data_Dir}/${paddedFileIndex}_${outputCodec}.destPath"
@@ -4217,6 +4219,9 @@ setControlVariables () {
 	wavProcessedStatusFile="${Self_Control_Dir}/${paddedFileIndex}_wav_processed.info"
 	sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
 	binariesDir="${Self_Swap_Dir}/${paddedFileIndex}_binaries"
+	encodingNeedsWavFile="${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
+	encodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
+	replaygainJobFile="${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
 	trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${outputCodec}.txt"
 	trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${outputCodec}.txt"
 	trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_${outputCodec}.txt"
@@ -4255,9 +4260,6 @@ transcode () {
 			fi
 
 			for outputCodec in $outputCodecs; do
-				encodingNeedsWavFile="${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
-				encodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
-				replaygainJobFile="${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
 				# if test -e "$encodingJobFile" && unlink "$encodingJobFile" 2>/dev/null; then
 				if test -e "$encodingJobFile" && getLock "$encodingJobFile"; then
 					allFilesDone='false' allCodecsDone='false'
@@ -4277,7 +4279,7 @@ transcode () {
 							"${Self_Swap_Dir}/${paddedFileIndex}_tags_"*.txt \
 							"${Self_Swap_Dir}/${paddedFileIndex}_picture_"* \
 							"${Self_Control_Dir}/${paddedFileIndex}_encoding_"*.job 1>/dev/null 2>&1
-						if [ "$computeReplayGain" = 'false' ]; then
+						if [ "$computeReplayGain" = 'false' -o "$outputCodecs" != 'Opus' ]; then
 							allCodecsDone='true'
 							touch "$wasProcessedFile"
 						fi
@@ -4288,7 +4290,6 @@ transcode () {
 			if [ "$computeReplayGain" = 'true' ]; then
 				for outputCodec in $outputCodecs; do
 					if [ "$outputCodec" = 'Opus' ]; then continue; fi
-					replaygainJobFile="${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
 					# if test -e "$replaygainJobFile" && unlink "$replaygainJobFile" 2>/dev/null; then
 					setControlVariables
 					getFileProps "$sourceFile" "$outputCodec"
