@@ -5171,11 +5171,7 @@ processFilesForAlbumGain () {
 		audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
 		rm -f "$trackDrFile"
 	fi
-
-	increment=$(( increment + trackSeconds ))
-	for (( secondsIndex=0; secondsIndex < trackSeconds; secondsIndex++ )); do
-		echo "$trackGain" >> "$trackGainsFile" 2>/dev/null
-	done
+	echo "$trackGain $trackSeconds" >> "$trackGainsFile" 2>/dev/null
 	cat "$trackPeakFile" >> "$trackPeaksFile" 2>/dev/null
 	rm -f "$trackGainFile" "$trackPeakFile"
 }
@@ -5236,10 +5232,14 @@ computeAlbumGain () {
 		sort -n "$trackGainsFile" > "${trackGainsFile}.tmp" 2>/dev/null
 		mv "${trackGainsFile}.tmp" "$trackGainsFile"
 
-		# By using PINK_REF_COMPLEMENT instead of PINK_REF, running 'head' MIGHT be slightly faster than
-		# running 'tail' with PINK_REF because 'head' will output fewer lines than 'tail'.
-		rank="$( printf "%.0f" "$( echo "scale=5; ((${PINK_REF_COMPLEMENT} / 100) * $increment + (1 / 2)) / 1" | bc 2>> "$Self_Errors_File" )" )"
-		albumGain="$( head -n $rank "$trackGainsFile" 2>/dev/null | tail -n 1 )"
+		rank="$( printf "%.0f" "$( echo "scale=5; ((${PINK_REF_COMPLEMENT} / 100) * $albumSeconds) / 1" | bc 2>> "$Self_Errors_File" )" )"
+		while read trackGain trackSeconds; do
+			increment=$(( increment + trackSeconds ))
+			if [ $increment -ge $rank ]; then
+				albumGain="$trackGain"
+				break
+			fi
+		done < "$trackGainsFile"
 		if [ -z "$albumGain" ]; then
 			printMessage 'error' 'album_gain' "Album gain"
 			return $Ex_Ko
