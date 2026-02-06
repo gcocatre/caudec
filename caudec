@@ -4260,10 +4260,10 @@ transcode () {
 			fi
 
 			for outputCodec in $outputCodecs; do
+				setControlVariables
 				# if test -e "$encodingJobFile" && unlink "$encodingJobFile" 2>/dev/null; then
 				if test -e "$encodingJobFile" && getLock "$encodingJobFile"; then
 					allFilesDone='false' allCodecsDone='false'
-					setControlVariables
 					getFileProps "$sourceFile" "$outputCodec"
 					encode $nDecodingThreads || exitCode=$Ex_Ko
 					copyOrLinkOtherFiles "$outputCodec"
@@ -4279,7 +4279,7 @@ transcode () {
 							"${Self_Swap_Dir}/${paddedFileIndex}_tags_"*.txt \
 							"${Self_Swap_Dir}/${paddedFileIndex}_picture_"* \
 							"${Self_Control_Dir}/${paddedFileIndex}_encoding_"*.job 1>/dev/null 2>&1
-						if [ "$computeReplayGain" = 'false' -o "$outputCodecs" != 'Opus' ]; then
+						if [ "$computeReplayGain" = 'false' -o "$outputCodecs" = 'Opus' ]; then
 							allCodecsDone='true'
 							touch "$wasProcessedFile"
 						fi
