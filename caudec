@@ -4219,12 +4219,6 @@ setControlVariables () {
 	wavProcessedStatusFile="${Self_Control_Dir}/${paddedFileIndex}_wav_processed.info"
 	sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
 	binariesDir="${Self_Swap_Dir}/${paddedFileIndex}_binaries"
-	encodingNeedsWavFile="${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
-	encodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
-	replaygainJobFile="${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
-	trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${outputCodec}.txt"
-	trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${outputCodec}.txt"
-	trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_${outputCodec}.txt"
 }
 
 transcode () {
@@ -4260,10 +4254,12 @@ transcode () {
 			fi
 
 			for outputCodec in $outputCodecs; do
-				setControlVariables
+				encodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
 				# if test -e "$encodingJobFile" && unlink "$encodingJobFile" 2>/dev/null; then
 				if test -e "$encodingJobFile" && getLock "$encodingJobFile"; then
 					allFilesDone='false' allCodecsDone='false'
+					encodingNeedsWavFile="${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
+					setControlVariables
 					getFileProps "$sourceFile" "$outputCodec"
 					encode $nDecodingThreads || exitCode=$Ex_Ko
 					copyOrLinkOtherFiles "$outputCodec"
@@ -4290,11 +4286,15 @@ transcode () {
 			if [ "$computeReplayGain" = 'true' ]; then
 				for outputCodec in $outputCodecs; do
 					if [ "$outputCodec" = 'Opus' ]; then continue; fi
+					replaygainJobFile="${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
 					# if test -e "$replaygainJobFile" && unlink "$replaygainJobFile" 2>/dev/null; then
-					setControlVariables
 					getFileProps "$sourceFile" "$outputCodec"
 					if test -e "$replaygainJobFile" && test -e "$destFile" && getLock "$replaygainJobFile"; then
 						allFilesDone='false' allCodecsDone='false'
+						trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${outputCodec}.txt"
+						trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${outputCodec}.txt"
+						trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_${outputCodec}.txt"
+						setControlVariables
 						computeTrackGain "$destFile" || exitCode=$Ex_Ko
 
 						# Do this in this loop because it is conditional on getting a lock on an encoding job.
@@ -7386,7 +7386,6 @@ if [ $exitCode -eq $Ex_Ok ]; then
 					computeAlbumGain 'any' '' $processNumber || exitCode=$Ex_Ko
 				fi
 			else
-				# startTimer
 				processNumber=0
 				for outputCodec in $outputCodecs; do
 					codecFullName="$( getCodecFullName "$outputCodec" )"
@@ -7407,7 +7406,6 @@ if [ $exitCode -eq $Ex_Ok ]; then
 					wait
 				done
 				echo
-				# endTimer "computeAlbumGains"
 			fi
 		fi
 	elif [ "$showDurations" = 'true' ]; then
