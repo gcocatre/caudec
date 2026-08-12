@@ -177,10 +177,10 @@ scanAudioDirectory () {
     if [ "$zParam" != '-z' ]; then
       echo "Scanning \"$audioDirectory\":"
     fi
-    caudec $zParam -i -g "$audioDirectory"; exitCode=$?
+    caudec $zParam -i -n 1 -g "$audioDirectory"; exitCode=$?
   else
     echo "$audioDirectory"
-    caudec $zParam -s -i -g "$audioDirectory"; exitCode=$?
+    caudec $zParam -s -n 1 -i -g "$audioDirectory"; exitCode=$?
   fi
 
   if [ "$Self_Verbose" = 'true' ]; then
