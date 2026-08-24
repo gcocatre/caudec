@@ -5031,6 +5031,7 @@ computeGainFromPeak () {
 	printf "%.2f" "$( echo "scale=10; 20 * l(${floatingPointPeak}) / l(10)" | bc -l 2>> "$Self_Errors_File" )"
 }
 
+# FIXME: REMOVE
 grepReplayGainTags () {
 	local file="$1"
 
@@ -5284,43 +5285,107 @@ computeAlbumGain () {
 }
 
 computeRsgain () {
-	local exitCode=$Ex_Ok list trackFiles trackFile trackFileIndex=0 albumGain signedAlbumGain
+	local exitCode=$Ex_Ok list albumGain signedAlbumGain trackGain trackPeak audioAlbumDR=0 audioAlbumDrSeconds=0
 	local outputCodec milliseconds paddedFileIndex fileIndex destFile basePath
 	local rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment
+	local rsFilesMilliseconds=() rsFilesPaddedFileIndex=() rsFilesFileIndex=() rsFilesDestFile=() rsFilesIndex=0
+	local trackGainsFile trackPeaksFile albumGainFiles=() albumGainFilesIndex=0
 
-	trackFiles=()
-	for sourceFile in "${sourceFiles[@]}"; do
-		trackFiles[$trackFileIndex]="$sourceFile"
-		(( trackFileIndex++ ))
+	trackGainsFile="${Self_Data_Dir}/trackgains_${codec}_{$processNumber}"
+	trackPeaksFile="${Self_Data_Dir}/trackpeaks_${codec}_{$processNumber}"
+	echo -n "" > "$trackGainsFile"
+	echo -n "" > "$trackPeaksFile"
+
+	while read milliseconds paddedFileIndex fileIndex destFile; do
+		sourceFile="${sourceFiles[$fileIndex]}"
+		rsFilesMilliseconds[$rsFilesIndex]="$milliseconds"
+		rsFilesPaddedFileIndex[$rsFilesIndex]="$paddedFileIndex"
+		rsFilesFileIndex[$rsFilesIndex]="$fileIndex"
+		rsFilesDestFile[$rsFilesIndex]="$sourceFile"
+		(( rsFilesIndex++ ))
+		sourceFilename="$( basename "$sourceFile" )"
+		sourceExtension="${sourceFile##*.}"
+
 		if [ -z "$list" ]; then
 			list="$sourceFile"
 		else
 			list="${list}\x00${sourceFile}"
 		fi
-	done
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
+	rsFilesIndex=0
 	OIFS="$IFS"
 	IFS="$( echo -en "\t" )"
-	read rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment < <( echo -en "$list" | xargs -0 rsgain custom -q -O -a -t -s i -l "$AUDIO_TARGET_LOUDNESS" 2>> "$Self_Errors_File" | grep -E '^Album' )
+	while read rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment; do
+		if [ "$rsFile" = 'Filename' ]; then continue; fi
+		if [ "$rsFile" = 'Album' ]; then
+			if [ -n "$rsGain" ]; then
+				albumGain="${rsGain#+*}"
+				if [ -z "$albumGain" ]; then
+					exitCode=$Ex_Ko
+				fi
+
+				signedAlbumGain="$albumGain"
+				if [ "${albumGain:0:1}" != '-' -a "${albumGain:0:1}" != '+' ]; then
+					albumGain="+${albumGain}"
+				fi
+
+				printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:"
+			else
+				printMessage 'error' 'album_gain' "Album gain"
+				exitCode=$Ex_Ko
+			fi
+		else
+			paddedFileIndex="${rsFilesPaddedFileIndex[$rsFilesIndex]}"
+			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
+			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
+			trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
+			trackGain="${rsGain#+*}"
+			trackPeak="$rsPeak"
+			if [ -n "$trackGain" -a -n "$trackPeak" ]; then
+				echo "$trackGain" > "$trackGainFile"
+				echo "$trackPeak" > "$trackPeakFile"
+			else
+				exitCode=$Ex_Ko
+			fi
+			if [ "$computeAudioCharacteristics" = 'true' ]; then
+				audioTrackDR="$( computeTrackDR "${rsFilesDestFile[$rsFilesIndex]}" )"
+				if [ -z "$audioTrackDR" ]; then
+					audioTrackDR=0
+				fi
+				echo "$audioTrackDR" > "$trackDrFile"
+				DR="$( printf "%.0f" "$audioTrackDR" )"
+			fi
+			saveTrackGain "${rsFilesDestFile[$rsFilesIndex]}" || exitCode=$Ex_Ko
+			(( rsFilesIndex++ ))
+		fi
+	done < <( echo -en "$list" | xargs -0 rsgain custom -q -O -a -t -s i -l "$AUDIO_TARGET_LOUDNESS" 2>> "$Self_Errors_File" )
 	IFS="$OIFS"
-	if [ -n "$rsGain" ]; then
-		# rsgain changes the rights on the files it touches, to u=rw,go=
-		chmod u=rw,go=r "${trackFiles[@]}" 1>/dev/null 2>> "$Self_Errors_File"
 
-		albumGain="${rsGain#+*}"
-		if [ -z "$albumGain" ]; then
-			exitCode=$Ex_Ko
-		fi
+	while read milliseconds paddedFileIndex fileIndex; do
+		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
+		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
+		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
+		processFilesForAlbumGain
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
-		signedAlbumGain="$albumGain"
-		if [ "${albumGain:0:1}" != '-' -a "${albumGain:0:1}" != '+' ]; then
-			albumGain="+${albumGain}"
-		fi
-
-		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:"
+	if [ $audioAlbumDrSeconds -ne 0 ]; then
+		DR="$( printf "%.0f" "$( echo "scale=6; $audioAlbumDR / $audioAlbumDrSeconds" | bc )" )"
 	else
-		printMessage 'error' 'album_gain' "Album gain"
+		DR=0
 	fi
+	albumPeak="$( sort -n "$trackPeaksFile" 2>/dev/null | tail -n 1 )"
+	if [ -z "$albumPeak" ]; then
+		return $Ex_Ko
+	fi
+
+	while read milliseconds paddedFileIndex fileIndex; do
+		destFile="${sourceFiles[$fileIndex]}"
+		albumGainFiles[$albumGainFilesIndex]="$destFile"
+		(( albumGainFilesIndex++ ))
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+	saveAlbumGain "${albumGainFiles[@]}"
+	rm -f "$trackGainsFile" "$trackPeaksFile"
 
 	return $exitCode
 }
@@ -6657,7 +6722,7 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		n)
 			case "$OPTARG" in
-				[0-9]|[0-9][0-9])
+				1|[1-9][0-9])
 					if [ $OPTARG -le $maxProcesses ]; then
 						nProcesses=$OPTARG
 						maxProcessesSetByUser=$OPTARG
