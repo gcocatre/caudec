@@ -5327,10 +5327,10 @@ computeRsgain () {
 
 				signedAlbumGain="$albumGain"
 				if [ "${albumGain:0:1}" != '-' -a "${albumGain:0:1}" != '+' ]; then
-					albumGain="+${albumGain}"
+					signedAlbumGain="+${albumGain}"
 				fi
 
-				printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:"
+				printMessage 'success' 'album_gain' "${signedAlbumGain} dB" "Album gain: $signedAlbumGain dB" "path:"
 			else
 				printMessage 'error' 'album_gain' "Album gain"
 				exitCode=$Ex_Ko
