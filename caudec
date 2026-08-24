@@ -6527,7 +6527,7 @@ verbose='true'
 outputCodecs='' lastCodec='' nCodecs=0 gotWavOutputCodec='false'
 defaultDestDir="$PWD" linkDir='' gotLinkedDir='false'
 bitDepth='' samplingRate='' preserveMetadata='' applyGain='false' applyGainType='' preamp='' convertToStereo='false'
-computeReplayGain='false' reverseReplayGain='false'
+computeReplayGain='false' computeCaugain='false' reverseReplayGain='false'
 keepExistingFiles='false' keepNewerFiles='false' macHasVerify='false' outputMode='human'
 checkFiles='false' displayInternalHash='false' touchFiles='false' peakReference=0 allFilesAreOpus='true'
 setArtworkParam='false' copyFilesParam='false' showInformation='false' showDurations='false'
@@ -7055,6 +7055,7 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 					album) gainValue='ALBUM'; computeReplayGain='true' applyGain='true' applyGainType="$gainValue" ;;
 					track) gainValue='TRACK'; computeReplayGain='true' applyGain='true' applyGainType="$gainValue"  ;;
 					undo) reverseReplayGain='true' ;;
+					caugain) computeReplayGain='true' computeCaugain='true';;
 					*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -G: MP3 gain type must be 'album', 'track' or 'undo'" ; exit $Ex_Usage ;;
 				esac
 			else
@@ -7402,13 +7403,17 @@ elif [ "$checkFiles" = 'true' ]; then
 		testFiles &
 	done
 elif [ "$computeReplayGain" = 'true' ]; then
-	adjustNumberOfProcesses $numberOfSourceFiles
+	if [ "$computeCaugain" = 'true' ]; then
+		adjustNumberOfProcesses 1
+	else
+		adjustNumberOfProcesses $numberOfSourceFiles
+	fi
 	if [ "$gnudate" = 'true' ]; then
 		time1="$( $datecmd '+%s.%N' )"
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	if [ "$allFilesAreOpus" != 'true' -a $nProcesses -ne 1 ]; then
+	if [ "$allFilesAreOpus" != 'true' -a "$computeCaugain" = 'false' ]; then
 		for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 			computeTrackGains &
 		done
@@ -7478,7 +7483,7 @@ if [ $exitCode -eq $Ex_Ok ]; then
 				if [ "$allFilesAreOpus" = 'true' ]; then
 					processNumber=0
 					computeOpusAlbumGain '' || exitCode=$Ex_Ko
-				elif [ $nProcesses -eq 1 ]; then
+				elif [ "$computeCaugain" = 'true' ]; then
 					computeRsgain || exitCode=$Ex_Ko
 				else
 					computeAlbumGain 'any' '' $processNumber || exitCode=$Ex_Ko

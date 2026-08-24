@@ -172,6 +172,7 @@ outputWarningOrError () {
 scanAudioDirectory () {
   local exitCode=$Ex_Ok audioDirectory="$1" OIFS index lastCodec lastDir lastMessage processId status context data
   local message path dir codec files
+  local pid msgType statusInfo statusData msg
 
   if [ "$Self_Verbose" = 'true' ]; then
     if [ "$zParam" != '-z' ]; then
@@ -179,8 +180,8 @@ scanAudioDirectory () {
     fi
     caudec $zParam -i -n 1 -g "$audioDirectory"; exitCode=$?
   else
-    echo "$audioDirectory"
-    caudec $zParam -s -n 1 -i -g "$audioDirectory"; exitCode=$?
+    albumGain="$( caudec -z -i -G 'caugain' "$audioDirectory" | grep -F '|album_gain|' | cut -d '|' -f 4 )"; exitCode=$?
+    printf "${Clr_B_Bk} * ${Clr_Ok}RG ${Clr_Rst}%9s${Clr_B_Bl} %s${Clr_Rst}\n" "$albumGain dB" "$audioDirectory"
   fi
 
   if [ "$Self_Verbose" = 'true' ]; then
