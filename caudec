@@ -5031,17 +5031,6 @@ computeGainFromPeak () {
 	printf "%.2f" "$( echo "scale=10; 20 * l(${floatingPointPeak}) / l(10)" | bc -l 2>> "$Self_Errors_File" )"
 }
 
-# FIXME: REMOVE
-grepReplayGainTags () {
-	local file="$1"
-
-	case "$file" in
-		*.flac) metaflac --show-all-tags "$file" 2>> "$Self_Errors_File" | grep -iE '^replaygain_track_(gain|peak)' 2>/dev/null ;;
-		*.wv|*.ape) schag -z "$file" 2>> "$Self_Errors_File" | grep -iE '^replaygain_track_(gain|peak)' 2>/dev/null ;;
-		*.ogg) vorbiscomment -l "$sourceFile" 2>> "$Self_Errors_File" | grep -iE '^replaygain_track_(gain|peak)' 2>/dev/null ;;
-	esac
-}
-
 computeTrackGain () {
 	local exitCode=$Ex_Ok file="$1" line nLines=0 decimals trackGain trackPeak albumGain destTagFile clippingPreventionParam=""
 	local nThreads fileExtension line rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment
