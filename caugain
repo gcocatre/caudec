@@ -81,6 +81,8 @@ Clr_B_Cy="\\033[1;36m" # bright cyan
 Clr_N_Wh="\\033[0;37m" # bright gray
 Clr_B_Wh="\\033[1;37m" # white
 
+declare -r Self_Permissions='u=rwX,go=rX'
+
 for arg in "$@"; do
   if [ "${arg:0:2}" = '--' ]; then
     echo "${Self_Name}: error: try -h" 1>&2
@@ -132,6 +134,82 @@ https://github.com/gcocatre/caudec"
 debug () {
 	local str="$1"
 	echo -e "${Clr_Wg}>>> DEBUG:${Clr_Rst} $str" 1>&2
+}
+
+isProcessRunning () {
+	if ps "$1" 1>/dev/null 2>&1 ; then
+		return $Ex_Ok
+	else
+		return $Ex_Ko
+	fi
+}
+
+cleanUpInstances () {
+	local pid tdir lockFile
+
+	for tempDir in "$TMPDIR" '/tmp'; do
+		if [ -n "$tempDir" -a -d "$tempDir" ]; then
+			for instanceDir in "$tempDir"/"$Self_Name".*; do
+				if [ ! -d "$instanceDir" ]; then continue; fi
+				if [ -f "${instanceDir}/pid.txt" ]; then
+					read pid < "${instanceDir}/pid.txt"
+					if ! isProcessRunning "$pid"; then
+						rm -rf "$instanceDir"
+					fi
+				fi
+			done
+		fi
+	done
+}
+
+getNumberOfCaugainInstances () {
+	local numberOfInstances
+
+	numberOfInstances=$( ls -1d "${Self_Tmp_Dir}/${Self_Name}".* 2>/dev/null | wc -l | tr -cd '[:digit:]' )
+	case "$numberOfInstances" in
+		[0-9]*) echo $numberOfInstances ;;
+		*) echo 1 ;;
+	esac
+}
+
+handleInstance () {
+	local mktempDir nRunningInstances=1
+
+	# Temporary dir:
+	# ${TMPDIR}/caudec.XXXXXXXX
+
+  cleanUpInstances
+
+	if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
+
+	if [ ! -d "$mktempDir" ]; then
+		echo "${Self_Name}: error: can't create directory \"$mktempDir\""
+		cleanExit $Ex_Cant_Create
+	elif [ ! -w "$mktempDir" ]; then
+    echo "${Self_Name}: error: directory \"$mktempDir\" is not writable (permission denied)."
+		cleanExit $Ex_No_Perm
+	fi
+	Self_Tmp_Dir="$mktempDir"
+
+	Self_Instance_Dir="$( mktemp -d -p "$Self_Tmp_Dir" "${Self_Name}.XXXXXXXX" 2>/dev/null )"
+	if [ -z "$Self_Instance_Dir" ]; then
+		echo "${Self_Name}: error: mktemp failed to create directory \"$Self_Instance_Dir\" (do you have write permissions?)."
+		cleanExit $Ex_Os_Err
+	elif [ ! -w "$Self_Instance_Dir" ]; then
+    echo "${Self_Name}: error: directory \"$Self_Instance_Dir\" is not writable (permission denied)."
+		cleanExit $Ex_No_Perm
+	fi
+	chmod "$Self_Permissions" "$Self_Instance_Dir"
+
+	Self_Pid_File="${Self_Instance_Dir}/pid.txt"
+	echo "$$" > "${Self_Pid_File}" 2>&1 || cleanExit $Ex_Temp_Fail
+
+	nRunningInstances="$( getNumberOfCaugainInstances )"
+	if [ $nRunningInstances -gt 1 ]; then
+		printMessage 'warning' 'usage' 'quota' "An instance of caugain is already running."
+		printMessage 'abort'
+		cleanExit $Ex_Temp_Fail
+	fi
 }
 
 outputWarningOrError () {
@@ -204,11 +282,11 @@ findAudioDirectories () {
 cleanExit () {
 	local exitCode=$1
 
-	if [ -n "$Self_Tmp_Dir" ]; then
-		if [ -h "$Self_Tmp_Dir" ]; then
-			rm -rf "$( readlink -f "$Self_Tmp_Dir" )"
+	if [ -n "$Self_Instance_Dir" ]; then
+		if [ -h "$Self_Instance_Dir" ]; then
+			rm -rf "$( readlink -f "$Self_Instance_Dir" )"
 		else
-			rm -rf "$Self_Tmp_Dir"
+			rm -rf "$Self_Instance_Dir"
 		fi
 	fi
 
@@ -222,19 +300,9 @@ cleanAbort () {
 	cleanExit $Ex_Interrupt
 }
 
-if [ -n "$TMPDIR" ]; then mktempDir="$TMPDIR"; else mktempDir='/tmp'; fi
-Self_Tmp_Dir="$( mktemp -d "${mktempDir}/${Self_Name}.XXXXXXXX" )"
-if [ ! -e "$Self_Tmp_Dir" ]; then
-  cleanExit $exitCode
-elif [ ! -d "$Self_Tmp_Dir" ]; then
-  echo "$Self_Name: error: cannot create temporary directory" 1>&2
-  cleanExit $Ex_Cant_Create
-elif [ ! -w "$Self_Tmp_Dir" ]; then
-  echo "$Self_Name: error: temporary directory is not writable" 1>&2
-  cleanExit $Ex_No_Perm
-fi
+handleInstance
 
-Self_Exit_Code="${Self_Tmp_Dir}/exit_code"
+Self_Exit_Code="${Self_Instance_Dir}/exit_code"
 echo $Ex_Ok > "$Self_Exit_Code"
 
 Self_Verbose='true'
