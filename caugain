@@ -106,8 +106,9 @@ Copyright © 2012 - 2026 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
 Usage: $Self_Name DIR(S)
-Mass scan albums using caudec to compute ReplayGain. A single directory, or
-multiple directories, must be passed as arguments.
+Mass scan albums using caudec and rsgain to compute exact album ReplayGain
+values. A single directory, or multiple directories, must be passed as
+arguments.
 
 -------------------------------------------------------------------------------
 
@@ -115,7 +116,7 @@ Global parameters:
 
   -h        display this help and exit
   -V        output version information and exit
-  -s        be silent, only print to STDOUT what directory is being transcoded,
+  -s        be silent, only print to STDOUT what directory is being scanned,
             and errors to STDERR
 
   -z        produce machine-parsable output; must be the first parameter on the
@@ -300,18 +301,28 @@ scanAudioDirectory () {
 		if getLock "$jobFile"; then
 			read audioDirectory < "${Self_Data_Dir}/${paddedDirIndex}.txt"
 			rm -f "${Self_Data_Dir}/${paddedDirIndex}.txt"
-			if [ "$Self_Verbose" = 'true' ]; then
-				if [ "$zParam" != '-z' ]; then
-					echo "Scanning \"$audioDirectory\":"
+			albumGain="$( caudec -z -i -G 'caugain' "$audioDirectory" 2>/dev/null | grep -F '|success|album_gain|' | cut -d '|' -f 4 )"
+			if [ -z "$albumGain" ]; then exitCode=$Ex_Ko ; fi
+			if [ "$zParam" == "-z" ]; then
+				if [ -n "$albumGain" -a "$Self_Verbose" = 'true' ]; then
+					printf "%s|%s|%s|%s|%s|%s\n" "$$" 'success' 'album_gain' "$albumGain" "$albumGain dB" "$audioDirectory"
+				else
+					printf "%s|%s|%s|%s|%s|%s\n" "$$" 'error' 'album_gain' "$albumGain" "$albumGain dB" "$audioDirectory" 1>&2
 				fi
-				caudec $zParam -i -n 1 -g "$audioDirectory"; exitCode=$?
+			elif [ "$zParam" == "-Z" ]; then
+				if [ -n "$albumGain" -a "$Self_Verbose" = 'true' ]; then
+					printf "%s|%s|%s|%s|%s|%s\n" "$$" 'success' 'album_gain' "$albumGain" "$albumGain dB" "$audioDirectory" 1>&2
+					printf "${Clr_B_Bk}%2u ${Clr_Ok}RG ${Clr_Rst}%9s${Clr_B_Bl} %s${Clr_Rst}\n" $processNumber "$albumGain dB" "$audioDirectory"
+				else
+					printf "%s|%s|%s|%s|%s|%s\n" "$$" 'error' 'album_gain' "$albumGain" "$albumGain dB" "$audioDirectory" 1>&2
+					printf "${Clr_B_Bk}%2u ${Clr_Ko}RG ${Clr_Rst}%9s${Clr_B_Bl} %s${Clr_Rst}\n" $processNumber "" "$audioDirectory" 1>&2
+				fi
 			else
-				albumGain="$( caudec -z -i -G 'caugain' "$audioDirectory" 2>/dev/null | grep -F '|album_gain|' | cut -d '|' -f 4 )"; exitCode=$?
-				printf "${Clr_B_Bk}%2u ${Clr_Ok}RG ${Clr_Rst}%9s${Clr_B_Bl} %s${Clr_Rst}\n" $processNumber "$albumGain dB" "$audioDirectory"
-			fi
-
-			if [ "$Self_Verbose" = 'true' ]; then
-				echo
+				if [ -n "$albumGain" ]; then
+					printf "${Clr_B_Bk}%2u ${Clr_Ok}RG ${Clr_Rst}%9s${Clr_B_Bl} %s${Clr_Rst}\n" $processNumber "$albumGain dB" "$audioDirectory"
+				else
+					printf "${Clr_B_Bk}%2u ${Clr_Ko}RG ${Clr_Rst}%9s${Clr_B_Bl} %s${Clr_Rst}\n" $processNumber "" "$audioDirectory" 1>&2
+				fi
 			fi
 		fi
 	done < "${Self_Data_Dir}/paddedDirIndexes.list"
@@ -373,9 +384,6 @@ case "$maxProcesses" in
 	[1-9]*) nProcesses=$maxProcesses ;;
 esac
 
-Self_Exit_Code="${Self_Instance_Dir}/exit_code"
-echo $Ex_Ok > "$Self_Exit_Code"
-
 Self_Verbose='true'
 zParam=''
 
@@ -423,5 +431,4 @@ done
 exitCode=$Ex_Ok
 for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
 
-read exitCode < "$Self_Exit_Code"
 cleanExit $exitCode
