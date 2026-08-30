@@ -306,21 +306,21 @@ scanAudioDirectory () {
 			if [ "$zParam" == "-z" ]; then
 				if [ -n "$albumGain" -a "$Self_Verbose" = 'true' ]; then
 					printf "%s|%s|%s|%s|%s|%s\n" "$$" 'success' 'album_gain' "$albumGain" "$albumGain dB" "$audioDirectory"
-				else
+				elif [ -z "$albumGain" ]; then
 					printf "%s|%s|%s|%s|%s|%s\n" "$$" 'error' 'album_gain' "$albumGain" "$albumGain dB" "$audioDirectory" 1>&2
 				fi
 			elif [ "$zParam" == "-Z" ]; then
 				if [ -n "$albumGain" -a "$Self_Verbose" = 'true' ]; then
 					printf "%s|%s|%s|%s|%s|%s\n" "$$" 'success' 'album_gain' "$albumGain" "$albumGain dB" "$audioDirectory" 1>&2
 					printf "${Clr_B_Bk}%2u ${Clr_Ok}RG ${Clr_Rst}%9s${Clr_B_Bl} %s${Clr_Rst}\n" $processNumber "$albumGain dB" "$audioDirectory"
-				else
+				elif [ -z "$albumGain" ]; then
 					printf "%s|%s|%s|%s|%s|%s\n" "$$" 'error' 'album_gain' "$albumGain" "$albumGain dB" "$audioDirectory" 1>&2
 					printf "${Clr_B_Bk}%2u ${Clr_Ko}RG ${Clr_Rst}%9s${Clr_B_Bl} %s${Clr_Rst}\n" $processNumber "" "$audioDirectory" 1>&2
 				fi
 			else
-				if [ -n "$albumGain" ]; then
+				if [ -n "$albumGain" -a "$Self_Verbose" = 'true' ]; then
 					printf "${Clr_B_Bk}%2u ${Clr_Ok}RG ${Clr_Rst}%9s${Clr_B_Bl} %s${Clr_Rst}\n" $processNumber "$albumGain dB" "$audioDirectory"
-				else
+				elif [ -z "$albumGain" ]; then
 					printf "${Clr_B_Bk}%2u ${Clr_Ko}RG ${Clr_Rst}%9s${Clr_B_Bl} %s${Clr_Rst}\n" $processNumber "" "$audioDirectory" 1>&2
 				fi
 			fi
@@ -387,22 +387,24 @@ esac
 Self_Verbose='true'
 zParam=''
 
+while getopts 'hsVzZ' o ; do
+	case $o in
+		h) printUsage ; cleanExit $Ex_Ok ;;
+		s) Self_Verbose='false' ;;
+		V) echo "$Self_Name $Self_Version" ; cleanExit $Ex_Ok ;;
+		z|Z) zParam="$arg" ;;
+	esac
+done
+shift $(( OPTIND - 1 ))
+
 for arg in "$@"; do
-  case "$arg" in
-    '-h') printUsage ; cleanExit $Ex_Ok ;;
-    '-s') Self_Verbose='false' ; shift 1 ;;
-    '-V') echo "$Self_Name $Self_Version" ; cleanExit $Ex_Ok ;;
-    '-z'|'-Z') zParam="$arg" ;;
-    *)
-      if [ ! -d "$arg" ]; then
-        echo "$Self_Name: error: argument must be a directory (\"$arg\")" 1>&2
-        cleanExit $Ex_Usage
-      elif [ ! -w "$arg" ]; then
-        echo "$Self_Name: error: permission denied, not writable (\"$arg\")" 1>&2
-        cleanExit $Ex_Usage
-      fi
-      ;;
-  esac
+  if [ ! -d "$arg" ]; then
+		echo "$Self_Name: error: argument must be a directory (\"$arg\")" 1>&2
+		cleanExit $Ex_Usage
+	elif [ ! -w "$arg" ]; then
+		echo "$Self_Name: error: permission denied, not writable (\"$arg\")" 1>&2
+		cleanExit $Ex_Usage
+	fi
 done
 
 if [ $# -eq 0 ]; then
