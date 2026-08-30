@@ -136,6 +136,20 @@ debug () {
 	echo -e "${Clr_Wg}>>> DEBUG:${Clr_Rst} $str" 1>&2
 }
 
+adjustNumberOfProcesses () {
+	local numberOfDirs=$1 processNumber
+
+	if [ $numberOfDirs -lt $nProcesses ]; then
+		nProcesses=$numberOfDirs
+	fi
+
+	for (( processNumber=0 ; processNumber < nProcesses; processNumber++ )); do
+		touch "${Self_Jobs_Dir}/process.${processNumber}" 1>/dev/null 2>&1
+	done
+}
+
+
+
 isProcessRunning () {
 	if ps "$1" 1>/dev/null 2>&1 ; then
 		return $Ex_Ok
@@ -201,7 +215,11 @@ handleInstance () {
 	fi
 	chmod "$Self_Permissions" "$Self_Instance_Dir"
 
+	Self_Control_Dir="${Self_Instance_Dir}/control"
+	Self_Data_Dir="${Self_Instance_Dir}/data"
+	Self_Jobs_Dir="${Self_Instance_Dir}/jobs"
 	Self_Pid_File="${Self_Instance_Dir}/pid.txt"
+	mkdir -m "$Self_Permissions" -p "$Self_Control_Dir" "$Self_Data_Dir" "$Self_Jobs_Dir" 1>/dev/null 2>&1 || cleanExit $Ex_Temp_Fail
 	echo "$$" > "${Self_Pid_File}" 2>&1 || cleanExit $Ex_Temp_Fail
 
 	nRunningInstances="$( getNumberOfCaugainInstances )"
@@ -210,6 +228,22 @@ handleInstance () {
 		printMessage 'abort'
 		cleanExit $Ex_Temp_Fail
 	fi
+}
+
+setupControlDir () {
+	local jobIndex=0 dirIndex=0 paddedDirIndex=0
+
+	for (( audioDirIndex=0; audioDirIndex < numberOfArguments; audioDirIndex++ )); do
+    audioDirectory="${arguments[$audioDirIndex]}"
+    while read dirWithAudioFiles; do
+			paddedDirIndex="$( printf "%05i" $dirIndex )"
+			(( dirIndex++ ))
+			touch "${Self_Control_Dir}/${paddedDirIndex}.job"
+			echo "$dirWithAudioFiles" > "${Self_Data_Dir}/${paddedDirIndex}.txt"
+			echo "$paddedDirIndex" >> "${Self_Data_Dir}/paddedDirIndexes.list"
+    done < <( findAudioDirectories "$audioDirectory" 2>/dev/null )
+	done
+	echo "$dirIndex" > "${Self_Data_Dir}/numberOfAudioDirs.txt"
 }
 
 outputWarningOrError () {
@@ -247,25 +281,43 @@ outputWarningOrError () {
 	esac
 }
 
+getLock () {
+	local lockFile="$1"
+	if [ "$OS" = 'Darwin' ]; then
+		test -e "$lockFile" && lockf -s -n -t 1 "$lockFile" test -e "$lockFile" 1>/dev/null 2>/dev/null
+	else
+		test -e "$lockFile" && unlink "$lockFile" 2>/dev/null # FIXME LOCKING
+	fi
+}
+
 scanAudioDirectory () {
-  local exitCode=$Ex_Ok audioDirectory="$1" OIFS index lastCodec lastDir lastMessage processId status context data
-  local message path dir codec files
+  local exitCode=$Ex_Ok OIFS index lastCodec lastDir lastMessage processId status context data
+  local message path dir codec files paddedDirIndex
   local pid msgType statusInfo statusData msg
 
-  if [ "$Self_Verbose" = 'true' ]; then
-    if [ "$zParam" != '-z' ]; then
-      echo "Scanning \"$audioDirectory\":"
-    fi
-    caudec $zParam -i -n 1 -g "$audioDirectory"; exitCode=$?
-  else
-    albumGain="$( caudec -z -i -G 'caugain' "$audioDirectory" | grep -F '|album_gain|' | cut -d '|' -f 4 )"; exitCode=$?
-    printf "${Clr_B_Bk} * ${Clr_Ok}RG ${Clr_Rst}%9s${Clr_B_Bl} %s${Clr_Rst}\n" "$albumGain dB" "$audioDirectory"
-  fi
+	while read paddedDirIndex; do
+		jobFile="${Self_Control_Dir}/${paddedDirIndex}.job"
+		if getLock "$jobFile"; then
+			read audioDirectory < "${Self_Data_Dir}/${paddedDirIndex}.txt"
+			rm -f "${Self_Data_Dir}/${paddedDirIndex}.txt"
+			if [ "$Self_Verbose" = 'true' ]; then
+				if [ "$zParam" != '-z' ]; then
+					echo "Scanning \"$audioDirectory\":"
+				fi
+				caudec $zParam -i -n 1 -g "$audioDirectory"; exitCode=$?
+			else
+				albumGain="$( caudec -z -i -G 'caugain' "$audioDirectory" 2>/dev/null | grep -F '|album_gain|' | cut -d '|' -f 4 )"; exitCode=$?
+				printf "${Clr_B_Bk}%2u ${Clr_Ok}RG ${Clr_Rst}%9s${Clr_B_Bl} %s${Clr_Rst}\n" $processNumber "$albumGain dB" "$audioDirectory"
+			fi
 
-  if [ "$Self_Verbose" = 'true' ]; then
-    echo
-  fi
+			if [ "$Self_Verbose" = 'true' ]; then
+				echo
+			fi
+		fi
+	done < "${Self_Data_Dir}/paddedDirIndexes.list"
+	sleep 0.5
 
+  rm -f "${Self_Jobs_Dir}/process.${processNumber}"
   return $exitCode
 }
 
@@ -297,10 +349,29 @@ cleanAbort () {
 	echo
 	echo "$Self_Name: aborting." 1>&2
 	kill $( jobs -p ) 1>/dev/null 2>&1
+	killall caudec 2>/dev/null
+	killall rsgain 2>/dev/null
 	cleanExit $Ex_Interrupt
 }
 
 handleInstance
+
+maxProcesses=''
+if which 'nproc' 1>/dev/null 2>&1; then # GNU Coreutils installed
+	maxProcesses="$( nproc 2>/dev/null )"
+elif which 'gnproc' 1>/dev/null 2>&1; then # GNU Coreutils installed on macOS
+	maxProcesses="$( gnproc 2>/dev/null )"
+elif [ -e '/proc/cpuinfo' ]; then # Linux
+	maxProcesses="$( grep -cF 'cpu MHz' /proc/cpuinfo 2>/dev/null )"
+elif [ "$OS" = 'Darwin' ]; then # macOS
+	# Many thanks to Tobias Link for helping me port caudec to macOS
+	maxProcesses="$( system_profiler -detailLevel full SPHardwareDataType 2>/dev/null | grep -F 'Total Number of Cores:' 2>/dev/null | cut -d ':' -f 2 2>/dev/null | tr -d ' ' | cut -d '(' -f 1 2>/dev/null )"
+fi
+
+nProcesses=1
+case "$maxProcesses" in
+	[1-9]*) nProcesses=$maxProcesses ;;
+esac
 
 Self_Exit_Code="${Self_Instance_Dir}/exit_code"
 echo $Ex_Ok > "$Self_Exit_Code"
@@ -342,18 +413,15 @@ if [ $numberOfArguments -eq 0 ]; then
   cleanExit $Ex_Usage
 fi
 
+setupControlDir
 
-exitCode=$Ex_Ok
-for (( audioDirIndex=0; audioDirIndex < numberOfArguments; audioDirIndex++ )); do
-    audioDirectory="${arguments[$audioDirIndex]}"
-    findAudioDirectories "$audioDirectory" 2>/dev/null | while read audioDirectory; do
-      scanAudioDirectory "$audioDirectory"; returnCode=$?
-      if [ $returnCode -ne $Ex_Ok ]; then
-        echo "$Self_Name: an error occurred while scanning \"${audioDirectory}\"" 1>&2
-        echo "$returnCode" > "$Self_Exit_Code"
-      fi
-    done
+read numberOfAudioDirs < "${Self_Data_Dir}/numberOfAudioDirs.txt"
+adjustNumberOfProcesses $numberOfAudioDirs
+for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
+	scanAudioDirectory &
 done
+exitCode=$Ex_Ok
+for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
 
 read exitCode < "$Self_Exit_Code"
 cleanExit $exitCode
