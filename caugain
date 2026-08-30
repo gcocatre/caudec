@@ -115,7 +115,12 @@ arguments.
 Global parameters:
 
   -h        display this help and exit
+
   -V        output version information and exit
+
+  -n N      launch N processes concurrently (1-${maxProcesses});
+            by default, the number of CPU cores.
+
   -s        be silent, only print to STDOUT what directory is being scanned,
             and errors to STDERR
 
@@ -303,13 +308,13 @@ scanAudioDirectory () {
 			rm -f "${Self_Data_Dir}/${paddedDirIndex}.txt"
 			albumGain="$( caudec -z -i -G 'caugain' "$audioDirectory" 2>/dev/null | grep -F '|success|album_gain|' | cut -d '|' -f 4 )"
 			if [ -z "$albumGain" ]; then exitCode=$Ex_Ko ; fi
-			if [ "$zParam" == "-z" ]; then
+			if [ "$zParam" == "z" ]; then
 				if [ -n "$albumGain" -a "$Self_Verbose" = 'true' ]; then
 					printf "%s|%s|%s|%s|%s|%s\n" "$$" 'success' 'album_gain' "$albumGain" "$albumGain dB" "$audioDirectory"
 				elif [ -z "$albumGain" ]; then
 					printf "%s|%s|%s|%s|%s|%s\n" "$$" 'error' 'album_gain' "$albumGain" "$albumGain dB" "$audioDirectory" 1>&2
 				fi
-			elif [ "$zParam" == "-Z" ]; then
+			elif [ "$zParam" == "Z" ]; then
 				if [ -n "$albumGain" -a "$Self_Verbose" = 'true' ]; then
 					printf "%s|%s|%s|%s|%s|%s\n" "$$" 'success' 'album_gain' "$albumGain" "$albumGain dB" "$audioDirectory" 1>&2
 					printf "${Clr_B_Bk}%2u ${Clr_Ok}RG ${Clr_Rst}%9s${Clr_B_Bl} %s${Clr_Rst}\n" $processNumber "$albumGain dB" "$audioDirectory"
@@ -387,15 +392,31 @@ esac
 Self_Verbose='true'
 zParam=''
 
-while getopts 'hsVzZ' o ; do
+while getopts 'hsn:VzZ' o ; do
 	case $o in
 		h) printUsage ; cleanExit $Ex_Ok ;;
 		s) Self_Verbose='false' ;;
+		n)
+			case "$OPTARG" in
+				[1-9]|[1-9][0-9])
+					if [ $OPTARG -le $maxProcesses ]; then
+						nProcesses=$OPTARG
+						maxProcessesSetByUser=$OPTARG
+					else
+						echo "$Self_Name -n: error: the number of processes must be an integer between 1 and $maxProcesses" 1>&2 ; exit $Ex_Usage
+					fi
+					;;
+
+				*) echo "$Self_Name -n: error: the number of processes must be an integer between 1 and $maxProcesses" 1>&2 ; exit $Ex_Usage
+			esac
+			;;
 		V) echo "$Self_Name $Self_Version" ; cleanExit $Ex_Ok ;;
-		z|Z) zParam="$arg" ;;
+		z|Z) zParam="$o" ;;
 	esac
 done
 shift $(( OPTIND - 1 ))
+
+maxProcessesSetByUser=$nProcesses
 
 for arg in "$@"; do
   if [ ! -d "$arg" ]; then

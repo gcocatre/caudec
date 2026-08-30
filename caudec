@@ -6711,7 +6711,7 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 		n)
 			case "$OPTARG" in
-				1|[1-9][0-9])
+				[1-9]|[1-9][0-9])
 					if [ $OPTARG -le $maxProcesses ]; then
 						nProcesses=$OPTARG
 						maxProcessesSetByUser=$OPTARG
