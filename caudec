@@ -3970,6 +3970,23 @@ encode () {
 			# https://trac.ffmpeg.org/wiki/Encode/AAC
 			for aaclib in "${aaclibs[@]}"; do
 				case "$aaclib" in
+					aac)
+						if [ "$AAC_MODE" != "ABR" ]; then
+							AAC_MODE='ABR'
+							if [ -z "$average_bitrate_AAC" -o "$average_bitrate_AAC" != "$bitrate_AAC" ]; then
+								bitrate_AAC="$average_bitrate_AAC"
+							fi
+						fi
+						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
+						if [ "$tagCompressionSetting" = 'true' ]; then m4aCompressionTag="$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac) / $bitrate_AAC kbps ($AAC_MODE)"; fi
+						if [ "$doEmbedUserCoverArt" = 'true' -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
+						else
+							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
+						fi
+						if [ $exitCode -ne $Ex_Ko ]; then exitCode=$Ex_Ok; break; fi
+						;;
+
 					libfdk_aac)
 						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
 						if [ "$tagCompressionSetting" = 'true' ]; then m4aCompressionTag="$Self_Name $Self_Version / AAC (ffmpeg $aacVersion libfdk_aac) / $bitrate_AAC kbps (CBR)"; fi
@@ -3981,21 +3998,6 @@ encode () {
 						if [ $exitCode -ne $Ex_Ko ]; then exitCode=$Ex_Ok; break; fi
 						;;
 
-					aac)
-						if [ "$AAC_MODE" != "CBR" ]; then
-							if [ -z "$average_bitrate_AAC" -o "$average_bitrate_AAC" != "$bitrate_AAC" ]; then
-								bitrate_AAC="$average_bitrate_AAC"
-							fi
-						fi
-						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
-						if [ "$tagCompressionSetting" = 'true' ]; then m4aCompressionTag="$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac) / $bitrate_AAC kbps (CBR)"; fi
-						if [ "$doEmbedUserCoverArt" = 'true' -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
-						else
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
-						fi
-						if [ $exitCode -ne $Ex_Ko ]; then exitCode=$Ex_Ok; break; fi
-						;;
 					aac_at)
 						if [ "$AAC_MODE" = "ABR" -a -n "$average_bitrate_AAC" ]; then
 							compressionParam="-aac_at_mode abr -b:a" qualityArg="${average_bitrate_AAC}k"
