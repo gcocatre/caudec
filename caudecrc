@@ -39,6 +39,10 @@ ID3Padding=512 # size in bytes of padding to add to ID3v2 tags
 transcaudeTouchFiles='true'
 # When using transcaude, compute ReplayGain on lossless files even if the lossless source already has ReplayGain data
 computeLosslessReplayGain='true'
+# When using transcaude, always compute ReplayGain on lossy files
+computeLossyReplayGain='true'
+# When using transcaude, don't compute ReplayGain for any files, don't touch modification times (takes precedence)
+transcaudeOnly='false'
 
 # Default destination is the current directory. This can be overridden by the following destinations variables:
 

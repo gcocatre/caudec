@@ -102,6 +102,14 @@ fi
 if [ "$computeLosslessReplayGain" != 'false' ]; then
   computeLosslessReplayGain='true'
 fi
+if [ "$computeLossyReplayGain" != 'false' ]; then
+  computeLossyReplayGain='true'
+fi
+if [ "$transcaudeOnly" = 'true' ]; then
+  computeLosslessReplayGain='false'
+  computeLossyReplayGain='false'
+  transcaudeTouchFiles='false'
+fi
 
 datecmd='date' gnudate='true'
 findcmd='find' gnufind='true'
@@ -153,6 +161,7 @@ Disable additional actions:
   -R        do not compute ReplayGain to lossless targets (useful if you know
             that your lossless source already has ReplayGain data)
   -M        do not touch target files and directories modification times
+  -0        transcode only, don't compute ReplayGain, don't touch mtimes
 
 -------------------------------------------------------------------------------
 
@@ -328,14 +337,18 @@ transcodeAudioDirectory () {
       codec="$data"
       if [ -n "$lastCodec" -a -n "$lastDir" ]; then
         if [ "$codec" != "$lastCodec" -o "$dir" != "$lastDir" ]; then
-          if [ "$computeLosslessReplayGain" = 'false' ]; then
-            case "$lastCodec" in
-              FLAC|WavPack*|MonkeysAudio) true ;;
-              *) computeReplayGain || exitCode=$Ex_Ko ;;
-            esac
-          else
-            computeReplayGain || exitCode=$Ex_Ko
-          fi
+          case "$lastCodec" in
+            FLAC|WavPack*|MonkeysAudio)
+              if [ "$computeLosslessReplayGain" = 'true' ]; then
+                computeReplayGain || exitCode=$Ex_Ko
+              fi
+              ;;
+            *)
+              if [ "$computeLossyReplayGain" = 'true' ]; then
+                computeReplayGain || exitCode=$Ex_Ko
+              fi
+              ;;
+          esac
           if [ "$transcaudeTouchFiles" = 'true' ]; then
             touchFiles "$lastMessage" || exitCode=$Ex_Ko
           fi
@@ -433,6 +446,7 @@ for arg in "$@"; do
     '-h') printUsage ; cleanExit $Ex_Ok ;;
     '-M') transcaudeTouchFiles='false' ; shift 1 ;;
     '-R') computeLosslessReplayGain='false' ; shift 1 ;;
+    '-0') computeLosslessReplayGain='false' computeLossyReplayGain='false' transcaudeTouchFiles='false' ; shift 1 ;;
     '-s') Self_Verbose='false' ; shift 1 ;;
     '-V') echo "$Self_Name $Self_Version" ; cleanExit $Ex_Ok ;;
     '-z'|'-Z') echo "$Self_Name: error: don't specify either -z or -Z." 1>&2; cleanExit $Ex_Usage ;;
