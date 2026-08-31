@@ -5162,11 +5162,10 @@ processFilesForAlbumGain () {
 	if [ -n "$audioTrackDR" -a "$audioTrackDR" != '0' ]; then
 		audioAlbumDrSeconds=$(( audioAlbumDrSeconds + trackSeconds ))
 		audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
-		rm -f "$trackDrFile"
 	fi
 	echo "$trackGain $trackSeconds" >> "$trackGainsFile" 2>/dev/null
 	cat "$trackPeakFile" >> "$trackPeaksFile" 2>/dev/null
-	rm -f "$trackGainFile" "$trackPeakFile"
+	rm -f "$trackGainFile" "$trackPeakFile" "$trackDrFile"
 }
 
 computeAlbumGain () {
