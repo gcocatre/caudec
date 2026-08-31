@@ -5278,18 +5278,20 @@ computeAlbumGain () {
 
 computeRsgain () {
 	local exitCode=$Ex_Ok list albumGain signedAlbumGain trackGain trackPeak audioAlbumDR=0 audioAlbumDrSeconds=0
-	local outputCodec milliseconds paddedFileIndex fileIndex destFile basePath
+	local milliseconds paddedFileIndex fileIndex destFile basePath
 	local rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment
 	local rsFilesMilliseconds=() rsFilesPaddedFileIndex=() rsFilesFileIndex=() rsFilesDestFile=() rsFilesIndex=0
-	local trackGainsFile trackPeaksFile albumGainFiles=() albumGainFilesIndex=0
+	local trackGainsFile trackPeaksFile albumGainFiles=() albumGainFilesIndex=0 mtimeFile
 
-	trackGainsFile="${Self_Data_Dir}/trackgains_${codec}_{$processNumber}"
-	trackPeaksFile="${Self_Data_Dir}/trackpeaks_${codec}_{$processNumber}"
+	trackGainsFile="${Self_Data_Dir}/trackgains_{$processNumber}"
+	trackPeaksFile="${Self_Data_Dir}/trackpeaks_{$processNumber}"
 	echo -n "" > "$trackGainsFile"
 	echo -n "" > "$trackPeaksFile"
 
-	while read milliseconds paddedFileIndex fileIndex destFile; do
+	while read milliseconds paddedFileIndex fileIndex; do
 		sourceFile="${sourceFiles[$fileIndex]}"
+		mtimeFile="${Self_Data_Dir}/${paddedFileIndex}_mtime.txt"
+		touch -r "$sourceFile" "$mtimeFile" 2>> "$Self_Errors_File"
 		rsFilesMilliseconds[$rsFilesIndex]="$milliseconds"
 		rsFilesPaddedFileIndex[$rsFilesIndex]="$paddedFileIndex"
 		rsFilesFileIndex[$rsFilesIndex]="$fileIndex"
@@ -5376,8 +5378,16 @@ computeRsgain () {
 		albumGainFiles[$albumGainFilesIndex]="$destFile"
 		(( albumGainFilesIndex++ ))
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+
 	saveAlbumGain "${albumGainFiles[@]}"
-	rm -f "$trackGainsFile" "$trackPeaksFile"
+
+	while read milliseconds paddedFileIndex fileIndex; do
+		destFile="${sourceFiles[$fileIndex]}"
+		mtimeFile="${Self_Data_Dir}/${paddedFileIndex}_mtime.txt"
+		touch -r "$mtimeFile" "$destFile" 2>> "$Self_Errors_File"
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+
+	rm -f "$trackGainsFile" "$trackPeaksFile" "${Self_Data_Dir}"/*"_mtime.txt"
 
 	return $exitCode
 }
