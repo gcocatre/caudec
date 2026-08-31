@@ -5306,7 +5306,7 @@ computeRsgain () {
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
-	echo -en "$list" | xargs -0 rsgain custom -q -O -a -t -s i -l "$AUDIO_TARGET_LOUDNESS" 2>> "$Self_Errors_File"; exitCode=$?
+	echo -en "$list" | xargs -0 rsgain custom -q -O -a -t -s i -l "$AUDIO_TARGET_LOUDNESS" 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
 
 	if [ $exitCode -ne $Ex_Ok ]; then
 		printMessage 'error' 'album_gain' "Album gain"
@@ -5336,6 +5336,7 @@ computeRsgain () {
 
 				replaygain_album_gain=*)
 					if [ -z "$albumGain" ]; then
+						value="${line#*=}"
 						albumGain="${value#+*}"
 						albumGain="${albumGain% *}"
 						signedAlbumGain="$albumGain"
