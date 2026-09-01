@@ -365,8 +365,10 @@ cleanAbort () {
 	echo
 	echo "$Self_Name: aborting." 1>&2
 	kill $( jobs -p ) 1>/dev/null 2>&1
-	killall caudec 2>/dev/null
-	killall rsgain 2>/dev/null
+	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
+		killall caudec 2>/dev/null
+		killall rsgain 2>/dev/null
+	done
 	cleanExit $Ex_Interrupt
 }
 
