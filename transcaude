@@ -416,6 +416,7 @@ cleanAbort () {
 	echo
 	echo "$Self_Name: aborting." 1>&2
 	kill $( jobs -p ) 1>/dev/null 2>&1
+  killall caudec 1>/dev/null 2>&1
 	cleanExit $Ex_Interrupt
 }
 
