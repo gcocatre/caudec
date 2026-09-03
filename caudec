@@ -5392,13 +5392,7 @@ computeRsgain () {
 		return $Ex_Ko
 	fi
 
-	while read milliseconds paddedFileIndex fileIndex; do
-		sourceFile="${sourceFiles[$fileIndex]}"
-		albumGainFiles[$albumGainFilesIndex]="$sourceFile"
-		(( albumGainFilesIndex++ ))
-	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
-
-	saveAlbumGain "${albumGainFiles[@]}" ; exitCode=$?
+	saveAlbumGain "${sourceFiles[@]}" ; exitCode=$?
 	if [ $exitCode -ne $Ex_Ok ]; then
 		printMessage 'error' 'album_gain' "Album gain"
 		return $exitCode
