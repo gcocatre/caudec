@@ -5282,7 +5282,8 @@ grepReplayGainTags () {
 		*.flac) metaflac --show-all-tags "$file" 2>> "$Self_Errors_File" | grep -iE '^replaygain_(album|track)_(gain|peak)' 2>> "$Self_Errors_File" ;;
 		*.wv) wvtag -l "$file" 2>> "$Self_Errors_File" | grep -iE '^replaygain_(album|track)_(gain|peak)' | tr -s ' ' | $sedcmd -e 's@: @=@' 2>> "$Self_Errors_File" ;;
 		*.ape) schag -z "$file" 2>> "$Self_Errors_File" | grep -iE '^replaygain_(album|track)_(gain|peak)' 2>> "$Self_Errors_File" ;;
-		*.ogg) vorbiscomment -l "$sourceFile" 2>> "$Self_Errors_File" | grep -iE '^replaygain_(album|track)_(gain|peak)' 2>> "$Self_Errors_File" ;;
+		*.ogg) vorbiscomment -l "$file" 2>> "$Self_Errors_File" | grep -iE '^replaygain_(album|track)_(gain|peak)' 2>> "$Self_Errors_File" ;;
+		*.mp3|*.mp4) ffprobe -show_format -print_format flat "$f" 2>/dev/null | grep -iE '^format.tags' | cut -d '.' -f 3- | grep -iE '^replaygain_(album|track)_(gain|peak)'
 	esac
 }
 
