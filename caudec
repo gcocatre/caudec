@@ -5283,13 +5283,13 @@ grepReplayGainTags () {
 		*.wv) wvtag -l "$file" 2>> "$Self_Errors_File" | grep -iE '^replaygain_(album|track)_(gain|peak)' | tr -s ' ' | $sedcmd -e 's@: @=@' 2>> "$Self_Errors_File" ;;
 		*.ape) schag -z "$file" 2>> "$Self_Errors_File" | grep -iE '^replaygain_(album|track)_(gain|peak)' 2>> "$Self_Errors_File" ;;
 		*.ogg) vorbiscomment -l "$file" 2>> "$Self_Errors_File" | grep -iE '^replaygain_(album|track)_(gain|peak)' 2>> "$Self_Errors_File" ;;
-		*.mp3|*.mp4) ffprobe -show_format -print_format flat "$f" 2>/dev/null | grep -iE '^format.tags' | cut -d '.' -f 3- | grep -iE '^replaygain_(album|track)_(gain|peak)'
+		*.mp3|*.mp4) ffprobe -show_format -print_format flat "$file" 2>/dev/null | grep -iE '^format.tags' | cut -d '.' -f 3- | grep -iE '^replaygain_(album|track)_(gain|peak)' | tr -d '"'
 	esac
 }
 
 computeRsgain () {
 	local exitCode=$Ex_Ok list albumGain signedAlbumGain trackGain trackPeak audioAlbumDR=0 audioAlbumDrSeconds=0
-	local milliseconds paddedFileIndex fileIndex sourceFile
+	local milliseconds paddedFileIndex fileIndex sourceFile gain peak peakDbfs
 	local trackGainsFile trackPeaksFile albumGainFiles=() albumGainFilesIndex=0 mtimeFile
 
 	trackGainsFile="${Self_Data_Dir}/trackgains_{$processNumber}"
@@ -5358,6 +5358,19 @@ computeRsgain () {
 		shopt -qu nocasematch
 
 		if [ "$computeAudioCharacteristics" = 'true' ]; then
+			case "$sourceFile" in
+			*.mp3)
+				peakDbfs="$( computeGainFromPeak "$trackPeak" )"
+				if [ -n "$peakDbfs" ]; then
+					if [ "$peakDbfs" = "-0.00" ]; then
+						peakDbfs="0.00"
+					elif [ "${peakDbfs:0:1}" != '-' -a "$peakDbfs" != "0.00" ]; then
+						peakDbfs="+${peakDbfs}"
+					fi
+				fi
+				;;
+			esac
+
 			audioTrackDR="$( computeTrackDR "$sourceFile" )"
 			if [ -z "$audioTrackDR" ]; then
 				audioTrackDR=0
@@ -5365,7 +5378,14 @@ computeRsgain () {
 			echo "$audioTrackDR" > "$trackDrFile"
 			DR="$( printf "%.0f" "$audioTrackDR" )"
 		fi
-		saveTrackGain "$sourceFile" || exitCode=$Ex_Ko
+
+		case "$sourceFile" in
+			*.mp3)
+				gain="$trackGain" peak="$trackPeak"
+				saveTrackGainToMP3 "$sourceFile" || exitCode=$Ex_Ko
+				;;
+			*) saveTrackGain "$sourceFile" || exitCode=$Ex_Ko ;;
+		esac
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 	if [ $exitCode -ne $Ex_Ok ]; then
@@ -5393,7 +5413,24 @@ computeRsgain () {
 		return $Ex_Ko
 	fi
 
-	saveAlbumGain "${sourceFiles[@]}" ; exitCode=$?
+	case "$sourceFile" in
+		*.mp3)
+			if [ "$computeAudioCharacteristics" = 'true' ]; then
+				peakDbfs="$( computeGainFromPeak "$albumPeak" )"
+				if [ -n "$peakDbfs" ]; then
+					if [ "$peakDbfs" = "-0.00" ]; then
+						peakDbfs="0.00"
+					elif [ "${peakDbfs:0:1}" != '-' -a "$peakDbfs" != "0.00" ]; then
+						peakDbfs="+${peakDbfs}"
+					fi
+				fi
+			fi
+			gain="$albumGain" peak="$albumPeak"
+			saveAlbumGainToMP3 "${sourceFiles[@]}" ; exitCode=$?
+			;;
+		*) saveAlbumGain "${sourceFiles[@]}" ; exitCode=$? ;;
+	esac
+
 	if [ $exitCode -ne $Ex_Ok ]; then
 		printMessage 'error' 'album_gain' "Album gain"
 		return $exitCode
