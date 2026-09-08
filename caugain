@@ -331,7 +331,7 @@ scanAudioDirectory () {
 			fi
 		fi
 	done < "${Self_Data_Dir}/paddedDirIndexes.list"
-	sleep 0.5
+	sleep 0.1
 
   rm -f "${Self_Jobs_Dir}/process.${processNumber}"
   return $exitCode
