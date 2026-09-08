@@ -4677,20 +4677,24 @@ saveAlbumGainToMP3 () {
 saveTrackGain () {
 	local exitCode=$Ex_Ok file="$1" gain peak peakDbfs uGain mp3GainSteps clippingPreventionParam
 
-	gain="$trackGain" peak="$trackPeak" uGain="$trackGain"
+	gain="$trackGain" peak="$trackPeak"
 
-	if [ "${gain:0:1}" != '-' ]; then
-		gain="+${gain}"
+	if [ "$computeCaugain" = 'true' -a "$computeAudioCharacteristics" = 'true' ]; then
+		peakDbfs="$rsPeakDb"
+	else
+		uGain="$trackGain"
+		if [ "$gain" = '0' -o "$gain" = '0.0' -o "$gain" = '0.00' -o -z "$gain" ]; then
+			gain='0.00'
+		elif [ "${gain:0:1}" != '-' -a "${gain:0:1}" != '+' ]; then
+			gain="+${gain}"
+		fi
 	fi
 
 	if [ "$computeAudioCharacteristics" = 'true' ]; then
-		peakDbfs="$( computeGainFromPeak "$peak" )"
-		if [ -n "$peakDbfs" ]; then
-			if [ "$peakDbfs" = "-0.00" ]; then
-				peakDbfs="0.00"
-			elif [ "${peakDbfs:0:1}" != '-' -a "$peakDbfs" != "0.00" ]; then
-				peakDbfs="+${peakDbfs}"
-			fi
+		if [ "$peakDbfs" = '0' -o "$peakDbfs" = '0.0' -o "$peakDbfs" = '0.00' -o -z "$peakDbfs" ]; then
+			peakDbfs='0.00'
+		elif [ "${peakDbfs:0:1}" != '-' -a "${peakDbfs:0:1}" != '+' ]; then
+			peakDbfs="+${peakDbfs}"
 		fi
 	fi
 
@@ -4982,6 +4986,181 @@ saveAlbumGain () {
 	return $exitCode
 }
 
+saveReplayGain () {
+	local exitCode=$Ex_Ok file="$1" trackGain trackPeak albumGain albumPeak trackPeakDbfs albumPeakDbfs trackDR albumDR
+
+	read trackGain < "$trackGainFile"
+	read trackPeak < "$trackPeakFile"
+	read albumGain < "$albumGainFile"
+	read albumPeak < "$albumPeakFile"
+
+	if [ "$computeAudioCharacteristics" = 'true' ]; then
+		read trackDR < "$trackDrFile"
+		read albumDR < "$albumDrFile"
+		trackPeakDbfs="$( computeGainDbfsFromPeak "$trackPeak" )"
+		albumPeakDbfs="$( computeGainDbfsFromPeak "$albumPeak" )"
+	fi
+
+	case "$file" in
+		*.flac)
+			if [ "$computeAudioCharacteristics" = 'true' ]; then
+				metaflac \
+					--remove-tag="AUDIO_ALBUM_DR" \
+					--remove-tag="AUDIO_ALBUM_PEAK" \
+					--remove-tag="AUDIO_TRACK_DR" \
+					--remove-tag="AUDIO_TRACK_PEAK" \
+					--remove-tag="AUDIO_TARGET_LOUDNESS" \
+					--remove-tag="REPLAYGAIN_ALBUM_PEAK" \
+					--remove-tag="REPLAYGAIN_ALBUM_GAIN" \
+					--remove-tag="REPLAYGAIN_TRACK_PEAK" \
+					--remove-tag="REPLAYGAIN_TRACK_GAIN" \
+					--remove-tag="REPLAYGAIN_ALGORITHM" \
+					--remove-tag="REPLAYGAIN_REFERENCE_LEVEL" \
+					--remove-tag="REPLAYGAIN_TARGET_LOUDNESS" \
+					--remove-tag="REPLAYGAIN_VERSION" \
+					--set-tag="AUDIO_ALBUM_DR=${albumDR}" \
+					--set-tag="AUDIO_ALBUM_PEAK=${albumPeakDbfs} dBFS" \
+					--set-tag="AUDIO_TRACK_DR=${trackDR}" \
+					--set-tag="AUDIO_TRACK_PEAK=${trackPeakDbfs} dBFS" \
+					--set-tag="AUDIO_TARGET_LOUDNESS=${AUDIO_TARGET_LOUDNESS} LUFS" \
+					--set-tag="REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
+					--set-tag="REPLAYGAIN_ALBUM_GAIN=${albumGain} dB" \
+					--set-tag="REPLAYGAIN_TRACK_PEAK=${trackPeak}" \
+					--set-tag="REPLAYGAIN_TRACK_GAIN=${trackGain} dB" \
+					--set-tag="REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
+					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			else
+				metaflac \
+					--remove-tag="AUDIO_ALBUM_DR" \
+					--remove-tag="AUDIO_ALBUM_PEAK" \
+					--remove-tag="AUDIO_TRACK_DR" \
+					--remove-tag="AUDIO_TRACK_PEAK" \
+					--remove-tag="AUDIO_TARGET_LOUDNESS" \
+					--remove-tag="REPLAYGAIN_ALBUM_PEAK" \
+					--remove-tag="REPLAYGAIN_ALBUM_GAIN" \
+					--remove-tag="REPLAYGAIN_TRACK_PEAK" \
+					--remove-tag="REPLAYGAIN_TRACK_GAIN" \
+					--remove-tag="REPLAYGAIN_ALGORITHM" \
+					--remove-tag="REPLAYGAIN_REFERENCE_LEVEL" \
+					--remove-tag="REPLAYGAIN_TARGET_LOUDNESS" \
+					--remove-tag="REPLAYGAIN_VERSION" \
+					--set-tag="REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
+					--set-tag="REPLAYGAIN_ALBUM_GAIN=${albumGain} dB" \
+					--set-tag="REPLAYGAIN_TRACK_PEAK=${trackPeak}" \
+					--set-tag="REPLAYGAIN_TRACK_GAIN=${trackGain} dB" \
+					--set-tag="REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
+					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			fi
+			;;
+
+		*.ogg)
+			if [ "$computeAudioCharacteristics" = 'true' ]; then
+				vorbiscomment -a \
+					-d "AUDIO_ALBUM_DR" \
+					-d "AUDIO_ALBUM_PEAK" \
+					-d "AUDIO_TRACK_DR" \
+					-d "AUDIO_TRACK_PEAK" \
+					-d "AUDIO_TARGET_LOUDNESS" \
+					-d "REPLAYGAIN_ALBUM_PEAK" \
+					-d "REPLAYGAIN_ALBUM_GAIN" \
+					-d "REPLAYGAIN_TRACK_PEAK" \
+					-d "REPLAYGAIN_TRACK_GAIN" \
+					-d "REPLAYGAIN_ALGORITHM" \
+					-d "REPLAYGAIN_REFERENCE_LEVEL" \
+					-d "REPLAYGAIN_TARGET_LOUDNESS" \
+					-d "REPLAYGAIN_VERSION" \
+					-t "AUDIO_ALBUM_DR=${trackDR}" \
+					-t "AUDIO_ALBUM_PEAK=${trackPeakDbfs} dBFS" \
+					-t "AUDIO_TRACK_DR=${trackDR}" \
+					-t "AUDIO_TRACK_PEAK=${trackPeakDbfs} dBFS" \
+					-t "AUDIO_TARGET_LOUDNESS=${AUDIO_TARGET_LOUDNESS} LUFS" \
+					-t "REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
+					-t "REPLAYGAIN_ALBUM_GAIN=${albumGain} dB" \
+					-t "REPLAYGAIN_TRACK_PEAK=${trackPeak}" \
+					-t "REPLAYGAIN_TRACK_GAIN=${trackGain} dB" \
+					-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
+					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			else
+				vorbiscomment -a \
+					-d "AUDIO_ALBUM_DR" \
+					-d "AUDIO_ALBUM_PEAK" \
+					-d "AUDIO_TRACK_DR" \
+					-d "AUDIO_TRACK_PEAK" \
+					-d "AUDIO_TARGET_LOUDNESS" \
+					-d "REPLAYGAIN_ALBUM_PEAK" \
+					-d "REPLAYGAIN_ALBUM_GAIN" \
+					-d "REPLAYGAIN_TRACK_PEAK" \
+					-d "REPLAYGAIN_TRACK_GAIN" \
+					-d "REPLAYGAIN_ALGORITHM" \
+					-d "REPLAYGAIN_REFERENCE_LEVEL" \
+					-d "REPLAYGAIN_TARGET_LOUDNESS" \
+					-d "REPLAYGAIN_VERSION" \
+					-t "REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
+					-t "REPLAYGAIN_ALBUM_GAIN=${albumGain} dB" \
+					-t "REPLAYGAIN_TRACK_PEAK=${trackPeak}" \
+					-t "REPLAYGAIN_TRACK_GAIN=${trackGain} dB" \
+					-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
+					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			fi
+			;;
+
+		*.wv|*.ape)
+			if [ "$computeAudioCharacteristics" = 'true' ]; then
+				schag -z \
+					-r "AUDIO_ALBUM_DR" \
+					-r "AUDIO_ALBUM_PEAK" \
+					-r "AUDIO_TRACK_DR" \
+					-r "AUDIO_TRACK_PEAK" \
+					-r "AUDIO_TARGET_LOUDNESS" \
+					-r "REPLAYGAIN_ALBUM_PEAK" \
+					-r "REPLAYGAIN_ALBUM_GAIN" \
+					-r "REPLAYGAIN_TRACK_PEAK" \
+					-r "REPLAYGAIN_TRACK_GAIN" \
+					-r "REPLAYGAIN_ALGORITHM" \
+					-r "REPLAYGAIN_REFERENCE_LEVEL" \
+					-r "REPLAYGAIN_TARGET_LOUDNESS" \
+					-r "REPLAYGAIN_VERSION" \
+					-t "AUDIO_ALBUM_DR=${albumDR}" \
+					-t "AUDIO_ALBUM_PEAK=${albumPeakDbfs} dBFS" \
+					-t "AUDIO_TRACK_DR=${trackDR}" \
+					-t "AUDIO_TRACK_PEAK=${trackPeakDbfs} dBFS" \
+					-t "AUDIO_TARGET_LOUDNESS=${AUDIO_TARGET_LOUDNESS} LUFS" \
+					-t "REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
+					-t "REPLAYGAIN_ALBUM_GAIN=${albumGain} dB" \
+					-t "REPLAYGAIN_TRACK_PEAK=${trackPeak}" \
+					-t "REPLAYGAIN_TRACK_GAIN=${trackGain} dB" \
+					-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
+					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			else
+				schag -z \
+					-r "AUDIO_ALBUM_DR" \
+					-r "AUDIO_ALBUM_PEAK" \
+					-r "AUDIO_TRACK_DR" \
+					-r "AUDIO_TRACK_PEAK" \
+					-r "AUDIO_TARGET_LOUDNESS" \
+					-r "REPLAYGAIN_ALBUM_PEAK" \
+					-r "REPLAYGAIN_ALBUM_GAIN" \
+					-r "REPLAYGAIN_TRACK_PEAK" \
+					-r "REPLAYGAIN_TRACK_GAIN" \
+					-r "REPLAYGAIN_ALGORITHM" \
+					-r "REPLAYGAIN_REFERENCE_LEVEL" \
+					-r "REPLAYGAIN_TARGET_LOUDNESS" \
+					-r "REPLAYGAIN_VERSION" \
+					-t "REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
+					-t "REPLAYGAIN_ALBUM_GAIN=${albumGain} dB" \
+					-t "REPLAYGAIN_TRACK_PEAK=${peak}" \
+					-t "REPLAYGAIN_TRACK_GAIN=${gain} dB" \
+					-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
+					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			fi
+			;;
+
+		*) exitCode=$Ex_Ko ;;
+	esac
+
+	return $exitCode
+}
+
 getFileMilliseconds () {
 	local exitCode=$Ex_Ok file="$1" seconds=0 line samplingRate bitDepth format nChannels channelMask nSamples rest
 
@@ -5032,6 +5211,18 @@ computeTrackDR () {
 computeGainFromPeak () {
 	local floatingPointPeak="$1"
 	printf "%.2f" "$( echo "scale=10; 20 * l(${floatingPointPeak}) / l(10)" | bc -l 2>> "$Self_Errors_File" )"
+}
+
+computeGainDbfsFromPeak () {
+	local floatingPointPeak="$1" peakDbFS
+
+	peakDbFS="$( printf "%.2f" "$( echo "scale=10; 20 * l(${floatingPointPeak}) / l(10)" | bc -l 2>> "$Self_Errors_File" )" )"
+	if [ "$peakDbFS" = '0' -o "$peakDbFS" = '0.0' -o "$peakDbFS" = '0.00' ]; then
+		peakDbFS='0.00'
+	elif [ "${peakDbFS:0:1}" != '-' -a "${peakDbFS:0:1}" != '+' ]; then
+		peakDbFS="+${peakDbFS}"
+	fi
+	echo "$peakDbFS"
 }
 
 computeTrackGain () {
@@ -5152,8 +5343,8 @@ computeTrackGains () {
 
 processFilesForAlbumGain () {
 	local trackGain
+
 	read audioTrackDR < "$trackDrFile" 2>/dev/null
-	read trackGain < "$trackGainFile" 2>/dev/null
 	trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
 	if [ -z "$trackSeconds" ]; then
 		trackSeconds=1
@@ -5162,10 +5353,14 @@ processFilesForAlbumGain () {
 	if [ -n "$audioTrackDR" -a "$audioTrackDR" != '0' ]; then
 		audioAlbumDrSeconds=$(( audioAlbumDrSeconds + trackSeconds ))
 		audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
+		echo "$audioAlbumDR" > "$albumDrFile"
 	fi
-	echo "$trackGain $trackSeconds" >> "$trackGainsFile" 2>/dev/null
-	cat "$trackPeakFile" >> "$trackPeaksFile" 2>/dev/null
-	rm -f "$trackGainFile" "$trackPeakFile" "$trackDrFile"
+	if [ "$computeCaugain" != 'true' ]; then
+		read trackGain < "$trackGainFile" 2>/dev/null
+		echo "$trackGain $trackSeconds" >> "$trackGainsFile" 2>/dev/null
+		cat "$trackPeakFile" >> "$trackPeaksFile" 2>/dev/null
+		rm -f "$trackGainFile" "$trackPeakFile" "$trackDrFile"
+	fi
 }
 
 computeAlbumGain () {
@@ -5288,17 +5483,18 @@ grepReplayGainTags () {
 }
 
 computeRsgain () {
-	local exitCode=$Ex_Ok list albumGain signedAlbumGain trackGain trackPeak audioAlbumDR=0 audioAlbumDrSeconds=0
-	local milliseconds paddedFileIndex fileIndex sourceFile gain peak peakDbfs
-	local trackGainsFile trackPeaksFile albumGainFiles=() albumGainFilesIndex=0 mtimeFile
+	local exitCode=$Ex_Ok list trackGain trackPeak albumGain audioAlbumDR=0 audioAlbumDrSeconds=0
+	local milliseconds paddedFileIndex fileIndex=0 sourceFile dirName mtimeFile IFS OIFS="$IFS"
+	local line tabIFS rsFilename rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment
+	local rsAnalysisFile="${Self_Data_Dir}/rsgain.txt" fileMilliseconds=()
 
-	trackGainsFile="${Self_Data_Dir}/trackgains_{$processNumber}"
-	trackPeaksFile="${Self_Data_Dir}/trackpeaks_{$processNumber}"
-	echo -n "" > "$trackGainsFile"
-	echo -n "" > "$trackPeaksFile"
+	albumGainFile="${Self_Data_Dir}/albumgain_any.txt"
+	albumPeakFile="${Self_Data_Dir}/albumpeak_any.txt"
+	albumDrFile="${Self_Data_Dir}/albumdr_any.txt"
 
 	while read milliseconds paddedFileIndex fileIndex; do
 		sourceFile="${sourceFiles[$fileIndex]}"
+		fileMilliseconds[$fileIndex]="$milliseconds"
 		mtimeFile="${Self_Data_Dir}/${paddedFileIndex}_mtime.txt"
 		touch -r "$sourceFile" "$mtimeFile" 2>> "$Self_Errors_File"
 		if [ -z "$list" ]; then
@@ -5308,144 +5504,96 @@ computeRsgain () {
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
-	echo -en "$list" | xargs -0 rsgain custom -q -O -a -t -s i -l "$AUDIO_TARGET_LOUDNESS" 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
+	echo -en "$list" | xargs -0 rsgain custom -q -O -a -t -s s -l "$AUDIO_TARGET_LOUDNESS" 1> "$rsAnalysisFile" 2>> "$Self_Errors_File"; exitCode=$?
 
 	if [ $exitCode -ne $Ex_Ok ]; then
 		printMessage 'error' 'album_gain' "Album gain"
 		return $exitCode
 	fi
 
+	tabIFS="$( echo -en "\t" )"
+	while read line; do
+		IFS="$tabIFS"
+		while read rsFilename rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment; do
+			case "$rsFilename" in
+				Filename) continue ;;
+
+				Album)
+					albumGain="$rsGain"
+					albumPeak="$rsPeak"
+					if [ "$albumGain" = '0' -o "$albumGain" = '0.0' -o "$albumGain" = '0.00' -o -z "$albumPeak" ]; then
+						albumGain='-0.00'
+					elif [ "${albumGain:0:1}" != '-' -a "${albumGain:0:1}" != '+' ]; then
+						albumGain="+${albumGain}"
+					fi
+					echo "$albumGain" > "$albumGainFile"
+					echo "$albumPeak" > "$albumPeakFile"
+					if [ "$computeAudioCharacteristics" = 'true' ]; then
+						if [ $audioAlbumDrSeconds -ne 0 ]; then
+							audioAlbumDR="$( printf "%.0f" "$( echo "scale=6; $audioAlbumDR / $audioAlbumDrSeconds" | bc )" )"
+						else
+							audioAlbumDR=0
+						fi
+						echo "$audioAlbumDR" > "$albumDrFile"
+					fi
+					;;
+
+				*)
+					sourceFile="${sourceFiles[$fileIndex]}"
+					paddedFileIndex="$( printf "%03i" $fileIndex )"
+					milliseconds="${fileMilliseconds[$fileIndex]}"
+					trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
+					trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
+					(( fileIndex++ ))
+					trackGain="$rsGain"
+					trackPeak="$rsPeak"
+					if [ "$trackGain" = '0' -o "$trackGain" = '0.0' -o "$trackGain" = '0.00' -o -z "$trackGain" ]; then
+						trackGain='-0.00'
+					elif [ "${trackGain:0:1}" != '-' -a "${trackGain:0:1}" != '+' ]; then
+						trackGain="+${trackGain}"
+					fi
+					echo "$trackGain" > "$trackGainFile"
+					echo "$trackPeak" > "$trackPeakFile"
+					if [ "$computeAudioCharacteristics" = 'true' ]; then
+						trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
+						audioTrackDR="$( computeTrackDR "$sourceFile" )"
+						if [ -z "$audioTrackDR" ]; then
+							audioTrackDR=0
+						fi
+						trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
+						if [ -z "$trackSeconds" ]; then
+							trackSeconds=1
+						fi
+						audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
+						audioAlbumDrSeconds=$(( audioAlbumDrSeconds + trackSeconds ))
+						audioTrackDR="$( printf "%.0f" "$audioTrackDR" )"
+						echo "$audioTrackDR" > "$trackDrFile"
+					fi
+				;;
+			esac
+		done < <( echo "$line" )
+		IFS="$OIFS"
+	done < "$rsAnalysisFile"
+
+	if [ -z "$albumGain" -o -z "$albumPeak" ]; then
+		printMessage 'error' 'album_gain' "Album gain"
+		return $exitCode
+	fi
+
+	IFS="$OIFS"
 	while read milliseconds paddedFileIndex fileIndex; do
 		sourceFile="${sourceFiles[$fileIndex]}"
 		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
 		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
-		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
-
-		shopt -qs nocasematch
-		while read line; do
-			case "$line" in
-				replaygain_track_gain=*)
-					value="${line#*=}"
-					trackGain="${value#+*}"
-					trackGain="${trackGain% *}"
-					echo "$trackGain" > "$trackGainFile"
-					;;
-
-				replaygain_track_peak=*)
-					trackPeak="${line#*=}"
-					echo "$trackPeak" > "$trackPeakFile"
-					;;
-
-				replaygain_album_gain=*)
-					if [ -z "$albumGain" ]; then
-						value="${line#*=}"
-						albumGain="${value#+*}"
-						albumGain="${albumGain% *}"
-						signedAlbumGain="$albumGain"
-						if [ "${albumGain:0:1}" != '-' -a "${albumGain:0:1}" != '+' ]; then
-							signedAlbumGain="+${albumGain}"
-						fi
-					fi
-					;;
-
-				replaygain_album_peak=*)
-					if [ -z "$albumPeak" ]; then
-						albumPeak="${line#*=}"
-					fi
-					;;
-			esac
-		done < <( grepReplayGainTags "$sourceFile" 2>> "$Self_Errors_File" )
-		shopt -qu nocasematch
-
-		if [ "$computeAudioCharacteristics" = 'true' ]; then
-			case "$sourceFile" in
-			*.mp3)
-				peakDbfs="$( computeGainFromPeak "$trackPeak" )"
-				if [ -n "$peakDbfs" ]; then
-					if [ "$peakDbfs" = "-0.00" ]; then
-						peakDbfs="0.00"
-					elif [ "${peakDbfs:0:1}" != '-' -a "$peakDbfs" != "0.00" ]; then
-						peakDbfs="+${peakDbfs}"
-					fi
-				fi
-				;;
-			esac
-
-			audioTrackDR="$( computeTrackDR "$sourceFile" )"
-			if [ -z "$audioTrackDR" ]; then
-				audioTrackDR=0
-			fi
-			echo "$audioTrackDR" > "$trackDrFile"
-			DR="$( printf "%.0f" "$audioTrackDR" )"
-		fi
-
-		case "$sourceFile" in
-			*.mp3)
-				gain="$trackGain" peak="$trackPeak"
-				saveTrackGainToMP3 "$sourceFile" || exitCode=$Ex_Ko
-				;;
-			*) saveTrackGain "$sourceFile" || exitCode=$Ex_Ko ;;
-		esac
-	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
-
-	if [ $exitCode -ne $Ex_Ok ]; then
-		printMessage 'error' 'album_gain' "Album gain"
-		return $exitCode
-	fi
-
-	if [ "$computeAudioCharacteristics" = 'true' ]; then
-		while read milliseconds paddedFileIndex fileIndex; do
-			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
-			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
-			trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
-			processFilesForAlbumGain
-		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
-
-		if [ $audioAlbumDrSeconds -ne 0 ]; then
-			DR="$( printf "%.0f" "$( echo "scale=6; $audioAlbumDR / $audioAlbumDrSeconds" | bc )" )"
-		else
-			DR=0
-		fi
-	fi
-
-	if [ -z "$albumPeak" ]; then
-		printMessage 'error' 'album_gain' "Album gain"
-		return $Ex_Ko
-	fi
-
-	case "$sourceFile" in
-		*.mp3)
-			if [ "$computeAudioCharacteristics" = 'true' ]; then
-				peakDbfs="$( computeGainFromPeak "$albumPeak" )"
-				if [ -n "$peakDbfs" ]; then
-					if [ "$peakDbfs" = "-0.00" ]; then
-						peakDbfs="0.00"
-					elif [ "${peakDbfs:0:1}" != '-' -a "$peakDbfs" != "0.00" ]; then
-						peakDbfs="+${peakDbfs}"
-					fi
-				fi
-			fi
-			gain="$albumGain" peak="$albumPeak"
-			saveAlbumGainToMP3 "${sourceFiles[@]}" ; exitCode=$?
-			;;
-		*) saveAlbumGain "${sourceFiles[@]}" ; exitCode=$? ;;
-	esac
-
-	if [ $exitCode -ne $Ex_Ok ]; then
-		printMessage 'error' 'album_gain' "Album gain"
-		return $exitCode
-	fi
-
-	while read milliseconds paddedFileIndex fileIndex; do
-		sourceFile="${sourceFiles[$fileIndex]}"
+		saveReplayGain "$sourceFile"
 		mtimeFile="${Self_Data_Dir}/${paddedFileIndex}_mtime.txt"
 		touch -r "$mtimeFile" "$sourceFile" 2>> "$Self_Errors_File"
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
-	rm -f "$trackGainsFile" "$trackPeaksFile" "${Self_Data_Dir}"/*"_mtime.txt"
+	rm -f "${Self_Data_Dir}"/*"_mtime.txt"
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' 'album_gain' "${signedAlbumGain} dB" "Album gain: $signedAlbumGain dB" "path:"
+		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:"
 	else
 		printMessage 'error' 'album_gain' "Album gain"
 	fi
