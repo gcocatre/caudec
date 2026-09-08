@@ -5344,7 +5344,9 @@ computeTrackGains () {
 processFilesForAlbumGain () {
 	local trackGain
 
-	read audioTrackDR < "$trackDrFile" 2>/dev/null
+	if [ "$computeAudioCharacteristics" = 'true' ]; then
+		read audioTrackDR < "$trackDrFile" 2>/dev/null
+	fi
 	trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
 	if [ -z "$trackSeconds" ]; then
 		trackSeconds=1
