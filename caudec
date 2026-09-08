@@ -5148,8 +5148,8 @@ saveReplayGain () {
 					-r "REPLAYGAIN_VERSION" \
 					-t "REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
 					-t "REPLAYGAIN_ALBUM_GAIN=${albumGain} dB" \
-					-t "REPLAYGAIN_TRACK_PEAK=${peak}" \
-					-t "REPLAYGAIN_TRACK_GAIN=${gain} dB" \
+					-t "REPLAYGAIN_TRACK_PEAK=${trackPeak}" \
+					-t "REPLAYGAIN_TRACK_GAIN=${trackGain} dB" \
 					-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
 					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			fi
@@ -5585,7 +5585,7 @@ computeRsgain () {
 		sourceFile="${sourceFiles[$fileIndex]}"
 		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
 		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
-		saveReplayGain "$sourceFile"
+		saveReplayGain "$sourceFile" || exitCode=$Ex_Ko
 		mtimeFile="${Self_Data_Dir}/${paddedFileIndex}_mtime.txt"
 		touch -r "$mtimeFile" "$sourceFile" 2>> "$Self_Errors_File"
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
