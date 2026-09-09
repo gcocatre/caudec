@@ -4679,8 +4679,12 @@ saveTrackGain () {
 
 	gain="$trackGain" peak="$trackPeak"
 
-	if [ "$computeCaugain" = 'true' -a "$computeAudioCharacteristics" = 'true' ]; then
-		peakDbfs="$rsPeakDb"
+	if [ "$computeAudioCharacteristics" = 'true' ]; then
+		if [ "$computeCaugain" = 'true' ]; then
+			peakDbfs="$rsPeakDb"
+		else
+			peakDbfs="$( computeGainFromPeak "$peak" )"
+		fi
 	else
 		uGain="$trackGain"
 		if [ "$gain" = '0' -o "$gain" = '0.0' -o "$gain" = '0.00' -o -z "$gain" ]; then
@@ -5384,6 +5388,7 @@ computeAlbumGain () {
 			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${codec}.txt"
 			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${codec}.txt"
 			trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_${codec}.txt"
+			albumDrFile="${Self_Data_Dir}/${paddedFileIndex}_albumdr_${codec}.txt"
 			processFilesForAlbumGain
 		done < <( grep -F "$albumPath" "${Self_Data_Dir}/destPaths.txt" )
 	else
@@ -5391,6 +5396,7 @@ computeAlbumGain () {
 			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
 			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
 			trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
+			albumDrFile="${Self_Data_Dir}/${paddedFileIndex}_albumdr_any.txt"
 			processFilesForAlbumGain
 		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 	fi
