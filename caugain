@@ -154,8 +154,6 @@ adjustNumberOfProcesses () {
 	done
 }
 
-
-
 isProcessRunning () {
 	if ps "$1" 1>/dev/null 2>&1 ; then
 		return $Ex_Ok
@@ -230,14 +228,14 @@ handleInstance () {
 
 	nRunningInstances="$( getNumberOfCaugainInstances )"
 	if [ $nRunningInstances -gt 1 ]; then
-		printMessage 'warning' 'usage' 'quota' "An instance of caugain is already running."
+		printMessage 'warning' 'usage' 'quota' "An instance of ${Self_Name} is already running."
 		printMessage 'abort'
 		cleanExit $Ex_Temp_Fail
 	fi
 }
 
 setupControlDir () {
-	local jobIndex=0 dirIndex=0 paddedDirIndex=0
+	local dirIndex=0 paddedDirIndex=0
 
 	for (( audioDirIndex=0; audioDirIndex < numberOfArguments; audioDirIndex++ )); do
     audioDirectory="${arguments[$audioDirIndex]}"
