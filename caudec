@@ -1501,8 +1501,8 @@ checkBinaries () {
 			case "$sourceFile" in
 				*.aiff|*.caf) checkBinary 'sox' ;;
 				*.flac) checkBinary 'flac' 'metaflac' ;;
-				*.wv) checkBinary 'wvunpack' 'schag' ;;
-				*.ape) checkBinary 'mac' 'schag' ;;
+				*.wv) checkBinary 'wvunpack' 'schag' 'ffprobe' ;;
+				*.ape) checkBinary 'mac' 'schag' 'ffprobe' ;;
 				*.m4a) checkBinary 'ffmpeg' 'ffprobe' ;;
 			esac
 		done
