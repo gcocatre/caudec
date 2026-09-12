@@ -3405,7 +3405,8 @@ decode () {
 				nThreads=$( getNumberOfAvailableThreads "$fileIndex" $WavPack_Max_Threads )
 				wvunpack -q $kfm -m --threads=$nThreads -o "$wavFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
-					schag -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
+					# schag -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
+					ffprobe -show_format -print_format flat "$copyFile" 2>/dev/null | grep -iE '^format.tags' | cut -d '.' -f 3- | grep -ivE '^(;|major_brand=|minor_version=|compatible_brands=)' | $sedcmd -e 's@="@=@' -e 's@\"$@@' > "$sourceTagFile" 2>/dev/null
 					if [ "$transferInternalArtwork" = 'true' ]; then
 						extractAPEv2Artwork || exitCode=$Ex_Ko
 					fi
@@ -3421,7 +3422,8 @@ decode () {
 				nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
 				mac "$copyFile" "$wavFile" -d -threads=$nThreads 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
-					schag -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
+					# schag -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
+					ffprobe -show_format -print_format flat "$copyFile" 2>/dev/null | grep -iE '^format.tags' | cut -d '.' -f 3- | grep -ivE '^(;|major_brand=|minor_version=|compatible_brands=)' | $sedcmd -e 's@="@=@' -e 's@\"$@@' > "$sourceTagFile" 2>/dev/null
 					if [ "$transferInternalArtwork" = 'true' ]; then
 						extractAPEv2Artwork || exitCode=$Ex_Ko
 					fi
@@ -3437,11 +3439,7 @@ decode () {
 				nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
 				ffmpeg -i "$copyFile" -threads ${nThreads} "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
-					ffmpeg -i "$copyFile" -f ffmetadata "$sourceTagFile" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-					if [ $exitCode -eq $Ex_Ok ]; then
-						grep -ivE '^(;|major_brand=|minor_version=|compatible_brands=|encoder=)' "$sourceTagFile" > "${sourceTagFile}.tmp" 2>> "$Self_Errors_File"
-						mv "${sourceTagFile}.tmp" "$sourceTagFile" 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-					fi
+					ffprobe -show_format -print_format flat "$copyFile" 2>/dev/null | grep -iE '^format.tags' | cut -d '.' -f 3- | grep -ivE '^(;|major_brand=|minor_version=|compatible_brands=)' | $sedcmd -e 's@="@=@' -e 's@\"$@@' > "$sourceTagFile" 2>/dev/null
 				fi
 				;;
 
