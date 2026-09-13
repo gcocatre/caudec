@@ -390,6 +390,7 @@ Little to no extra storage will be used (just extra inodes).
 Decoding parameters (all mutually exlusive from each other and other actions):
 
   -d        decode to WAV (input: AIFF, ALAC, APE, CAF, FLAC, WavPack)
+  -R        compute dynamic range (see: https://dr.loudness-war.info/)
   -t        test file integrity
 
 -------------------------------------------------------------------------------
@@ -517,6 +518,8 @@ getMachineParsableString () {
 		success)
 			if [ "$statusInfo" = 'track_gain' -o "$statusInfo" = 'album_gain' ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$gain" "$msg" "$pathOrFile" )"
+			elif [ "$statusInfo" = 'track_dr' -o "$statusInfo" = 'album_dr' ]; then
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$pathOrFile" )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$dateTime" "$msg" "$file" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
@@ -601,6 +604,10 @@ getHumanReadableString () {
 				else
 					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst}\n" "$gain dB" 'Album gain' )"
 				fi
+			elif [ "$statusInfo" = 'track_dr' ]; then
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}DR ${Clr_Rst}%2u ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber $statusData "$fileName" )"
+			elif [ "$statusInfo" = 'album_dr' ]; then
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}DR ${Clr_Rst}%2u ${Clr_B_Bl}%s${Clr_Rst}\n" $statusData 'Album dynamic range' )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}TF ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$dateTime" "$fileName" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
@@ -677,6 +684,10 @@ getHumanReadableString () {
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}RG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber 'Album gain' )"
 			elif [ "$statusInfo" = 'track_gain' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}RG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+			elif [ "$statusInfo" = 'album_dr' ]; then
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}DR ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber 'Album dynamic range' )"
+			elif [ "$statusInfo" = 'track_dr' ]; then
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}DR ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}TF ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
@@ -769,12 +780,13 @@ printMessage () {
 			verbose) msgVerbose='verbose' ;;
 			debug) msgDebug='debug' statusInfo='debugging' ;;
 			stderr) msgOut='stderr' ;;
-			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|touch_file|touch_files|duration|album_duration|characteristics) statusInfo="$msgArg" ;;
+			initialization|usage|encoding|processing|decoding|hashing|testing|album_gain|track_gain|track_dr|album_dr|touch_file|touch_files|duration|album_duration|characteristics) statusInfo="$msgArg" ;;
 			unsupported|quota|bad_value|filesystem|command_line|internal) statusData="$msgArg" ;;
 			file:*) file="${msgArg#file:}"; fileDir="${file%/*}"; fileName="${file##*/}" ;;
 			path:*) path="${msgArg#path:}" ;;
 			outputCodec:*) statusData="${msgArg#outputCodec:}" ;;
 			hash:*) statusData="${msgArg#hash:}" ;;
+			DR:*) statusData="${msgArg#DR:}" ;;
 			hashType:*) msg="${msgArg#hashType:}" ;;
 			+*dB|-*dB) gain="${msgArg% dB}" ;;
 			*bps) bitrate="${msgArg%bps}" ;;
@@ -1305,6 +1317,23 @@ checkInputFiles () {
 			if [ "$touchFiles" = 'true' ]; then
 				addToSourceFiles='true'
 			fi
+		fi
+
+		if [ "$computeDynamicRange" = 'true' ]; then
+			inputFileExtension="${inputFile##*.}"
+			case "$inputFileExtension" in
+				flac|wv|ape|ogg|mp3)
+					addToSourceFiles='true'
+					;;
+
+				*)
+					if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+						printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+						exitCode=$Ex_Data_Err
+					fi
+					continue
+					;;
+			esac
 		fi
 
 		if [ "$addToSourceFiles" = 'true' ]; then
@@ -5343,6 +5372,136 @@ computeTrackGains () {
 	return $exitCode
 }
 
+computeTracksDR () {
+	local exitCode=$Ex_Ok jobFile audioTrackDR DR
+
+	while read milliseconds paddedFileIndex fileIndex; do
+		sourceFile="${sourceFiles[$fileIndex]}"
+		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
+		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
+
+		if getLock "$jobFile"; then
+			audioTrackDR="$( computeTrackDR "$sourceFile" )"
+			if [ -z "$audioTrackDR" ]; then
+				audioTrackDR=0
+				exitCode=$Ex_Ko
+			fi
+			echo "$audioTrackDR" > "$trackDrFile"
+			if [ $exitCode -eq $Ex_Ok ]; then
+				if [ "$verbose" = 'true' ]; then
+					DR="$( printf "%.0f" "$audioTrackDR" )"
+					printMessage 'success' 'track_dr' $processNumber "DR:$DR" "Track dynamic range: $DR" "file:${sourceFile}"
+				fi
+			else
+				printMessage 'error' 'track_dr' "file:${sourceFile}" $processNumber
+			fi
+		fi
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+
+	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
+	return $exitCode
+}
+
+saveTracksDR () {
+	local exitCode=$Ex_Ok sourceFile jobFile trackDrFile albumDrFile audioTrackDR audioAlbumDR
+
+	while read milliseconds paddedFileIndex fileIndex; do
+		sourceFile="${sourceFiles[$fileIndex]}"
+		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
+		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
+		albumDrFile="${Self_Data_Dir}/${paddedFileIndex}_albumdr_any.txt"
+
+		if getLock "$jobFile"; then
+			read audioTrackDR < "$trackDrFile" 2>/dev/null
+			read audioAlbumDR < "$albumDrFile" 2>/dev/null
+			audioTrackDR="$( printf "%.0f" "$audioTrackDR" )"
+			audioAlbumDR="$( printf "%.0f" "$audioAlbumDR" )"
+
+			case "$sourceFile" in
+				*.flac)
+					metaflac \
+						--remove-tag="AUDIO_TRACK_DR" \
+						--remove-tag="AUDIO_ALBUM_DR" \
+						--set-tag="AUDIO_TRACK_DR=${audioTrackDR}" \
+						--set-tag="AUDIO_ALBUM_DR=${audioAlbumDR}" \
+						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					;;
+
+				*.ogg)
+					vorbiscomment -a \
+						-d "AUDIO_TRACK_DR" \
+						-d "AUDIO_ALBUM_DR" \
+						-t "AUDIO_TRACK_DR=${audioTrackDR}" \
+						-t "AUDIO_ALBUM_DR=${audioAlbumDR}" \
+						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					;;
+
+				*.wv|*.ape)
+					schag -z \
+						-r "AUDIO_TRACK_DR" \
+						-r "AUDIO_ALBUM_DR" \
+						-t "AUDIO_TRACK_DR=${audioTrackDR}" \
+						-t "AUDIO_ALBUM_DR=${audioAlbumDR}" \
+						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					;;
+
+				*.mp3)
+					eyeD3 --quiet --to-v2.4 \
+						--user-text-frame "AUDIO_TRACK_DR:" \
+						--user-text-frame "AUDIO_ALBUM_DR:" \
+						--user-text-frame "AUDIO_TRACK_DR:${audioTrackDR}" \
+						--user-text-frame "AUDIO_ALBUM_DR:${audioAlbumDR}" \
+						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					;;
+
+				*) exitCode=$Ex_Ko ;;
+			esac
+		fi
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+
+	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
+	return $exitCode
+}
+
+computeAlbumDR () {
+	local trackDrFile audioTrackDR audioAlbumDR=0 trackSeconds audioAlbumDrSeconds=0 albumPath
+
+	while read milliseconds paddedFileIndex fileIndex; do
+		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
+		read audioTrackDR < "$trackDrFile" 2>/dev/null
+		trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
+		if [ -z "$trackSeconds" ]; then
+			trackSeconds=1
+		fi
+		albumSeconds=$(( albumSeconds + trackSeconds ))
+		if [ -n "$audioTrackDR" -a "$audioTrackDR" != '0' ]; then
+			audioAlbumDrSeconds=$(( audioAlbumDrSeconds + trackSeconds ))
+			audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
+		fi
+		touch "${Self_Control_Dir}/${paddedFileIndex}_any.job"
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+
+	if [ $audioAlbumDrSeconds -ne 0 -a $audioAlbumDR != '0' ]; then
+		audioAlbumDR="$( printf "%.0f" "$( echo "scale=6; $audioAlbumDR / $audioAlbumDrSeconds" | bc )" )"
+		while read milliseconds paddedFileIndex fileIndex; do
+			if [ -z "$albumPath" ]; then
+				albumPath="$( dirname "${sourceFiles[$fileIndex]}" )"
+			fi
+			echo "$audioAlbumDR" > "${Self_Data_Dir}/${paddedFileIndex}_albumdr_any.txt"
+		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+		if [ $exitCode -eq $Ex_Ok ]; then
+			if [ "$verbose" = 'true' ]; then
+				printMessage 'success' 'album_dr' $processNumber "DR:$audioAlbumDR" "Album dynamic range: $audioAlbumDR" "path:${albumPath}"
+			fi
+		else
+			printMessage 'error' 'album_dr' "file:${sourceFile}" $processNumber
+		fi
+		return $Ex_Ok
+	else
+		return $Ex_Ko
+	fi
+}
+
 processFilesForAlbumGain () {
 	local trackGain
 
@@ -6759,6 +6918,7 @@ computeReplayGain='false' computeCaugain='false' reverseReplayGain='false'
 keepExistingFiles='false' keepNewerFiles='false' macHasVerify='false' outputMode='human'
 checkFiles='false' displayInternalHash='false' touchFiles='false' peakReference=0 allFilesAreOpus='true'
 setArtworkParam='false' copyFilesParam='false' showInformation='false' showDurations='false'
+computeDynamicRange='false'
 
 maxChannels='' maxBitDepth='' maxSamplingRate='' minimumSamplingRate=44100
 
@@ -6933,7 +7093,7 @@ if [ -n "$copyOtherFilesForLossyByDefault" ]; then
 	setCodecOtherFiles "lossy" "$copyOtherFilesForLossyByDefault"
 fi
 
-while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
+while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:RS:sTtuVZz' o ; do
 	case $o in
 # -----------------------------------------------------------------------------
 
@@ -7325,6 +7485,8 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:S:sTtuVZz' o ; do
 
 # -----------------------------------------------------------------------------
 
+		R) computeDynamicRange='true' ;;
+
 		T) touchFiles='true' ;;
 
 # -----------------------------------------------------------------------------
@@ -7365,7 +7527,7 @@ fi
 # transcode, test, replaygain, touch, hash
 if [ -z "$outputCodecs" -a "$checkFiles" = 'false' -a "$computeReplayGain" = 'false' -a "$reverseReplayGain" = 'false' \
 	-a "$touchFiles" = 'false' -a "$displayInternalHash" = 'false' -a "$showDurations" = 'false' \
-	-a "$showInformation" = 'false' ]; then
+	-a "$showInformation" = 'false' -a "$computeDynamicRange" = 'false' ]; then
 	printMessage 'error' 'usage' 'command_line' "$Self_Name: no action specified"
 	exit $Ex_Usage
 fi
@@ -7416,6 +7578,10 @@ if [ -n "$outputCodecs" ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -c/-d and -I are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
+	if [ "$computeDynamicRange" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -c/-d and -R are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
 fi
 
 # Test files (replaygain, touch, hash, information)
@@ -7438,6 +7604,10 @@ if [ "$checkFiles" = 'true' ]; then
 	fi
 	if [ "$showInformation" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -t and -I are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$computeDynamicRange" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -t and -R are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
 fi
@@ -7464,6 +7634,10 @@ if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -g/-G and -I are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
+	if [ "$computeDynamicRange" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -g/-G and -R are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
 fi
 
 # Touch files (test, replaygain, hash, information)
@@ -7486,6 +7660,10 @@ if [ "$touchFiles" = 'true' ]; then
 	fi
 	if [ "$showInformation" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -T and -I are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$computeDynamicRange" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -T and -R are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
 fi
@@ -7512,6 +7690,10 @@ if [ "$displayInternalHash" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -H and -I are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
+	if [ "$computeDynamicRange" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -H and -R are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
 fi
 
 # Show durations
@@ -7536,6 +7718,10 @@ if [ "$showDurations" = 'true' ]; then
 		printMessage 'error' 'usage' 'command_line' "$Self_Name: -D and -I are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
+	if [ "$computeDynamicRange" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -D and -R are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
 fi
 
 # Show information (test, replaygain, touch, hash)
@@ -7557,7 +7743,39 @@ if [ "$showInformation" = 'true' ]; then
 		exit $Ex_Usage
 	fi
 	if [ "$showDurations" = 'true' ]; then
-		printMessage 'error' 'usage' 'command_line' "$Self_Name: -H and -D are mutually exclusive. Try again with either one alone."
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -I and -D are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$computeDynamicRange" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -I and -R are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+fi
+
+# Compute dynamic range
+if [ "$computeDynamicRange" = 'true' ]; then
+	if [ "$checkFiles" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -R and -t are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -R and -g/-G are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$touchFiles" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -R and -T are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$displayInternalHash" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -R and -H are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$showDurations" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -R and -D are mutually exclusive. Try again with either one alone."
+		exit $Ex_Usage
+	fi
+	if [ "$showInformation" = 'true' ]; then
+		printMessage 'error' 'usage' 'command_line' "$Self_Name: -R and -I are mutually exclusive. Try again with either one alone."
 		exit $Ex_Usage
 	fi
 fi
@@ -7701,6 +7919,16 @@ elif [ "$showInformation" = 'true' ]; then
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 		showTracksInformation &
 	done
+elif [ "$computeDynamicRange" = 'true' ]; then
+	adjustNumberOfProcesses $numberOfSourceFiles
+	if [ "$gnudate" = 'true' ]; then
+		time1="$( $datecmd '+%s.%N' )"
+	else
+		time1="$( $datecmd '+%s' ).0"
+	fi
+	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
+		computeTracksDR &
+	done
 fi
 exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
 
@@ -7743,6 +7971,14 @@ if [ $exitCode -eq $Ex_Ok ]; then
 		showAlbumDuration || exitCode=$Ex_Ko
 	elif [ "$touchFiles" = 'true' ]; then
 		touchAllFiles || exitCode=$Ex_Ko
+	elif [ "$computeDynamicRange" = 'true' ]; then
+		computeAlbumDR ; exitCode=$?
+		if [ $exitCode -eq $Ex_Ok ]; then
+			for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
+				saveTracksDR &
+			done
+			exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
+		fi
 	fi
 fi
 
