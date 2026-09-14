@@ -5018,7 +5018,7 @@ saveAlbumGain () {
 }
 
 saveReplayGain () {
-	local exitCode=$Ex_Ok file="$1" trackGain trackPeak albumGain albumPeak trackPeakDbfs albumPeakDbfs trackDR albumDR
+	local exitCode=$Ex_Ok file="$1" trackGain trackPeak albumGain albumPeak trackPeakDbfs albumPeakDbfs
 
 	read trackGain < "$trackGainFile"
 	read trackPeak < "$trackPeakFile"
@@ -5026,8 +5026,6 @@ saveReplayGain () {
 	read albumPeak < "$albumPeakFile"
 
 	if [ "$computeAudioCharacteristics" = 'true' ]; then
-		read trackDR < "$trackDrFile"
-		read albumDR < "$albumDrFile"
 		trackPeakDbfs="$( computeGainDbfsFromPeak "$trackPeak" )"
 		albumPeakDbfs="$( computeGainDbfsFromPeak "$albumPeak" )"
 	fi
@@ -5036,9 +5034,7 @@ saveReplayGain () {
 		*.flac)
 			if [ "$computeAudioCharacteristics" = 'true' ]; then
 				metaflac \
-					--remove-tag="AUDIO_ALBUM_DR" \
 					--remove-tag="AUDIO_ALBUM_PEAK" \
-					--remove-tag="AUDIO_TRACK_DR" \
 					--remove-tag="AUDIO_TRACK_PEAK" \
 					--remove-tag="AUDIO_TARGET_LOUDNESS" \
 					--remove-tag="REPLAYGAIN_ALBUM_PEAK" \
@@ -5049,9 +5045,7 @@ saveReplayGain () {
 					--remove-tag="REPLAYGAIN_REFERENCE_LEVEL" \
 					--remove-tag="REPLAYGAIN_TARGET_LOUDNESS" \
 					--remove-tag="REPLAYGAIN_VERSION" \
-					--set-tag="AUDIO_ALBUM_DR=${albumDR}" \
 					--set-tag="AUDIO_ALBUM_PEAK=${albumPeakDbfs} dBFS" \
-					--set-tag="AUDIO_TRACK_DR=${trackDR}" \
 					--set-tag="AUDIO_TRACK_PEAK=${trackPeakDbfs} dBFS" \
 					--set-tag="AUDIO_TARGET_LOUDNESS=${AUDIO_TARGET_LOUDNESS} LUFS" \
 					--set-tag="REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
@@ -5062,9 +5056,7 @@ saveReplayGain () {
 					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			else
 				metaflac \
-					--remove-tag="AUDIO_ALBUM_DR" \
 					--remove-tag="AUDIO_ALBUM_PEAK" \
-					--remove-tag="AUDIO_TRACK_DR" \
 					--remove-tag="AUDIO_TRACK_PEAK" \
 					--remove-tag="AUDIO_TARGET_LOUDNESS" \
 					--remove-tag="REPLAYGAIN_ALBUM_PEAK" \
@@ -5087,9 +5079,7 @@ saveReplayGain () {
 		*.ogg)
 			if [ "$computeAudioCharacteristics" = 'true' ]; then
 				vorbiscomment -a \
-					-d "AUDIO_ALBUM_DR" \
 					-d "AUDIO_ALBUM_PEAK" \
-					-d "AUDIO_TRACK_DR" \
 					-d "AUDIO_TRACK_PEAK" \
 					-d "AUDIO_TARGET_LOUDNESS" \
 					-d "REPLAYGAIN_ALBUM_PEAK" \
@@ -5100,9 +5090,7 @@ saveReplayGain () {
 					-d "REPLAYGAIN_REFERENCE_LEVEL" \
 					-d "REPLAYGAIN_TARGET_LOUDNESS" \
 					-d "REPLAYGAIN_VERSION" \
-					-t "AUDIO_ALBUM_DR=${trackDR}" \
 					-t "AUDIO_ALBUM_PEAK=${trackPeakDbfs} dBFS" \
-					-t "AUDIO_TRACK_DR=${trackDR}" \
 					-t "AUDIO_TRACK_PEAK=${trackPeakDbfs} dBFS" \
 					-t "AUDIO_TARGET_LOUDNESS=${AUDIO_TARGET_LOUDNESS} LUFS" \
 					-t "REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
@@ -5113,9 +5101,7 @@ saveReplayGain () {
 					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			else
 				vorbiscomment -a \
-					-d "AUDIO_ALBUM_DR" \
 					-d "AUDIO_ALBUM_PEAK" \
-					-d "AUDIO_TRACK_DR" \
 					-d "AUDIO_TRACK_PEAK" \
 					-d "AUDIO_TARGET_LOUDNESS" \
 					-d "REPLAYGAIN_ALBUM_PEAK" \
@@ -5138,9 +5124,7 @@ saveReplayGain () {
 		*.wv|*.ape)
 			if [ "$computeAudioCharacteristics" = 'true' ]; then
 				schag -z \
-					-r "AUDIO_ALBUM_DR" \
 					-r "AUDIO_ALBUM_PEAK" \
-					-r "AUDIO_TRACK_DR" \
 					-r "AUDIO_TRACK_PEAK" \
 					-r "AUDIO_TARGET_LOUDNESS" \
 					-r "REPLAYGAIN_ALBUM_PEAK" \
@@ -5151,9 +5135,7 @@ saveReplayGain () {
 					-r "REPLAYGAIN_REFERENCE_LEVEL" \
 					-r "REPLAYGAIN_TARGET_LOUDNESS" \
 					-r "REPLAYGAIN_VERSION" \
-					-t "AUDIO_ALBUM_DR=${albumDR}" \
 					-t "AUDIO_ALBUM_PEAK=${albumPeakDbfs} dBFS" \
-					-t "AUDIO_TRACK_DR=${trackDR}" \
 					-t "AUDIO_TRACK_PEAK=${trackPeakDbfs} dBFS" \
 					-t "AUDIO_TARGET_LOUDNESS=${AUDIO_TARGET_LOUDNESS} LUFS" \
 					-t "REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
@@ -5164,9 +5146,7 @@ saveReplayGain () {
 					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			else
 				schag -z \
-					-r "AUDIO_ALBUM_DR" \
 					-r "AUDIO_ALBUM_PEAK" \
-					-r "AUDIO_TRACK_DR" \
 					-r "AUDIO_TRACK_PEAK" \
 					-r "AUDIO_TARGET_LOUDNESS" \
 					-r "REPLAYGAIN_ALBUM_PEAK" \
@@ -5221,22 +5201,6 @@ getFileMilliseconds () {
 	fi
 
 	return $exitCode
-}
-
-computeTrackDR () {
-	local file="$1" filterLength drValue
-
-	for (( filterLength=3; filterLength <= 10; filterLength++ )); do
-		drValue="$( ffmpeg -hide_banner -i "$file" -af "drmeter@length=${filterLength}" -f wav -y /dev/null 2>&1 | grep -F 'Overall DR:' | cut -d ':' -f 2 | tr -cd '[:digit:].' 2>/dev/null )"
-		if [ -n "$drValue" ]; then
-			break
-		fi
-	done
-
-	if [ -z "$drValue" ]; then
-		drValue=0
-	fi
-	printf "%.6f" "$drValue"
 }
 
 computeGainFromPeak () {
@@ -5318,22 +5282,7 @@ computeTrackGain () {
 		exitCode=$Ex_Ko
 	fi
 
-	if [ $exitCode -eq $Ex_Ok -a "$computeAudioCharacteristics" = 'true' ]; then
-		audioTrackDR="$( computeTrackDR "$file" )"
-		if [ -z "$audioTrackDR" ]; then
-			audioTrackDR=0
-		fi
-		echo "$audioTrackDR" > "$trackDrFile"
-		DR="$( printf "%.0f" "$audioTrackDR" )"
-	fi
-
 	if [ "$sourceExtension" != "opus" ]; then
-		if [ $exitCode -eq $Ex_Ok ]; then
-			if [ "$applyGain" = 'false' -o "$applyGainType" = "TRACK" ]; then
-				saveTrackGain "$file" || exitCode=$Ex_Ko
-			fi
-		fi
-
 		if [ $exitCode -eq $Ex_Ok ]; then
 			if [ "$verbose" = 'true' -a -z "$outputCodecs" ]; then
 				if [ "${trackGain:0:1}" != '-' -a "${trackGain:0:1}" != '+' ]; then
@@ -5360,7 +5309,6 @@ computeTrackGains () {
 		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
 		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
 		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
-		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
 
 		if getLock "$jobFile"; then
 			computeTrackGain "$sourceFile" || exitCode=$Ex_Ko
@@ -5372,157 +5320,18 @@ computeTrackGains () {
 	return $exitCode
 }
 
-computeTracksDR () {
-	local exitCode=$Ex_Ok jobFile audioTrackDR DR
-
-	while read milliseconds paddedFileIndex fileIndex; do
-		sourceFile="${sourceFiles[$fileIndex]}"
-		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
-		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
-
-		if getLock "$jobFile"; then
-			audioTrackDR="$( computeTrackDR "$sourceFile" )"
-			if [ -z "$audioTrackDR" ]; then
-				audioTrackDR=0
-				exitCode=$Ex_Ko
-			fi
-			echo "$audioTrackDR" > "$trackDrFile"
-			if [ $exitCode -eq $Ex_Ok ]; then
-				if [ "$verbose" = 'true' ]; then
-					DR="$( printf "%.0f" "$audioTrackDR" )"
-					printMessage 'success' 'track_dr' $processNumber "DR:$DR" "Track dynamic range: $DR" "file:${sourceFile}"
-				fi
-			else
-				printMessage 'error' 'track_dr' "file:${sourceFile}" $processNumber
-			fi
-		fi
-	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
-
-	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
-	return $exitCode
-}
-
-saveTracksDR () {
-	local exitCode=$Ex_Ok sourceFile jobFile trackDrFile albumDrFile audioTrackDR audioAlbumDR
-
-	while read milliseconds paddedFileIndex fileIndex; do
-		sourceFile="${sourceFiles[$fileIndex]}"
-		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
-		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
-		albumDrFile="${Self_Data_Dir}/${paddedFileIndex}_albumdr_any.txt"
-
-		if getLock "$jobFile"; then
-			read audioTrackDR < "$trackDrFile" 2>/dev/null
-			read audioAlbumDR < "$albumDrFile" 2>/dev/null
-			audioTrackDR="$( printf "%.0f" "$audioTrackDR" )"
-			audioAlbumDR="$( printf "%.0f" "$audioAlbumDR" )"
-
-			case "$sourceFile" in
-				*.flac)
-					metaflac \
-						--remove-tag="AUDIO_TRACK_DR" \
-						--remove-tag="AUDIO_ALBUM_DR" \
-						--set-tag="AUDIO_TRACK_DR=${audioTrackDR}" \
-						--set-tag="AUDIO_ALBUM_DR=${audioAlbumDR}" \
-						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-					;;
-
-				*.ogg)
-					vorbiscomment -a \
-						-d "AUDIO_TRACK_DR" \
-						-d "AUDIO_ALBUM_DR" \
-						-t "AUDIO_TRACK_DR=${audioTrackDR}" \
-						-t "AUDIO_ALBUM_DR=${audioAlbumDR}" \
-						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-					;;
-
-				*.wv|*.ape)
-					schag -z \
-						-r "AUDIO_TRACK_DR" \
-						-r "AUDIO_ALBUM_DR" \
-						-t "AUDIO_TRACK_DR=${audioTrackDR}" \
-						-t "AUDIO_ALBUM_DR=${audioAlbumDR}" \
-						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-					;;
-
-				*.mp3)
-					eyeD3 --quiet --to-v2.4 \
-						--user-text-frame "AUDIO_TRACK_DR:" \
-						--user-text-frame "AUDIO_ALBUM_DR:" \
-						--user-text-frame "AUDIO_TRACK_DR:${audioTrackDR}" \
-						--user-text-frame "AUDIO_ALBUM_DR:${audioAlbumDR}" \
-						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-					;;
-
-				*) exitCode=$Ex_Ko ;;
-			esac
-		fi
-	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
-
-	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
-	return $exitCode
-}
-
-computeAlbumDR () {
-	local trackDrFile audioTrackDR audioAlbumDR=0 trackSeconds audioAlbumDrSeconds=0 albumPath
-
-	while read milliseconds paddedFileIndex fileIndex; do
-		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
-		read audioTrackDR < "$trackDrFile" 2>/dev/null
-		trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
-		if [ -z "$trackSeconds" ]; then
-			trackSeconds=1
-		fi
-		albumSeconds=$(( albumSeconds + trackSeconds ))
-		if [ -n "$audioTrackDR" -a "$audioTrackDR" != '0' ]; then
-			audioAlbumDrSeconds=$(( audioAlbumDrSeconds + trackSeconds ))
-			audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
-		fi
-		touch "${Self_Control_Dir}/${paddedFileIndex}_any.job"
-	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
-
-	if [ $audioAlbumDrSeconds -ne 0 -a $audioAlbumDR != '0' ]; then
-		audioAlbumDR="$( printf "%.0f" "$( echo "scale=6; $audioAlbumDR / $audioAlbumDrSeconds" | bc )" )"
-		while read milliseconds paddedFileIndex fileIndex; do
-			if [ -z "$albumPath" ]; then
-				albumPath="$( dirname "${sourceFiles[$fileIndex]}" )"
-			fi
-			echo "$audioAlbumDR" > "${Self_Data_Dir}/${paddedFileIndex}_albumdr_any.txt"
-		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
-		if [ $exitCode -eq $Ex_Ok ]; then
-			if [ "$verbose" = 'true' ]; then
-				printMessage 'success' 'album_dr' $processNumber "DR:$audioAlbumDR" "Album dynamic range: $audioAlbumDR" "path:${albumPath}"
-			fi
-		else
-			printMessage 'error' 'album_dr' "file:${sourceFile}" $processNumber
-		fi
-		return $Ex_Ok
-	else
-		return $Ex_Ko
-	fi
-}
-
 processFilesForAlbumGain () {
 	local trackGain
 
-	if [ "$computeAudioCharacteristics" = 'true' ]; then
-		read audioTrackDR < "$trackDrFile" 2>/dev/null
-	fi
 	trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
 	if [ -z "$trackSeconds" ]; then
 		trackSeconds=1
 	fi
 	albumSeconds=$(( albumSeconds + trackSeconds ))
-	if [ -n "$audioTrackDR" -a "$audioTrackDR" != '0' ]; then
-		audioAlbumDrSeconds=$(( audioAlbumDrSeconds + trackSeconds ))
-		audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
-		echo "$audioAlbumDR" > "$albumDrFile"
-	fi
 	if [ "$computeCaugain" != 'true' ]; then
 		read trackGain < "$trackGainFile" 2>/dev/null
 		echo "$trackGain $trackSeconds" >> "$trackGainsFile" 2>/dev/null
 		cat "$trackPeakFile" >> "$trackPeaksFile" 2>/dev/null
-		rm -f "$trackGainFile" "$trackPeakFile" "$trackDrFile"
 	fi
 }
 
@@ -5531,8 +5340,8 @@ computeAlbumGain () {
 	# A comparison between gains on 754 albums revealed max differences ranging from -2.06 dB to +1.50 dB.
 	# PINK_REF="64.82" is from flac/src/share/replaygain_analysis/replaygain_analysis.c
 	local exitCode=$Ex_Ok codec="$1" albumPath="$2" processNumber=$3 PINK_REF_COMPLEMENT="35.18" secondsIndex rank
-	local trackGain albumGain trackSeconds=1 albumSeconds=0 increment=0 trackGainFile trackPeakFile trackDrFile albumPeak
-	local albumAudioPeak audioAlbumDR=0 DR audioAlbumDrSeconds=0 trackGainsFile trackPeaksFile albumGainFilesIndex
+	local trackGain albumGain trackSeconds=1 albumSeconds=0 increment=0 trackGainFile trackPeakFile albumPeak
+	local albumAudioPeak trackGainsFile trackPeaksFile albumGainFilesIndex
 	local outputCodec milliseconds paddedFileIndex fileIndex destPath destFile
 
 	trackGainsFile="${Self_Data_Dir}/trackgains_${codec}_{$processNumber}"
@@ -5544,27 +5353,20 @@ computeAlbumGain () {
 		while read outputCodec milliseconds paddedFileIndex fileIndex destPath; do
 			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${codec}.txt"
 			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${codec}.txt"
-			trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_${codec}.txt"
-			albumDrFile="${Self_Data_Dir}/${paddedFileIndex}_albumdr_${codec}.txt"
 			processFilesForAlbumGain
 		done < <( grep -F "$albumPath" "${Self_Data_Dir}/destPaths.txt" )
 	else
 		while read milliseconds paddedFileIndex fileIndex; do
 			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
 			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
-			trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
-			albumDrFile="${Self_Data_Dir}/${paddedFileIndex}_albumdr_any.txt"
 			processFilesForAlbumGain
 		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 	fi
 
-	if [ $audioAlbumDrSeconds -ne 0 ]; then
-		DR="$( printf "%.0f" "$( echo "scale=6; $audioAlbumDR / $audioAlbumDrSeconds" | bc )" )"
-	else
-		DR=0
-	fi
 	albumPeak="$( sort -n "$trackPeaksFile" 2>/dev/null | tail -n 1 )"
+	rm -f "$trackPeaksFile"
 	if [ -z "$albumPeak" ]; then
+		rm -f "$trackGainsFile"
 		return $Ex_Ko
 	fi
 
@@ -5603,28 +5405,32 @@ computeAlbumGain () {
 			fi
 		fi
 	fi
+	rm -f "$trackGainsFile"
 
-	declare -a albumGainFiles=()
-	albumGainFilesIndex=0
-	if [ "$codec" != 'any' ]; then
-		while read outputCodec milliseconds paddedFileIndex fileIndex destFile; do
-			albumGainFiles[$albumGainFilesIndex]="$destFile"
-			(( albumGainFilesIndex++ ))
-		done < <( grep -F "$albumPath" "${Self_Data_Dir}/destFiles.txt" )
-	else
-		while read milliseconds paddedFileIndex fileIndex; do
-			destFile="${sourceFiles[$fileIndex]}"
-			albumGainFiles[$albumGainFilesIndex]="$destFile"
-			(( albumGainFilesIndex++ ))
-		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
-	fi
-	saveAlbumGain "${albumGainFiles[@]}"
-
-	rm -f "$trackGainsFile" "$trackPeaksFile"
-
-	if [ "${albumGain:0:1}" != '-' ]; then
+	if [ "${albumGain:0:1}" != '-' -a "${albumGain:0:1}" != '+' ]; then
 		albumGain="+${albumGain}"
 	fi
+
+	if [ "$codec" != 'any' ]; then
+		while read outputCodec milliseconds paddedFileIndex fileIndex destPath; do
+			albumGainFile="${Self_Data_Dir}/${paddedFileIndex}_albumgain_${codec}.txt"
+			albumPeakFile="${Self_Data_Dir}/${paddedFileIndex}_albumpeak_${codec}.txt"
+			jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
+			touch "$jobFile"
+			echo "$albumGain" > "$albumGainFile"
+			echo "$albumPeak" > "$albumPeakFile"
+		done < <( grep -F "$albumPath" "${Self_Data_Dir}/destPaths.txt" )
+	else
+		while read milliseconds paddedFileIndex fileIndex; do
+			albumGainFile="${Self_Data_Dir}/${paddedFileIndex}_albumgain_any.txt"
+			albumPeakFile="${Self_Data_Dir}/${paddedFileIndex}_albumpeak_any.txt"
+			jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
+			touch "$jobFile"
+			echo "$albumGain" > "$albumGainFile"
+			echo "$albumPeak" > "$albumPeakFile"
+		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+	fi
+
 	if [ -n "$albumPath" ]; then
 		basePath="$( basename "$albumPath" )"
 		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:${basePath}"
@@ -5635,27 +5441,48 @@ computeAlbumGain () {
 	return $exitCode
 }
 
-grepReplayGainTags () {
-	local file="$1"
+saveTracksGains () {
+	local exitCode=$Ex_Ok codec="$1" albumPath="$2" processNumber=$3 sourceFile jobFile
 
-	case "$file" in
-		*.flac) metaflac --show-all-tags "$file" 2>> "$Self_Errors_File" | grep -iE '^replaygain_(album|track)_(gain|peak)' 2>> "$Self_Errors_File" ;;
-		*.wv) wvtag -l "$file" 2>> "$Self_Errors_File" | grep -iE '^replaygain_(album|track)_(gain|peak)' | tr -s ' ' | $sedcmd -e 's@: @=@' 2>> "$Self_Errors_File" ;;
-		*.ape) schag -z "$file" 2>> "$Self_Errors_File" | grep -iE '^replaygain_(album|track)_(gain|peak)' 2>> "$Self_Errors_File" ;;
-		*.ogg) vorbiscomment -l "$file" 2>> "$Self_Errors_File" | grep -iE '^replaygain_(album|track)_(gain|peak)' 2>> "$Self_Errors_File" ;;
-		*.mp3|*.mp4) ffprobe -show_format -print_format flat "$file" 2>/dev/null | grep -iE '^format.tags' | cut -d '.' -f 3- | grep -iE '^replaygain_(album|track)_(gain|peak)' | tr -d '"'
-	esac
+	if [ "$codec" != 'any' ]; then
+		while read outputCodec milliseconds paddedFileIndex fileIndex destFile; do
+			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${codec}.txt"
+			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${codec}.txt"
+			albumGainFile="${Self_Data_Dir}/${paddedFileIndex}_albumgain_${codec}.txt"
+			albumPeakFile="${Self_Data_Dir}/${paddedFileIndex}_albumpeak_${codec}.txt"
+			jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
+
+			if getLock "$jobFile"; then
+				saveReplayGain "$destFile"
+			fi
+		done < <( grep -F "$albumPath" "${Self_Data_Dir}/destFiles.txt" )
+	else
+		while read milliseconds paddedFileIndex fileIndex; do
+			sourceFile="${sourceFiles[$fileIndex]}"
+			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
+			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
+			albumGainFile="${Self_Data_Dir}/${paddedFileIndex}_albumgain_any.txt"
+			albumPeakFile="${Self_Data_Dir}/${paddedFileIndex}_albumpeak_any.txt"
+			jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
+
+			if getLock "$jobFile"; then
+				saveReplayGain "$sourceFile"
+			fi
+		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+	fi
+
+	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
+	return $exitCode
 }
 
 computeRsgain () {
-	local exitCode=$Ex_Ok list trackGain trackPeak albumGain audioAlbumDR=0 audioAlbumDrSeconds=0
+	local exitCode=$Ex_Ok list trackGain trackPeak albumGain
 	local milliseconds paddedFileIndex fileIndex=0 sourceFile dirName mtimeFile IFS OIFS="$IFS"
 	local line tabIFS rsFilename rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment
 	local rsAnalysisFile="${Self_Data_Dir}/rsgain.txt" fileMilliseconds=()
 
 	albumGainFile="${Self_Data_Dir}/albumgain_any.txt"
 	albumPeakFile="${Self_Data_Dir}/albumpeak_any.txt"
-	albumDrFile="${Self_Data_Dir}/albumdr_any.txt"
 
 	while read milliseconds paddedFileIndex fileIndex; do
 		sourceFile="${sourceFiles[$fileIndex]}"
@@ -5693,14 +5520,6 @@ computeRsgain () {
 					fi
 					echo "$albumGain" > "$albumGainFile"
 					echo "$albumPeak" > "$albumPeakFile"
-					if [ "$computeAudioCharacteristics" = 'true' ]; then
-						if [ $audioAlbumDrSeconds -ne 0 ]; then
-							audioAlbumDR="$( printf "%.0f" "$( echo "scale=6; $audioAlbumDR / $audioAlbumDrSeconds" | bc )" )"
-						else
-							audioAlbumDR=0
-						fi
-						echo "$audioAlbumDR" > "$albumDrFile"
-					fi
 					;;
 
 				*)
@@ -5719,21 +5538,6 @@ computeRsgain () {
 					fi
 					echo "$trackGain" > "$trackGainFile"
 					echo "$trackPeak" > "$trackPeakFile"
-					if [ "$computeAudioCharacteristics" = 'true' ]; then
-						trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
-						audioTrackDR="$( computeTrackDR "$sourceFile" )"
-						if [ -z "$audioTrackDR" ]; then
-							audioTrackDR=0
-						fi
-						trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
-						if [ -z "$trackSeconds" ]; then
-							trackSeconds=1
-						fi
-						audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
-						audioAlbumDrSeconds=$(( audioAlbumDrSeconds + trackSeconds ))
-						audioTrackDR="$( printf "%.0f" "$audioTrackDR" )"
-						echo "$audioTrackDR" > "$trackDrFile"
-					fi
 				;;
 			esac
 		done < <( echo "$line" )
@@ -5982,6 +5786,152 @@ reverseTrackGains () {
 
 	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
 	return $exitCode
+}
+
+computeTrackDR () {
+	local file="$1" filterLength drValue
+
+	for (( filterLength=3; filterLength <= 10; filterLength++ )); do
+		drValue="$( ffmpeg -hide_banner -i "$file" -af "drmeter@length=${filterLength}" -f wav -y /dev/null 2>&1 | grep -F 'Overall DR:' | cut -d ':' -f 2 | tr -cd '[:digit:].' 2>/dev/null )"
+		if [ -n "$drValue" ]; then
+			break
+		fi
+	done
+
+	if [ -z "$drValue" ]; then
+		drValue=0
+	fi
+	printf "%.6f" "$drValue"
+}
+
+computeTracksDR () {
+	local exitCode=$Ex_Ok jobFile audioTrackDR DR
+
+	while read milliseconds paddedFileIndex fileIndex; do
+		sourceFile="${sourceFiles[$fileIndex]}"
+		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
+		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
+
+		if getLock "$jobFile"; then
+			audioTrackDR="$( computeTrackDR "$sourceFile" )"
+			if [ -z "$audioTrackDR" ]; then
+				audioTrackDR=0
+				exitCode=$Ex_Ko
+			fi
+			echo "$audioTrackDR" > "$trackDrFile"
+			if [ $exitCode -eq $Ex_Ok ]; then
+				if [ "$verbose" = 'true' ]; then
+					DR="$( printf "%.0f" "$audioTrackDR" )"
+					printMessage 'success' 'track_dr' $processNumber "DR:$DR" "Track dynamic range: $DR" "file:${sourceFile}"
+				fi
+			else
+				printMessage 'error' 'track_dr' "file:${sourceFile}" $processNumber
+			fi
+		fi
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+
+	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
+	return $exitCode
+}
+
+saveTracksDR () {
+	local exitCode=$Ex_Ok sourceFile jobFile trackDrFile albumDrFile audioTrackDR audioAlbumDR
+
+	while read milliseconds paddedFileIndex fileIndex; do
+		sourceFile="${sourceFiles[$fileIndex]}"
+		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
+		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
+		albumDrFile="${Self_Data_Dir}/${paddedFileIndex}_albumdr_any.txt"
+
+		if getLock "$jobFile"; then
+			read audioTrackDR < "$trackDrFile" 2>/dev/null
+			read audioAlbumDR < "$albumDrFile" 2>/dev/null
+			audioTrackDR="$( printf "%.0f" "$audioTrackDR" )"
+			audioAlbumDR="$( printf "%.0f" "$audioAlbumDR" )"
+
+			case "$sourceFile" in
+				*.flac)
+					metaflac \
+						--remove-tag="AUDIO_TRACK_DR" \
+						--remove-tag="AUDIO_ALBUM_DR" \
+						--set-tag="AUDIO_TRACK_DR=${audioTrackDR}" \
+						--set-tag="AUDIO_ALBUM_DR=${audioAlbumDR}" \
+						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					;;
+
+				*.ogg)
+					vorbiscomment -a \
+						-d "AUDIO_TRACK_DR" \
+						-d "AUDIO_ALBUM_DR" \
+						-t "AUDIO_TRACK_DR=${audioTrackDR}" \
+						-t "AUDIO_ALBUM_DR=${audioAlbumDR}" \
+						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					;;
+
+				*.wv|*.ape)
+					schag -z \
+						-r "AUDIO_TRACK_DR" \
+						-r "AUDIO_ALBUM_DR" \
+						-t "AUDIO_TRACK_DR=${audioTrackDR}" \
+						-t "AUDIO_ALBUM_DR=${audioAlbumDR}" \
+						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					;;
+
+				*.mp3)
+					eyeD3 --quiet --to-v2.4 \
+						--user-text-frame "AUDIO_TRACK_DR:" \
+						--user-text-frame "AUDIO_ALBUM_DR:" \
+						--user-text-frame "AUDIO_TRACK_DR:${audioTrackDR}" \
+						--user-text-frame "AUDIO_ALBUM_DR:${audioAlbumDR}" \
+						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					;;
+
+				*) exitCode=$Ex_Ko ;;
+			esac
+		fi
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+
+	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
+	return $exitCode
+}
+
+computeAlbumDR () {
+	local trackDrFile audioTrackDR audioAlbumDR=0 trackSeconds audioAlbumDrSeconds=0 albumPath
+
+	while read milliseconds paddedFileIndex fileIndex; do
+		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
+		read audioTrackDR < "$trackDrFile" 2>/dev/null
+		trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
+		if [ -z "$trackSeconds" ]; then
+			trackSeconds=1
+		fi
+		albumSeconds=$(( albumSeconds + trackSeconds ))
+		if [ -n "$audioTrackDR" -a "$audioTrackDR" != '0' ]; then
+			audioAlbumDrSeconds=$(( audioAlbumDrSeconds + trackSeconds ))
+			audioAlbumDR="$( echo "scale=6; $audioAlbumDR + ($audioTrackDR * $trackSeconds)" | bc )"
+		fi
+		touch "${Self_Control_Dir}/${paddedFileIndex}_any.job"
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+
+	if [ $audioAlbumDrSeconds -ne 0 -a $audioAlbumDR != '0' ]; then
+		audioAlbumDR="$( printf "%.0f" "$( echo "scale=6; $audioAlbumDR / $audioAlbumDrSeconds" | bc )" )"
+		while read milliseconds paddedFileIndex fileIndex; do
+			if [ -z "$albumPath" ]; then
+				albumPath="$( dirname "${sourceFiles[$fileIndex]}" )"
+			fi
+			echo "$audioAlbumDR" > "${Self_Data_Dir}/${paddedFileIndex}_albumdr_any.txt"
+		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
+		if [ $exitCode -eq $Ex_Ok ]; then
+			if [ "$verbose" = 'true' ]; then
+				printMessage 'success' 'album_dr' $processNumber "DR:$audioAlbumDR" "Album dynamic range: $audioAlbumDR" "path:${albumPath}"
+			fi
+		else
+			printMessage 'error' 'album_dr' "file:${sourceFile}" $processNumber
+		fi
+		return $Ex_Ok
+	else
+		return $Ex_Ko
+	fi
 }
 
 echoTouchString () {
@@ -7943,6 +7893,10 @@ if [ $exitCode -eq $Ex_Ok ]; then
 					computeRsgain || exitCode=$Ex_Ko
 				else
 					computeAlbumGain 'any' '' $processNumber || exitCode=$Ex_Ko
+					for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
+						saveTracksGains 'any' '' $processNumber &
+					done
+					exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
 				fi
 			else
 				processNumber=0
