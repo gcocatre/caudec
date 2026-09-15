@@ -4323,7 +4323,6 @@ transcode () {
 						allFilesDone='false' allCodecsDone='false'
 						trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${outputCodec}.txt"
 						trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${outputCodec}.txt"
-						trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_${outputCodec}.txt"
 						setControlVariables
 						computeTrackGain "$destFile" || exitCode=$Ex_Ko
 
@@ -7908,15 +7907,14 @@ if [ $exitCode -eq $Ex_Ok ]; then
 						if [ "$outputCodec" = 'Opus' ]; then
 							computeOpusAlbumGain "$destPath"
 						else
-							computeAlbumGain "$outputCodec" "$destPath" $processNumber &
-							(( processNumber++ ))
-							if [ $processNumber -eq $nProcesses ]; then
-								wait
-								processNumber=0
-							fi
+							computeAlbumGain "$outputCodec" "$destPath" $processNumber || exitCode=$Ex_Ko
+							for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
+								saveTracksGains "$outputCodec" "$destPath" $processNumber &
+							done
+							exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
+
 						fi
 					done < <( grep -E "^${outputCodec} " "${Self_Data_Dir}/destPaths.txt" | cut -d ' ' -f 5-  | sort -u )
-					wait
 				done
 				echo
 			fi
