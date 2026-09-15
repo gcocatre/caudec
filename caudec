@@ -4709,22 +4709,12 @@ saveTrackGain () {
 		if [ "$computeCaugain" = 'true' ]; then
 			peakDbfs="$rsPeakDb"
 		else
-			peakDbfs="$( computeGainFromPeak "$peak" )"
+			peakDbfs="$( computeGainDbfsFromPeak "$peak" )"
 		fi
 	else
 		uGain="$trackGain"
-		if [ "$gain" = '0' -o "$gain" = '0.0' -o "$gain" = '0.00' -o -z "$gain" ]; then
-			gain='0.00'
-		elif [ "${gain:0:1}" != '-' -a "${gain:0:1}" != '+' ]; then
+		if [ "${gain:0:1}" != '-' -a "${gain:0:1}" != '+' ]; then
 			gain="+${gain}"
-		fi
-	fi
-
-	if [ "$computeAudioCharacteristics" = 'true' ]; then
-		if [ "$peakDbfs" = '0' -o "$peakDbfs" = '0.0' -o "$peakDbfs" = '0.00' -o -z "$peakDbfs" ]; then
-			peakDbfs='0.00'
-		elif [ "${peakDbfs:0:1}" != '-' -a "${peakDbfs:0:1}" != '+' ]; then
-			peakDbfs="+${peakDbfs}"
 		fi
 	fi
 
@@ -4871,14 +4861,7 @@ saveAlbumGain () {
 	fi
 
 	if [ "$computeAudioCharacteristics" = 'true' ]; then
-		peakDbfs="$( computeGainFromPeak "$peak" )"
-		if [ -n "$peakDbfs" ]; then
-			if [ "$peakDbfs" = "-0.00" ]; then
-				peakDbfs="0.00"
-			elif [ "${peakDbfs:0:1}" != '-' -a "$peakDbfs" != "0.00" ]; then
-				peakDbfs="+${peakDbfs}"
-			fi
-		fi
+		peakDbfs="$( computeGainDbfsFromPeak "$peak" )"
 	fi
 
 	case "$firstFile" in
@@ -5208,15 +5191,13 @@ computeGainFromPeak () {
 }
 
 computeGainDbfsFromPeak () {
-	local floatingPointPeak="$1" peakDbFS
+	local floatingPointPeak="$1" peakDbFs
 
-	peakDbFS="$( printf "%.2f" "$( echo "scale=10; 20 * l(${floatingPointPeak}) / l(10)" | bc -l 2>> "$Self_Errors_File" )" )"
-	if [ "$peakDbFS" = '0' -o "$peakDbFS" = '0.0' -o "$peakDbFS" = '0.00' ]; then
-		peakDbFS='0.00'
-	elif [ "${peakDbFS:0:1}" != '-' -a "${peakDbFS:0:1}" != '+' ]; then
-		peakDbFS="+${peakDbFS}"
+	peakDbFs="$( printf "%.2f" "$( echo "scale=10; 20 * l(${floatingPointPeak}) / l(10)" | bc -l 2>> "$Self_Errors_File" )" )"
+	if [ "${peakDbFs:0:1}" != '-' -a "${peakDbFs:0:1}" != '+' ]; then
+		peakDbFs="+${peakDbFs}"
 	fi
-	echo "$peakDbFS"
+	echo "$peakDbFs"
 }
 
 computeTrackGain () {
@@ -5228,7 +5209,7 @@ computeTrackGain () {
 		shopt -qs nocasematch
 		fileExtension="${file##*.}"
 		case "$file" in
-			*.flac|*.wv|*.ape|*.ogg|*.mp3)
+			*.wav|*.flac|*.wv|*.ape|*.ogg|*.mp3)
 				if [ "$fileExtension" = 'mp3' ]; then
 					mp3gain -u "$file" 1>/dev/null 2>/dev/null
 					mp3gain -s d "$file" 1>/dev/null 2>/dev/null
@@ -5379,7 +5360,7 @@ computeAlbumGain () {
 		elif [ "${peakReference:0:1}" = '-' ]; then
 			albumGain="$peakReference"
 		else
-			albumGain="-0"
+			albumGain="0.00"
 		fi
 	else
 		sort -n "$trackGainsFile" > "${trackGainsFile}.tmp" 2>/dev/null
@@ -5512,9 +5493,7 @@ computeRsgain () {
 				Album)
 					albumGain="$rsGain"
 					albumPeak="$rsPeak"
-					if [ "$albumGain" = '0' -o "$albumGain" = '0.0' -o "$albumGain" = '0.00' -o -z "$albumPeak" ]; then
-						albumGain='-0.00'
-					elif [ "${albumGain:0:1}" != '-' -a "${albumGain:0:1}" != '+' ]; then
+					if [ "${albumGain:0:1}" != '-' -a "${albumGain:0:1}" != '+' ]; then
 						albumGain="+${albumGain}"
 					fi
 					echo "$albumGain" > "$albumGainFile"
@@ -5530,9 +5509,7 @@ computeRsgain () {
 					(( fileIndex++ ))
 					trackGain="$rsGain"
 					trackPeak="$rsPeak"
-					if [ "$trackGain" = '0' -o "$trackGain" = '0.0' -o "$trackGain" = '0.00' -o -z "$trackGain" ]; then
-						trackGain='-0.00'
-					elif [ "${trackGain:0:1}" != '-' -a "${trackGain:0:1}" != '+' ]; then
+					if [ "${trackGain:0:1}" != '-' -a "${trackGain:0:1}" != '+' ]; then
 						trackGain="+${trackGain}"
 					fi
 					echo "$trackGain" > "$trackGainFile"
