@@ -4272,6 +4272,17 @@ transcode () {
 				getFileProps "$sourceFile"
 				prepareSource &&
 				decode || exitCode=$Ex_Ko
+				if [ "$computeReplayGain" = 'true' ]; then
+					for outputCodec in $outputCodecs; do
+						case "$outputCodec" in
+							WAV|FLAC|WavPack|WavPackHybrid|MonkeysAudio)
+								trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${outputCodec}.txt"
+								trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${outputCodec}.txt"
+								computeTrackGain "$wavFile"
+								;;
+						esac
+					done
+				fi
 				if [ -n "$nThreads" ]; then
 					nDecodingThreads=$nThreads
 				else
@@ -4315,7 +4326,9 @@ transcode () {
 
 			if [ "$computeReplayGain" = 'true' ]; then
 				for outputCodec in $outputCodecs; do
-					if [ "$outputCodec" = 'Opus' ]; then continue; fi
+					case "$outputCodec" in
+						WAV|FLAC|WavPack|WavPackHybrid|MonkeysAudio|AAC|Opus) continue ;;
+					esac
 					replaygainJobFile="${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
 					# if test -e "$replaygainJobFile" && unlink "$replaygainJobFile" 2>/dev/null; then
 					getFileProps "$sourceFile" "$outputCodec"
@@ -5262,7 +5275,7 @@ computeTrackGain () {
 		exitCode=$Ex_Ko
 	fi
 
-	if [ "$sourceExtension" != "opus" ]; then
+	if [ "$sourceExtension" != "opus" -a "$sourceExtension" != 'wav' ]; then
 		if [ $exitCode -eq $Ex_Ok ]; then
 			if [ "$verbose" = 'true' -a -z "$outputCodecs" ]; then
 				if [ "${trackGain:0:1}" != '-' -a "${trackGain:0:1}" != '+' ]; then
