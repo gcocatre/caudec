@@ -1278,36 +1278,13 @@ checkInputFiles () {
 			if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
 				inputFileExtension="${inputFile##*.}"
 				case "$inputFileExtension" in
-					flac|wv|ape|ogg|mp3|opus)
+					flac|wv|ape|ogg|m4a|mp3|opus)
 						addToSourceFiles='true'
 						if [ -z "$commonFileExtension" ]; then
 							commonFileExtension="$inputFileExtension"
 						elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
 							inputCodecsAreAllTheSame='false'
 							addToSourceFiles='false'
-							if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-								printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension"
-								exitCode=$Ex_Data_Err
-							fi
-							continue
-						fi
-						;;
-
-					m4a)
-						if [ "$reverseReplayGain" = 'true' ]; then
-							addToSourceFiles='true'
-							if [ -z "$commonFileExtension" ]; then
-								commonFileExtension="$inputFileExtension"
-							elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
-								inputCodecsAreAllTheSame='false'
-								addToSourceFiles='false'
-								if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-									printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension"
-									exitCode=$Ex_Data_Err
-								fi
-								continue
-							fi
-						else
 							if [ "$ignoreUnsupportedFiles" = 'false' ]; then
 								printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension"
 								exitCode=$Ex_Data_Err
@@ -5294,11 +5271,14 @@ computeM4AGain () {
 		return $exitCode
 	fi
 
+	trackFileIndex=0
 	tabIFS="$( echo -en "\t" )"
 	while read line; do
 		IFS="$tabIFS"
 		while read m4aFilename m4aGain m4aGainDb m4aPeak m4aMax m4aMin; do
 			case "$m4aFilename" in
+				File) continue ;;
+
 				"\"Album\"")
 					albumGain="$m4aGainDb"
 					albumGain="$( printf "%.2f" "$albumGain" )"
@@ -5307,7 +5287,20 @@ computeM4AGain () {
 						albumGain="+${albumGain}"
 					fi
 					;;
+
+				*)
+					if [ -z "$albumPath" ]; then
+						trackGain="$m4aGainDb"
+						trackGain="$( printf "%.2f" "$trackGain" )"
+						trackPeak="$m4aPeak"
+						if [ "${trackGain:0:1}" != '-' -a "${trackGain:0:1}" != '+' ]; then
+							trackGain="+${trackGain}"
+						fi
+						printMessage 'success' 'track_gain' $processNumber "$trackGain dB" "Track gain: $trackGain dB" "file:${trackFiles[$trackFileIndex]}"
+					fi
+					;;
 			esac
+			(( trackFileIndex++ ))
 		done < <( echo "$line" )
 		IFS="$OIFS"
 	done < "$analysisFile"
