@@ -1103,6 +1103,7 @@ getInputFiles () {
 						fileExtension="${file##*.}"
 						case "$fileExtension" in
 							flac|wv|wvc|ape|ogg|mp3|m4a) allFilesAreOpus='false' ;;
+							flac|wv|wvc|ape|ogg|mp3|opus) allFilesAreM4A='false' ;;
 						esac
 						if [ "$fileExtension" = "wvc" ]; then
 							continue
@@ -1127,6 +1128,7 @@ getInputFiles () {
 			fileExtension="${fileOrDir##*.}"
 			case "$fileExtension" in
 				flac|wv|wvc|ape|ogg|mp3|m4a) allFilesAreOpus='false' ;;
+				flac|wv|wvc|ape|ogg|mp3|opus) allFilesAreM4A='false' ;;
 			esac
 			if [ "$fileExtension" = "wvc" ]; then
 				continue
@@ -4650,85 +4652,6 @@ showTracksInformation () {
 	return $exitCode
 }
 
-saveTrackGainToMP3 () {
-	local exitCode=$Ex_Ok file="$1" gainType='TRACK'
-
-	if [ "$computeAudioCharacteristics" = 'true' -a -n "$peakDbfs" ]; then
-		eyeD3 --quiet --to-v2.4 \
-			--user-text-frame "AUDIO_${gainType}_PEAK:" \
-			--user-text-frame "AUDIO_TARGET_LOUDNESS:" \
-			--user-text-frame "REPLAYGAIN_${gainType}_PEAK:" \
-			--user-text-frame "REPLAYGAIN_${gainType}_GAIN:" \
-			--user-text-frame "REPLAYGAIN_ALGORITHM:" \
-			--user-text-frame "REPLAYGAIN_REFERENCE_LEVEL:" \
-			--user-text-frame "REPLAYGAIN_TARGET_LOUDNESS:" \
-			--user-text-frame "REPLAYGAIN_VERSION:" \
-			--user-text-frame "AUDIO_${gainType}_PEAK:${peakDbfs} dBFS" \
-			--user-text-frame "AUDIO_TARGET_LOUDNESS:${AUDIO_TARGET_LOUDNESS} LUFS" \
-			--user-text-frame "REPLAYGAIN_${gainType}_PEAK:${peak}" \
-			--user-text-frame "REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
-			--user-text-frame "REPLAYGAIN_ALGORITHM:${REPLAYGAIN_ALGORITHM}" \
-			"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-	else
-		eyeD3 --quiet --to-v2.4 \
-			--user-text-frame "AUDIO_${gainType}_PEAK:" \
-			--user-text-frame "AUDIO_TARGET_LOUDNESS:" \
-			--user-text-frame "REPLAYGAIN_${gainType}_PEAK:" \
-			--user-text-frame "REPLAYGAIN_${gainType}_GAIN:" \
-			--user-text-frame "REPLAYGAIN_ALGORITHM:" \
-			--user-text-frame "REPLAYGAIN_REFERENCE_LEVEL:" \
-			--user-text-frame "REPLAYGAIN_TARGET_LOUDNESS:" \
-			--user-text-frame "REPLAYGAIN_VERSION:" \
-			--user-text-frame "REPLAYGAIN_${gainType}_PEAK:${peak}" \
-			--user-text-frame "REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
-			--user-text-frame "REPLAYGAIN_ALGORITHM:${REPLAYGAIN_ALGORITHM}" \
-			"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-	fi
-
-	return $exitCode
-}
-
-saveAlbumGainToMP3 () {
-	local exitCode=$Ex_Ok files=("$@") gainType='ALBUM'
-
-	if [ "$computeAudioCharacteristics" = 'true' -a -n "$peakDbfs" -a -n "$DR" ]; then
-		eyeD3 --quiet --to-v2.4 \
-			--user-text-frame "AUDIO_${gainType}_DR:" \
-			--user-text-frame "AUDIO_${gainType}_PEAK:" \
-			--user-text-frame "AUDIO_TARGET_LOUDNESS:" \
-			--user-text-frame "REPLAYGAIN_${gainType}_PEAK:" \
-			--user-text-frame "REPLAYGAIN_${gainType}_GAIN:" \
-			--user-text-frame "REPLAYGAIN_ALGORITHM:" \
-			--user-text-frame "REPLAYGAIN_REFERENCE_LEVEL:" \
-			--user-text-frame "REPLAYGAIN_TARGET_LOUDNESS:" \
-			--user-text-frame "REPLAYGAIN_VERSION:" \
-			--user-text-frame "AUDIO_${gainType}_DR:${DR}" \
-			--user-text-frame "AUDIO_${gainType}_PEAK:${peakDbfs} dBFS" \
-			--user-text-frame "AUDIO_TARGET_LOUDNESS:${AUDIO_TARGET_LOUDNESS} LUFS" \
-			--user-text-frame "REPLAYGAIN_${gainType}_PEAK:${peak}" \
-			--user-text-frame "REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
-			--user-text-frame "REPLAYGAIN_ALGORITHM:${REPLAYGAIN_ALGORITHM}" \
-			"${files[@]}" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-	else
-		eyeD3 --quiet --to-v2.4 \
-			--user-text-frame "AUDIO_${gainType}_DR:" \
-			--user-text-frame "AUDIO_${gainType}_PEAK:" \
-			--user-text-frame "AUDIO_TARGET_LOUDNESS:" \
-			--user-text-frame "REPLAYGAIN_${gainType}_PEAK:" \
-			--user-text-frame "REPLAYGAIN_${gainType}_GAIN:" \
-			--user-text-frame "REPLAYGAIN_ALGORITHM:" \
-			--user-text-frame "REPLAYGAIN_REFERENCE_LEVEL:" \
-			--user-text-frame "REPLAYGAIN_TARGET_LOUDNESS:" \
-			--user-text-frame "REPLAYGAIN_VERSION:" \
-			--user-text-frame "REPLAYGAIN_${gainType}_PEAK:${peak}" \
-			--user-text-frame "REPLAYGAIN_${gainType}_GAIN:${gain} dB" \
-			--user-text-frame "REPLAYGAIN_ALGORITHM:${REPLAYGAIN_ALGORITHM}" \
-			"${files[@]}" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-	fi
-
-	return $exitCode
-}
-
 saveReplayGain () {
 	local exitCode=$Ex_Ok file="$1" trackGain trackPeak albumGain albumPeak trackPeakDbfs albumPeakDbfs
 
@@ -5321,6 +5244,78 @@ computeRsgain () {
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 	rm -f "${Self_Data_Dir}"/*"_mtime.txt"
+
+	if [ $exitCode -eq $Ex_Ok ]; then
+		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:"
+	else
+		printMessage 'error' 'album_gain' "Album gain"
+	fi
+
+	return $exitCode
+}
+
+computeM4AGain () {
+	local exitCode=$Ex_Ok albumPath="$1" list trackFiles trackFile trackFileIndex=0 albumPlaybackGain trackPlaybackGain
+	local trackDecibels signedTrackGain signedAlbumGain clippingPreventionParam=''
+	local outputCodec milliseconds paddedFileIndex fileIndex destFile basePath
+	local IFS OIFS="$IFS" tabIFS m4aFilename m4aGain m4aGainDb m4aPeak m4aMax m4aMin
+	local analysisFile="${Self_Data_Dir}/mp3rgain.txt"
+
+	trackFiles=()
+	if [ -n "$albumPath" ]; then
+		while read outputCodec milliseconds paddedFileIndex fileIndex destFile; do
+			trackFiles[$trackFileIndex]="$destFile"
+			(( trackFileIndex++ ))
+			if [ -z "$list" ]; then
+				list="$destFile"
+			else
+				list="${list}\x00${destFile}"
+			fi
+		done < <( grep -F "$albumPath" "${Self_Data_Dir}/destFiles.txt" )
+	else
+		for sourceFile in "${sourceFiles[@]}"; do
+			trackFiles[$trackFileIndex]="$sourceFile"
+			(( trackFileIndex++ ))
+			if [ -z "$list" ]; then
+				list="$sourceFile"
+			else
+				list="${list}\x00${sourceFile}"
+			fi
+		done
+	fi
+
+	if [ "$preventClipping" = 'true' ]; then
+		clippingPreventionParam="-k"
+	fi
+	echo -en "$list" | xargs -0 mp3rgain -a --rg2 --tags-only --true-peak $clippingPreventionParam -o 'tsv' 1> "$analysisFile" 2>> "$Self_Errors_File" ; exitCode=$?
+
+	if [ $exitCode -ne $Ex_Ok ]; then
+		printMessage 'error' 'album_gain' "Album gain"
+		return $exitCode
+	fi
+
+	tabIFS="$( echo -en "\t" )"
+	while read line; do
+		IFS="$tabIFS"
+		while read m4aFilename m4aGain m4aGainDb m4aPeak m4aMax m4aMin; do
+			case "$m4aFilename" in
+				"\"Album\"")
+					albumGain="$m4aGainDb"
+					albumGain="$( printf "%.2f" "$albumGain" )"
+					albumPeak="$m4aPeak"
+					if [ "${albumGain:0:1}" != '-' -a "${albumGain:0:1}" != '+' ]; then
+						albumGain="+${albumGain}"
+					fi
+					;;
+			esac
+		done < <( echo "$line" )
+		IFS="$OIFS"
+	done < "$analysisFile"
+
+	if [ -z "$albumGain" -o -z "$albumPeak" ]; then
+		printMessage 'error' 'album_gain' "Album gain"
+		return $exitCode
+	fi
 
 	if [ $exitCode -eq $Ex_Ok ]; then
 		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:"
@@ -6615,7 +6610,8 @@ defaultDestDir="$PWD" linkDir='' gotLinkedDir='false'
 bitDepth='' samplingRate='' preserveMetadata='' applyGain='false' applyGainType='' preamp='' convertToStereo='false'
 computeReplayGain='false' computeCaugain='false' reverseReplayGain='false'
 keepExistingFiles='false' keepNewerFiles='false' macHasVerify='false' outputMode='human'
-checkFiles='false' displayInternalHash='false' touchFiles='false' peakReference=0 allFilesAreOpus='true'
+checkFiles='false' displayInternalHash='false' touchFiles='false' peakReference=0
+allFilesAreOpus='true' allFilesAreM4A='true'
 setArtworkParam='false' copyFilesParam='false' showInformation='false' showDurations='false'
 computeDynamicRange='false'
 
@@ -7558,7 +7554,7 @@ elif [ "$computeReplayGain" = 'true' ]; then
 	else
 		time1="$( $datecmd '+%s' ).0"
 	fi
-	if [ "$allFilesAreOpus" != 'true' -a "$computeCaugain" = 'false' ]; then
+	if [ "$allFilesAreOpus" != 'true' -a "$allFilesAreM4A" != 'true' -a "$computeCaugain" = 'false' ]; then
 		for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
 			computeTrackGains &
 		done
@@ -7633,41 +7629,44 @@ exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$E
 
 if [ $exitCode -eq $Ex_Ok ]; then
 	if [ "$computeReplayGain" = 'true' ]; then
-		if [ "$applyGain" = 'false' -o "$applyGainType" = 'ALBUM' ]; then
-			if [ -z "$outputCodecs" ]; then
-				if [ "$allFilesAreOpus" = 'true' ]; then
-					processNumber=0
-					computeOpusAlbumGain '' || exitCode=$Ex_Ko
-				elif [ "$computeCaugain" = 'true' ]; then
-					computeRsgain || exitCode=$Ex_Ko
-				else
-					computeAlbumGain 'any' '' $processNumber || exitCode=$Ex_Ko
-					for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
-						saveTracksGains 'any' '' $processNumber &
-					done
-					exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
-				fi
-			else
+		if [ -z "$outputCodecs" ]; then
+			if [ "$allFilesAreOpus" = 'true' ]; then
 				processNumber=0
-				for outputCodec in $outputCodecs; do
-					codecFullName="$( getCodecFullName "$outputCodec" )"
-					echo
-					printMessage 'info' "Computing ReplayGain album gain(s) for ${codecFullName}…"
-					while read destPath; do
-						if [ "$outputCodec" = 'Opus' ]; then
-							computeOpusAlbumGain "$destPath"
-						else
-							computeAlbumGain "$outputCodec" "$destPath" $processNumber || exitCode=$Ex_Ko
-							for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
-								saveTracksGains "$outputCodec" "$destPath" $processNumber &
-							done
-							exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
-
-						fi
-					done < <( grep -E "^${outputCodec} " "${Self_Data_Dir}/destPaths.txt" | cut -d ' ' -f 5-  | sort -u )
+				computeOpusAlbumGain '' || exitCode=$Ex_Ko
+			elif [ "$allFilesAreM4A" = 'true' ]; then
+				processNumber=0
+				computeM4AGain '' || exitCode=$Ex_Ko
+			elif [ "$computeCaugain" = 'true' ]; then
+				computeRsgain || exitCode=$Ex_Ko
+			else
+				computeAlbumGain 'any' '' $processNumber || exitCode=$Ex_Ko
+				for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
+					saveTracksGains 'any' '' $processNumber &
 				done
-				echo
+				exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
 			fi
+		else
+			processNumber=0
+			for outputCodec in $outputCodecs; do
+				codecFullName="$( getCodecFullName "$outputCodec" )"
+				echo
+				printMessage 'info' "Computing ReplayGain album gain(s) for ${codecFullName}…"
+				while read destPath; do
+					if [ "$outputCodec" = 'Opus' ]; then
+						computeOpusAlbumGain "$destPath"
+					elif [ "$outputCodec" = 'AAC' ]; then
+						computeM4AGain "$destPath"
+					else
+						computeAlbumGain "$outputCodec" "$destPath" $processNumber || exitCode=$Ex_Ko
+						for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
+							saveTracksGains "$outputCodec" "$destPath" $processNumber &
+						done
+						exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
+
+					fi
+				done < <( grep -E "^${outputCodec} " "${Self_Data_Dir}/destPaths.txt" | cut -d ' ' -f 5-  | sort -u )
+			done
+			echo
 		fi
 	elif [ "$showDurations" = 'true' ]; then
 		showAlbumDuration || exitCode=$Ex_Ko
