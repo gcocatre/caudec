@@ -5097,8 +5097,8 @@ computeAlbumGain () {
 	fi
 
 	if [ -n "$albumPath" ]; then
-		basePath="$( basename "$albumPath" )"
-		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:${basePath}"
+		# basePath="$( basename "$albumPath" )"
+		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:${albumPath}"
 	else
 		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB"
 	fi
@@ -5213,6 +5213,7 @@ computeRsgain () {
 	IFS="$OIFS"
 	while read milliseconds paddedFileIndex fileIndex; do
 		sourceFile="${sourceFiles[$fileIndex]}"
+		sourceDirname="$( dirname "$sourceFile" )"
 		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
 		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
 		saveReplayGain "$sourceFile" || exitCode=$Ex_Ko
@@ -5223,7 +5224,7 @@ computeRsgain () {
 	rm -f "${Self_Data_Dir}"/*"_mtime.txt"
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:"
+		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:${sourceDirname}"
 	else
 		printMessage 'error' 'album_gain' "Album gain"
 	fi
@@ -5311,9 +5312,12 @@ computeM4AGain () {
 	fi
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:"
-	else
-		printMessage 'error' 'album_gain' "Album gain"
+		if [ -n "$albumPath" ]; then
+			basePath="$( basename "$albumPath" )"
+			printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:${albumPath}"
+		else
+			printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:"
+		fi
 	fi
 
 	return $exitCode
@@ -5373,8 +5377,8 @@ computeOpusAlbumGain () {
 		fi
 
 		if [ -n "$albumPath" ]; then
-			basePath="$( basename "$albumPath" )"
-			printMessage 'success' 'album_gain' "${signedAlbumGain} dB" "Album gain: $signedAlbumGain dB" "path:${basePath}"
+			# basePath="$( basename "$albumPath" )"
+			printMessage 'success' 'album_gain' "${signedAlbumGain} dB" "Album gain: $signedAlbumGain dB" "path:${albumPath}"
 		else
 			printMessage 'success' 'album_gain' "${signedAlbumGain} dB" "Album gain: $signedAlbumGain dB" "path:"
 		fi
@@ -7626,11 +7630,11 @@ if [ $exitCode -eq $Ex_Ok ]; then
 			if [ "$allFilesAreOpus" = 'true' ]; then
 				processNumber=0
 				computeOpusAlbumGain '' || exitCode=$Ex_Ko
+			elif [ "$computeCaugain" = 'true' ]; then
+				computeRsgain || exitCode=$Ex_Ko
 			elif [ "$allFilesAreM4A" = 'true' ]; then
 				processNumber=0
 				computeM4AGain '' || exitCode=$Ex_Ko
-			elif [ "$computeCaugain" = 'true' ]; then
-				computeRsgain || exitCode=$Ex_Ko
 			else
 				computeAlbumGain 'any' '' $processNumber || exitCode=$Ex_Ko
 				for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
