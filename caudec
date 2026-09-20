@@ -1101,10 +1101,8 @@ getInputFiles () {
 					if [ -e "$file" ]; then
 						inputFiles[$fileIndex]="$file"
 						fileExtension="${file##*.}"
-						case "$fileExtension" in
-							flac|wv|wvc|ape|ogg|mp3|m4a) allFilesAreOpus='false' ;;
-							flac|wv|wvc|ape|ogg|mp3|opus) allFilesAreM4A='false' ;;
-						esac
+						if [ "$fileExtension" != 'opus' ]; then allFilesAreOpus='false' ; fi
+						if [ "$fileExtension" != 'm4a' ]; then allFilesAreM4A='false' ; fi
 						if [ "$fileExtension" = "wvc" ]; then
 							continue
 						fi
@@ -1126,10 +1124,8 @@ getInputFiles () {
 			fi
 		else
 			fileExtension="${fileOrDir##*.}"
-			case "$fileExtension" in
-				flac|wv|wvc|ape|ogg|mp3|m4a) allFilesAreOpus='false' ;;
-				flac|wv|wvc|ape|ogg|mp3|opus) allFilesAreM4A='false' ;;
-			esac
+			if [ "$fileExtension" != 'opus' ]; then allFilesAreOpus='false' ; fi
+			if [ "$fileExtension" != 'm4a' ]; then allFilesAreM4A='false' ; fi
 			if [ "$fileExtension" = "wvc" ]; then
 				continue
 			fi
