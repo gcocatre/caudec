@@ -90,7 +90,7 @@ resamplingProfile=''
 
 # https://dr.loudness-war.info/faq
 computeAudioCharacteristics='false' # when computing ReplayGain, also include audio peaks in dBFS
-preventClipping='true' # reduce volume to prevent clipping, when resampling or applying gain
+preventClipping='true' # reduce volume to prevent clipping, when resampling
 
 setCompilationFlagWithAlbumArtist='false' # always true when ALBUMARTIST="Various Artists" regardless of this setting
 keepWavMetadata='false' # set to true to keep WAV metadata with FLAC and WavPack
