@@ -4731,6 +4731,51 @@ saveReplayGain () {
 
 		*.wv|*.ape)
 			if [ "$computeAudioCharacteristics" = 'true' ]; then
+				wvtag --no-utf8-convert \
+					-w "AUDIO_ALBUM_PEAK=" \
+					-w "AUDIO_TRACK_PEAK=" \
+					-w "AUDIO_TARGET_LOUDNESS=" \
+					-w "REPLAYGAIN_ALBUM_PEAK=" \
+					-w "REPLAYGAIN_ALBUM_GAIN=" \
+					-w "REPLAYGAIN_TRACK_PEAK=" \
+					-w "REPLAYGAIN_TRACK_GAIN=" \
+					-w "REPLAYGAIN_ALGORITHM=" \
+					-w "REPLAYGAIN_REFERENCE_LEVEL=" \
+					-w "REPLAYGAIN_TARGET_LOUDNESS=" \
+					-w "REPLAYGAIN_VERSION=" \
+					-w "AUDIO_ALBUM_PEAK=${albumPeakDbfs} dBFS" \
+					-w "AUDIO_TRACK_PEAK=${trackPeakDbfs} dBFS" \
+					-w "AUDIO_TARGET_LOUDNESS=${AUDIO_TARGET_LOUDNESS} LUFS" \
+					-w "REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
+					-w "REPLAYGAIN_ALBUM_GAIN=${albumGain} dB" \
+					-w "REPLAYGAIN_TRACK_PEAK=${trackPeak}" \
+					-w "REPLAYGAIN_TRACK_GAIN=${trackGain} dB" \
+					-w "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
+					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			else
+				wvtag --no-utf8-convert \
+					-w "AUDIO_ALBUM_PEAK=" \
+					-w "AUDIO_TRACK_PEAK=" \
+					-w "AUDIO_TARGET_LOUDNESS=" \
+					-w "REPLAYGAIN_ALBUM_PEAK=" \
+					-w "REPLAYGAIN_ALBUM_GAIN=" \
+					-w "REPLAYGAIN_TRACK_PEAK=" \
+					-w "REPLAYGAIN_TRACK_GAIN=" \
+					-w "REPLAYGAIN_ALGORITHM=" \
+					-w "REPLAYGAIN_REFERENCE_LEVEL=" \
+					-w "REPLAYGAIN_TARGET_LOUDNESS=" \
+					-w "REPLAYGAIN_VERSION=" \
+					-w "REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
+					-w "REPLAYGAIN_ALBUM_GAIN=${albumGain} dB" \
+					-w "REPLAYGAIN_TRACK_PEAK=${trackPeak}" \
+					-w "REPLAYGAIN_TRACK_GAIN=${trackGain} dB" \
+					-w "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
+					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			fi
+			;;
+
+		*.ape)
+			if [ "$computeAudioCharacteristics" = 'true' ]; then
 				schag -z \
 					-r "AUDIO_ALBUM_PEAK" \
 					-r "AUDIO_TRACK_PEAK" \
@@ -5423,7 +5468,7 @@ reverseTrackGain () {
 				--remove-tag="REPLAYGAIN_REFERENCE_LEVEL" \
 				--remove-tag="REPLAYGAIN_TARGET_LOUDNESS" \
 				--remove-tag="REPLAYGAIN_VERSION" \
-				"$sourceFile" 1>/dev/null 2>/dev/null ; exitCode=$? ;;
+				"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" ; exitCode=$? ;;
 
 			*.ogg) vorbiscomment \
 				-d "AUDIO_ALBUM_PEAK" \
@@ -5437,10 +5482,25 @@ reverseTrackGain () {
 				-d "REPLAYGAIN_REFERENCE_LEVEL" \
 				-d "REPLAYGAIN_TARGET_LOUDNESS" \
 				-d "REPLAYGAIN_VERSION" \
-				"$sourceFile" 1>/dev/null 2>/dev/null; exitCode=$?
+				"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
 				;;
 
-			*.wv|*.ape) schag -z \
+			*.wv) wvtag --no-utf8-convert \
+				-w "AUDIO_ALBUM_PEAK=" \
+				-w "AUDIO_TRACK_PEAK=" \
+				-w "AUDIO_TARGET_LOUDNESS=" \
+				-w "REPLAYGAIN_ALBUM_PEAK=" \
+				-w "REPLAYGAIN_ALBUM_GAIN=" \
+				-w "REPLAYGAIN_TRACK_PEAK=" \
+				-w "REPLAYGAIN_TRACK_GAIN=" \
+				-w "REPLAYGAIN_ALGORITHM=" \
+				-w "REPLAYGAIN_REFERENCE_LEVEL=" \
+				-w "REPLAYGAIN_TARGET_LOUDNESS=" \
+				-w "REPLAYGAIN_VERSION=" \
+				"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" ; exitCode=$?
+				;;
+
+			*.ape) schag -z \
 				-r "AUDIO_ALBUM_PEAK" \
 				-r "AUDIO_TRACK_PEAK" \
 				-r "AUDIO_TARGET_LOUDNESS" \
@@ -5452,7 +5512,7 @@ reverseTrackGain () {
 				-r "REPLAYGAIN_REFERENCE_LEVEL" \
 				-r "REPLAYGAIN_TARGET_LOUDNESS" \
 				-r "REPLAYGAIN_VERSION" \
-				"$sourceFile" 1>/dev/null 2>/dev/null ; exitCode=$?
+				"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" ; exitCode=$?
 				;;
 
 			*.mp3)
@@ -5599,7 +5659,16 @@ saveTracksDR () {
 						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 					;;
 
-				*.wv|*.ape)
+				*.wv)
+					wvtag --no-utf8-convert \
+						-w "AUDIO_TRACK_DR=" \
+						-w "AUDIO_ALBUM_DR=" \
+						-w "AUDIO_TRACK_DR=${audioTrackDR}" \
+						-w "AUDIO_ALBUM_DR=${audioAlbumDR}" \
+						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					;;
+
+				*.ape)
 					schag -z \
 						-r "AUDIO_TRACK_DR" \
 						-r "AUDIO_ALBUM_DR" \
