@@ -5348,7 +5348,7 @@ computeM4AGain () {
 
 	if [ $exitCode -eq $Ex_Ok ]; then
 		if [ -n "$albumPath" ]; then
-			basePath="$( basename "$albumPath" )"
+			# basePath="$( basename "$albumPath" )"
 			printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:${albumPath}"
 		else
 			printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:"
