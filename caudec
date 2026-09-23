@@ -1497,9 +1497,9 @@ checkBinaries () {
 			case "$sourceFile" in
 				*.flac) checkBinary 'metaflac' ;;
 				*.ogg) checkBinary 'ogginfo' 'vorbiscomment' ;;
-				*.m4a) checkBinary 'ffmpeg' 'ffprobe' ;;
+				*.m4a) checkBinary 'ffprobe' ;;
 				*.opus) checkBinary 'opusinfo' ;;
-				*.wv) checkBinary 'ffprobe' ;;
+				*.wv) checkBinary 'wvtag' ;;
 				*.ape) checkBinary 'ffprobe' ;;
 				*.mp3|*.m4a) checkBinary 'ffmpeg' ;;
 			esac
@@ -5770,9 +5770,9 @@ computeTrackDateTime () {
 			case "$sourceFile" in
 				*.flac) date=$( metaflac --no-filename --show-tag=date "$sourceFile" | tr -cd "[:digit:]-" ) ;;
 				*.ogg) date=$( vorbiscomment "$sourceFile" | grep -iE "^date=" | tr -cd "[:digit:]-" ) ;;
-				*.m4a|*.wv|*.ape) date=$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | grep -iE '^format.tags.date' | cut -d '.' -f 3- | tr -cd "[:digit:]-" ) ;;
-				# *.wv) date=$( wvtag -x Year "$sourceFile" 2>/dev/null | tr -cd "[:digit:]-" ) ;;
-				# *.ape) date=$( schag -z "$sourceFile" 2>/dev/null | grep -iF year= | tr -cd "[:digit:]-" ) ;;
+				*.m4a) date=$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | grep -iE '^format.tags.date' | cut -d '.' -f 3- | tr -cd "[:digit:]-" ) ;;
+				*.wv) date=$( wvtag -x Year "$sourceFile" 2>/dev/null | tr -cd "[:digit:]-" ) ;;
+				*.ape) date=$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | grep -iE '^format.tags.year' | cut -d '.' -f 3- | tr -cd "[:digit:]-" ) ;;
 				*.opus) date=$( opusinfo "$sourceFile" | grep -iE "^date=" | tr -cd "[:digit:]-" ) ;;
 				*.mp3) date=$( ffmpeg -i "$sourceFile" -f ffmetadata - 2>/dev/null | grep -iE "^(date|TDOR|TDRC|TDRL)=[0-9]{4}" | head -n 1 | tr -cd "[:digit:]-" ) ;;
 			esac
