@@ -1963,6 +1963,96 @@ getTotalDiscsAndTracks () {
 	done < "$sourceTagFile"
 }
 
+getGenreNumber () {
+	local genre="$1"
+
+	shopt -qs nocasematch
+	case "$genre" in
+		"Blues") echo "0" ;;
+		"Classic Rock") echo "1" ;;
+		"Country") echo "2" ;;
+		"Dance") echo "3" ;;
+		"Disco") echo "4" ;;
+		"Funk") echo "5" ;;
+		"Grunge") echo "6" ;;
+		"Hip-Hop") echo "7" ;;
+		"Jazz") echo "8" ;;
+		"Metal") echo "9" ;;
+		"New Age") echo "10" ;;
+		"Oldies") echo "11" ;;
+		"Other") echo "12" ;;
+		"Pop") echo "13" ;;
+		"R&B") echo "14" ;;
+		"Rap") echo "15" ;;
+		"Reggae") echo "16" ;;
+		"Rock") echo "17" ;;
+		"Techno") echo "18" ;;
+		"Industrial") echo "19" ;;
+		"Alternative") echo "20" ;;
+		"Ska") echo "21" ;;
+		"Death Metal") echo "22" ;;
+		"Pranks") echo "23" ;;
+		"Soundtrack") echo "24" ;;
+		"Euro-Techno") echo "25" ;;
+		"Ambient") echo "26" ;;
+		"Trip-Hop") echo "27" ;;
+		"Vocal") echo "28" ;;
+		"Jazz+Funk") echo "29" ;;
+		"Fusion") echo "30" ;;
+		"Trance") echo "31" ;;
+		"Classical") echo "32" ;;
+		"Instrumental") echo "33" ;;
+		"Acid") echo "34" ;;
+		"House") echo "35" ;;
+		"Game") echo "36" ;;
+		"Sound Clip") echo "37" ;;
+		"Gospel") echo "38" ;;
+		"Noise") echo "39" ;;
+		"AlternRock") echo "40" ;;
+		"Bass") echo "41" ;;
+		"Soul") echo "42" ;;
+		"Punk") echo "43" ;;
+		"Space") echo "44" ;;
+		"Meditative") echo "45" ;;
+		"Instrumental Pop") echo "46" ;;
+		"Instrumental Rock") echo "47" ;;
+		"Ethnic") echo "48" ;;
+		"Gothic") echo "49" ;;
+		"Darkwave") echo "50" ;;
+		"Techno-Industrial") echo "51" ;;
+		"Electronic") echo "52" ;;
+		"Pop-Folk") echo "53" ;;
+		"Eurodance") echo "54" ;;
+		"Dream") echo "55" ;;
+		"Southern Rock") echo "56" ;;
+		"Comedy") echo "57" ;;
+		"Cult") echo "58" ;;
+		"Gangsta") echo "59" ;;
+		"Top 40") echo "60" ;;
+		"Christian Rap") echo "61" ;;
+		"Pop/Funk") echo "62" ;;
+		"Jungle") echo "63" ;;
+		"Native American") echo "64" ;;
+		"Cabaret") echo "65" ;;
+		"New Wave") echo "66" ;;
+		"Psychadelic") echo "67" ;;
+		"Rave") echo "68" ;;
+		"Showtunes") echo "69" ;;
+		"Trailer") echo "70" ;;
+		"Lo-Fi") echo "71" ;;
+		"Tribal") echo "72" ;;
+		"Acid Punk") echo "73" ;;
+		"Acid Jazz") echo "74" ;;
+		"Polka") echo "75" ;;
+		"Retro") echo "76" ;;
+		"Musical") echo "77" ;;
+		"Rock & Roll") echo "78" ;;
+		"Hard Rock") echo "79" ;;
+		*) echo "" ;;
+	esac
+	shopt -qu nocasematch
+}
+
 vorbisCommentsToAPEv2 () {
 	local line field value totalDiscs='' totalTracks=''
 
@@ -2073,7 +2163,7 @@ vorbisCommentsToEyeD3 () {
 }
 
 vorbisCommentsToM4A () {
-	local line field value totalTracks='' totalDiscs=''
+	local line field value totalTracks='' totalDiscs='' genreNumber
 
 	getTotalDiscsAndTracks
 
@@ -2090,7 +2180,7 @@ vorbisCommentsToM4A () {
 				;;
 			artist)                echo "--artist $value" ;;
 			composer)              echo "--composer $value" ;;
-			copyright)             echo "--tag copyright,$value" ;;
+			# copyright)             echo "--tag copyright,$value" ;;
 			date|year)             echo "--year ${value:0:4}" ;;
 			description|comment)   echo "--comment $value" ;;
 			discnumber)
@@ -2101,9 +2191,9 @@ vorbisCommentsToM4A () {
 				fi
 				;;
 			encoder|encoding)      continue ;;
-			genre)                 echo "--genre $value" ;;
-			isrc)                  echo "--tag isrc,$value" ;;
-			organization)          echo "--tag label,$value" ;;
+			genre)                 genreNumber="$( getGenreNumber "$value" )"; if [ -n "$genreNumber" ]; then echo "--genre $genreNumber"; fi ;;
+			# isrc)                  echo "--tag isrc,$value" ;;
+			# organization)          echo "--tag label,$value" ;;
 			title)                 echo "--title $value" ;;
 			tracknumber)
 				if [ -n "$totalTracks" ]; then
@@ -2361,7 +2451,7 @@ APEv2ToEyeD3 () {
 }
 
 APEv2ToM4A () {
-	local line field value totalTracks='' totalDiscs=''
+	local line field value totalTracks='' totalDiscs='' genreNumber
 
 	getTotalDiscsAndTracks
 
@@ -2369,40 +2459,40 @@ APEv2ToM4A () {
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
 		case "$field" in
-			album)                 echo "-metadata album=$value" ;;
+			album)                 echo "--album $value" ;;
 			albumartist|"album artist"|album_artist)
-				echo "-metadata album_artist=$value"
+				echo "--albumartist $value"
 				if [ "$value" = 'Various Artists' -o "$setCompilationFlagWithAlbumArtist" = 'true' ]; then
-					echo "-metadata compilation=1" # iTunes 'compilation' frame
+					echo "--compilation" # iTunes 'compilation' frame
 				fi
 				;;
-			artist)                echo "-metadata artist=$value" ;;
-			comment)               echo "-metadata comment=$value" ;;
-			composer)              echo "-metadata composer=$value" ;;
-			copyright)             echo "-metadata copyright=$value" ;;
+			artist)                echo "--artist $value" ;;
+			comment)               echo "--comment $value" ;;
+			composer)              echo "--composer $value" ;;
+			# copyright)             echo "--copyright=$value" ;;
 			encoder|encoding)      continue ;;
-			genre)                 echo "-metadata genre=$value" ;;
-			isrc)                  echo "-metadata isrc=$value" ;;
+			genre)                 genreNumber="$( getGenreNumber "$value" )"; if [ -n "$genreNumber" ]; then echo "--genre $genreNumber"; fi ;;
+			# isrc)                  echo "--isrc=$value" ;;
 			media|disc)
 				case "$value" in
 					[0-9]*)
 						if [ -n "$totalDiscs" ]; then
-							printf -- '-metadata disc=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
+							printf -- '--disc %g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
 						else
-							printf -- '-metadata disc=%g\n' "$( getTrackOrDiscNumber "$value" )"
+							printf -- '--disc %g\n' "$( getTrackOrDiscNumber "$value" )"
 						fi
 						;;
 				esac
 				;;
-			title)                 echo "-metadata title=$value" ;;
+			title)                 echo "--title $value" ;;
 			track)
 				if [ -n "$totalTracks" ]; then
-					printf -- '-metadata track=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalTracks"
+					printf -- '--track %g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalTracks"
 				else
-					printf '-metadata track=%g\n' "$( getTrackOrDiscNumber "$value" )"
+					printf '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
-			year|date)             echo "-metadata date=$value" ;;
+			year|date)             echo "--year ${value:0:4}" ;;
 			*) continue ;;
 		esac
 	done < "$sourceTagFile"
