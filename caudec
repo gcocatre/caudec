@@ -1541,10 +1541,11 @@ checkBinaries () {
 			FLAC) checkBinary 'flac' ;;
 			WavPack|WavPackHybrid|WavPackLossy) checkBinary 'wavpack' 'schag' ;;
 			MonkeysAudio) checkBinary 'mac' 'schag' ;;
+			ALAC) checkBinary 'ffmpeg'; if [ "$tagCompressionSetting" = 'true' ]; then checkBinary 'mp4tags'; fi ;;
 			lossyFLAC) checkBinary 'lossywav' 'sox' 'soxi' 'flac' ;;
 			OggVorbis) checkBinary 'oggenc' ;;
 			MP3) checkBinary 'lame' 'eyeD3' ;;
-			AAC|ALAC) checkBinary 'faac'; if [ "$tagCompressionSetting" = 'true' ]; then checkBinary 'mp4tags'; fi ;;
+			AAC) checkBinary 'faac'; if [ "$tagCompressionSetting" = 'true' ]; then checkBinary 'mp4tags'; fi ;;
 			Opus) checkBinary 'opusenc' ;;
 		esac
 	done
