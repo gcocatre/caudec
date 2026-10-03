@@ -1544,7 +1544,7 @@ checkBinaries () {
 			lossyFLAC) checkBinary 'lossywav' 'sox' 'soxi' 'flac' ;;
 			OggVorbis) checkBinary 'oggenc' ;;
 			MP3) checkBinary 'lame' 'eyeD3' ;;
-			AAC|ALAC) checkBinary 'ffmpeg'; if [ "$tagCompressionSetting" = 'true' ]; then checkBinary 'mp4tags'; fi ;;
+			AAC|ALAC) checkBinary 'faac'; if [ "$tagCompressionSetting" = 'true' ]; then checkBinary 'mp4tags'; fi ;;
 			Opus) checkBinary 'opusenc' ;;
 		esac
 	done
@@ -2080,35 +2080,35 @@ vorbisCommentsToM4A () {
 		field="${line%%=*}" ; value="${line#*=}"
 		if [ "$value" = '' ]; then continue; fi
 		case "$field" in
-			album)                 echo "-metadata album=$value" ;;
+			album)                 echo "--album $value" ;;
 			albumartist|"album artist"|album_artist)
-				echo "-metadata album_artist=$value"
+				echo "--albumartist $value"
 				if [ "$value" = 'Various Artists' -o "$setCompilationFlagWithAlbumArtist" = 'true' ]; then
-					echo "-metadata compilation=1" # iTunes 'compilation' frame
+					echo "--compilation" # iTunes 'compilation' frame
 				fi
 				;;
-			artist)                echo "-metadata artist=$value" ;;
-			composer)              echo "-metadata composer=$value" ;;
-			copyright)             echo "-metadata copyright=$value" ;;
-			date|year)             echo "-metadata date=$value" ;;
-			description|comment)   echo "-metadata comment=$value" ;;
+			artist)                echo "--artist $value" ;;
+			composer)              echo "--composer $value" ;;
+			copyright)             echo "--tag copyright,$value" ;;
+			date|year)             echo "--year ${value:0:4}" ;;
+			description|comment)   echo "--comment $value" ;;
 			discnumber)
 				if [ -n "$totalDiscs" ]; then
-					printf -- '-metadata disc=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
+					printf -- '--disc %g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalDiscs"
 				else
-					printf -- '-metadata disc=%g\n' "$( getTrackOrDiscNumber "$value" )"
+					printf -- '--disc %g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
 			encoder|encoding)      continue ;;
-			genre)                 echo "-metadata genre=$value" ;;
-			isrc)                  echo "-metadata isrc=$value" ;;
-			organization)          echo "-metadata label=$value" ;;
-			title)                 echo "-metadata title=$value" ;;
+			genre)                 echo "--genre $value" ;;
+			isrc)                  echo "--tag isrc,$value" ;;
+			organization)          echo "--tag label,$value" ;;
+			title)                 echo "--title $value" ;;
 			tracknumber)
 				if [ -n "$totalTracks" ]; then
-					printf -- '-metadata track=%g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalTracks"
+					printf -- '--track %g/%g\n' "$( getTrackOrDiscNumber "$value" )" "$totalTracks"
 				else
-					printf -- '-metadata track=%g\n' "$( getTrackOrDiscNumber "$value" )"
+					printf -- '--track %g\n' "$( getTrackOrDiscNumber "$value" )"
 				fi
 				;;
 			*) continue ;;
@@ -3522,7 +3522,7 @@ getEncoderVersions () {
 			FLAC) flacVersion="$( flac --version | head -n 1 )"; flacVersion="${flacVersion##* }" ;;
 			MonkeysAudio) apeVersion="$( mac 2>&1 | grep -F '(c)' | tr -d ' ' | cut -d '(' -f 2 | cut -d ')' -f 1 )"; apeVersion="${apeVersion#v}" ;;
 			MP3) lameVersion="$( lame --version 2>/dev/null | grep -E 'LAME.*version' | cut -d 'v' -f 2 | cut -d '(' -f 1 | cut -d ' ' -f 2- )" ; lameVersion="${lameVersion% *}" ;;
-			AAC) aacVersion="$( ffmpeg -version 2>/dev/null | grep -E '^ffmpeg version' | cut -d ' ' -f 3 )" ;;
+			AAC) aacVersion="$( faac 2>&1 | grep -E '^FAAC '| $sedcmd -e 's@.*(@@' -e 's@).*@@' )" ;;
 			ALAC) alacVersion="$( ffmpeg -version 2>/dev/null | grep -E '^ffmpeg version' | cut -d ' ' -f 3 )" ;;
 			Opus) opusVersion="$( opusenc --version 2>/dev/null | grep -F 'opusenc' )" ;;
 
@@ -3973,9 +3973,7 @@ encode () {
 
 		# encodeAAC
 		AAC)
-			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_m4a.txt" aaclib=""
-			# aaclibs=("aac_at" "aac" "libfdk_aac")
-			aaclibs=("aac" "libfdk_aac") # ffmpeg aac_at doesn't do gapless encoding
+			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_m4a.txt"
 			if [ "$doEmbedUserCoverArt" = 'true' ]; then
 				if [ -z "$sourceCoverArtFile" ]; then
 					for coverArtFile in "${Self_Swap_Dir}/${paddedFileIndex}_picture_3-"; do
@@ -3988,57 +3986,14 @@ encode () {
 				fi
 			fi
 
-			# https://trac.ffmpeg.org/wiki/Encode/AAC
-			for aaclib in "${aaclibs[@]}"; do
-				case "$aaclib" in
-					aac)
-						if [ "$AAC_MODE" != "ABR" ]; then
-							AAC_MODE='ABR'
-							if [ -z "$average_bitrate_AAC" -o "$average_bitrate_AAC" != "$bitrate_AAC" ]; then
-								bitrate_AAC="$average_bitrate_AAC"
-							fi
-						fi
-						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
-						if [ "$tagCompressionSetting" = 'true' ]; then m4aCompressionTag="$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac) / $bitrate_AAC kbps ($AAC_MODE)"; fi
-						if [ "$doEmbedUserCoverArt" = 'true' -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
-						else
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
-						fi
-						if [ $exitCode -ne $Ex_Ko ]; then exitCode=$Ex_Ok; break; fi
-						;;
+			compressionParam="-b" qualityArg="${bitrate_AAC}"
+			if [ "$tagCompressionSetting" = 'true' ]; then m4aCompressionTag="$Self_Name $Self_Version / AAC (FAAC $aacVersion) / $bitrate_AAC kbps ($AAC_MODE)"; fi
+			if [ "$doEmbedUserCoverArt" = 'true' -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
+				printf -- "`tagline`\x00%s\x00%s" "$wavFile" | xargs -0 faac --cover-art "$sourceCoverArtFile" -b "$qualityArg" -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			else
+				printf -- "`tagline`\x00%s\x00%s" "$wavFile" | xargs -0 faac -b "$qualityArg" -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			fi
 
-					libfdk_aac)
-						compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
-						if [ "$tagCompressionSetting" = 'true' ]; then m4aCompressionTag="$Self_Name $Self_Version / AAC (ffmpeg $aacVersion libfdk_aac) / $bitrate_AAC kbps (CBR)"; fi
-						if [ "$doEmbedUserCoverArt" = 'true' -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
-						else
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
-						fi
-						if [ $exitCode -ne $Ex_Ko ]; then exitCode=$Ex_Ok; break; fi
-						;;
-
-					aac_at)
-						if [ "$AAC_MODE" = "ABR" -a -n "$average_bitrate_AAC" ]; then
-							compressionParam="-aac_at_mode abr -b:a" qualityArg="${average_bitrate_AAC}k"
-							if [ "$tagCompressionSetting" = 'true' ]; then m4aCompressionTag="$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac_at) / $average_bitrate_AAC kbps (ABR)"; fi
-						else
-							compressionParam="-b:a" qualityArg="${bitrate_AAC}k"
-							if [ "$tagCompressionSetting" = 'true' ]; then m4aCompressionTag="$Self_Name $Self_Version / AAC (ffmpeg $aacVersion aac_at) / $bitrate_AAC kbps (CBR)"; fi
-						fi
-						if [ "$doEmbedUserCoverArt" = 'true' -a -n "$sourceCoverArtFile" -a -e "$sourceCoverArtFile" ]; then
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -i "$sourceCoverArtFile" -map 0:a -map 1 -codec copy -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" -disposition:v attached_pic -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
-						else
-							printf -- "`tagline`\x00%s\x00%s" "$encodedFile" | xargs -0 ffmpeg -i "$wavFile" -c:a $aaclib $compressionParam $qualityArg 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
-						fi
-						if [ $exitCode -ne $Ex_Ko ]; then exitCode=$Ex_Ok; break; fi
-						;;
-				esac
-				if [ $exitCode -eq $Ex_Ok ]; then
-					break
-				fi
-			done
 			if [ "$tagCompressionSetting" = 'true' ]; then
 				mp4tags -E "$m4aCompressionTag" "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File"
 			fi
