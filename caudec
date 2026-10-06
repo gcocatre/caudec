@@ -1068,285 +1068,6 @@ cleanAbort () {
 	cleanExit $Ex_Interrupt
 }
 
-findInputFiles () {
-	local location="$1"
-
-	if [ "$OS" = 'Darwin' ]; then
-		find -s -E "$location" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
-	else
-		find "$location" -type f -regextype 'posix-egrep' -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
-	fi
-}
-
-getInputFiles () {
-	local exitCode=$Ex_Ok line fileOrDir file fileExtension
-
-	if [ "$touchFiles" = 'true' -a ${#inputFilesAndDirs[@]} -eq 1 -a -d "${inputFilesAndDirs[0]}" ]; then
-		$findcmd "${inputFilesAndDirs[0]}" -type f 2>/dev/null | sort -u 1> "${Self_Data_Dir}/inputFilesAndDirs.txt" 2>/dev/null
-	fi
-
-	for fileOrDir in "${inputFilesAndDirs[@]}"; do
-		if [ -d "$fileOrDir" ]; then
-			if [ -r "$fileOrDir" ]; then
-				$findcmd "$fileOrDir" -type f 1> "${Self_Data_Dir}/inputFilesOrDirs.txt" 2>/dev/null
-				while read file ; do
-					if [ -e "$file" ]; then
-						echo "$file" >> "${Self_Data_Dir}/inputFiles.txt"
-						fileExtension="${file##*.}"
-						if [ "$fileExtension" != 'opus' ]; then allFilesAreOpus='false' ; fi
-						if [ "$fileExtension" != 'm4a' ]; then allFilesAreM4A='false' ; fi
-						if [ "$fileExtension" = "wvc" ]; then
-							continue
-						fi
-						(( numberOfInputFiles++ ))
-					fi
-				done < "${Self_Data_Dir}/inputFilesOrDirs.txt"
-			else
-				printMessage 'warning' 'usage' 'filesystem' "path:${fileOrDir}" 'directory is not readable (permission denied).' ; exitCode=$Ex_No_Input
-			fi
-		else
-			fileExtension="${fileOrDir##*.}"
-			if [ "$fileExtension" != 'opus' ]; then allFilesAreOpus='false' ; fi
-			if [ "$fileExtension" != 'm4a' ]; then allFilesAreM4A='false' ; fi
-			if [ "$fileExtension" = "wvc" ]; then
-				continue
-			fi
-			echo "$fileOrDir" >> "${Self_Data_Dir}/inputFiles.txt"
-			(( numberOfInputFiles++ ))
-		fi
-	done
-
-	unset inputFilesAndDirs
-
-	if [ $numberOfInputFiles -eq 0 ]; then
-		exitCode=$Ex_Io_Err
-	fi
-	if [ $exitCode -eq $Ex_Io_Err ]; then
-		printMessage 'warning' 'usage' 'filesystem' "the operating system cannot handle this many files."
-	fi
-	if [ $exitCode -ne $Ex_Ok ]; then
-		printMessage 'abort' 'verbose'
-		cleanExit $exitCode
-	fi
-
-	rm -f "${Self_Data_Dir}/inputFilesOrDirs.txt"
-	if [ $exitCode -eq $Ex_Ok ]; then
-		return $Ex_Ok
-	else
-		printMessage 'abort' 'verbose'
-		cleanExit $exitCode
-	fi
-}
-
-checkInputFiles () {
-	local exitCode=$Ex_Ok inputFile inputDirName commonFileExtension inputFileExtension
-	local inputCodecsAreAllTheSame='true' cdpath pdpath addToSourceFiles dateSourceFile outputCodec copyPath codec
-
-	# FIXME
-	# if [ $numberOfInputFiles -gt $maxInputFiles ]; then
-	# 	printMessage 'warning' 'usage' 'quota' "the number of input files ($numberOfInputFiles) is greater than maxInputFiles=${maxInputFiles}."
-	# 	printMessage 'abort'
-	# 	cleanExit $Ex_Usage
-	# fi
-
-	while read inputFile; do
-		addToSourceFiles='false'
-		inputDirName="$( dirname "$inputFile" )"
-		if [ ! -e "$inputFile" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'no such file.' ; exitCode=$Ex_No_Input
-		elif [ ! -f "$inputFile" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'not a regular file.' ; exitCode=$Ex_Data_Err
-		elif [ ! -r "$inputFile" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for reading (permission denied).' ; exitCode=$Ex_No_Input
-		elif [ ! -w "$inputFile" -a "$computeReplayGain" = 'true' -a -z "$outputCodecs" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
-		elif [ ! -w "$inputFile" -a "$reverseReplayGain" = 'true' ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
-		elif [ ! -r "$inputFile" -a "$displayInternalHash" = 'true' ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for reading (permission denied).' ; exitCode=$Ex_No_Input
-		elif [ ! -w "$inputFile" -a "$touchFiles" = 'true' ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'refusing to touch file that is read-only.' ; exitCode=$Ex_Cant_Create
-		else
-
-			if [ -n "$outputCodecs" ]; then # transcode
-				for outputCodec in $outputCodecs; do
-					getOutputCodecDestFile "$inputFile" "$outputCodec"
-					copyPath="$( copyPathOrNot "$outputCodec" )"
-					if [ "$copyPath" = 'true' ]; then
-						cdpath='/./' pdpath='/../'
-						if [ "${inputFile:0:2}" = './' -o "${inputFile:0:3}" = '../' -o "$inputDirName" != "${inputDirName//$cdpath/@}" -o "$inputDirName" != "${inputDirName//$pdpath/@}" ]; then
-							printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" "can't use paths containing ./ or ../ with caudec -P." ; exitCode=$Ex_Usage
-							continue
-						fi
-					fi
-
-					case "$inputFile" in
-						*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape|*.m4a)
-							addToSourceFiles='true'
-							case "$inputFile" in
-								*.m4a)
-									codec="$( ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$inputFile" 2>/dev/null )"
-									if [ "$codec" != "alac" ]; then
-										addToSourceFiles='false'
-										printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" "refusing to transcode from lossy codec ($codec)." ; exitCode=$Ex_Data_Err
-									fi
-									;;
-							esac
-							if [ "$addToSourceFiles" = 'false' ]; then continue ; fi
-							if [ "$keepExistingFiles" = 'true' ]; then
-								if [ -e "$destFile" ]; then
-									addToSourceFiles='false'
-									printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: \"$destFile\" exists already."
-								fi
-							fi
-							if [ "$keepNewerFiles" = 'true' ]; then
-								if [ -e "$destFile" ]; then
-									if isFileNewer "$destFile" "$inputFile"; then
-										addToSourceFiles='false'
-										if [ "$gnudate" = 'true' ]; then
-											dateSourceFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$inputFile" )"" "+%Y-%m-%d %H:%M:%S" )"
-											dateDestFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$destFile" )"" "+%Y-%m-%d %H:%M:%S" )"
-										else
-											dateSourceFile="$( $datecmd -r $( $statcmd -f '%c' "$inputFile" ) "+%Y-%m-%d %H:%M:%S" )"
-											dateDestFile="$( $datecmd -r $( $statcmd -f '%c' "$destFile" ) "+%Y-%m-%d %H:%M:%S" )"
-										fi
-										printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: \"$destFile\" is newer that the source."
-									fi
-								else
-									addToSourceFiles='true'
-								fi
-							fi
-							;;
-
-						*)
-							if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-								exitCode=$Ex_Data_Err
-							fi
-							continue
-							;;
-					esac
-				done
-			fi
-
-			if [ "$displayInternalHash" = 'true' ]; then
-				case "$inputFile" in
-					*.flac|*.wv) addToSourceFiles='true' ;;
-					*)
-						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-							exitCode=$Ex_Data_Err
-						fi
-						continue
-						;;
-				esac
-			elif [ "$checkFiles" = 'true' ]; then
-				case "$inputFile" in
-					*.flac|*.wv|*.ape) addToSourceFiles='true' ;;
-					*)
-						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-							exitCode=$Ex_Data_Err
-						fi
-						continue
-						;;
-				esac
-			fi
-
-			if [ "$showInformation" = 'true' -o "$showDurations" = 'true' ]; then
-				case "$inputFile" in
-					*.flac|*.wv|*.ape|*.ogg|*.m4a|*.mp3|*.opus) addToSourceFiles='true' ;;
-					*)
-						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-							exitCode=$Ex_Data_Err
-						fi
-						continue
-						;;
-				esac
-			fi
-
-			if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
-				inputFileExtension="${inputFile##*.}"
-				case "$inputFileExtension" in
-					flac|wv|ape|ogg|m4a|mp3|opus)
-						addToSourceFiles='true'
-						if [ -z "$commonFileExtension" ]; then
-							commonFileExtension="$inputFileExtension"
-						elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
-							inputCodecsAreAllTheSame='false'
-							addToSourceFiles='false'
-							if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-								printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension"
-								exitCode=$Ex_Data_Err
-							fi
-							continue
-						fi
-						;;
-
-					*)
-						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-							exitCode=$Ex_Data_Err
-						fi
-						continue
-						;;
-				esac
-			fi
-
-			if [ "$applyGain" = 'true' ]; then
-				if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-					printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-					exitCode=$Ex_Data_Err
-				fi
-				continue
-			fi
-
-			if [ "$touchFiles" = 'true' ]; then
-				addToSourceFiles='true'
-			fi
-		fi
-
-		if [ "$computeDynamicRange" = 'true' ]; then
-			inputFileExtension="${inputFile##*.}"
-			case "$inputFileExtension" in
-				flac|wv|ape|ogg|mp3)
-					addToSourceFiles='true'
-					;;
-
-				*)
-					if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-						printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-						exitCode=$Ex_Data_Err
-					fi
-					continue
-					;;
-			esac
-		fi
-
-		if [ "$addToSourceFiles" = 'true' ]; then
-			echo "$inputFile" >> "${Self_Data_Dir}/sourceFiles.txt"
-			(( numberOfSourceFiles++ ))
-		fi
-	done < "${Self_Data_Dir}/inputFiles.txt"
-
-	if [ $exitCode -ne $Ex_Ok ]; then
-		printMessage 'abort'
-		cleanExit $exitCode
-	elif [ $numberOfSourceFiles -eq 0 ]; then
-		if [ "$keepExistingFiles" = 'true' ]; then
-			printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: all or some destination files exist already, nothing to do."
-		elif [ "$keepNewerFiles" = 'true' ]; then
-			printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: all or some destination files are newer than their source, nothing to do."
-		fi
-		printMessage 'warning' 'usage' 'filesystem' 'verbose' "no supported files to work with, nothing to do."
-		printMessage 'abort' 'verbose'
-		cleanExit $exitCode
-	else
-		return $Ex_Ok
-	fi
-}
-
 checkOutputDirectories () {
 	local exitCode=$Ex_Ok outputCodec codecFullName codecDestDir
 
@@ -1656,47 +1377,389 @@ handleInstance () {
 	fi
 }
 
-createControlFiles () {
-	local jobIndex=$1 filesPerJob=$2 fileIndex paddedFileIndex fileJobIndex fileMilliseconds outputCodec
+findInputFiles () {
+	local location="$1"
 
-	for (( fileJobIndex=0; fileJobIndex < filesPerJob; fileJobIndex++ )); do
-		fileIndex=$(( jobIndex * filesPerJob + fileJobIndex ))
-		if [ $fileIndex -ge $numberOfSourceFiles ]; then
-			return
+	if [ "$OS" = 'Darwin' ]; then
+		# find -s -E "$location" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
+		find -s -E "$location" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' 2>/dev/null
+	else
+		# find "$location" -type f -regextype 'posix-egrep' -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
+		find "$location" -type f -regextype 'posix-egrep' -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' 2>/dev/null
+	fi
+}
+
+getInputFiles () {
+	local exitCode=$Ex_Ok line fileOrDir file fileExtension
+
+	for fileOrDir in "${inputFilesAndDirs[@]}"; do
+		if [ -d "$fileOrDir" ]; then
+			if [ -r "$fileOrDir" ]; then
+					$findcmd "$fileOrDir" -type f 1> "${Self_Data_Dir}/inputFilesAndDirs.txt" 2>/dev/null
+				# findInputFiles "$fileOrDir" 1> "${Self_Data_Dir}/inputFilesAndDirs.txt" 2>/dev/null
+				while read file ; do
+					if [ -e "$file" ]; then
+						fileExtension="${file##*.}"
+						if [ "$fileExtension" != 'opus' ]; then allFilesAreOpus='false' ; fi
+						if [ "$fileExtension" != 'm4a' ]; then allFilesAreM4A='false' ; fi
+						if [ "$fileExtension" = "wvc" ]; then
+							continue
+						fi
+						echo "$file" >> "${Self_Data_Dir}/inputFiles.txt"
+						(( numberOfInputFiles++ ))
+					fi
+				done < "${Self_Data_Dir}/inputFilesAndDirs.txt"
+			else
+				printMessage 'warning' 'usage' 'filesystem' "path:${fileOrDir}" 'directory is not readable (permission denied).' ; exitCode=$Ex_No_Input
+			fi
+		else
+			fileExtension="${fileOrDir##*.}"
+			if [ "$touchFiles" = 'true' -a "$fileExtension" = "wvc" ]; then continue; fi
+			if [ "$fileExtension" != 'opus' ]; then allFilesAreOpus='false' ; fi
+			if [ "$fileExtension" != 'm4a' ]; then allFilesAreM4A='false' ; fi
+			if [ "$fileExtension" = "wvc" ]; then
+				continue
+			fi
+			echo "$fileOrDir" >> "${Self_Data_Dir}/inputFiles.txt"
+			(( numberOfInputFiles++ ))
 		fi
-		paddedFileIndex="$( printf "%03i" $fileIndex )"
-		touch "${Self_Control_Dir}/${paddedFileIndex}_any.job"
+	done
 
-		fileMilliseconds="$( getFileMilliseconds "${sourceFiles[$fileIndex]}" 2>> "$Self_Errors_File" )"
-		echo "$fileMilliseconds $paddedFileIndex $fileIndex" >> "${Self_Data_Dir}/millisecondsAndFileIndexes_${jobIndex}.list"
+	unset inputFilesAndDirs
+	rm -f "${Self_Data_Dir}/inputFilesAndDirs.txt"
+
+	sort -u "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/inputFiles.txt.tmp" 2>/dev/null
+	mv "${Self_Data_Dir}/inputFiles.txt.tmp" "${Self_Data_Dir}/inputFiles.txt" 2>/dev/null
+
+	if [ $numberOfInputFiles -eq 0 ]; then
+		exitCode=$Ex_Io_Err
+	fi
+	if [ $exitCode -eq $Ex_Io_Err ]; then
+		printMessage 'warning' 'usage' 'filesystem' "the operating system cannot handle this many files."
+	fi
+	if [ $exitCode -ne $Ex_Ok ]; then
+		printMessage 'abort' 'verbose'
+		cleanExit $exitCode
+	fi
+
+	if [ $exitCode -eq $Ex_Ok ]; then
+		return $Ex_Ok
+	else
+		printMessage 'abort' 'verbose'
+		cleanExit $exitCode
+	fi
+}
+
+checkInputFiles () {
+	local exitCode=$Ex_Ok inputFile inputDirName commonFileExtension inputFileExtension
+	local inputCodecsAreAllTheSame='true' cdpath pdpath addToSourceFiles dateSourceFile outputCodec copyPath codec
+
+	# FIXME
+	# if [ $numberOfInputFiles -gt $maxInputFiles ]; then
+	# 	printMessage 'warning' 'usage' 'quota' "the number of input files ($numberOfInputFiles) is greater than maxInputFiles=${maxInputFiles}."
+	# 	printMessage 'abort'
+	# 	cleanExit $Ex_Usage
+	# fi
+
+	while read inputFile; do
+		addToSourceFiles='false'
+		inputDirName="$( dirname "$inputFile" )"
+		if [ ! -e "$inputFile" ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'no such file.' ; exitCode=$Ex_No_Input
+		elif [ ! -f "$inputFile" ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'not a regular file.' ; exitCode=$Ex_Data_Err
+		elif [ ! -r "$inputFile" ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for reading (permission denied).' ; exitCode=$Ex_No_Input
+		elif [ ! -w "$inputFile" -a "$computeReplayGain" = 'true' -a -z "$outputCodecs" ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
+		elif [ ! -w "$inputFile" -a "$reverseReplayGain" = 'true' ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
+		elif [ ! -r "$inputFile" -a "$displayInternalHash" = 'true' ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for reading (permission denied).' ; exitCode=$Ex_No_Input
+		elif [ ! -w "$inputFile" -a "$touchFiles" = 'true' ]; then
+			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'refusing to touch file that is read-only.' ; exitCode=$Ex_Cant_Create
+		else
+
+			if [ -n "$outputCodecs" ]; then # transcode
+				for outputCodec in $outputCodecs; do
+					getOutputCodecDestFile "$inputFile" "$outputCodec"
+					copyPath="$( copyPathOrNot "$outputCodec" )"
+					if [ "$copyPath" = 'true' ]; then
+						cdpath='/./' pdpath='/../'
+						if [ "${inputFile:0:2}" = './' -o "${inputFile:0:3}" = '../' -o "$inputDirName" != "${inputDirName//$cdpath/@}" -o "$inputDirName" != "${inputDirName//$pdpath/@}" ]; then
+							printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" "can't use paths containing ./ or ../ with caudec -P." ; exitCode=$Ex_Usage
+							continue
+						fi
+					fi
+
+					case "$inputFile" in
+						*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape|*.m4a)
+							addToSourceFiles='true'
+							case "$inputFile" in
+								*.m4a)
+									codec="$( ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$inputFile" 2>/dev/null )"
+									if [ "$codec" != "alac" ]; then
+										addToSourceFiles='false'
+										printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" "refusing to transcode from lossy codec ($codec)." ; exitCode=$Ex_Data_Err
+									fi
+									;;
+							esac
+							if [ "$addToSourceFiles" = 'false' ]; then continue ; fi
+							if [ "$keepExistingFiles" = 'true' ]; then
+								if [ -e "$destFile" ]; then
+									addToSourceFiles='false'
+									printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: \"$destFile\" exists already."
+								fi
+							fi
+							if [ "$keepNewerFiles" = 'true' ]; then
+								if [ -e "$destFile" ]; then
+									if isFileNewer "$destFile" "$inputFile"; then
+										addToSourceFiles='false'
+										if [ "$gnudate" = 'true' ]; then
+											dateSourceFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$inputFile" )"" "+%Y-%m-%d %H:%M:%S" )"
+											dateDestFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$destFile" )"" "+%Y-%m-%d %H:%M:%S" )"
+										else
+											dateSourceFile="$( $datecmd -r $( $statcmd -f '%c' "$inputFile" ) "+%Y-%m-%d %H:%M:%S" )"
+											dateDestFile="$( $datecmd -r $( $statcmd -f '%c' "$destFile" ) "+%Y-%m-%d %H:%M:%S" )"
+										fi
+										printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: \"$destFile\" is newer that the source."
+									fi
+								else
+									addToSourceFiles='true'
+								fi
+							fi
+							;;
+
+						*)
+							if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+								exitCode=$Ex_Data_Err
+							fi
+							continue
+							;;
+					esac
+				done
+			fi
+
+			if [ "$displayInternalHash" = 'true' ]; then
+				case "$inputFile" in
+					*.flac|*.wv) addToSourceFiles='true' ;;
+					*)
+						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+							exitCode=$Ex_Data_Err
+						fi
+						continue
+						;;
+				esac
+			elif [ "$checkFiles" = 'true' ]; then
+				case "$inputFile" in
+					*.flac|*.wv|*.ape) addToSourceFiles='true' ;;
+					*)
+						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+							exitCode=$Ex_Data_Err
+						fi
+						continue
+						;;
+				esac
+			fi
+
+			if [ "$showInformation" = 'true' -o "$showDurations" = 'true' ]; then
+				case "$inputFile" in
+					*.flac|*.wv|*.ape|*.ogg|*.m4a|*.mp3|*.opus) addToSourceFiles='true' ;;
+					*)
+						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+							exitCode=$Ex_Data_Err
+						fi
+						continue
+						;;
+				esac
+			fi
+
+			if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
+				inputFileExtension="${inputFile##*.}"
+				case "$inputFileExtension" in
+					flac|wv|ape|ogg|m4a|mp3|opus)
+						addToSourceFiles='true'
+						if [ -z "$commonFileExtension" ]; then
+							commonFileExtension="$inputFileExtension"
+						elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
+							inputCodecsAreAllTheSame='false'
+							addToSourceFiles='false'
+							if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+								printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension"
+								exitCode=$Ex_Data_Err
+							fi
+							continue
+						fi
+						;;
+
+					*)
+						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+							exitCode=$Ex_Data_Err
+						fi
+						continue
+						;;
+				esac
+			fi
+
+			if [ "$applyGain" = 'true' ]; then
+				if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+					printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+					exitCode=$Ex_Data_Err
+				fi
+				continue
+			fi
+
+			if [ "$touchFiles" = 'true' ]; then
+				addToSourceFiles='true'
+			fi
+		fi
+
+		if [ "$computeDynamicRange" = 'true' ]; then
+			inputFileExtension="${inputFile##*.}"
+			case "$inputFileExtension" in
+				flac|wv|ape|ogg|mp3)
+					addToSourceFiles='true'
+					;;
+
+				*)
+					if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+						printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+						exitCode=$Ex_Data_Err
+					fi
+					continue
+					;;
+			esac
+		fi
+
+		if [ "$addToSourceFiles" = 'true' ]; then
+			echo "$inputFile" >> "${Self_Data_Dir}/sourceFiles.txt"
+			(( numberOfSourceFiles++ ))
+		fi
+	done < "${Self_Data_Dir}/inputFiles.txt"
+
+	rm -f "${Self_Data_Dir}/inputFiles.txt"
+
+	if [ $exitCode -ne $Ex_Ok ]; then
+		printMessage 'abort'
+		cleanExit $exitCode
+	elif [ $numberOfSourceFiles -eq 0 ]; then
+		if [ "$keepExistingFiles" = 'true' ]; then
+			printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: all or some destination files exist already, nothing to do."
+		elif [ "$keepNewerFiles" = 'true' ]; then
+			printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: all or some destination files are newer than their source, nothing to do."
+		fi
+		printMessage 'warning' 'usage' 'filesystem' 'verbose' "no supported files to work with, nothing to do."
+		printMessage 'abort' 'verbose'
+		cleanExit $exitCode
+	else
+		return $Ex_Ok
+	fi
+}
+
+getFileMilliseconds () {
+	local exitCode=$Ex_Ok file="$1" seconds=0 line samplingRate bitDepth format nChannels channelMask nSamples rest
+
+	case "$file" in
+		*.wv)
+				line="$( wvunpack -f "$file" 2>/dev/null )"
+				OIFS="$IFS"
+				IFS=";"
+				read samplingRate bitDepth format nChannels channelMask nSamples rest <<< "$line"
+				echo "scale=0; $nSamples * 1000 / $samplingRate" | bc 2>/dev/null
+				IFS="$OIFS"
+				return $Ex_Ok
+			;;
+
+		*.ape|*.m4a)
+			seconds="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | grep -F 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '[:digit:].' )"
+			;;
+
+		*.wav|*.aiff|*.caf|*.flac|*.ogg|*.mp3|*.opus) seconds="$( soxi -D "$file" )" ;;
+	esac
+
+	if [ -n "$seconds" -a "$seconds" != "0" ]; then
+		echo "scale=0; $seconds * 1000 / 1" | bc 2>/dev/null
+	else
+		exitCode=$Ex_Ko
+		echo 0
+	fi
+
+	return $exitCode
+}
+
+sliceSourceFileList () {
+	local headValue=$1 tailValue=$2 filesPerJob=$3
+
+	if [ $tailValue -eq $filesPerJob ]; then
+		head -n $headValue "${Self_Data_Dir}/sourceFiles.txt" 2>/dev/null | tail -n $tailValue 2>/dev/null
+	else
+		tail -n $tailValue "${Self_Data_Dir}/sourceFiles.txt" 2>/dev/null
+	fi
+}
+
+createControlFiles () {
+	local jobIndex=$1 fileIndex=$2 headValue=$3 tailValue=$4 filesPerJob=$5
+	local sourceFile paddedFileIndex fileMilliseconds outputCodec
+
+	while read sourceFile; do
+		paddedFileIndex="$( printf "%06i" $fileIndex )"
+		touch "${Self_Control_Dir}/${paddedFileIndex}_any.job"
+		fileMilliseconds="$( getFileMilliseconds "$sourceFile" 2>> "$Self_Errors_File" )"
+		echo "$fileMilliseconds $paddedFileIndex $fileIndex $sourceFile" >> "${Self_Data_Dir}/millisecondsAndFileIndexes_${jobIndex}.list"
 
 		for outputCodec in $outputCodecs; do
-			touch "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
-			touch "${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
-			if [ "$computeReplayGain" = 'true' ]; then
+		touch "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info" \
+			"${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
+		done
+
+		if [ "$computeReplayGain" = 'true' ]; then
+			for outputCodec in $outputCodecs; do
 				if [ "$outputCodecs" != 'Opus' ]; then
 					touch "${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
 				fi
-				getOutputCodecDestFile "${sourceFiles[$fileIndex]}" "$outputCodec"
+				getOutputCodecDestFile "$sourceFile" "$outputCodec"
 				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${fileIndex} ${destFile}" >> "${Self_Data_Dir}/destFiles_${jobIndex}.txt"
 				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${fileIndex} ${destPath}" >> "${Self_Data_Dir}/destPaths_${jobIndex}.txt"
-			fi
-		done
-	done
+			done
+		fi
+		(( fileIndex ++))
+	done < <( sliceSourceFileList $headValue $tailValue $filesPerJob )
 }
 
 setupControlDir () {
-	local fileIndex maxThreads filesPerJob threadIndex
+	local fileIndex maxThreads filesPerJob threadIndex lastThreadIndex fileIndex headValue tailValue
 
-	maxThreads=$(( maxProcessesSetByUser * 2 ))
+	maxThreads=$maxProcessesSetByUser
 	if [ $maxThreads -ge $numberOfSourceFiles ]; then
 		maxThreads=$numberOfSourceFiles
 		filesPerJob=1
-	elif [ $maxThreads -lt $numberOfSourceFiles ]; then\
-		filesPerJob="$( printf "%.0f" "$( echo "scale=3; $numberOfSourceFiles / $maxThreads + (1 / 2)" | bc )" )"
+	else
+		filesPerJob="$( printf "%.0f" "$( echo "scale=3; $numberOfSourceFiles / $maxThreads + 1 / 2" | bc )" )"
 	fi
+
+	headValue=$filesPerJob
+	remainingFiles=$numberOfSourceFiles
+	lastThreadIndex=$(( maxThreads - 1 ))
 	for (( threadIndex=0; threadIndex < maxThreads; threadIndex++ )); do
-		createControlFiles "$threadIndex" "$filesPerJob" &
+		if [ $headValue -lt $numberOfSourceFiles -a $threadIndex -lt $lastThreadIndex ]; then
+			tailValue=$filesPerJob
+			fileIndex=$(( headValue - tailValue ))
+			createControlFiles $threadIndex $fileIndex $headValue $tailValue $filesPerJob &
+			remainingFiles=$(( remainingFiles - tailValue ))
+			headValue=$(( headValue + tailValue ))
+		else
+			headValue=$numberOfSourceFiles
+			tailValue=$remainingFiles
+			if [ $tailValue -lt 1 ]; then break; fi
+			fileIndex=$(( numberOfSourceFiles - tailValue ))
+			createControlFiles $threadIndex $fileIndex $headValue $tailValue $filesPerJob &
+			break
+		fi
 	done
 	for threadIndex in $( jobs -p ); do wait $threadIndex || exitCode=$Ex_Ko ; done
 
@@ -1717,6 +1780,11 @@ setupControlDir () {
 		rm -f "${Self_Data_Dir}/destFiles_"*.list "${Self_Data_Dir}/destPaths_"*.list
 		orderStrategy='none'
 	fi
+
+	for f in "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list; do
+		nl "$f"
+		echo "--------"
+	done
 
 	case "$orderStrategy" in
 		longest) sort -n -r "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
@@ -5135,37 +5203,6 @@ saveReplayGain () {
 	return $exitCode
 }
 
-getFileMilliseconds () {
-	local exitCode=$Ex_Ok file="$1" seconds=0 line samplingRate bitDepth format nChannels channelMask nSamples rest
-
-	case "$file" in
-		*.wv)
-				line="$( wvunpack -f "$file" 2>/dev/null )"
-				OIFS="$IFS"
-				IFS=";"
-				read samplingRate bitDepth format nChannels channelMask nSamples rest <<< "$line"
-				echo "scale=0; $nSamples * 1000 / $samplingRate" | bc 2>/dev/null
-				IFS="$OIFS"
-				return $Ex_Ok
-			;;
-
-		*.ape|*.m4a)
-			seconds="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | grep -F 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '[:digit:].' )"
-			;;
-
-		*.wav|*.aiff|*.caf|*.flac|*.ogg|*.mp3|*.opus) seconds="$( soxi -D "$file" )" ;;
-	esac
-
-	if [ -n "$seconds" -a "$seconds" != "0" ]; then
-		echo "scale=0; $seconds * 1000 / 1" | bc 2>/dev/null
-	else
-		exitCode=$Ex_Ko
-		echo 0
-	fi
-
-	return $exitCode
-}
-
 computeGainFromPeak () {
 	local floatingPointPeak="$1"
 	printf "%.2f" "$( echo "scale=10; 20 * l(${floatingPointPeak}) / l(10)" | bc -l 2>> "$Self_Errors_File" )"
@@ -7787,6 +7824,10 @@ startTimer
 handleInstance
 endTimer "handleInstance()"
 
+for signal in INT TERM ABRT PIPE; do
+	trap "cleanAbort" $signal
+done
+
 startTimer
 getInputFiles
 endTimer "getInputFiles()"
@@ -7811,10 +7852,6 @@ endTimer "setupSwapDir()"
 cleanExit $Ex_Ok
 
 numberOfOutputFiles=$(( numberOfSourceFiles * nCodecs ))
-
-for signal in INT TERM ABRT PIPE; do
-	trap "cleanAbort" $signal
-done
 
 if [ -n "$outputCodecs" -a "$tagCompressionSetting" = 'true' ]; then
 	getEncoderVersions
