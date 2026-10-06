@@ -1710,7 +1710,7 @@ createControlFiles () {
 		paddedFileIndex="$( printf "%06i" $fileIndex )"
 		touch "${Self_Control_Dir}/${paddedFileIndex}_any.job"
 		fileMilliseconds="$( getFileMilliseconds "$sourceFile" 2>> "$Self_Errors_File" )"
-		echo "$fileMilliseconds $paddedFileIndex $fileIndex $sourceFile" >> "${Self_Data_Dir}/millisecondsAndFileIndexes_${jobIndex}.list"
+		echo "$fileMilliseconds $paddedFileIndex $sourceFile" >> "${Self_Data_Dir}/millisecondsAndFileIndexes_${jobIndex}.list"
 
 		for outputCodec in $outputCodecs; do
 		touch "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info" \
@@ -1723,8 +1723,8 @@ createControlFiles () {
 					touch "${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
 				fi
 				getOutputCodecDestFile "$sourceFile" "$outputCodec"
-				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${fileIndex} ${destFile}" >> "${Self_Data_Dir}/destFiles_${jobIndex}.txt"
-				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${fileIndex} ${destPath}" >> "${Self_Data_Dir}/destPaths_${jobIndex}.txt"
+				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${destFile}" >> "${Self_Data_Dir}/destFiles_${jobIndex}.txt"
+				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${destPath}" >> "${Self_Data_Dir}/destPaths_${jobIndex}.txt"
 			done
 		fi
 		(( fileIndex ++))
@@ -1780,11 +1780,6 @@ setupControlDir () {
 		rm -f "${Self_Data_Dir}/destFiles_"*.list "${Self_Data_Dir}/destPaths_"*.list
 		orderStrategy='none'
 	fi
-
-	for f in "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list; do
-		nl "$f"
-		echo "--------"
-	done
 
 	case "$orderStrategy" in
 		longest) sort -n -r "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
@@ -4565,8 +4560,7 @@ transcode () {
 
 	until test "$allFilesDone" = 'true' ; do
 		allFilesDone='true'
-		while read milliseconds paddedFileIndex fileIndex; do
-			sourceFile="${sourceFiles[$fileIndex]}"
+		while read milliseconds paddedFileIndex sourceFile; do
 			sourceFilename="$( basename "$sourceFile" )"
 			sourceExtension="${sourceFile##*.}"
 			transcodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
@@ -6408,7 +6402,7 @@ printMachineStats () {
 	seconds="$( printf 'scale=6; %.6f - %.6f\n' "$time2" "$time1" | bc )"
 	if [ "$seconds" = '0' ]; then seconds='1'; fi # prevent division by 0 situations
 
-	while read fileMilliseconds index; do
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		duration=$(( duration + fileMilliseconds ))
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
@@ -6432,7 +6426,7 @@ printMachineStats () {
 
 	bcmd=''
 	for outputCodec in $outputCodecs; do
-		for sourceFile in "${sourceFiles[@]}"; do
+		while read fileMilliseconds paddedFileIndex sourceFile; do
 			getFileProps "$sourceFile" "$outputCodec"
 			if [ -e "$destFile" ]; then
 				bcmd="${bcmd}\x00${destFile//%/%%}"
@@ -6440,7 +6434,7 @@ printMachineStats () {
 					bcmd="${bcmd}\x00${destFile//%/%%}c"
 				fi
 			fi
-		done
+		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 	done
 
 	if [ "$gnustat" = 'true' ]; then
@@ -6451,7 +6445,7 @@ printMachineStats () {
 
 	for outputCodec in $outputCodecs; do
 		bcmd=''
-		for sourceFile in "${sourceFiles[@]}"; do
+		while read fileMilliseconds paddedFileIndex sourceFile; do
 			getFileProps "$sourceFile" "$outputCodec"
 			if [ -e "$destFile" ]; then
 				bcmd="${bcmd}\x00${destFile//%/%%}"
@@ -6459,7 +6453,7 @@ printMachineStats () {
 					bcmd="${bcmd}\x00${destFile//%/%%}c"
 				fi
 			fi
-		done
+		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 		if [ "$gnustat" = 'true' ]; then
 			bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
@@ -6485,7 +6479,7 @@ printHumanStats () {
 	seconds="$( printf 'scale=6; %.6f - %.6f\n' "$time2" "$time1" | bc )"
 	if [ "$seconds" = '0' ]; then seconds='1'; fi # prevent division by 0 situations
 
-	while read fileMilliseconds paddedFileIndex fileIndex; do
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		duration=$(( duration + fileMilliseconds ))
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
@@ -6505,12 +6499,12 @@ printHumanStats () {
 	fi
 
 
-	for sourceFile in "${sourceFiles[@]}"; do
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		slist="${slist}\x00${sourceFile//%/%%}"
 		if [ -e "${sourceFile}c" ]; then # WavPack correction file
 			slist="${slist}\x00${sourceFile//%/%%}c"
 		fi
-	done
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 	if [ "$gnustat" = 'true' ]; then
 		bytesSource="$( { echo -n 'scale=0; 0'; printf "%s${slist}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
@@ -6530,7 +6524,7 @@ printHumanStats () {
 
 	bcmd=''
 	for outputCodec in $outputCodecs; do
-		for sourceFile in "${sourceFiles[@]}"; do
+		while read fileMilliseconds paddedFileIndex sourceFile; do
 			getOutputCodecDestFile "$sourceFile" "$outputCodec"
 			if [ -e "$destFile" ]; then
 				bcmd="${bcmd}\x00${destFile//%/%%}"
@@ -6538,7 +6532,7 @@ printHumanStats () {
 					bcmd="${bcmd}\x00${destFile//%/%%}c"
 				fi
 			fi
-		done
+		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 	done
 
 	if [ "$gnustat" = 'true' ]; then
@@ -6573,7 +6567,7 @@ printHumanStats () {
 
 	for outputCodec in $outputCodecs; do
 		bcmd=''
-		for sourceFile in "${sourceFiles[@]}"; do
+		while read fileMilliseconds paddedFileIndex sourceFile; do
 			getOutputCodecDestFile "$sourceFile" "$outputCodec"
 			if [ -e "$destFile" ]; then
 				bcmd="${bcmd}\x00${destFile//%/%%}"
@@ -6581,7 +6575,7 @@ printHumanStats () {
 					bcmd="${bcmd}\x00${destFile//%/%%}c"
 				fi
 			fi
-		done
+		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 		if [ "$gnustat" = 'true' ]; then
 			bytesCompressed="$( { echo -n 'scale=0; 0'; printf "%s${bcmd}" ' + %s' | xargs -0 $statcmd -L --printf; echo; } | bc )"
@@ -7849,7 +7843,7 @@ setupSwapDir
 endTimer "setupSwapDir()"
 # endTimer "setup"
 
-cleanExit $Ex_Ok
+# cleanExit $Ex_Ok
 
 numberOfOutputFiles=$(( numberOfSourceFiles * nCodecs ))
 
