@@ -1079,48 +1079,30 @@ findInputFiles () {
 }
 
 getInputFiles () {
-	local exitCode=$Ex_Ok inputDir line fileIndex=0 fileOrDir file fileExtension
+	local exitCode=$Ex_Ok line fileOrDir file fileExtension
 
 	if [ "$touchFiles" = 'true' -a ${#inputFilesAndDirs[@]} -eq 1 -a -d "${inputFilesAndDirs[0]}" ]; then
-		inputDir="${inputFilesAndDirs[0]}"
-		unset inputFilesAndDirs
-		declare -a inputFilesAndDirs=()
-		while read line; do
-			ext="${line##*.}"
-			if [ "$ext" = "wvc" ]; then continue; fi
-			inputFilesAndDirs[fileIndex]="$line"
-			(( fileIndex++ ))
-		done < <( $findcmd "$inputDir" -type f 2>/dev/null | sort -u 2>/dev/null )
-		fileIndex=0
+		$findcmd "${inputFilesAndDirs[0]}" -type f 2>/dev/null | sort -u 1> "${Self_Data_Dir}/inputFilesAndDirs.txt" 2>/dev/null
 	fi
 
 	for fileOrDir in "${inputFilesAndDirs[@]}"; do
 		if [ -d "$fileOrDir" ]; then
 			if [ -r "$fileOrDir" ]; then
-				while IFS= read -d $'\0' -r file ; do
+				$findcmd "$fileOrDir" -type f 1> "${Self_Data_Dir}/inputFilesOrDirs.txt" 2>/dev/null
+				while read file ; do
 					if [ -e "$file" ]; then
-						inputFiles[$fileIndex]="$file"
+						echo "$file" >> "${Self_Data_Dir}/inputFiles.txt"
 						fileExtension="${file##*.}"
 						if [ "$fileExtension" != 'opus' ]; then allFilesAreOpus='false' ; fi
 						if [ "$fileExtension" != 'm4a' ]; then allFilesAreM4A='false' ; fi
 						if [ "$fileExtension" = "wvc" ]; then
 							continue
 						fi
-						(( fileIndex++ ))
+						(( numberOfInputFiles++ ))
 					fi
-				done < <( find "$fileOrDir" -type f -print0 2>/dev/null )
+				done < "${Self_Data_Dir}/inputFilesOrDirs.txt"
 			else
 				printMessage 'warning' 'usage' 'filesystem' "path:${fileOrDir}" 'directory is not readable (permission denied).' ; exitCode=$Ex_No_Input
-			fi
-			if [ $fileIndex -eq 0 ]; then
-				exitCode=$Ex_Io_Err
-			fi
-			if [ $exitCode -eq $Ex_Io_Err ]; then
-				printMessage 'warning' 'usage' 'filesystem' "the operating system cannot handle this many files."
-			fi
-			if [ $exitCode -ne $Ex_Ok ]; then
-				printMessage 'abort' 'verbose'
-				cleanExit $exitCode
 			fi
 		else
 			fileExtension="${fileOrDir##*.}"
@@ -1129,14 +1111,26 @@ getInputFiles () {
 			if [ "$fileExtension" = "wvc" ]; then
 				continue
 			fi
-			inputFiles[$fileIndex]="$fileOrDir"
-			(( fileIndex++ ))
+			echo "$fileOrDir" >> "${Self_Data_Dir}/inputFiles.txt"
+			(( numberOfInputFiles++ ))
 		fi
 	done
 
 	unset inputFilesAndDirs
+
+	if [ $numberOfInputFiles -eq 0 ]; then
+		exitCode=$Ex_Io_Err
+	fi
+	if [ $exitCode -eq $Ex_Io_Err ]; then
+		printMessage 'warning' 'usage' 'filesystem' "the operating system cannot handle this many files."
+	fi
+	if [ $exitCode -ne $Ex_Ok ]; then
+		printMessage 'abort' 'verbose'
+		cleanExit $exitCode
+	fi
+
+	rm -f "${Self_Data_Dir}/inputFilesOrDirs.txt"
 	if [ $exitCode -eq $Ex_Ok ]; then
-		numberOfInputFiles=$fileIndex
 		return $Ex_Ok
 	else
 		printMessage 'abort' 'verbose'
@@ -1145,16 +1139,17 @@ getInputFiles () {
 }
 
 checkInputFiles () {
-	local exitCode=$Ex_Ok inputFile fileIndex=0 inputDirName commonFileExtension inputFileExtension
+	local exitCode=$Ex_Ok inputFile inputDirName commonFileExtension inputFileExtension
 	local inputCodecsAreAllTheSame='true' cdpath pdpath addToSourceFiles dateSourceFile outputCodec copyPath codec
 
-	if [ $numberOfInputFiles -gt $maxInputFiles ]; then
-		printMessage 'warning' 'usage' 'quota' "the number of input files ($numberOfInputFiles) is greater than maxInputFiles=${maxInputFiles}."
-		printMessage 'abort'
-		cleanExit $Ex_Usage
-	fi
+	# FIXME
+	# if [ $numberOfInputFiles -gt $maxInputFiles ]; then
+	# 	printMessage 'warning' 'usage' 'quota' "the number of input files ($numberOfInputFiles) is greater than maxInputFiles=${maxInputFiles}."
+	# 	printMessage 'abort'
+	# 	cleanExit $Ex_Usage
+	# fi
 
-	for inputFile in "${inputFiles[@]}" ; do
+	while read inputFile; do
 		addToSourceFiles='false'
 		inputDirName="$( dirname "$inputFile" )"
 		if [ ! -e "$inputFile" ]; then
@@ -1330,13 +1325,10 @@ checkInputFiles () {
 		fi
 
 		if [ "$addToSourceFiles" = 'true' ]; then
-			sourceFiles[$fileIndex]="$inputFile"
-			(( fileIndex++ ))
+			echo "$inputFile" >> "${Self_Data_Dir}/sourceFiles.txt"
+			(( numberOfSourceFiles++ ))
 		fi
-	done
-
-	unset inputFiles
-	numberOfSourceFiles=$fileIndex
+	done < "${Self_Data_Dir}/inputFiles.txt"
 
 	if [ $exitCode -ne $Ex_Ok ]; then
 		printMessage 'abort'
@@ -7786,38 +7778,37 @@ fi
 
 exitCode=$Ex_Ok
 declare -a inputFilesAndDirs=("$@")
-declare -a inputFiles=()
-declare -a sourceFiles=()
 numberOfInputFiles=0
 numberOfSourceFiles=0
 
 printMessage 'info' "Setting up…"
 
-# startTimer
-getInputFiles
-# endTimer "getInputFiles()"
-
-# startTimer
-checkInputFiles
-# endTimer "checkInputFiles()"
-
-# startTimer
-checkBinaries
-# endTimer "checkBinaries()"
-
-# startTimer
+startTimer
 handleInstance
-# endTimer "handleInstance()"
+endTimer "handleInstance()"
 
-# startTimer
+startTimer
+getInputFiles
+endTimer "getInputFiles()"
+
+startTimer
+checkInputFiles
+endTimer "checkInputFiles()"
+
+startTimer
+checkBinaries
+endTimer "checkBinaries()"
+
+startTimer
 setupControlDir
-# endTimer "setupControlDir()"
+endTimer "setupControlDir()"
 
-# startTimer
+startTimer
 setupSwapDir
-# endTimer "setupSwapDir()"
+endTimer "setupSwapDir()"
 # endTimer "setup"
 
+cleanExit $Ex_Ok
 
 numberOfOutputFiles=$(( numberOfSourceFiles * nCodecs ))
 
