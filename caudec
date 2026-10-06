@@ -1665,10 +1665,10 @@ handleInstance () {
 }
 
 createControlFiles () {
-	local jobIndex=$1 filesPerJob=$2 fileIndex paddedFileIndex threadIndex fileMilliseconds outputCodec
+	local jobIndex=$1 filesPerJob=$2 fileIndex paddedFileIndex fileJobIndex fileMilliseconds outputCodec
 
-	for (( threadIndex=0; threadIndex < filesPerJob; threadIndex++ )); do
-		fileIndex=$(( jobIndex * filesPerJob + threadIndex ))
+	for (( fileJobIndex=0; fileJobIndex < filesPerJob; fileJobIndex++ )); do
+		fileIndex=$(( jobIndex * filesPerJob + fileJobIndex ))
 		if [ $fileIndex -ge $numberOfSourceFiles ]; then
 			return
 		fi
@@ -1676,10 +1676,9 @@ createControlFiles () {
 		touch "${Self_Control_Dir}/${paddedFileIndex}_any.job"
 
 		fileMilliseconds="$( getFileMilliseconds "${sourceFiles[$fileIndex]}" 2>> "$Self_Errors_File" )"
-		echo "$fileMilliseconds $paddedFileIndex $fileIndex" > "${Self_Data_Dir}/${paddedFileIndex}.ms"
+		echo "$fileMilliseconds $paddedFileIndex $fileIndex" >> "${Self_Data_Dir}/millisecondsAndFileIndexes_${jobIndex}.list"
 
 		for outputCodec in $outputCodecs; do
-			# touch "${Self_Control_Dir}/${paddedFileIndex}_${outputCodec}.job"
 			touch "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info"
 			touch "${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
 			if [ "$computeReplayGain" = 'true' ]; then
@@ -1687,8 +1686,8 @@ createControlFiles () {
 					touch "${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
 				fi
 				getOutputCodecDestFile "${sourceFiles[$fileIndex]}" "$outputCodec"
-				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${fileIndex} ${destFile}" >> "${Self_Data_Dir}/${paddedFileIndex}_${outputCodec}.destFile"
-				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${fileIndex} ${destPath}" >> "${Self_Data_Dir}/${paddedFileIndex}_${outputCodec}.destPath"
+				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${fileIndex} ${destFile}" >> "${Self_Data_Dir}/destFiles_${jobIndex}.txt"
+				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${fileIndex} ${destPath}" >> "${Self_Data_Dir}/destPaths_${jobIndex}.txt"
 			fi
 		done
 	done
@@ -1720,19 +1719,19 @@ setupControlDir () {
 
 	if [ "$computeReplayGain" = 'true' ]; then
 		for outputCodec in $outputCodecs; do
-			cat "${Self_Data_Dir}/"*"_${outputCodec}".destFile >> "${Self_Data_Dir}/destFiles.txt"
-			cat "${Self_Data_Dir}/"*"_${outputCodec}".destPath >> "${Self_Data_Dir}/destPaths.txt"
+			cat "${Self_Data_Dir}/destFiles_"*.txt >> "${Self_Data_Dir}/destFiles.txt"
+			cat "${Self_Data_Dir}/destPaths_"*.txt >> "${Self_Data_Dir}/destPaths.txt"
 		done
-		rm -f "${Self_Data_Dir}/"*.destFile "${Self_Data_Dir}/"*.destPath
+		rm -f "${Self_Data_Dir}/destFiles_"*.list "${Self_Data_Dir}/destPaths_"*.list
 		orderStrategy='none'
 	fi
 
 	case "$orderStrategy" in
-		longest) sort -n -r "${Self_Data_Dir}/"*.ms > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
-		shortest) sort -n "${Self_Data_Dir}/"*.ms > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
-		*) cat "${Self_Data_Dir}/"*.ms > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
+		longest) sort -n -r "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
+		shortest) sort -n "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
+		*) cat "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
 	esac
-	rm -f "${Self_Data_Dir}/"*.ms
+	rm -f "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list
 }
 
 
