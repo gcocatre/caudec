@@ -4803,7 +4803,7 @@ showTracksDurations () {
 		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
 
 		if getLock "$jobFile"; then
-			showTrackDuration $milliseconds || exitCode=$Ex_Ko
+			showTrackDuration $fileMilliseconds || exitCode=$Ex_Ko
 			touch "$wasProcessedFile"
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
@@ -5458,7 +5458,7 @@ computeRsgain () {
 	albumPeakFile="${Self_Data_Dir}/albumpeak_any.txt"
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		rsFileMilliseconds[$fileIndex]="$milliseconds"
+		rsFileMilliseconds[$fileIndex]="$fileMilliseconds"
 		rsSourceFiles[$fileIndex]="$sourceFile"
 		mtimeFile="${Self_Data_Dir}/${paddedFileIndex}_mtime.txt"
 		touch -r "$sourceFile" "$mtimeFile" 2>> "$Self_Errors_File"
