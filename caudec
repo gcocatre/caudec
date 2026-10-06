@@ -1897,16 +1897,16 @@ getNumberOfAvailableThreads () {
 		return
 	fi
 
-	while read milliseconds paddedFileIndex fileIndex; do
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		test -e "${Self_Control_Dir}/${paddedFileIndex}_all_processed.info" 1>/dev/null 2>/dev/null && continue
-		nMillisecondsLeft=$(( nMillisecondsLeft + milliseconds ))
+		nMillisecondsLeft=$(( nMillisecondsLeft + fileMilliseconds ))
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
-	while read milliseconds paddedFileIndex fileIndex; do
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		test -e "${Self_Control_Dir}/${paddedFileIndex}_all_processed.info" 1>/dev/null 2>/dev/null && continue
-		if [ "$fileIndex" = "$index" ]; then
+		if [ "$paddedFileIndex" = "$index" ]; then
 			# +0.3 to round up any n value over n.2 even though printf "%.0f" already rounds up anything over n.5
-			nThreads="$( printf "%.0f" "$( echo "scale=3; $maxProcessesSetByUser * $milliseconds / $nMillisecondsLeft + 0.3" | bc )" )"
+			nThreads="$( printf "%.0f" "$( echo "scale=3; $maxProcessesSetByUser * $fileMilliseconds / $nMillisecondsLeft + 0.3" | bc )" )"
 			break
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
@@ -3777,7 +3777,7 @@ decode () {
 			wv)
 				sourceTagFormat='ape' kfm='-w'
 				if [ "$keepWavMetadata" = 'true' ]; then kfm='' ; fi
-				nThreads=$( getNumberOfAvailableThreads "$fileIndex" $WavPack_Max_Threads )
+				nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" $WavPack_Max_Threads )
 				wvunpack -q $kfm -m --threads=$nThreads -o "$wavFile" "$copyFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					# schag -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
@@ -3794,7 +3794,7 @@ decode () {
 			# decodeAPE
 			ape)
 				sourceTagFormat='ape'
-				nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
+				nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" )
 				mac "$copyFile" "$wavFile" -d -threads=$nThreads 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					# schag -z "$copyFile" 2>> "$Self_Errors_File" | grep -vE '(=data:)|(=artwork:)' | $sedcmd -e 's@\\n@\n@g' -e 's@\\x00@\x02@g' > "$sourceTagFile" 2>/dev/null
@@ -3811,7 +3811,7 @@ decode () {
 			# decodeALAC
 			m4a)
 				sourceTagFormat='alac'
-				nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
+				nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" )
 				ffmpeg -i "$copyFile" -threads ${nThreads} "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok ]; then
 					ffprobe -show_format -print_format flat "$copyFile" 2>/dev/null | grep -iE '^format.tags' | cut -d '.' -f 3- | grep -ivE '^(;|major_brand=|minor_version=|compatible_brands=)' | $sedcmd -e 's@="@=@' -e 's@\"$@@' > "$sourceTagFile" 2>/dev/null
@@ -4108,7 +4108,7 @@ encode () {
 		ALAC)
 			destExtension='m4a'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_alac.txt"
 			if [ "$tagCompressionSetting" = 'true' ]; then m4aCompressionTag="$Self_Name $Self_Version / ALAC (ffmpeg $alacVersion)"; fi
-			nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
+			nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" )
 			if [ "$doEmbedUserCoverArt" = 'true' ]; then
 				if [ -z "$sourceCoverArtFile" ]; then
 					for coverArtFile in "${Self_Swap_Dir}/${paddedFileIndex}_picture_3-"; do
@@ -4141,7 +4141,7 @@ encode () {
 				embeddedArtworkBytes="$( getEmbeddedArtworkSize )"
 				padding=$(( padding + embeddedArtworkBytes ))
 			fi
-			nThreads=$( getNumberOfAvailableThreads "$fileIndex" $Flac_Max_Threads )
+			nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" $Flac_Max_Threads )
 			if [ $nThreads -gt 1 ]; then mParam='-M'; fi
 
 			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac $mParam -j $nThreads -P $padding $kfm -${compression_FLAC} -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
@@ -4155,7 +4155,7 @@ encode () {
 		# encodeAPE
 		MonkeysAudio)
 			destExtension='ape'; encodedFile="${Self_Swap_Dir}/${paddedFileIndex}_${outputCodec}.${destExtension}" destTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_ape.txt"
-			nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
+			nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" )
 			mac "$wavFile" "$encodedFile" -c${compression_MonkeysAudio}000 -threads=${nThreads} 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
 				if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="Encoding=$Self_Name $Self_Version / Monkey's Audio $apeVersion / -c${compression_MonkeysAudio}000"; fi
@@ -4176,7 +4176,7 @@ encode () {
 				printMessage 'error' 'usage' 'filesystem' "path:${destDir}" "$Self_Name -c wv: correction files are present. Please delete them and try again." ; exitCode=$Ex_Ko
 			else
 				if [ "$keepWavMetadata" = 'true' ]; then kfm=''; fi
-				nThreads=$( getNumberOfAvailableThreads "$fileIndex" $WavPack_Max_Threads )
+				nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" $WavPack_Max_Threads )
 				if [ "$tagCompressionSetting" = 'true' ]; then compressionTag="Encoding=$Self_Name $Self_Version / WavPack $wavpackVersion / -$compression_WavPack"; fi
 				printf -- "-q`tagline -w`\x00%s" "$wavFile" | xargs -0 wavpack --threads=$nThreads -m $kfm -${compression_WavPack} -o "$encodedFile" --no-utf8-convert 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				if [ $exitCode -eq $Ex_Ok -a -f "$destTagFile" ]; then
@@ -4197,7 +4197,7 @@ encode () {
 			# WavPack Hybrid only supports multithreading for files with more than 2 channels
 			nChannels=$( getNumberOfChannels "$wavFile" )
 			if [ $nChannels -gt 2 ]; then
-				nThreads=$( getNumberOfAvailableThreads "$fileIndex" $WavPack_Max_Threads )
+				nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" $WavPack_Max_Threads )
 			else
 				nThreads=1
 			fi
@@ -4229,7 +4229,7 @@ encode () {
 				# WavPack Lossy only supports multithreading for files with more than 2 channels
 				nChannels=$( getNumberOfChannels "$wavFile" )
 				if [ $nChannels -gt 2 ]; then
-					nThreads=$( getNumberOfAvailableThreads "$fileIndex" $WavPack_Max_Threads )
+					nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" $WavPack_Max_Threads )
 				else
 					nThreads=1
 				fi
@@ -4266,7 +4266,7 @@ encode () {
 				embeddedArtworkBytes="$( getEmbeddedArtworkSize )"
 				padding=$(( padding + embeddedArtworkBytes ))
 			fi
-			# nThreads=$( getNumberOfAvailableThreads "$fileIndex" $Flac_Max_Threads )
+			# nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" $Flac_Max_Threads )
 			nThreads=1 # flac -5 -e -p is slower than lossyWAV
 			bitsPerSample="$( soxi -b "$wavFile" 2>/dev/null )"
 			mkfifo "$namedPipe"
@@ -4670,12 +4670,12 @@ testFile () {
 			*.flac) flac -st "$copyFile" 1>/dev/null 2>&1; exitCode=$? ;;
 
 			*.wv)
-				nThreads=$( getNumberOfAvailableThreads "$fileIndex" $WavPack_Max_Threads )
+				nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" $WavPack_Max_Threads )
 				wvunpack --threads=$nThreads -qmv "$copyFile" 1>/dev/null 2>&1; exitCode=$?
 				;;
 
 			*.ape)
-				nThreads=$( getNumberOfAvailableThreads "$fileIndex" )
+				nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" )
 				mac "$copyFile" -V -threads=$nThreads 1>/dev/null 2>&1; exitCode=$?
 				;;
 
@@ -4696,8 +4696,7 @@ testFile () {
 
 testFiles () {
 	local exitCode=$Ex_Ok jobFile
-	while read milliseconds paddedFileIndex fileIndex; do
-		sourceFile="${sourceFiles[$fileIndex]}"
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		sourceFilename="$( basename "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
 		copyFile="${Self_Swap_Dir}/${paddedFileIndex}_input.${sourceExtension}"
@@ -4739,8 +4738,7 @@ showInternalHash () {
 
 showInternalHashes () {
 	local exitCode=$Ex_Ok jobFile
-	while read milliseconds paddedFileIndex fileIndex; do
-		sourceFile="${sourceFiles[$fileIndex]}"
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		sourceFilename="$( basename "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
 		copyFile="${Self_Swap_Dir}/${paddedFileIndex}_input.${sourceExtension}"
@@ -4762,8 +4760,8 @@ showInternalHashes () {
 showAlbumDuration () {
 	local msLeft=$1 hours=0 minutes=0 seconds=0 milliseconds=0 paddedDuration msg
 
-	while read milliseconds paddedFileIndex fileIndex; do
-		msLeft=$(( msLeft + milliseconds ))
+	while read fileMilliseconds paddedFileIndex sourceFile; do
+		msLeft=$(( msLeft + fileMilliseconds ))
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 	hours=$(( msLeft / 3600000 ))
@@ -4798,8 +4796,7 @@ showTrackDuration () {
 showTracksDurations () {
 	local exitCode=$Ex_Ok jobFile
 
-	while read milliseconds paddedFileIndex fileIndex; do
-		sourceFile="${sourceFiles[$fileIndex]}"
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		sourceFilename="$( basename "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
@@ -4915,8 +4912,7 @@ showTrackInformation () {
 showTracksInformation () {
 	local exitCode=$Ex_Ok jobFile
 
-	while read milliseconds paddedFileIndex fileIndex; do
-		sourceFile="${sourceFiles[$fileIndex]}"
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		sourceFilename="$( basename "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
@@ -5279,8 +5275,7 @@ computeTrackGain () {
 computeTrackGains () {
 	local exitCode=$Ex_Ok jobFile
 
-	while read milliseconds paddedFileIndex fileIndex; do
-		sourceFile="${sourceFiles[$fileIndex]}"
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		destFile="$sourceFile"
 		sourceFilename="$( basename "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
@@ -5335,7 +5330,7 @@ computeAlbumGain () {
 			processFilesForAlbumGain
 		done < <( grep -F "$albumPath" "${Self_Data_Dir}/destPaths.txt" )
 	else
-		while read milliseconds paddedFileIndex fileIndex; do
+		while read fileMilliseconds paddedFileIndex sourceFile; do
 			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
 			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
 			processFilesForAlbumGain
@@ -5400,7 +5395,7 @@ computeAlbumGain () {
 			echo "$albumPeak" > "$albumPeakFile"
 		done < <( grep -F "$albumPath" "${Self_Data_Dir}/destPaths.txt" )
 	else
-		while read milliseconds paddedFileIndex fileIndex; do
+		while read fileMilliseconds paddedFileIndex sourceFile; do
 			albumGainFile="${Self_Data_Dir}/${paddedFileIndex}_albumgain_any.txt"
 			albumPeakFile="${Self_Data_Dir}/${paddedFileIndex}_albumpeak_any.txt"
 			jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
@@ -5421,10 +5416,10 @@ computeAlbumGain () {
 }
 
 saveTracksGains () {
-	local exitCode=$Ex_Ok codec="$1" albumPath="$2" processNumber=$3 sourceFile jobFile
+	local exitCode=$Ex_Ok codec="$1" albumPath="$2" processNumber=$3 jobFile
 
 	if [ "$codec" != 'any' ]; then
-		while read outputCodec milliseconds paddedFileIndex fileIndex destFile; do
+		while read outputCodec milliseconds paddedFileIndex destFile; do
 			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${codec}.txt"
 			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${codec}.txt"
 			albumGainFile="${Self_Data_Dir}/${paddedFileIndex}_albumgain_${codec}.txt"
@@ -5436,8 +5431,7 @@ saveTracksGains () {
 			fi
 		done < <( grep -F "$albumPath" "${Self_Data_Dir}/destFiles.txt" )
 	else
-		while read milliseconds paddedFileIndex fileIndex; do
-			sourceFile="${sourceFiles[$fileIndex]}"
+		while read fileMilliseconds paddedFileIndex sourceFile; do
 			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
 			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
 			albumGainFile="${Self_Data_Dir}/${paddedFileIndex}_albumgain_any.txt"
@@ -5458,14 +5452,14 @@ computeRsgain () {
 	local exitCode=$Ex_Ok list trackGain trackPeak albumGain
 	local milliseconds paddedFileIndex fileIndex=0 sourceFile dirName mtimeFile IFS OIFS="$IFS"
 	local line tabIFS rsFilename rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment
-	local rsAnalysisFile="${Self_Data_Dir}/rsgain.txt" fileMilliseconds=()
+	local rsAnalysisFile="${Self_Data_Dir}/rsgain.txt" rsFileMilliseconds=() rsSourceFiles=[]
 
 	albumGainFile="${Self_Data_Dir}/albumgain_any.txt"
 	albumPeakFile="${Self_Data_Dir}/albumpeak_any.txt"
 
-	while read milliseconds paddedFileIndex fileIndex; do
-		sourceFile="${sourceFiles[$fileIndex]}"
-		fileMilliseconds[$fileIndex]="$milliseconds"
+	while read fileMilliseconds paddedFileIndex sourceFile; do
+		rsFileMilliseconds[$fileIndex]="$milliseconds"
+		rsSourceFiles[$fileIndex]="$sourceFile"
 		mtimeFile="${Self_Data_Dir}/${paddedFileIndex}_mtime.txt"
 		touch -r "$sourceFile" "$mtimeFile" 2>> "$Self_Errors_File"
 		if [ -z "$list" ]; then
@@ -5473,6 +5467,7 @@ computeRsgain () {
 		else
 			list="${list}\x00${sourceFile}"
 		fi
+		(( fileIndex++ ))
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 	echo -en "$list" | xargs -0 rsgain custom -q -O -a -t -s s -l "$AUDIO_TARGET_LOUDNESS" 1> "$rsAnalysisFile" 2>> "$Self_Errors_File"; exitCode=$?
@@ -5501,8 +5496,8 @@ computeRsgain () {
 
 				*)
 					sourceFile="${sourceFiles[$fileIndex]}"
-					paddedFileIndex="$( printf "%03i" $fileIndex )"
-					milliseconds="${fileMilliseconds[$fileIndex]}"
+					paddedFileIndex="$( printf "%06i" $fileIndex )"
+					milliseconds="${rsFileMilliseconds[$fileIndex]}"
 					trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
 					trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
 					(( fileIndex++ ))
@@ -5525,8 +5520,7 @@ computeRsgain () {
 	fi
 
 	IFS="$OIFS"
-	while read milliseconds paddedFileIndex fileIndex; do
-		sourceFile="${sourceFiles[$fileIndex]}"
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		sourceDirname="$( dirname "$sourceFile" )"
 		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
 		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
@@ -5842,7 +5836,7 @@ reverseTrackGain () {
 reverseTrackGains () {
 	local exitCode=$Ex_Ok jobFile
 
-	while read milliseconds paddedFileIndex fileIndex; do
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		sourceFile="${sourceFiles[$fileIndex]}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 
@@ -5874,8 +5868,7 @@ computeTrackDR () {
 computeTracksDR () {
 	local exitCode=$Ex_Ok jobFile audioTrackDR DR
 
-	while read milliseconds paddedFileIndex fileIndex; do
-		sourceFile="${sourceFiles[$fileIndex]}"
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
 
@@ -5904,8 +5897,7 @@ computeTracksDR () {
 saveTracksDR () {
 	local exitCode=$Ex_Ok sourceFile jobFile trackDrFile albumDrFile audioTrackDR audioAlbumDR
 
-	while read milliseconds paddedFileIndex fileIndex; do
-		sourceFile="${sourceFiles[$fileIndex]}"
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
 		albumDrFile="${Self_Data_Dir}/${paddedFileIndex}_albumdr_any.txt"
@@ -5974,10 +5966,10 @@ saveTracksDR () {
 computeAlbumDR () {
 	local trackDrFile audioTrackDR audioAlbumDR=0 trackSeconds audioAlbumDrSeconds=0 albumPath
 
-	while read milliseconds paddedFileIndex fileIndex; do
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		trackDrFile="${Self_Data_Dir}/${paddedFileIndex}_trackdr_any.txt"
 		read audioTrackDR < "$trackDrFile" 2>/dev/null
-		trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
+		trackSeconds="$( printf "%.0f" "$( echo "scale=3; $fileMilliseconds / 1000" | bc )" )"
 		if [ -z "$trackSeconds" ]; then
 			trackSeconds=1
 		fi
@@ -5991,7 +5983,7 @@ computeAlbumDR () {
 
 	if [ $audioAlbumDrSeconds -ne 0 -a $audioAlbumDR != '0' ]; then
 		audioAlbumDR="$( printf "%.0f" "$( echo "scale=6; $audioAlbumDR / $audioAlbumDrSeconds" | bc )" )"
-		while read milliseconds paddedFileIndex fileIndex; do
+		while read fileMilliseconds paddedFileIndex sourceFile; do
 			if [ -z "$albumPath" ]; then
 				albumPath="$( dirname "${sourceFiles[$fileIndex]}" )"
 			fi
@@ -6088,8 +6080,7 @@ computeTrackDateTime () {
 computeTrackDateTimes () {
 	local exitCode=$Ex_Ok jobFile
 
-	while read milliseconds paddedFileIndex fileIndex; do
-		sourceFile="${sourceFiles[$fileIndex]}"
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		sourceFilename="$( basename "$sourceFile" )"
 		sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
@@ -6107,7 +6098,7 @@ computeTrackDateTimes () {
 }
 
 touchAllFiles () {
-	local exitCode=$Ex_Ok fileIndex audioFileIndex otherFileIndex dirIndex
+	local exitCode=$Ex_Ok audioFileIndex otherFileIndex dirIndex
 	local trackDate albumSeconds discSeconds milliseconds discHours discMinutes discSeconds
 	local defaultTrackDate lastDir="" curDir artistDir albumDir albumLinkDir albumPath dirPath inode linkedFile linkPath
 	local touchString discDirs linkedDiscDirs audioFiles otherFiles otherFile audioFile sourceFile sourceTagFile
@@ -6121,8 +6112,8 @@ touchAllFiles () {
 	audioFiles=()
 	otherFiles=()
 
-	for (( fileIndex=0, dirIndex=0; fileIndex < ${#sourceFiles[@]}; fileIndex++ )); do
-		sourceFile="${sourceFiles[$fileIndex]}"
+	dirIndex=0
+	while read fileMilliseconds paddedFileIndex sourceFile; do
 		sourceDirname="$( dirname "$sourceFile" )"
 		curDir="$( readlink -f "$sourceDirname" )"
 		if [ "$curDir" != "$lastDir" ]; then
@@ -6130,7 +6121,7 @@ touchAllFiles () {
 			(( dirIndex++ ))
 			lastDir="$curDir"
 		fi
-	done
+	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 	for (( dirIndex=0; dirIndex < ${#discDirs[@]}; dirIndex++ )); do
 		curDir="${discDirs[$dirIndex]}"
@@ -6139,8 +6130,9 @@ touchAllFiles () {
 		discSeconds=0
 		linkPath=""
 
-		for (( fileIndex=0, audioFileIndex=0, otherFileIndex=0; fileIndex < ${#sourceFiles[@]}; fileIndex++ )); do
-			sourceFile="${sourceFiles[$fileIndex]}"
+		audioFileIndex=0
+		otherFileIndex=0
+		while read fileMilliseconds paddedFileIndex sourceFile; do
 			sourceDirname="$( dirname "$sourceFile" )"
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
@@ -6150,7 +6142,7 @@ touchAllFiles () {
 				*.aiff|*.caf) continue ;; # unsupported audio files
 				*) otherFiles[$otherFileIndex]="$sourceFile" ; (( otherFileIndex++ )) ;; # all non-audio files
 			esac
-		done
+		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 		for audioFile in "${audioFiles[@]}"; do
 			audioFileDirname="$( dirname "$audioFile" )"
@@ -6173,13 +6165,12 @@ touchAllFiles () {
 			fi
 		done
 
-		while read milliseconds paddedFileIndex fileIndex; do
-			sourceFile="${sourceFiles[$fileIndex]}"
+		while read fileMilliseconds paddedFileIndex sourceFile; do
 			sourceDirname="$( dirname "$sourceFile" )"
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
-			if [ -z "$milliseconds" ]; then milliseconds=0; fi
+			if [ -z "$fileMilliseconds" ]; then fileMilliseconds=0; fi
 
 			case "$sourceFile" in
 				*.flac|*ogg|*m4a|*.wv|*.ape|*.mp3|*.opus)
@@ -6197,8 +6188,8 @@ touchAllFiles () {
 			if [ -e "${sourceFile}c" ]; then  # WavPack correction file
 				touch -t "$touchString" "${sourceFile}c" || exitCode=$Ex_Io_Err
 			fi
-			discSeconds="$( echo "scale=3; ($discSeconds + ($milliseconds / 1000)) / 1" | bc )"
-			albumSeconds="$( echo "scale=3; ($albumSeconds + ($milliseconds / 1000)) / 1" | bc )"
+			discSeconds="$( echo "scale=3; ($discSeconds + ($fileMilliseconds / 1000)) / 1" | bc )"
+			albumSeconds="$( echo "scale=3; ($albumSeconds + ($fileMilliseconds / 1000)) / 1" | bc )"
 		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 		for otherFile in "${otherFiles[@]}"; do
@@ -7830,9 +7821,9 @@ startTimer
 checkInputFiles
 endTimer "checkInputFiles()"
 
-startTimer
-checkBinaries
-endTimer "checkBinaries()"
+# startTimer
+# checkBinaries
+# endTimer "checkBinaries()"
 
 startTimer
 setupControlDir
