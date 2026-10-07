@@ -1395,7 +1395,7 @@ getInputFiles () {
 	for fileOrDir in "${inputFilesAndDirs[@]}"; do
 		if [ -d "$fileOrDir" ]; then
 			if [ -r "$fileOrDir" ]; then
-					$findcmd "$fileOrDir" -type f 1> "${Self_Data_Dir}/inputFilesAndDirs.txt" 2>/dev/null
+				$findcmd "$fileOrDir" -type f 1> "${Self_Data_Dir}/inputFilesAndDirs.txt" 2>/dev/null
 				# findInputFiles "$fileOrDir" 1> "${Self_Data_Dir}/inputFilesAndDirs.txt" 2>/dev/null
 				while read file ; do
 					if [ -e "$file" ]; then
@@ -1428,8 +1428,8 @@ getInputFiles () {
 	unset inputFilesAndDirs
 	rm -f "${Self_Data_Dir}/inputFilesAndDirs.txt"
 
-	sort -u "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/inputFiles.txt.tmp" 2>/dev/null
-	mv "${Self_Data_Dir}/inputFiles.txt.tmp" "${Self_Data_Dir}/inputFiles.txt" 2>/dev/null
+	# sort -u "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/inputFiles.txt.tmp" 2>/dev/null
+	# mv "${Self_Data_Dir}/inputFiles.txt.tmp" "${Self_Data_Dir}/inputFiles.txt" 2>/dev/null
 
 	if [ $numberOfInputFiles -eq 0 ]; then
 		exitCode=$Ex_Io_Err
@@ -1661,6 +1661,26 @@ checkInputFiles () {
 	fi
 }
 
+getListOfWavPackMilliseconds () {
+	local exitCode=$Ex_Ok jobIndex="$1" seconds=0 line samplingRate bitDepth format nChannels channelMask nSamples rest
+
+	while IFS= read -d $';' -r samplingRate bitDepth format nChannels channelMask nSamples rest; do
+		echo "scale=0; $nSamples * 1000 / $samplingRate" | bc 2>/dev/null
+	done < <( xargs -I % wvunpack -f % < "${Self_Data_Dir}/milliseconds_${jobIndex}.list" 2>/dev/null )
+
+	return $exitCode
+}
+
+getListOfSoxiMilliseconds () {
+	local exitCode=$Ex_Ok jobIndex="$1" seconds=0 seconds
+
+	while read seconds; do
+		echo "scale=0; $seconds * 1000 / 1" | bc 2>/dev/null
+	done < <( xargs -I % soxi -D % < "${Self_Data_Dir}/milliseconds_${jobIndex}.list" 2>/dev/null )
+
+	return $exitCode
+}
+
 getFileMilliseconds () {
 	local exitCode=$Ex_Ok file="$1" seconds=0 line samplingRate bitDepth format nChannels channelMask nSamples rest
 
@@ -1704,12 +1724,42 @@ sliceSourceFileList () {
 
 createControlFiles () {
 	local jobIndex=$1 fileIndex=$2 headValue=$3 tailValue=$4 filesPerJob=$5
-	local sourceFile paddedFileIndex fileMilliseconds outputCodec
+	local sourceFile paddedFileIndex fileMilliseconds outputCodec msArray=[] msArrayIndex=0
+	local gotAllSoxiDurations='true' gotAllWavPackDurations='true' lastExtension
+
+	sliceSourceFileList $headValue $tailValue $filesPerJob > "${Self_Data_Dir}/milliseconds_${jobIndex}.list"
+
+	while read sourceFile; do
+		case "$sourceFile" in
+			*.wav|*.aiff|*.caf|*.flac|*.ogg|*.mp3|*.opus) gotAllSoxiDurations='true' gotAllWavPackDurations='false' ;;
+			*.wv) gotAllSoxiDurations='false' gotAllWavPackDurations='true' ;;
+			*) gotAllSoxiDurations='false'  gotAllWavPackDurations='false' ; break ;;
+		esac
+	done < "${Self_Data_Dir}/milliseconds_${jobIndex}.list"
+
+	if [ "$gotAllSoxiDurations" = 'true' ]; then
+		while read fileMilliseconds; do
+			msArray[msArrayIndex]="$fileMilliseconds"
+			(( msArrayIndex++ ))
+		done < <( getListOfSoxiMilliseconds "$jobIndex" )
+		msArrayIndex=0
+	elif [ "$gotAllWavPackDurations" = 'true' ]; then
+		while read fileMilliseconds; do
+			msArray[msArrayIndex]="$fileMilliseconds"
+			(( msArrayIndex++ ))
+		done < <( getListOfWavPackMilliseconds "$jobIndex" )
+		msArrayIndex=0
+	fi
 
 	while read sourceFile; do
 		paddedFileIndex="$( printf "%06i" $fileIndex )"
+		if [ "$gotAllDurations" = 'true' ]; then
+			fileMilliseconds="${msArray[$msArrayIndex]}"
+			(( msArrayIndex++ ))
+		else
+			fileMilliseconds="$( getFileMilliseconds "$sourceFile" 2>> "$Self_Errors_File" )"
+		fi
 		touch "${Self_Control_Dir}/${paddedFileIndex}_any.job"
-		fileMilliseconds="$( getFileMilliseconds "$sourceFile" 2>> "$Self_Errors_File" )"
 		echo "$fileMilliseconds $paddedFileIndex $sourceFile" >> "${Self_Data_Dir}/millisecondsAndFileIndexes_${jobIndex}.list"
 
 		for outputCodec in $outputCodecs; do
@@ -1728,7 +1778,8 @@ createControlFiles () {
 			done
 		fi
 		(( fileIndex ++))
-	done < <( sliceSourceFileList $headValue $tailValue $filesPerJob )
+	done < "${Self_Data_Dir}/milliseconds_${jobIndex}.list"
+	rm -f "${Self_Data_Dir}/milliseconds_${jobIndex}.list"
 }
 
 setupControlDir () {
