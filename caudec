@@ -1463,7 +1463,6 @@ checkInputFiles () {
 
 	while read inputFile; do
 		addToSourceFiles='false'
-		inputDirName="$( dirname "$inputFile" )"
 		if [ ! -e "$inputFile" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'no such file.' ; exitCode=$Ex_No_Input
 		elif [ ! -f "$inputFile" ]; then
@@ -1479,8 +1478,8 @@ checkInputFiles () {
 		elif [ ! -w "$inputFile" -a "$touchFiles" = 'true' ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'refusing to touch file that is read-only.' ; exitCode=$Ex_Cant_Create
 		else
-
 			if [ -n "$outputCodecs" ]; then # transcode
+				inputDirName="$( dirname "$inputFile" )"
 				for outputCodec in $outputCodecs; do
 					getOutputCodecDestFile "$inputFile" "$outputCodec"
 					copyPath="$( copyPathOrNot "$outputCodec" )"
@@ -1664,7 +1663,14 @@ checkInputFiles () {
 getListOfWavPackMilliseconds () {
 	local exitCode=$Ex_Ok jobIndex="$1" seconds=0 line samplingRate bitDepth format nChannels channelMask nSamples rest
 
-	while IFS= read -d $';' -r samplingRate bitDepth format nChannels channelMask nSamples rest; do
+	while read line; do
+		samplingRate="${line%%;*}"
+		line="${line#*;}"
+		line="${line#*;}"
+		line="${line#*;}"
+		line="${line#*;}"
+		line="${line#*;}"
+		nSamples="${line%%;*}"
 		echo "scale=0; $nSamples * 1000 / $samplingRate" | bc 2>/dev/null
 	done < <( xargs -I % wvunpack -f % < "${Self_Data_Dir}/milliseconds_${jobIndex}.list" 2>/dev/null )
 
@@ -1753,7 +1759,7 @@ createControlFiles () {
 
 	while read sourceFile; do
 		paddedFileIndex="$( printf "%06i" $fileIndex )"
-		if [ "$gotAllDurations" = 'true' ]; then
+		if [ "$gotAllSoxiDurations" = 'true' -o "$gotAllWavPackDurations" = 'true' ]; then
 			fileMilliseconds="${msArray[$msArrayIndex]}"
 			(( msArrayIndex++ ))
 		else
