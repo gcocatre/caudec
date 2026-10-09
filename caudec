@@ -1155,6 +1155,7 @@ checkMainBinaries () {
 
 checkBinaries () {
 	local exitCode=$Ex_Ok sourceFile hash outputCodec
+	local gotAiff gotCaf gotFlac gotWavPack gotApe gotM4a gotOpus gotOgg gotMp3
 
 	searchedBinaries=''
 	binaryMissing='false'
@@ -1164,84 +1165,128 @@ checkBinaries () {
 		cleanExit $Ex_Os_File
 	fi
 
-	for sourceFile in "${sourceFiles[@]}" ; do
-		case "$sourceFile" in
-			*.ape|*.m4a) checkBinary 'ffprobe' ;;
-		esac
-	done
+	grep -E '\.aiff$' "${Self_Data_Dir}/sourceFiles.txt" 1>/dev/null 2>&1 && gotAiff='true' &
+	grep -E '\.ape$' "${Self_Data_Dir}/sourceFiles.txt" 1>/dev/null 2>&1 && gotApe='true' &
+	grep -E '\.caf$' "${Self_Data_Dir}/sourceFiles.txt" 1>/dev/null 2>&1 && gotCaf='true' &
+	grep -E '\.flac$' "${Self_Data_Dir}/sourceFiles.txt" 1>/dev/null 2>&1 && gotFlac='true' &
+	grep -E '\.m4a$' "${Self_Data_Dir}/sourceFiles.txt" 1>/dev/null 2>&1 && gotM4a='true' &
+	grep -E '\.mp3$' "${Self_Data_Dir}/sourceFiles.txt" 1>/dev/null 2>&1 && gotMp3='true' &
+	grep -E '\.ogg$' "${Self_Data_Dir}/sourceFiles.txt" 1>/dev/null 2>&1 && gotOgg='true' &
+	grep -E '\.opus$' "${Self_Data_Dir}/sourceFiles.txt" 1>/dev/null 2>&1 && gotOpus='true' &
+	grep -E '\.wv$' "${Self_Data_Dir}/sourceFiles.txt" 1>/dev/null 2>&1 && gotWavPack='true' &
+	wait
+
+	if grep -E '\.(ape|m4a)$' "${Self_Data_Dir}/sourceFiles.txt" 1>/dev/null 2>&1; then
+		checkBinary 'ffprobe'
+	fi
 
 	if [ "$computeReplayGain" = 'true' ]; then
 		if [ "$computeAudioCharacteristics" = 'true' ]; then
 			checkBinary 'ffmpeg'
 		fi
-		for sourceFile in "${sourceFiles[@]}" ; do
-			case "$sourceFile" in
-				*.flac) checkBinary 'rsgain' ;;
-				*.wv) checkBinary 'wvunpack' 'rsgain' 'wvtag' ;;
-				*.ape) checkBinary 'rsgain' 'schag' ;;
-				*.ogg) checkBinary 'ogginfo' 'rsgain' 'vorbiscomment' ;;
-				*.mp3) checkBinary 'ffprobe' 'mp3rgain' 'eyeD3' ;;
-				*.opus) checkBinary 'opusinfo' 'opusgain' ;; # https://github.com/FrancisRussell/zoog
-			esac
-		done
+		if [ "$gotFlac" = 'true' -o "$gotWavPack" = 'true' -o "$gotApe" = 'true' -o "$gotOgg" = 'true' ]; then
+			checkBinary 'rsgain'
+		fi
+		if [ "$gotWavPack" = 'true' ]; then
+			checkBinary 'wvunpack' 'wvtag'
+		fi
+		if [ "$gotApe" = 'true' ]; then
+			checkBinary 'schag'
+		fi
+		if [ "$gotOgg" = 'true' ]; then
+			checkBinary 'ogginfo' 'vorbiscomment'
+		fi
+		if [ "$gotMp3" = 'true' ]; then
+			checkBinary 'ffprobe' 'mp3rgain' 'eyeD3'
+		fi
+		if [ "$gotOpus" = 'true' ]; then
+			checkBinary 'opusinfo' 'opusgain' # https://github.com/FrancisRussell/zoog
+		fi
 	elif [ "$reverseReplayGain" = 'true' ]; then
-		for sourceFile in "${sourceFiles[@]}" ; do
-			case "$sourceFile" in
-				*.flac) checkBinary 'metaflac' ;;
-				*.wv) checkBinary 'wvtag' ;;
-				*.ape) checkBinary 'schag' ;;
-				*.ogg) checkBinary 'vorbiscomment' ;;
-				*.opus) checkBinary 'opusgain' ;;
-				*.mp3) checkBinary 'mp3rgain' 'eyeD3' ;;
-				*.m4a) checkBinary 'mp3rgain' ;;
-			esac
-		done
+		if [ "$gotFlac" = 'true' ]; then
+			checkBinary 'metaflac'
+		fi
+		if [ "$gotWavPack" = 'true' ]; then
+			checkBinary 'wvtag'
+		fi
+		if [ "$gotApe" = 'true' ]; then
+			checkBinary 'schag'
+		fi
+		if [ "$gotOgg" = 'true' ]; then
+			checkBinary 'vorbiscomment'
+		fi
+		if [ "$gotOpus" = 'true' ]; then
+			checkBinary 'opusgain'
+		fi
+		if [ "$gotMp3" = 'true' ]; then
+			checkBinary 'mp3rgain' 'eyeD3'
+		fi
+		if [ "$gotM4a" = 'true' ]; then
+			checkBinary 'mp3rgain'
+		fi
 	elif [ "$checkFiles" = 'true' ]; then
 		checkBinary 'sox'
-		for sourceFile in "${sourceFiles[@]}" ; do
-			case "$sourceFile" in
-				*.flac) checkBinary 'flac' 'metaflac' ;;
-				*.wv) checkBinary 'wvunpack' ;;
-				*.ape) checkBinary 'mac' ;;
-			esac
-		done
+		if [ "$gotFlac" = 'true' ]; then
+			checkBinary 'flac' 'metaflac'
+		fi
+		if [ "$gotWavPack" = 'true' ]; then
+			checkBinary 'wvunpack'
+		fi
+		if [ "$gotApe" = 'true' ]; then
+			checkBinary 'mac'
+		fi
 	elif [ "$touchFiles" = 'true' ]; then
-		for sourceFile in "${sourceFiles[@]}" ; do
-			case "$sourceFile" in
-				*.flac) checkBinary 'metaflac' ;;
-				*.ogg) checkBinary 'ogginfo' 'vorbiscomment' ;;
-				*.m4a) checkBinary 'ffprobe' ;;
-				*.opus) checkBinary 'opusinfo' ;;
-				*.wv) checkBinary 'wvtag' ;;
-				*.ape) checkBinary 'ffprobe' ;;
-				*.mp3|*.m4a) checkBinary 'ffmpeg' ;;
-			esac
-		done
+		if [ "$gotFlac" = 'true' ]; then
+			checkBinary 'metaflac'
+		fi
+		if [ "$gotWavPack" = 'true' ]; then
+			checkBinary 'wvtag'
+		fi
+		if [ "$gotApe" = 'true' ]; then
+			checkBinary 'ffprobe'
+		fi
+		if [ "$gotOgg" = 'true' ]; then
+			checkBinary 'ogginfo' 'vorbiscomment'
+		fi
+		if [ "$gotM4a" = 'true' -o "$gotMp3" = 'true' ]; then
+			checkBinary 'ffmpeg' 'ffprobe'
+		fi
+		if [ "$gotOpus" = 'true' ]; then
+			checkBinary 'opusinfo'
+		fi
 	elif [ "$showDurations" = 'true' -o "$showInformation" = 'true' ]; then
-		for sourceFile in "${sourceFiles[@]}" ; do
-			case "$sourceFile" in
-				*.flac) checkBinary 'metaflac' 'ffprobe' ;;
-				*.wv) checkBinary 'wvunpack' ;;
-				*) checkBinary 'ffprobe' ;;
-			esac
-		done
+		if [ "$gotFlac" = 'true' ]; then
+			checkBinary 'metaflac' 'ffprobe'
+		fi
+		if [ "$gotWavPack" = 'true' ]; then
+			checkBinary 'wvunpack'
+		fi
+		if [ "$gotAiff" = 'true' -o "$gotApe" = 'true' -o "$gotCaf" = 'true' -o "$gotM4a" = 'true' -o "$gotMp3" = 'true' -o "$gotOgg" = 'true' -o "$gotOpus" = 'true' ]; then
+			checkBinary 'ffprobe'
+		fi
 	elif [ "$displayInternalHash" = 'true' ]; then
-		for sourceFile in "${sourceFiles[@]}" ; do
-			case "$sourceFile" in
-				*.flac) checkBinary 'metaflac' ;;
-				*.wv) checkBinary 'wvunpack' ;;
-			esac
-		done
+		if [ "$gotFlac" = 'true' ]; then
+			checkBinary 'metaflac'
+		fi
+		if [ "$gotWavPack" = 'true' ]; then
+			checkBinary 'wvunpack'
+		fi
 	else # transcode
-		for sourceFile in "${sourceFiles[@]}" ; do
-			case "$sourceFile" in
-				*.aiff|*.caf) checkBinary 'sox' ;;
-				*.flac) checkBinary 'flac' 'metaflac' ;;
-				*.wv) checkBinary 'wvunpack' 'schag' 'ffprobe' ;;
-				*.ape) checkBinary 'mac' 'schag' 'ffprobe' ;;
-				*.m4a) checkBinary 'ffmpeg' 'ffprobe' ;;
-			esac
-		done
+		if [ "$gotAiff" = 'true' -o "$gotCaf" = 'true' ]; then
+			checkBinary 'sox'
+		fi
+		if [ "$gotFlac" = 'true' ]; then
+			checkBinary 'flac' 'metaflac'
+		fi
+		if [ "$gotWavPack" = 'true' ]; then
+			checkBinary 'wvunpack' 'schag' 'ffprobe'
+		fi
+		if [ "$gotApe" = 'true' ]; then
+			checkBinary 'mac' 'schag' 'ffprobe'
+		fi
+		if [ "$gotM4a" = 'true' ]; then
+			checkBinary 'ffmpeg' 'ffprobe'
+		fi
 
 		if [ "$applyGain" = 'true' ]; then
 			checkBinary 'sox'
@@ -7967,7 +8012,7 @@ checkInputFiles
 # endTimer "checkInputFiles()"
 
 # startTimer
-# checkBinaries
+checkBinaries
 # endTimer "checkBinaries()"
 
 printMessage 'info' "Analyzing ${numberOfSourceFiles} input files…"
