@@ -4933,64 +4933,60 @@ showTrackInformation () {
 	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples evenSamples sectorSize mediaType='non-CDDA'
 	local floatOrInt something rest bitrate=0 bytesLossy bytesLossless
 
-	if [ -e "$sourceFile" ]; then
-		case "$sourceFile" in
-			*.flac)
-				read -d '\n' nChannels bitDepth samplingRate nSamples < <( metaflac --show-channels --show-bps --show-sample-rate --show-total-samples "$sourceFile" 2>/dev/null )
-				;;
+	case "$sourceFile" in
+		*.flac)
+			read -d '\n' nChannels bitDepth samplingRate nSamples < <( metaflac --show-channels --show-bps --show-sample-rate --show-total-samples "$sourceFile" 2>/dev/null )
+			;;
 
-			*.wv)
-				line="$( wvunpack -f "$sourceFile" 2>/dev/null )"
-				OIFS="$IFS"
-				IFS=";"
-				read samplingRate bitDepth floatOrInt nChannels something nSamples rest <<< "$line"
-				IFS="$OIFS"
-				;;
+		*.wv)
+			line="$( wvunpack -f "$sourceFile" 2>/dev/null )"
+			OIFS="$IFS"
+			IFS=";"
+			read samplingRate bitDepth floatOrInt nChannels something nSamples rest <<< "$line"
+			IFS="$OIFS"
+			;;
 
-			*)
-				while read line; do
-					case $line in
-						channels*) nChannels="${line##*=}" ;;
-						bits_per_raw_sample*|bits_per_sample*)
-							if [ -z "$bitDepth" -o "$bitDepth" = "0" ]; then
-								bitDepth="${line##*=}"
-								bitDepth="$( echo "$bitDepth" | tr -cd '[:digit:]' )"
-							fi
-							;;
-						sample_rate*) samplingRate="${line##*=}" ;;
-						duration_ts*) nSamples="${line##*=}" ;;
-					esac
-				done < <( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$sourceFile" 2>/dev/null )
-				;;
-		esac
-
-		if [ -z "$bitDepth" -o "$bitDepth" = "0" ]; then
-			bitDepth="NA"
-		else
-			bitDepth="$( printf "%2s" "$bitDepth" )"
-		fi
-
-		case "$sourceFile" in
-			*.flac|*.wv|*.ape|*.m4a)
-				if [ -n "$nSamples" ]; then
-					sectorSize=$(( samplingRate / 75 ))
-					multiples=$(( nSamples / sectorSize ))
-					evenSamples=$(( multiples * sectorSize ))
-					if [ $nSamples -eq $evenSamples ]; then
-						if [ "$nChannels" = "2" -a "$bitDepth" = "16" -a "$samplingRate" = "44100" ]; then
-							mediaType='CDDA'
-						else
-							mediaType='CDDA-compatible'
+		*)
+			while read line; do
+				case $line in
+					channels*) nChannels="${line##*=}" ;;
+					bits_per_raw_sample*|bits_per_sample*)
+						if [ -z "$bitDepth" -o "$bitDepth" = "0" ]; then
+							bitDepth="${line##*=}"
+							bitDepth="$( echo "$bitDepth" | tr -cd '[:digit:]' )"
 						fi
-					else
-						mediaType='non-CDDA'
-					fi
-				fi
-				;;
-		esac
+						;;
+					sample_rate*) samplingRate="${line##*=}" ;;
+					duration_ts*) nSamples="${line##*=}" ;;
+				esac
+			done < <( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$sourceFile" 2>/dev/null )
+			;;
+	esac
+
+	if [ -z "$bitDepth" -o "$bitDepth" = "0" ]; then
+		bitDepth="NA"
 	else
-		exitCode=$Ex_Ko
+		bitDepth="$( printf "%2s" "$bitDepth" )"
 	fi
+
+	case "$sourceFile" in
+		*.flac|*.wv|*.ape|*.m4a)
+			if [ -n "$nSamples" ]; then
+				sectorSize=$(( samplingRate / 75 ))
+				multiples=$(( nSamples / sectorSize ))
+				evenSamples=$(( multiples * sectorSize ))
+				if [ $nSamples -eq $evenSamples ]; then
+					if [ "$nChannels" = "2" -a "$bitDepth" = "16" -a "$samplingRate" = "44100" ]; then
+						mediaType='CDDA'
+					else
+						mediaType='CDDA-compatible'
+					fi
+				else
+					mediaType='non-CDDA'
+				fi
+			fi
+			;;
+	esac
 
 	case "$sourceFile" in
 		*.wv)
@@ -5029,14 +5025,10 @@ showTracksInformation () {
 	local exitCode=$Ex_Ok jobFile
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		sourceFilename="$( getFileName "$sourceFile" )"
-		sourceExtension="${sourceFile##*.}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
-		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
 
 		if getLock "$jobFile"; then
 			showTrackInformation || exitCode=$Ex_Ko
-			touch "$wasProcessedFile"
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
