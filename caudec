@@ -7581,7 +7581,8 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:RS:sTtuVZz' o ; do
 
 		d)
 			if [ "$Self_Called_As" != "$Self_Decode_Name" ]; then
-				lastCodec='WAV'; outputCodecs="$outputCodecs $lastCodec"
+				lastCodec='WAV'; outputCodecs="$outputCodecs $lastCodec" gotWavOutputCodec='true'
+				(( nCodecs++ ))
 			fi
 			;;
 
