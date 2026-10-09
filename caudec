@@ -4831,8 +4831,6 @@ testFile () {
 testFiles () {
 	local exitCode=$Ex_Ok jobFile
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		sourceFilename="$( getFileName "$sourceFile" )"
-		sourceExtension="${sourceFile##*.}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 
 		if getLock "$jobFile"; then
@@ -4847,20 +4845,16 @@ testFiles () {
 showInternalHash () {
 	local exitCode=$Ex_Ok hash
 
-	if [ -e "$sourceFile" ]; then
-		case "$sourceFile" in
-			*.flac) hash="$( metaflac --show-md5sum "$sourceFile" )" ;;
-			*.wv) hash="$( wvunpack -f7 "$sourceFile" 2>/dev/null )" ;;
-			*)
-				if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-					printMessage 'warning' 'hashing' '' 'unsupported format' "file:${sourceFile}" $processNumber
-				fi
-				return $Ex_Data_Err
-				;;
-		esac
-	else
-		exitCode=$Ex_Ko
-	fi
+	case "$sourceFile" in
+		*.flac) hash="$( metaflac --show-md5sum "$sourceFile" )" ;;
+		*.wv) hash="$( wvunpack -f7 "$sourceFile" 2>/dev/null )" ;;
+		*)
+			if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+				printMessage 'warning' 'hashing' '' 'unsupported format' "file:${sourceFile}" $processNumber
+			fi
+			return $Ex_Data_Err
+			;;
+	esac
 
 	if [ $exitCode -eq $Ex_Ok -a -n "$hash" ]; then
 		printMessage 'info' 'hashing' "hash:$hash" "hashType:MD5" "file:${sourceFile}" "threads:1" $processNumber
@@ -4873,17 +4867,10 @@ showInternalHash () {
 showInternalHashes () {
 	local exitCode=$Ex_Ok jobFile
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		sourceFilename="$( getFileName "$sourceFile" )"
-		sourceExtension="${sourceFile##*.}"
-		copyFile="${Self_Swap_Dir}/${paddedFileIndex}_input.${sourceExtension}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
-		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
 
 		if getLock "$jobFile"; then
-			prepareSource &&
 			showInternalHash || exitCode=$Ex_Ko
-			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" 1>/dev/null 2>&1; fi
-			touch "$wasProcessedFile"
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
