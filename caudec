@@ -4798,30 +4798,26 @@ transcode () {
 testFile () {
 	local exitCode=$Ex_Ok nThreads=1
 
-	if [ -e "$copyFile" ]; then
-		case "$copyFile" in
-			*.flac) flac -st "$copyFile" 1>/dev/null 2>&1; exitCode=$? ;;
+	case "$sourceFile" in
+		*.flac) flac -st "$sourceFile" 1>/dev/null 2>&1; exitCode=$? ;;
 
-			*.wv)
-				nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" $WavPack_Max_Threads )
-				wvunpack --threads=$nThreads -qmv "$copyFile" 1>/dev/null 2>&1; exitCode=$?
-				;;
+		*.wv)
+			# nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" $WavPack_Max_Threads )
+			wvunpack --threads=$nThreads -qvv "$sourceFile" 1>/dev/null 2>&1; exitCode=$?
+			;;
 
-			*.ape)
-				nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" )
-				mac "$copyFile" -V -threads=$nThreads 1>/dev/null 2>&1; exitCode=$?
-				;;
+		*.ape)
+			# nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" )
+			mac "$sourceFile" -v -threads=$nThreads 1>/dev/null 2>&1; exitCode=$?
+			;;
 
-			*)
-				if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-					printMessage 'warning' 'testing' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format'
-				fi
-				return $Ex_Data_Err
-				;;
-		esac
-	else
-		exitCode=$Ex_Ko
-	fi
+		*)
+			if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+				printMessage 'warning' 'testing' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format'
+			fi
+			return $Ex_Data_Err
+			;;
+	esac
 
 	if [ $exitCode -eq $Ex_Ok ]; then
 		printMessage 'success' 'testing' $processNumber "threads:$nThreads" "file:${sourceFile}"
@@ -4837,15 +4833,10 @@ testFiles () {
 	while read fileMilliseconds paddedFileIndex sourceFile; do
 		sourceFilename="$( getFileName "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
-		copyFile="${Self_Swap_Dir}/${paddedFileIndex}_input.${sourceExtension}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
-		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
 
 		if getLock "$jobFile"; then
-			prepareSource &&
 			testFile || exitCode=$Ex_Ko
-			if [ -e "$copyFile" ]; then rm -f "$copyFile" "${copyFile}c" 1>/dev/null 2>&1; fi
-			touch "$wasProcessedFile"
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
