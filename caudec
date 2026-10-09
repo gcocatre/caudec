@@ -4918,21 +4918,16 @@ showTracksDurations () {
 	local exitCode=$Ex_Ok jobFile
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		sourceFilename="$( getFileName "$sourceFile" )"
-		sourceExtension="${sourceFile##*.}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
-		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
 
 		if getLock "$jobFile"; then
 			showTrackDuration $fileMilliseconds || exitCode=$Ex_Ko
-			touch "$wasProcessedFile"
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 	rm -f "${Self_Jobs_Dir}/process.${processNumber}"
 	return $exitCode
 }
-
 
 showTrackInformation () {
 	local exitCode=$Ex_Ok nChannels bitDepth samplingRate nSamples multiples evenSamples sectorSize mediaType='non-CDDA'
