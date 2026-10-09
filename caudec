@@ -7949,33 +7949,35 @@ numberOfSourceFiles=0
 
 printMessage 'info' "Setting up…"
 
-startTimer
+# startTimer
 handleInstance
-endTimer "handleInstance()"
+# endTimer "handleInstance()"
 
 for signal in INT TERM ABRT PIPE; do
 	trap "cleanAbort" $signal
 done
 
-startTimer
+printMessage 'info' "Listing input files…"
+# startTimer
 getInputFiles
-endTimer "getInputFiles()"
+# endTimer "getInputFiles()"
 
-startTimer
+# startTimer
 checkInputFiles
-endTimer "checkInputFiles()"
+# endTimer "checkInputFiles()"
 
 # startTimer
 # checkBinaries
 # endTimer "checkBinaries()"
 
-startTimer
+printMessage 'info' "Analyzing ${numberOfSourceFiles} input files…"
+# startTimer
 setupControlDir
-endTimer "setupControlDir()"
+# endTimer "setupControlDir()"
 
-startTimer
+# startTimer
 setupSwapDir
-endTimer "setupSwapDir()"
+# endTimer "setupSwapDir()"
 # endTimer "setup"
 
 # cleanExit $Ex_Ok
