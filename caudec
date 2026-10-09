@@ -1428,9 +1428,6 @@ getInputFiles () {
 	unset inputFilesAndDirs
 	rm -f "${Self_Data_Dir}/inputFilesAndDirs.txt"
 
-	# sort -u "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/inputFiles.txt.tmp" 2>/dev/null
-	# mv "${Self_Data_Dir}/inputFiles.txt.tmp" "${Self_Data_Dir}/inputFiles.txt" 2>/dev/null
-
 	if [ $numberOfInputFiles -eq 0 ]; then
 		exitCode=$Ex_Io_Err
 	fi
@@ -1452,7 +1449,7 @@ getInputFiles () {
 
 checkInputFiles () {
 	local exitCode=$Ex_Ok inputFile inputDirName commonFileExtension inputFileExtension
-	local inputCodecsAreAllTheSame='true' cdpath pdpath addToSourceFiles dateSourceFile outputCodec copyPath codec
+	local inputCodecsAreAllTheSame='true' cdpath pdpath addToSourceFiles outputCodec copyPath codec
 
 	# FIXME
 	# if [ $numberOfInputFiles -gt $maxInputFiles ]; then
@@ -1461,185 +1458,190 @@ checkInputFiles () {
 	# 	cleanExit $Ex_Usage
 	# fi
 
-	while read inputFile; do
-		addToSourceFiles='false'
-		if [ ! -e "$inputFile" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'no such file.' ; exitCode=$Ex_No_Input
-		elif [ ! -f "$inputFile" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'not a regular file.' ; exitCode=$Ex_Data_Err
-		elif [ ! -r "$inputFile" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for reading (permission denied).' ; exitCode=$Ex_No_Input
-		elif [ ! -w "$inputFile" -a "$computeReplayGain" = 'true' -a -z "$outputCodecs" ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
-		elif [ ! -w "$inputFile" -a "$reverseReplayGain" = 'true' ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
-		elif [ ! -r "$inputFile" -a "$displayInternalHash" = 'true' ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for reading (permission denied).' ; exitCode=$Ex_No_Input
-		elif [ ! -w "$inputFile" -a "$touchFiles" = 'true' ]; then
-			printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'refusing to touch file that is read-only.' ; exitCode=$Ex_Cant_Create
-		else
-			if [ -n "$outputCodecs" ]; then # transcode
-				inputDirName="$( dirname "$inputFile" )"
-				for outputCodec in $outputCodecs; do
-					getOutputCodecDestFile "$inputFile" "$outputCodec"
-					copyPath="$( copyPathOrNot "$outputCodec" )"
-					if [ "$copyPath" = 'true' ]; then
-						cdpath='/./' pdpath='/../'
-						if [ "${inputFile:0:2}" = './' -o "${inputFile:0:3}" = '../' -o "$inputDirName" != "${inputDirName//$cdpath/@}" -o "$inputDirName" != "${inputDirName//$pdpath/@}" ]; then
-							printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" "can't use paths containing ./ or ../ with caudec -P." ; exitCode=$Ex_Usage
-							continue
-						fi
-					fi
+	if [ "$touchFiles" = 'true' ]; then
+		cp "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>/dev/null
+	elif [ -n "$outputCodecs" ]; then # transcode
+		grep -E '\.(wav|aiff|caf|flac|wv|ape|m4a)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>/dev/null
+	elif [ "$displayInternalHash" = 'true' ]; then
+		grep -E '\.(flac|wv)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>/dev/null
+	elif [ "$checkFiles" = 'true' ]; then
+		grep -E '\.(flac|wv|ape)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>/dev/null
+	elif [ "$showInformation" = 'true' -o "$showDurations" = 'true' ]; then
+		grep -E '\.(flac|wv|ape|ogg|m4a|mp3|opus)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>/dev/null
+	elif [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
+		grep -E '\.(flac|wv|ape|ogg|m4a|mp3|opus)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>/dev/null
+	elif [ "$computeDynamicRange" = 'true' ]; then
+		grep -E '\.(flac|wv|ape|ogg|mp3)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>/dev/null
+	fi
+	numberOfSourceFiles="$( cat "${Self_Data_Dir}/sourceFiles.txt" | wc -l | tr -cd '[:digit:]' )"
 
-					case "$inputFile" in
-						*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape|*.m4a)
-							addToSourceFiles='true'
-							case "$inputFile" in
-								*.m4a)
-									codec="$( ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$inputFile" 2>/dev/null )"
-									if [ "$codec" != "alac" ]; then
-										addToSourceFiles='false'
-										printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" "refusing to transcode from lossy codec ($codec)." ; exitCode=$Ex_Data_Err
-									fi
-									;;
-							esac
-							if [ "$addToSourceFiles" = 'false' ]; then continue ; fi
-							if [ "$keepExistingFiles" = 'true' ]; then
-								if [ -e "$destFile" ]; then
-									addToSourceFiles='false'
-									printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: \"$destFile\" exists already."
-								fi
-							fi
-							if [ "$keepNewerFiles" = 'true' ]; then
-								if [ -e "$destFile" ]; then
-									if isFileNewer "$destFile" "$inputFile"; then
-										addToSourceFiles='false'
-										if [ "$gnudate" = 'true' ]; then
-											dateSourceFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$inputFile" )"" "+%Y-%m-%d %H:%M:%S" )"
-											dateDestFile="$( $datecmd --date="@"$( $statcmd -c '%Y' "$destFile" )"" "+%Y-%m-%d %H:%M:%S" )"
-										else
-											dateSourceFile="$( $datecmd -r $( $statcmd -f '%c' "$inputFile" ) "+%Y-%m-%d %H:%M:%S" )"
-											dateDestFile="$( $datecmd -r $( $statcmd -f '%c' "$destFile" ) "+%Y-%m-%d %H:%M:%S" )"
-										fi
-										printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: \"$destFile\" is newer that the source."
-									fi
-								else
-									addToSourceFiles='true'
-								fi
-							fi
-							;;
+	# while read inputFile; do
+	# 	addToSourceFiles='false'
+	# 	if [ ! -r "$inputFile" ]; then
+	# 		printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'no such file, or not a regular file, or insufficient rights.' ; exitCode=$Ex_No_Input
+	# 	elif [ "$computeReplayGain" = 'true' -a -z "$outputCodecs" -a ! -w "$inputFile" ]; then
+	# 		printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
+	# 	elif [ "$reverseReplayGain" = 'true' -a ! -w "$inputFile" ]; then
+	# 		printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
+	# 	elif [ "$touchFiles" = 'true' -a ! -w "$inputFile" ]; then
+	# 		printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'refusing to touch file that is read-only.' ; exitCode=$Ex_Cant_Create
+	# 	else
+	# 		addToSourceFiles='false'
+	# 		if [ -n "$outputCodecs" ]; then # transcode
+	# 			inputDirName="$( getDirName "$inputFile" )"
+	# 			for outputCodec in $outputCodecs; do
+	# 				getOutputCodecDestFile "$inputFile" "$outputCodec"
+	# 				copyPath="$( copyPathOrNot "$outputCodec" )"
+	# 				if [ "$copyPath" = 'true' ]; then
+	# 					cdpath='/./' pdpath='/../'
+	# 					if [ "${inputFile:0:2}" = './' -o "${inputFile:0:3}" = '../' -o "$inputDirName" != "${inputDirName//$cdpath/@}" -o "$inputDirName" != "${inputDirName//$pdpath/@}" ]; then
+	# 						printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" "can't use paths containing ./ or ../ with caudec -P." ; exitCode=$Ex_Usage
+	# 						continue
+	# 					fi
+	# 				fi
 
-						*)
-							if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-								printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-								exitCode=$Ex_Data_Err
-							fi
-							continue
-							;;
-					esac
-				done
-			fi
+	# 				case "$inputFile" in
+	# 					*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape|*.m4a)
+	# 						addToSourceFiles='true'
+	# 						case "$inputFile" in
+	# 							*.m4a)
+	# 								codec="$( ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$inputFile" 2>/dev/null )"
+	# 								if [ "$codec" != "alac" ]; then
+	# 									addToSourceFiles='false'
+	# 									printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" "refusing to transcode from lossy codec ($codec)." ; exitCode=$Ex_Data_Err
+	# 								fi
+	# 								;;
+	# 						esac
+	# 						if [ "$addToSourceFiles" = 'false' ]; then continue ; fi
+	# 						if [ "$keepExistingFiles" = 'true' ]; then
+	# 							if [ -e "$destFile" ]; then
+	# 								addToSourceFiles='false'
+	# 								printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: \"$destFile\" exists already."
+	# 							fi
+	# 						fi
+	# 						if [ "$keepNewerFiles" = 'true' ]; then
+	# 							if [ -e "$destFile" ]; then
+	# 								if isFileNewer "$destFile" "$inputFile"; then
+	# 									addToSourceFiles='false'
+	# 									printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: \"$destFile\" is newer that the source."
+	# 								fi
+	# 							else
+	# 								addToSourceFiles='true'
+	# 							fi
+	# 						fi
+	# 						;;
 
-			if [ "$displayInternalHash" = 'true' ]; then
-				case "$inputFile" in
-					*.flac|*.wv) addToSourceFiles='true' ;;
-					*)
-						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-							exitCode=$Ex_Data_Err
-						fi
-						continue
-						;;
-				esac
-			elif [ "$checkFiles" = 'true' ]; then
-				case "$inputFile" in
-					*.flac|*.wv|*.ape) addToSourceFiles='true' ;;
-					*)
-						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-							exitCode=$Ex_Data_Err
-						fi
-						continue
-						;;
-				esac
-			fi
+	# 					*)
+	# 						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+	# 							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+	# 							exitCode=$Ex_Data_Err
+	# 						fi
+	# 						continue
+	# 						;;
+	# 				esac
+	# 			done
+	# 		fi
 
-			if [ "$showInformation" = 'true' -o "$showDurations" = 'true' ]; then
-				case "$inputFile" in
-					*.flac|*.wv|*.ape|*.ogg|*.m4a|*.mp3|*.opus) addToSourceFiles='true' ;;
-					*)
-						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-							exitCode=$Ex_Data_Err
-						fi
-						continue
-						;;
-				esac
-			fi
+	# 		if [ "$displayInternalHash" = 'true' ]; then
+	# 			case "$inputFile" in
+	# 				*.flac|*.wv) addToSourceFiles='true' ;;
+	# 				*)
+	# 					if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+	# 						printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+	# 						exitCode=$Ex_Data_Err
+	# 					fi
+	# 					continue
+	# 					;;
+	# 			esac
+	# 		elif [ "$checkFiles" = 'true' ]; then
+	# 			case "$inputFile" in
+	# 				*.flac|*.wv|*.ape) addToSourceFiles='true' ;;
+	# 				*)
+	# 					if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+	# 						printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+	# 						exitCode=$Ex_Data_Err
+	# 					fi
+	# 					continue
+	# 					;;
+	# 			esac
+	# 		fi
 
-			if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
-				inputFileExtension="${inputFile##*.}"
-				case "$inputFileExtension" in
-					flac|wv|ape|ogg|m4a|mp3|opus)
-						addToSourceFiles='true'
-						if [ -z "$commonFileExtension" ]; then
-							commonFileExtension="$inputFileExtension"
-						elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
-							inputCodecsAreAllTheSame='false'
-							addToSourceFiles='false'
-							if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-								printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension"
-								exitCode=$Ex_Data_Err
-							fi
-							continue
-						fi
-						;;
+	# 		if [ "$showInformation" = 'true' -o "$showDurations" = 'true' ]; then
+	# 			case "$inputFile" in
+	# 				*.flac|*.wv|*.ape|*.ogg|*.m4a|*.mp3|*.opus) addToSourceFiles='true' ;;
+	# 				*)
+	# 					if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+	# 						printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+	# 						exitCode=$Ex_Data_Err
+	# 					fi
+	# 					continue
+	# 					;;
+	# 			esac
+	# 		fi
 
-					*)
-						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-							exitCode=$Ex_Data_Err
-						fi
-						continue
-						;;
-				esac
-			fi
+	# 		if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
+	# 			inputFileExtension="${inputFile##*.}"
+	# 			case "$inputFileExtension" in
+	# 				flac|wv|ape|ogg|m4a|mp3|opus)
+	# 					addToSourceFiles='true'
+	# 					if [ -z "$commonFileExtension" ]; then
+	# 						commonFileExtension="$inputFileExtension"
+	# 					elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
+	# 						inputCodecsAreAllTheSame='false'
+	# 						addToSourceFiles='false'
+	# 						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+	# 							printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension"
+	# 							exitCode=$Ex_Data_Err
+	# 						fi
+	# 						continue
+	# 					fi
+	# 					;;
 
-			if [ "$applyGain" = 'true' ]; then
-				if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-					printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-					exitCode=$Ex_Data_Err
-				fi
-				continue
-			fi
+	# 				*)
+	# 					if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+	# 						printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+	# 						exitCode=$Ex_Data_Err
+	# 					fi
+	# 					continue
+	# 					;;
+	# 			esac
+	# 		fi
 
-			if [ "$touchFiles" = 'true' ]; then
-				addToSourceFiles='true'
-			fi
-		fi
+	# 		if [ "$applyGain" = 'true' ]; then
+	# 			if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+	# 				printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+	# 				exitCode=$Ex_Data_Err
+	# 			fi
+	# 			continue
+	# 		fi
 
-		if [ "$computeDynamicRange" = 'true' ]; then
-			inputFileExtension="${inputFile##*.}"
-			case "$inputFileExtension" in
-				flac|wv|ape|ogg|mp3)
-					addToSourceFiles='true'
-					;;
+	# 		if [ "$touchFiles" = 'true' ]; then
+	# 			addToSourceFiles='true'
+	# 		fi
+	# 	fi
 
-				*)
-					if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-						printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-						exitCode=$Ex_Data_Err
-					fi
-					continue
-					;;
-			esac
-		fi
+	# 	if [ "$computeDynamicRange" = 'true' ]; then
+	# 		inputFileExtension="${inputFile##*.}"
+	# 		case "$inputFileExtension" in
+	# 			flac|wv|ape|ogg|mp3)
+	# 				addToSourceFiles='true'
+	# 				;;
 
-		if [ "$addToSourceFiles" = 'true' ]; then
-			echo "$inputFile" >> "${Self_Data_Dir}/sourceFiles.txt"
-			(( numberOfSourceFiles++ ))
-		fi
-	done < "${Self_Data_Dir}/inputFiles.txt"
+	# 			*)
+	# 				if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+	# 					printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
+	# 					exitCode=$Ex_Data_Err
+	# 				fi
+	# 				continue
+	# 				;;
+	# 		esac
+	# 	fi
+
+	# 	if [ "$addToSourceFiles" = 'true' ]; then
+	# 		echo "$inputFile" >> "${Self_Data_Dir}/sourceFiles.txt"
+	# 		(( numberOfSourceFiles++ ))
+	# 	fi
+	# done < "${Self_Data_Dir}/inputFiles.txt"
 
 	rm -f "${Self_Data_Dir}/inputFiles.txt"
 
@@ -1769,8 +1771,8 @@ createControlFiles () {
 		echo "$fileMilliseconds $paddedFileIndex $sourceFile" >> "${Self_Data_Dir}/millisecondsAndFileIndexes_${jobIndex}.list"
 
 		for outputCodec in $outputCodecs; do
-		touch "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info" \
-			"${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
+			touch "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info" \
+				"${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
 		done
 
 		if [ "$computeReplayGain" = 'true' ]; then
@@ -3867,15 +3869,23 @@ decode () {
 
 			# decodeALAC
 			m4a)
-				sourceTagFormat='alac'
-				nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" )
-				ffmpeg -i "$copyFile" -threads ${nThreads} "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-				if [ $exitCode -eq $Ex_Ok ]; then
-					ffprobe -show_format -print_format flat "$copyFile" 2>/dev/null | grep -iE '^format.tags' | cut -d '.' -f 3- | grep -ivE '^(;|major_brand=|minor_version=|compatible_brands=)' | $sedcmd -e 's@="@=@' -e 's@\"$@@' > "$sourceTagFile" 2>/dev/null
+				codec="$( ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$copyFile" 2>/dev/null )"
+				if [ "$codec" = "alac" ]; then
+					sourceTagFormat='alac'
+					nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" )
+					ffmpeg -i "$copyFile" -threads ${nThreads} "$wavFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					if [ $exitCode -eq $Ex_Ok ]; then
+						ffprobe -show_format -print_format flat "$copyFile" 2>/dev/null | grep -iE '^format.tags' | cut -d '.' -f 3- | grep -ivE '^(;|major_brand=|minor_version=|compatible_brands=)' | $sedcmd -e 's@="@=@' -e 's@\"$@@' > "$sourceTagFile" 2>/dev/null
+					fi
 				fi
 				;;
 
-			*) exitCode=$Ex_Ko ;;
+			*)
+				if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+					printMessage 'warning' 'decoding' 'unsupported' "file:${sourceFile}" 'unsupported format.'
+				fi
+				exitCode=$Ex_Data_Err
+				;;
 		esac
 	else
 		exitCode=$Ex_Ko
@@ -4438,6 +4448,13 @@ encode () {
 				printf -- "--quiet`tagline --comment`\x00%s`genOpusArtworkCommandLine`\x00%s" "$wavFile" "$encodedFile" | xargs -0 opusenc --padding $OpusPadding --hard-cbr --bitrate $bitrate_Opus 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			fi
 			;;
+
+		*)
+			if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+				printMessage 'warning' 'processing' 'unsupported' "file:${sourceFile}" 'unsupported format.'
+			fi
+			exitCode=$Ex_Data_Err
+			;;
 	esac
 
 	if [ "$copyPath" = 'true' ]; then
@@ -4618,7 +4635,7 @@ transcode () {
 	until test "$allFilesDone" = 'true' ; do
 		allFilesDone='true'
 		while read milliseconds paddedFileIndex sourceFile; do
-			sourceFilename="$( basename "$sourceFile" )"
+			sourceFilename="$( getFileName "$sourceFile" )"
 			sourceExtension="${sourceFile##*.}"
 			transcodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 			decodingJobFile="${Self_Control_Dir}/${paddedFileIndex}_decoding.job"
@@ -4627,16 +4644,28 @@ transcode () {
 			if getAndRenameLock "$transcodingJobFile" "$decodingJobFile"; then
 				allFilesDone='false'
 				setControlVariables
-				getFileProps "$sourceFile"
-				prepareSource &&
-				decode || exitCode=$Ex_Ko
-				if [ "$computeReplayGain" = 'true' ]; then
+				getFileProps "$sourceFile" ; exitCode=$?
+				if [ $exitCode -eq $Ex_Ok ]; then
+					prepareSource ; exitCode=$?
+				fi
+				if [ $exitCode -eq $Ex_Ok ]; then
+					decode ; exitCode=$?
+				fi
+				if [ "$computeReplayGain" = 'true' -a $exitCode -eq $Ex_Ok ]; then
 					for outputCodec in $outputCodecs; do
 						case "$outputCodec" in
 							WAV|FLAC|WavPack|WavPackHybrid|MonkeysAudio)
 								trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${outputCodec}.txt"
 								trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${outputCodec}.txt"
-								computeTrackGain "$wavFile"
+								computeTrackGain "$wavFile" ; exitCode=$?
+								if [ $exitCode -ne $Ex_Ok ]; then
+									rm -f "$wavFile" "$copyFile" "${copyFile}c" "$resampledWavFile" "$wavProcessedStatusFile" \
+										"${Self_Control_Dir}/${paddedFileIndex}_needsWAV_"*.info \
+										"${Self_Control_Dir}/${paddedFileIndex}_encoding_"*.job \
+										"${Self_Control_Dir}/${paddedFileIndex}_replaygain_"*.job \
+										"$decodingJobFile" 1>/dev/null 2>&1
+									touch "$wasProcessedFile"
+								fi
 								;;
 						esac
 					done
@@ -4661,9 +4690,11 @@ transcode () {
 					setControlVariables
 					getFileProps "$sourceFile" "$outputCodec"
 					encode $nDecodingThreads || exitCode=$Ex_Ko
-					copyOrLinkOtherFiles "$outputCodec"
-					if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
-						copyOrLinkOtherFiles "WavPackLossy"
+					if [ $exitCode -eq $Ex_Ok ]; then
+						copyOrLinkOtherFiles "$outputCodec"
+						if [ "$outputCodec" = "WavPackHybrid" -a -d "$destLinkPath" ]; then
+							copyOrLinkOtherFiles "WavPackLossy"
+						fi
 					fi
 					rm -f "$encodingNeedsWavFile"
 
@@ -4736,7 +4767,12 @@ testFile () {
 				mac "$copyFile" -V -threads=$nThreads 1>/dev/null 2>&1; exitCode=$?
 				;;
 
-			*) printMessage 'warning' 'testing' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format' ; return $Ex_Ko ;;
+			*)
+				if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+					printMessage 'warning' 'testing' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format'
+				fi
+				return $Ex_Data_Err
+				;;
 		esac
 	else
 		exitCode=$Ex_Ko
@@ -4754,7 +4790,7 @@ testFile () {
 testFiles () {
 	local exitCode=$Ex_Ok jobFile
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		sourceFilename="$( basename "$sourceFile" )"
+		sourceFilename="$( getFileName "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
 		copyFile="${Self_Swap_Dir}/${paddedFileIndex}_input.${sourceExtension}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
@@ -4779,7 +4815,12 @@ showInternalHash () {
 		case "$sourceFile" in
 			*.flac) hash="$( metaflac --show-md5sum "$sourceFile" )" ;;
 			*.wv) hash="$( wvunpack -f7 "$sourceFile" 2>/dev/null )" ;;
-			*) printMessage 'warning' 'hashing' '' 'unsupported format' "file:${sourceFile}" $processNumber ; return $Ex_Ko ;;
+			*)
+				if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+					printMessage 'warning' 'hashing' '' 'unsupported format' "file:${sourceFile}" $processNumber
+				fi
+				return $Ex_Data_Err
+				;;
 		esac
 	else
 		exitCode=$Ex_Ko
@@ -4796,7 +4837,7 @@ showInternalHash () {
 showInternalHashes () {
 	local exitCode=$Ex_Ok jobFile
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		sourceFilename="$( basename "$sourceFile" )"
+		sourceFilename="$( getFileName "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
 		copyFile="${Self_Swap_Dir}/${paddedFileIndex}_input.${sourceExtension}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
@@ -4854,7 +4895,7 @@ showTracksDurations () {
 	local exitCode=$Ex_Ok jobFile
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		sourceFilename="$( basename "$sourceFile" )"
+		sourceFilename="$( getFileName "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
@@ -4970,7 +5011,7 @@ showTracksInformation () {
 	local exitCode=$Ex_Ok jobFile
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		sourceFilename="$( basename "$sourceFile" )"
+		sourceFilename="$( getFileName "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
@@ -5307,7 +5348,10 @@ computeTrackGain () {
 				fi
 				;;
 
-			*) printMessage 'warning' 'track_gain' 'unsupported' "file:${file}" $processNumber 'unsupported format' ; return $Ex_Ko ;;
+			*)
+				printMessage 'warning' 'track_gain' 'unsupported' "file:${file}" $processNumber 'unsupported format'
+				return $Ex_Data_Err
+				;;
 		esac
 		shopt -qu nocasematch
 	else
@@ -5334,7 +5378,7 @@ computeTrackGains () {
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
 		destFile="$sourceFile"
-		sourceFilename="$( basename "$sourceFile" )"
+		sourceFilename="$( getFileName "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
@@ -5578,7 +5622,7 @@ computeRsgain () {
 
 	IFS="$OIFS"
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		sourceDirname="$( dirname "$sourceFile" )"
+		sourceDirname="$( getDirName "$sourceFile" )"
 		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
 		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
 		saveReplayGain "$sourceFile" || exitCode=$Ex_Ko
@@ -5755,25 +5799,38 @@ reverseOpusTrackGains () {
 	local exitCode=$Ex_Ok list sourceFile
 
 	for sourceFile in "${sourceFiles[@]}"; do
-		if [ -z "$list" ]; then
-			list="$sourceFile"
+		sourceExtension="${sourceFile##*.}"
+		if [ "$sourceExtension" = 'opus' ]; then
+			if [ -z "$list" ]; then
+				list="$sourceFile"
+			else
+				list="${list}\x00${sourceFile}"
+			fi
 		else
-			list="${list}\x00${sourceFile}"
+			if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+				printMessage 'warning' 'processing' 'unsupported' "file:${sourceFile}" 'unsupported format.'
+			fi
 		fi
 	done
 
-	echo -en "$list" | xargs -0 opusgain -j $nProcesses -p 'original' 1>/dev/null 2>> "$Self_Errors_File" &&
-	echo -en "$list" | xargs -0 opusgain -j $nProcesses -c 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-	if [ $exitCode -ne $Ex_Ko ]; then
-		# opusgain changes the rights on the files it touches, to u=rw,go=
-		chmod u=rw,go=r "${sourceFiles[@]}" 1>/dev/null 2>> "$Self_Errors_File"
+	if [ -n "$list" ]; then
+		echo -en "$list" | xargs -0 opusgain -j $nProcesses -p 'original' 1>/dev/null 2>> "$Self_Errors_File" &&
+		echo -en "$list" | xargs -0 opusgain -j $nProcesses -c 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+		if [ $exitCode -ne $Ex_Ko ]; then
+			# opusgain changes the rights on the files it touches, to u=rw,go=
+			chmod u=rw,go=r "${sourceFiles[@]}" 1>/dev/null 2>> "$Self_Errors_File"
 
-		for sourceFile in "${sourceFiles[@]}"; do
-			printMessage 'success' 'track_gain' 0 "-0 dB" "file:${sourceFile}"
-		done
+			for sourceFile in "${sourceFiles[@]}"; do
+				printMessage 'success' 'track_gain' 0 "-0 dB" "file:${sourceFile}"
+			done
+		else
+			printMessage 'error' 'track_gain' "Track gain"
+		fi
 	else
 		printMessage 'error' 'track_gain' "Track gain"
+		exitCode=$Ex_Data_Err
 	fi
+
 
 	return $exitCode
 }
@@ -5874,7 +5931,12 @@ reverseTrackGain () {
 				mp3rgain -u -s d "$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				;;
 
-			*) printMessage 'warning' 'track_gain' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format' ; return $Ex_Ko ;;
+			*)
+				if [ "$ignoreUnsupportedFiles" = 'false' ]; then
+					printMessage 'warning' 'track_gain' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format'
+				fi
+				return $Ex_Data_Err
+				;;
 		esac
 	else
 		exitCode=$Ex_Ko
@@ -6042,7 +6104,7 @@ computeAlbumDR () {
 		audioAlbumDR="$( printf "%.0f" "$( echo "scale=6; $audioAlbumDR / $audioAlbumDrSeconds" | bc )" )"
 		while read fileMilliseconds paddedFileIndex sourceFile; do
 			if [ -z "$albumPath" ]; then
-				albumPath="$( dirname "${sourceFiles[$fileIndex]}" )"
+				albumPath="$( getDirName "${sourceFiles[$fileIndex]}" )"
 			fi
 			echo "$audioAlbumDR" > "${Self_Data_Dir}/${paddedFileIndex}_albumdr_any.txt"
 		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
@@ -6138,7 +6200,7 @@ computeTrackDateTimes () {
 	local exitCode=$Ex_Ok jobFile
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		sourceFilename="$( basename "$sourceFile" )"
+		sourceFilename="$( getFileName "$sourceFile" )"
 		sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
@@ -6171,7 +6233,7 @@ touchAllFiles () {
 
 	dirIndex=0
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		sourceDirname="$( dirname "$sourceFile" )"
+		sourceDirname="$( getDirName "$sourceFile" )"
 		curDir="$( readlink -f "$sourceDirname" )"
 		if [ "$curDir" != "$lastDir" ]; then
 			discDirs[$dirIndex]="$curDir"
@@ -6190,19 +6252,19 @@ touchAllFiles () {
 		audioFileIndex=0
 		otherFileIndex=0
 		while read fileMilliseconds paddedFileIndex sourceFile; do
-			sourceDirname="$( dirname "$sourceFile" )"
+			sourceDirname="$( getDirName "$sourceFile" )"
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			case "$sourceFile" in
 				*.flac|*ogg|*.m4a|*.wv|*.ape|*.mp3|*.opus) audioFiles[$audioFileIndex]="$sourceFile" ; (( audioFileIndex++ )) ;;
 				*.wvc) continue ;; # will be touched when the matching .wv file is touched
-				*.aiff|*.caf) continue ;; # unsupported audio files
+				*.aiff|*.caf) continue ;; # FIXME unsupported audio files
 				*) otherFiles[$otherFileIndex]="$sourceFile" ; (( otherFileIndex++ )) ;; # all non-audio files
 			esac
 		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
 		for audioFile in "${audioFiles[@]}"; do
-			audioFileDirname="$( dirname "$audioFile" )"
+			audioFileDirname="$( getDirName "$audioFile" )"
 			dirPath="$( readlink -f "$audioFileDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			if [ "$gotLinkedDir" = 'true' -a -z "$linkPath" ]; then
@@ -6211,7 +6273,7 @@ touchAllFiles () {
 				if [ -n "$inode" ]; then
 					while read linkedFile; do
 						if [ -z "$linkPath" ]; then
-							linkPath="$( dirname "$linkedFile" )"
+							linkPath="$( getDirName "$linkedFile" )"
 							linkedDiscDirs[$dirIndex]="$linkPath"
 							break
 						fi
@@ -6223,7 +6285,7 @@ touchAllFiles () {
 		done
 
 		while read fileMilliseconds paddedFileIndex sourceFile; do
-			sourceDirname="$( dirname "$sourceFile" )"
+			sourceDirname="$( getDirName "$sourceFile" )"
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
@@ -6275,7 +6337,7 @@ touchAllFiles () {
 		for (( dirIndex=0; dirIndex < ${#discDirs[@]}; dirIndex++ )); do
 			curDir="${discDirs[$dirIndex]}"
 			curLinkedDir="${linkedDiscDirs[$dirIndex]}"
-			albumDir="$( dirname "$curDir" )"
+			albumDir="$( getDirName "$curDir" )"
 
 			if [ ! -w "$albumDir" ]; then
 				printMessage 'warning' 'usage' 'filesystem' "path:${albumDir}" 'refusing to touch directory that is read-only.'
@@ -6285,7 +6347,7 @@ touchAllFiles () {
 			fi
 
 			if [ -n "$curLinkedDir" ]; then
-				albumLinkDir="$( dirname "$curLinkedDir" )"
+				albumLinkDir="$( getDirName "$curLinkedDir" )"
 				if [ ! -w "$albumLinkDir" ]; then
 					printMessage 'warning' 'usage' 'filesystem' "path:${albumLinkDir}" 'refusing to touch directory that is read-only.'
 				else
@@ -6354,12 +6416,29 @@ getCodecFullName () {
 	echo "$codecFullName"
 }
 
+getDirName () {
+	local file="$1" dirName
+
+	dirName="${file%/*}"
+	if [ "$dirName" != "$file" ]; then
+		echo "$dirName"
+	else
+		echo '.'
+	fi
+}
+
+getFileName () {
+	local file="$1"
+
+	echo "${file##*/}"
+}
+
 getOutputCodecDestFile () {
 	local sourceFile="$1" outputCodec="$2" sourceFilename sourceDirname sourceBasename sourceIsLossyWAV
 	local sourceExtension destExtension destDir destFilename copyPath
 
-	sourceFilename="$( basename "$sourceFile" )"
-	sourceDirname="$( dirname "$sourceFile" )"
+	sourceFilename="$( getFileName "$sourceFile" )"
+	sourceDirname="$( getDirName "$sourceFile" )"
 	sourceBasename="${sourceFilename%.*}"
 	if [ "$sourceBasename" != "${sourceBasename%.lossy}" ]; then
 		sourceIsLossyWAV='true'
@@ -6388,11 +6467,11 @@ getOutputCodecDestFile () {
 }
 
 getFileProps () {
-	local outputCodec="$2"
+	local outputCodec="$2" exitCode=$Ex_Ok cdpath pdpath
 
 	sourceFile="$1"
-	sourceFilename="$( basename "$sourceFile" )"
-	sourceDirname="$( dirname "$sourceFile" )"
+	sourceFilename="$( getFileName "$sourceFile" )"
+	sourceDirname="$( getDirName "$sourceFile" )"
 	sourceBasename="${sourceFilename%.*}"
 	if [ "$sourceBasename" != "${sourceBasename%.lossy}" ]; then
 		sourceIsLossyWAV='true'
@@ -6411,21 +6490,13 @@ getFileProps () {
 		fi
 		destFilename="${sourceBasename}.${destExtension}"
 
-		sourceCoverArtFile=""
-		coverArtFilename="$( getCodecCoverArtFile "$outputCodec" )"
-		if [ -n "$coverArtFilename" ]; then
-			sourceCoverArtFile="${sourceDirname}/${coverArtFilename}"
-			if [ ! -e "$sourceCoverArtFile" ]; then
-				sourceCoverArtFile=""
-				# printMessage 'warning' 'usage' 'filesystem' "file:${coverArtFilename}" 'no such file.'
-			elif [ ! -r "$sourceCoverArtFile" ]; then
-				sourceCoverArtFile=""
-				# printMessage 'warning' 'usage' 'filesystem' "file:${coverArtFilename}" 'cannot open file for reading (permission denied).'
-			fi
-		fi
-
 		copyPath="$( copyPathOrNot "$outputCodec" )"
 		if [ "$copyPath" = 'true' ]; then
+			cdpath='/./' pdpath='/../'
+			if [ "${soureceFile:0:2}" = './' -o "${soureceFile:0:3}" = '../' -o "$sourceDirname" != "${sourceDirname//$cdpath/@}" -o "$sourceDirname" != "${sourceDirname//$pdpath/@}" ]; then
+				printMessage 'error' 'usage' 'filesystem' "path:${soureceFile}" "can't use paths containing ./ or ../ with caudec -P."
+				return $Ex_Usage
+			fi
 			destPath="${destDir}/${sourceDirname#/}"
 			destFile="${destPath}/${destFilename}"
 			if [ -n "$linkDir" ]; then
@@ -6440,7 +6511,22 @@ getFileProps () {
 				destLinkFile="${linkDir}/${destFilename}"
 			fi
 		fi
+
+		sourceCoverArtFile=""
+		coverArtFilename="$( getCodecCoverArtFile "$outputCodec" )"
+		if [ -n "$coverArtFilename" ]; then
+			sourceCoverArtFile="${sourceDirname}/${coverArtFilename}"
+			if [ ! -e "$sourceCoverArtFile" ]; then
+				sourceCoverArtFile=""
+				# printMessage 'warning' 'usage' 'filesystem' "file:${coverArtFilename}" 'no such file.'
+			elif [ ! -r "$sourceCoverArtFile" ]; then
+				sourceCoverArtFile=""
+				# printMessage 'warning' 'usage' 'filesystem' "file:${coverArtFilename}" 'cannot open file for reading (permission denied).'
+			fi
+		fi
 	fi
+
+	return $exitCode
 }
 
 printMachineStats () {
