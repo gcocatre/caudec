@@ -503,6 +503,8 @@ getMachineParsableString () {
 	case "$msgType" in
 		abort) str="$( printf "%s|%s|%s|%s|%s|%s\n" '0' "$msgType" 'aborting' '' 'Aborting.' '' )" ;;
 
+		style) return ;;
+
 		info)
 			if [ -n "$bitrate" ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "bitrate_${codec}" "$bitrate" "$msg" '' )"
@@ -535,6 +537,8 @@ getMachineParsableString () {
 			elif [ "$statusInfo" = 'characteristics' ]; then
 				characteristics="${characteristics// /}"
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$characteristics" "$msg" "$file" )"
+			elif [ -n "$percentDone" ]; then
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "${percentDone}% done" "$file" )"
 			else
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$file" )"
 			fi
@@ -591,7 +595,12 @@ getHumanReadableString () {
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}%s ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$msg" "${statusData}" "$fileName" )"
 			elif [ -n "$msg" ]; then
 				str="$( printf "${Clr_B_Bk} * ${Clr_Rst}%s\n" "$msg" )"
-			fi ;;
+			fi
+			;;
+
+		style)
+			str="$msg"
+			;;
 
 		abort) str="$( printf "${Clr_Wg} * ${Clr_Rst}%s\n" 'Aborting.' )" ;;
 
@@ -649,7 +658,9 @@ getHumanReadableString () {
 					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bl}OM ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$fileName" )"
 				fi
 			elif [ -n "$file" ]; then # transcoding or hashing
-				if [ -n "$processNumber" ]; then
+				if [ -n "$percentDone" ]; then
+					str="$( printf "${Clr_B_Bk}%2u%% ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $percentDone "$fileName" )"
+				elif [ -n "$processNumber" ]; then
 					if [ -n "$numberOfThreads" ]; then
 						if [ $numberOfThreads -lt 2 ]; then
 							str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$fileName" )"
@@ -770,11 +781,12 @@ printMessageToStdoutOrStderr () {
 printMessage () {
 	local msgArg msgType='info' msgVerbose='default' msgDebug='normal' msgOut='stdout' statusInfo statusData
 	local file path fileDir fileName msg p numberOfThreads hashError gain bitrate
-	local codec outputCodec str duration characteristics processingRate dateTime albumTime
+	local codec outputCodec str duration characteristics processingRate dateTime albumTime percentDone
 
 	for msgArg in "$@"; do
 		case "$msgArg" in
 			info) msgType="$msgArg" msgVerbose='verbose' ;;
+			style) msgType="$msgArg" msgVerbose='verbose' ;;
 			success) msgType="$msgArg" msgVerbose='verbose' ;;
 			warning|error|abort) msgType="$msgArg" msgOut='stderr' ;;
 			verbose) msgVerbose='verbose' ;;
@@ -794,6 +806,7 @@ printMessage () {
 			bitrate_*) codec="${msgArg#bitrate_}" ;;
 			[0-9]*) p="$msgArg" ;;
 			threads:[0-9]*) numberOfThreads="${msgArg#threads:}" ;;
+			percentDone:[0-9]*) percentDone="${msgArg#percentDone:}" ;;
 			dateTime:[0-9]*) dateTime="${msgArg#dateTime:}" ;;
 			albumTime:[0-9:]*) albumTime="${msgArg#albumTime:}" ;;
 			duration:*) duration="${msgArg#duration:}" ;;
@@ -4199,6 +4212,7 @@ encode () {
 	local compressionTag='' id3CompressionTag='' m4aCompressionTag=''
 	local nChannels compressionParam qualityArg coverArtFile='' doEmbedUserCoverArt='true' bitsPerSample
 	local embeddedArtworkBytes=0 padding mParam=''
+	local numberOfOutputCodecs=0 numberOfEncodingJobs numberOfEncodingJobsLeft percentEncoded
 	# local doEmbedBinaries='true' # FIXME with a new -F parameter
 
 	doEmbedUserCoverArt="$( shouldEmbedUserCoverArt "$outputCodec" )"
@@ -4557,6 +4571,16 @@ encode () {
 				fi
 			fi
 
+			for outputCodec in $outputCodecs; do
+				(( numberOfOutputCodecs++ ))
+			done
+			numberOfEncodingJobs=$(( numberOfSourceFiles * numberOfOutputCodecs ))
+			numberOfEncodingJobsLeft="$( ls -1 "${Self_Control_Dir}/"*_encoding_*.job 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
+			percentEncoded="$( printf "%.0f" "$( echo "scale=2; ($numberOfEncodingJobs - $numberOfEncodingJobsLeft) * 100 / $numberOfEncodingJobs" | bc )" )"
+			if [ $percentEncoded -gt 99 ]; then
+				percentEncoded=99
+			fi
+
 			case $outputCodec in
 				WAV|AIFF|CAF)
 					printMessage 'success' "$statusInfo" "file:${destFile}" $processNumber "outputCodec:WAV" "threads:$nDecodingThreads"
@@ -4564,14 +4588,14 @@ encode () {
 
 				WavPackHybrid)
 					if [ -n "$destLinkPath" ]; then
-						printMessage 'success' "$statusInfo" "file:${destFile}" $processNumber "outputCodec:${outputCodec}" "threads:$nThreads" "$destLinkPath"
+						printMessage 'success' "$statusInfo" "file:${destFile}" "outputCodec:${outputCodec}" "threads:$nThreads"  "percentDone:$percentEncoded" "$destLinkPath"
 					else
-						printMessage 'success' "$statusInfo" "file:${destFile}" $processNumber "outputCodec:${outputCodec}" "threads:$nThreads"
+						printMessage 'success' "$statusInfo" "file:${destFile}" "outputCodec:${outputCodec}" "threads:$nThreads" "percentDone:$percentEncoded"
 					fi
 					;;
 
 				*)
-					printMessage 'success' "$statusInfo" "file:${destFile}" $processNumber "outputCodec:${outputCodec}" "threads:$nThreads"
+					printMessage 'success' "$statusInfo" "file:${destFile}" "outputCodec:${outputCodec}" "threads:$nThreads" "percentDone:$percentEncoded"
 					;;
 			esac
 		fi
@@ -8133,7 +8157,7 @@ if [ $exitCode -eq $Ex_Ok ]; then
 			processNumber=0
 			for outputCodec in $outputCodecs; do
 				codecFullName="$( getCodecFullName "$outputCodec" )"
-				echo
+				printMessage 'style' ' '
 				printMessage 'info' "Computing ReplayGain album gain(s) for ${codecFullName}…"
 				egrep -s "^${outputCodec} " "${Self_Data_Dir}/destPaths.txt" 2>> "$Self_Errors_File" | cut -d ' ' -f 5-  | sort -u > "${Self_Data_Dir}/destPaths_${outputCodec}.txt"
 				while read destPath; do
@@ -8152,7 +8176,7 @@ if [ $exitCode -eq $Ex_Ok ]; then
 				done < "${Self_Data_Dir}/destPaths_${outputCodec}.txt"
 				rm -f "${Self_Data_Dir}/destPaths_${outputCodec}.txt"
 			done
-			echo
+			printMessage 'style' ' '
 		fi
 	elif [ "$showDurations" = 'true' ]; then
 		showAlbumDuration || exitCode=$Ex_Ko
