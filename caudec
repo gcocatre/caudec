@@ -659,7 +659,7 @@ getHumanReadableString () {
 				fi
 			elif [ -n "$file" ]; then # transcoding or hashing
 				if [ -n "$percentDone" ]; then
-					str="$( printf "${Clr_B_Bk}%2u%% ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $percentDone "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%3u%% ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $percentDone "$fileName" )"
 				elif [ -n "$processNumber" ]; then
 					if [ -n "$numberOfThreads" ]; then
 						if [ $numberOfThreads -lt 2 ]; then
@@ -6661,7 +6661,7 @@ printHumanStats () {
 		duration="$( printf "%.0f" "$( echo "scale=3; $duration / 1000" | bc )" )"
 		processingRate="$( echo "scale=1; $duration / $seconds" | bc )"
 	fi
-	printf "${Clr_B_Bk} * ${Clr_Rst}%.2f seconds" $seconds
+	printf "${Clr_B_Bk}100%% ${Clr_Rst}%.2f seconds" $seconds
 
 	readDuration="$( { echo -n 'scale=6; 0' ; cat "${Self_Data_Dir}/readTimes.txt" ; echo ; } | bc )"
 	if [ "$readDuration" = '0' -o -z "$readDuration" ]; then # prevent division by 0 situations
