@@ -1504,7 +1504,13 @@ checkInputFiles () {
 	# fi
 
 	if [ "$touchFiles" = 'true' ]; then
-		cp "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>/dev/null
+		egrep -q -s -c -m 1 '\.(flac|wv|ape|m4a|ogg|opus|mp3)$' "${Self_Data_Dir}/inputFiles.txt" 2>> "$Self_Errors_File" || exitCode=$Ex_Data_Err
+		if [ $exitCode -ne $Ex_Ok ]; then
+			printMessage 'warning' 'usage' 'filesystem' 'verbose' "At least one supported file needed, none found (FLAC, WavPack, Monkey's Audio, ALAC, Ogg Vorbis, Opus, MP3)"
+			printMessage 'abort' 'verbose'
+			cleanExit $exitCode
+		fi
+		sort "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
 	elif [ -n "$outputCodecs" ]; then # transcode
 		egrep -s '\.(wav|aiff|caf|flac|wv|ape|m4a)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
 	elif [ "$displayInternalHash" = 'true' ]; then
@@ -6268,7 +6274,6 @@ touchAllFiles () {
 			case "$sourceFile" in
 				*.flac|*ogg|*.m4a|*.wv|*.ape|*.mp3|*.opus) audioFiles[$audioFileIndex]="$sourceFile" ; (( audioFileIndex++ )) ;;
 				*.wvc) continue ;; # will be touched when the matching .wv file is touched
-				*.aiff|*.caf) continue ;; # FIXME unsupported audio files
 				*) otherFiles[$otherFileIndex]="$sourceFile" ; (( otherFileIndex++ )) ;; # all non-audio files
 			esac
 		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
