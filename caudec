@@ -8135,6 +8135,7 @@ if [ $exitCode -eq $Ex_Ok ]; then
 				codecFullName="$( getCodecFullName "$outputCodec" )"
 				echo
 				printMessage 'info' "Computing ReplayGain album gain(s) for ${codecFullName}…"
+				egrep -s "^${outputCodec} " "${Self_Data_Dir}/destPaths.txt" 2>> "$Self_Errors_File" | cut -d ' ' -f 5-  | sort -u > "${Self_Data_Dir}/destPaths_${outputCodec}.txt"
 				while read destPath; do
 					if [ "$outputCodec" = 'Opus' ]; then
 						computeOpusAlbumGain "$destPath"
@@ -8148,7 +8149,8 @@ if [ $exitCode -eq $Ex_Ok ]; then
 						exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
 
 					fi
-				done < <( egrep -s "^${outputCodec} " "${Self_Data_Dir}/destPaths.txt" 2>> "$Self_Errors_File" | cut -d ' ' -f 5-  | sort -u )
+				done < "${Self_Data_Dir}/destPaths_${outputCodec}.txt"
+				rm -f "${Self_Data_Dir}/destPaths_${outputCodec}.txt"
 			done
 			echo
 		fi
