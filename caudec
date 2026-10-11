@@ -1504,13 +1504,15 @@ checkInputFiles () {
 	# fi
 
 	if [ "$touchFiles" = 'true' ]; then
-		egrep -q -s -c -m 1 '\.(flac|wv|ape|m4a|ogg|opus|mp3)$' "${Self_Data_Dir}/inputFiles.txt" 2>> "$Self_Errors_File" || exitCode=$Ex_Data_Err
+		egrep -q -s -c -m 1 '\.(aiff|caf|wav|flac|wv|ape|m4a|ogg|opus|mp3)$' "${Self_Data_Dir}/inputFiles.txt" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Data_Err
 		if [ $exitCode -ne $Ex_Ok ]; then
 			printMessage 'warning' 'usage' 'filesystem' 'verbose' "At least one supported file needed, none found (FLAC, WavPack, Monkey's Audio, ALAC, Ogg Vorbis, Opus, MP3)"
 			printMessage 'abort' 'verbose'
 			cleanExit $exitCode
 		fi
-		sort "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
+		egrep -s '\.(flac|wv|ape|m4a|ogg|opus|mp3)$' "${Self_Data_Dir}/inputFiles.txt" 2>> "$Self_Errors_File" | sort > "${Self_Data_Dir}/sourceFiles.txt"
+		egrep -s '\.(aiff|caf|wav)$' "${Self_Data_Dir}/inputFiles.txt" 2>> "$Self_Errors_File" | sort >> "${Self_Data_Dir}/sourceFiles.txt"
+		egrep -sv '\.(aiff|caf|wav|flac|wv|ape|m4a|ogg|opus|mp3)$' "${Self_Data_Dir}/inputFiles.txt" 2>> "$Self_Errors_File" | sort >> "${Self_Data_Dir}/sourceFiles.txt"
 	elif [ -n "$outputCodecs" ]; then # transcode
 		egrep -s '\.(wav|aiff|caf|flac|wv|ape|m4a)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
 	elif [ "$displayInternalHash" = 'true' ]; then
@@ -6200,7 +6202,11 @@ computeTrackDateTime () {
 			echo "${trackYear}${trackMonth}${trackDay}" > "$sourceTagFile"
 			;;
 
-		*) continue ;;
+		*)
+			trackYear="$( $datecmd "+%Y" )"
+			trackMonth="$( $datecmd "+%m" )"
+			trackDay="$( $datecmd "+%d" )"
+			;;
 	esac
 
 	if [ $exitCode -eq $Ex_Ok ]; then
@@ -6216,15 +6222,11 @@ computeTrackDateTimes () {
 	local exitCode=$Ex_Ok jobFile
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		sourceFilename="$( getFileName "$sourceFile" )"
 		sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
-		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
 
 		if getLock "$jobFile"; then
-			prepareSource &&
 			computeTrackDateTime || exitCode=$Ex_Ko
-			touch "$wasProcessedFile"
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
@@ -6234,11 +6236,11 @@ computeTrackDateTimes () {
 
 touchAllFiles () {
 	local exitCode=$Ex_Ok audioFileIndex otherFileIndex dirIndex
-	local trackDate albumSeconds discSeconds milliseconds discHours discMinutes discSeconds
+	local trackDate fileTrackDate albumSeconds discSeconds milliseconds discHours discMinutes discSeconds
 	local defaultTrackDate lastDir="" curDir artistDir albumDir albumLinkDir albumPath dirPath inode linkedFile linkPath
 	local touchString discDirs linkedDiscDirs audioFiles otherFiles otherFile audioFile sourceFile sourceTagFile
 
-	trackDate="$( $datecmd "+%Ymd" )"
+	trackDate="$( $datecmd "+%Y%m%d" )"
 	defaultTrackDate="$trackDate"
 	albumSeconds=0
 
@@ -6272,7 +6274,7 @@ touchAllFiles () {
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			case "$sourceFile" in
-				*.flac|*ogg|*.m4a|*.wv|*.ape|*.mp3|*.opus) audioFiles[$audioFileIndex]="$sourceFile" ; (( audioFileIndex++ )) ;;
+				*aiff|*caf|*.wav|*.flac|*ogg|*.m4a|*.wv|*.ape|*.mp3|*.opus) audioFiles[$audioFileIndex]="$sourceFile" ; (( audioFileIndex++ )) ;;
 				*.wvc) continue ;; # will be touched when the matching .wv file is touched
 				*) otherFiles[$otherFileIndex]="$sourceFile" ; (( otherFileIndex++ )) ;; # all non-audio files
 			esac
@@ -6286,13 +6288,15 @@ touchAllFiles () {
 				linkedDiscDirs[$dirIndex]=""
 				inode="$( ls -i "$audioFile" 2>/dev/null | cut -d " " -f 1 2>/dev/null )"
 				if [ -n "$inode" ]; then
+					$findcmd "$linkDir" -inum "$inode" 1> "${Self_Data_Dir}/linkedFiles.list" 2>/dev/null
 					while read linkedFile; do
 						if [ -z "$linkPath" ]; then
 							linkPath="$( getDirName "$linkedFile" )"
 							linkedDiscDirs[$dirIndex]="$linkPath"
 							break
 						fi
-					done < <( $findcmd "$linkDir" -inum "$inode" 2>/dev/null )
+					done < "${Self_Data_Dir}/linkedFiles.list"
+					rm -f "${Self_Data_Dir}/linkedFiles.list"
 				fi
 			else
 				break
@@ -6309,12 +6313,9 @@ touchAllFiles () {
 			case "$sourceFile" in
 				*.flac|*ogg|*m4a|*.wv|*.ape|*.mp3|*.opus)
 					read trackDate < "$sourceTagFile"
-					if [ -z "$trackDate" ]; then trackDate="$defaultTrackDate"; fi
 					;;
 
 				*.wvc) continue ;;
-
-				*) continue ;;
 			esac
 
 			touchString="$( getTouchString $trackDate $discSeconds )"
