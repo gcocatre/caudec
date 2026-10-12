@@ -4571,12 +4571,8 @@ encode () {
 				fi
 			fi
 
-			if echo "$outputCodecs" | egrep "(WAV)|(AIFF)|(CAF)" 1>/dev/null 2>&1; then
-				numberOfEncodingJobsLeft="$( ls -1 "${Self_Control_Dir}/"*.job 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
-			else
-				numberOfEncodingJobsLeft="$( ls -1 "${Self_Control_Dir}/"*_encoding_*.job 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
-			fi
-			percentEncoded="$( printf "%.0f" "$( echo "scale=2; ($numberOfOutputFiles - $numberOfEncodingJobsLeft - 1) * 100 / $numberOfOutputFiles" | bc )" )"
+			numberOfEncodingJobsDone="$( ls -1 "${Self_Control_Dir}"/*"_encoded.info" 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
+			percentEncoded="$( echo "scale=0; ($numberOfEncodingJobsDone + 1) * 100 / $numberOfOutputFiles" | bc )"
 			if [ $percentEncoded -gt 99 ]; then
 				percentEncoded=99
 			elif [ $percentEncoded -lt 1 ]; then
@@ -4695,6 +4691,7 @@ setControlVariables () {
 	copyFile="${Self_Swap_Dir}/${paddedFileIndex}_input.${sourceExtension}"
 	wavFile="${Self_Swap_Dir}/${paddedFileIndex}.wav"
 	resampledWavFile="${Self_Swap_Dir}/${paddedFileIndex}_resampled.wav"
+	wasEncodedFile="${Self_Control_Dir}/${paddedFileIndex}_${outputCodec}_encoded.info"
 	wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
 	wavProcessedStatusFile="${Self_Control_Dir}/${paddedFileIndex}_wav_processed.info"
 	sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
@@ -4770,6 +4767,7 @@ transcode () {
 							copyOrLinkOtherFiles "WavPackLossy"
 						fi
 					fi
+					touch "$wasEncodedFile"
 					rm -f "$encodingNeedsWavFile"
 
 					# Do this in this loop because it is conditional on getting a lock on an encoding job.
