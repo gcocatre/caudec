@@ -4571,7 +4571,11 @@ encode () {
 				fi
 			fi
 
-			numberOfEncodingJobsLeft="$( ls -1 "${Self_Control_Dir}/"*.job 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
+			if echo "$outputCodecs" | egrep "(WAV)|(AIFF)|(CAF)" 1>/dev/null 2>&1; then
+				numberOfEncodingJobsLeft="$( ls -1 "${Self_Control_Dir}/"*.job 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
+			else
+				numberOfEncodingJobsLeft="$( ls -1 "${Self_Control_Dir}/"*_encoding_*.job 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
+			fi
 			percentEncoded="$( printf "%.0f" "$( echo "scale=2; ($numberOfOutputFiles - $numberOfEncodingJobsLeft - 1) * 100 / $numberOfOutputFiles" | bc )" )"
 			if [ $percentEncoded -gt 99 ]; then
 				percentEncoded=99
