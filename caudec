@@ -4212,7 +4212,7 @@ encode () {
 	local compressionTag='' id3CompressionTag='' m4aCompressionTag=''
 	local nChannels compressionParam qualityArg coverArtFile='' doEmbedUserCoverArt='true' bitsPerSample
 	local embeddedArtworkBytes=0 padding mParam=''
-	local numberOfOutputCodecs=0 numberOfEncodingJobs numberOfEncodingJobsLeft percentEncoded
+	local numberOfEncodingJobs numberOfEncodingJobsLeft percentEncoded
 	# local doEmbedBinaries='true' # FIXME with a new -F parameter
 
 	doEmbedUserCoverArt="$( shouldEmbedUserCoverArt "$outputCodec" )"
@@ -4571,21 +4571,14 @@ encode () {
 				fi
 			fi
 
-			for outputCodec in $outputCodecs; do
-				(( numberOfOutputCodecs++ ))
-			done
-			numberOfEncodingJobs=$(( numberOfSourceFiles * numberOfOutputCodecs ))
-			numberOfEncodingJobsLeft="$( ls -1 "${Self_Control_Dir}/"*_encoding_*.job 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
-			percentEncoded="$( printf "%.0f" "$( echo "scale=2; ($numberOfEncodingJobs - $numberOfEncodingJobsLeft) * 100 / $numberOfEncodingJobs" | bc )" )"
+			numberOfEncodingJobsLeft="$( ls -1 "${Self_Control_Dir}/"*.job 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
+			percentEncoded="$( printf "%.0f" "$( echo "scale=2; ($numberOfOutputFiles - $numberOfEncodingJobsLeft - 1) * 100 / $numberOfOutputFiles" | bc )" )"
 			if [ $percentEncoded -gt 99 ]; then
 				percentEncoded=99
+			elif [ $percentEncoded -lt 1 ]; then
+				percentEncoded=1
 			fi
-
 			case $outputCodec in
-				WAV|AIFF|CAF)
-					printMessage 'success' "$statusInfo" "file:${destFile}" $processNumber "outputCodec:WAV" "threads:$nDecodingThreads"
-					;;
-
 				WavPackHybrid)
 					if [ -n "$destLinkPath" ]; then
 						printMessage 'success' "$statusInfo" "file:${destFile}" "outputCodec:${outputCodec}" "threads:$nThreads"  "percentDone:$percentEncoded" "$destLinkPath"
