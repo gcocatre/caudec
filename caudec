@@ -4571,7 +4571,7 @@ encode () {
 				fi
 			fi
 
-			numberOfEncodingJobsDone="$( ls -1 "${Self_Control_Dir}"/*"_encoded.info" 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
+			numberOfEncodingJobsDone="$( ls -1 "${Self_Control_Dir}" 2>/dev/null | fgrep "_encoded.info" | wc -l | tr -cd '[:digit:]' )"
 			percentEncoded="$( echo "scale=0; ($numberOfEncodingJobsDone + 1) * 100 / $numberOfOutputFiles" | bc )"
 			if [ $percentEncoded -gt 99 ]; then
 				percentEncoded=99
