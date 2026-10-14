@@ -4699,7 +4699,7 @@ setControlVariables () {
 }
 
 transcode () {
-	local exitCode=$Ex_Ok allFilesDone allCodecsDone milliseconds fileIndex paddedFileIndex transcodingJobFile
+	local exitCode=$Ex_Ok allFilesDone allCodecsDone milliseconds paddedFileIndex transcodingJobFile
 	local decodingJobFile replaygainJobFile lastCodec="${outputCodecs##* }" copyDone='false' encodingDone='false'
 	local nDecodingThreads=1 encodingNeedsWavFile sleepTime="0.05"
 
@@ -5454,7 +5454,7 @@ computeAlbumGain () {
 	local exitCode=$Ex_Ok codec="$1" albumPath="$2" processNumber=$3 PINK_REF_COMPLEMENT="35.18" secondsIndex rank
 	local trackGain albumGain trackSeconds=1 albumSeconds=0 increment=0 trackGainFile trackPeakFile albumPeak
 	local albumAudioPeak trackGainsFile trackPeaksFile albumGainFilesIndex
-	local outputCodec milliseconds paddedFileIndex fileIndex destPath destFile
+	local outputCodec milliseconds paddedFileIndex destPath destFile
 
 	trackGainsFile="${Self_Data_Dir}/trackgains_${codec}_{$processNumber}"
 	trackPeaksFile="${Self_Data_Dir}/trackpeaks_${codec}_{$processNumber}"
@@ -5462,7 +5462,7 @@ computeAlbumGain () {
 	echo -n "" > "$trackPeaksFile"
 
 	if [ "$codec" != 'any' ]; then
-		while read outputCodec milliseconds paddedFileIndex fileIndex destPath; do
+		while read outputCodec milliseconds paddedFileIndex destPath; do
 			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${codec}.txt"
 			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${codec}.txt"
 			processFilesForAlbumGain
@@ -5524,7 +5524,7 @@ computeAlbumGain () {
 	fi
 
 	if [ "$codec" != 'any' ]; then
-		while read outputCodec milliseconds paddedFileIndex fileIndex destPath; do
+		while read outputCodec milliseconds paddedFileIndex destPath; do
 			albumGainFile="${Self_Data_Dir}/${paddedFileIndex}_albumgain_${codec}.txt"
 			albumPeakFile="${Self_Data_Dir}/${paddedFileIndex}_albumpeak_${codec}.txt"
 			jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
@@ -5681,13 +5681,13 @@ computeRsgain () {
 computeM4AGain () {
 	local exitCode=$Ex_Ok albumPath="$1" list trackFiles trackFile trackFileIndex=0 albumPlaybackGain trackPlaybackGain
 	local trackDecibels signedTrackGain signedAlbumGain clippingPreventionParam=''
-	local outputCodec milliseconds paddedFileIndex fileIndex destFile basePath
+	local outputCodec milliseconds paddedFileIndex destFile basePath
 	local IFS OIFS="$IFS" tabIFS m4aFilename m4aGain m4aGainDb m4aPeak m4aMax m4aMin
 	local analysisFile="${Self_Data_Dir}/mp3rgain.txt"
 
 	trackFiles=()
 	if [ -n "$albumPath" ]; then
-		while read outputCodec milliseconds paddedFileIndex fileIndex destFile; do
+		while read outputCodec milliseconds paddedFileIndex destFile; do
 			trackFiles[$trackFileIndex]="$destFile"
 			(( trackFileIndex++ ))
 			if [ -z "$list" ]; then
@@ -5770,11 +5770,11 @@ computeM4AGain () {
 computeOpusAlbumGain () {
 	local exitCode=$Ex_Ok albumPath="$1" list trackFiles trackFile trackFileIndex=0 albumPlaybackGain trackPlaybackGain
 	local trackDecibels signedTrackGain signedAlbumGain
-	local outputCodec milliseconds paddedFileIndex fileIndex destFile basePath
+	local outputCodec milliseconds paddedFileIndex destFile basePath
 
 	trackFiles=()
 	if [ -n "$albumPath" ]; then
-		while read outputCodec milliseconds paddedFileIndex fileIndex destFile; do
+		while read outputCodec milliseconds paddedFileIndex destFile; do
 			trackFiles[$trackFileIndex]="$destFile"
 			(( trackFileIndex++ ))
 			if [ -z "$list" ]; then
@@ -5993,7 +5993,6 @@ reverseTrackGains () {
 	local exitCode=$Ex_Ok jobFile
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		sourceFile="${sourceFiles[$fileIndex]}"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 
 		if getLock "$jobFile"; then
@@ -6141,7 +6140,7 @@ computeAlbumDR () {
 		audioAlbumDR="$( printf "%.0f" "$( echo "scale=6; $audioAlbumDR / $audioAlbumDrSeconds" | bc )" )"
 		while read fileMilliseconds paddedFileIndex sourceFile; do
 			if [ -z "$albumPath" ]; then
-				albumPath="$( getDirName "${sourceFiles[$fileIndex]}" )"
+				albumPath="$( getDirName "$sourceFile" )"
 			fi
 			echo "$audioAlbumDR" > "${Self_Data_Dir}/${paddedFileIndex}_albumdr_any.txt"
 		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
@@ -8154,7 +8153,7 @@ if [ $exitCode -eq $Ex_Ok ]; then
 				codecFullName="$( getCodecFullName "$outputCodec" )"
 				printMessage 'style' ' '
 				printMessage 'info' "Computing ReplayGain album gain(s) for ${codecFullName}…"
-				egrep -s "^${outputCodec} " "${Self_Data_Dir}/destPaths.txt" 2>> "$Self_Errors_File" | cut -d ' ' -f 5-  | sort -u > "${Self_Data_Dir}/destPaths_${outputCodec}.txt"
+				egrep -s "^${outputCodec} " "${Self_Data_Dir}/destPaths.txt" 2>> "$Self_Errors_File" | cut -d ' ' -f 4-  | sort -u > "${Self_Data_Dir}/destPaths_${outputCodec}.txt"
 				while read destPath; do
 					if [ "$outputCodec" = 'Opus' ]; then
 						computeOpusAlbumGain "$destPath"
