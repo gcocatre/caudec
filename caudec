@@ -511,7 +511,7 @@ getMachineParsableString () {
 			elif [ -n "$processingRate" ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" 'processing_rate' "${processingRate%% x}" "$msg" '' )"
 			elif [ "$statusInfo" = 'hashing' -a -n "$statusData" ]; then
-			str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "hash" "$statusData" "$msg" "$file" )"
+			str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "hash" "$statusData" "$msg" "$pathOrFile" )"
 			else
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" '' )"
 			fi
@@ -523,36 +523,36 @@ getMachineParsableString () {
 			elif [ "$statusInfo" = 'track_dr' -o "$statusInfo" = 'album_dr' ]; then
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$pathOrFile" )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$dateTime" "$msg" "$file" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$dateTime" "$msg" "$pathOrFile" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$albumTime" "$path" "$msg" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$albumTime" "$msg" "$pathOrFile" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$hashError" ]; then
-					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashError" '' "$file" )"
+					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashError" '' "$pathOrFile" )"
 				else
-					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashType" '' "$file" )"
+					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashType" '' "$pathOrFile" )"
 				fi
 			elif [ "$statusInfo" = 'duration' -o "$statusInfo" = 'album_duration' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$duration" "$msg" "$file" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$duration" "$msg" "$pathOrFile" )"
 			elif [ "$statusInfo" = 'characteristics' ]; then
 				characteristics="${characteristics// /}"
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$characteristics" "$msg" "$file" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$characteristics" "$msg" "$pathOrFile" )"
 			elif [ -n "$percentDone" ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "${percentDone}% done" "$file" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "${percentDone}% done" "$pathOrFile" )"
 			else
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$file" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$pathOrFile" )"
 			fi
 			;;
 
 		error)
 			if [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$hashError" ]; then
-					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashError" '' "$file" )"
+					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashError" '' "$pathOrFile" )"
 				else
-					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashType" '' "$file" )"
+					str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashType" '' "$pathOrFile" )"
 				fi
 			elif [ "$statusInfo" = 'album_gain' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" '' '' "$msg" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" '' "$msg" "$pathOrFile" )"
 			else
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$pathOrFile" )"
 			fi
@@ -560,9 +560,9 @@ getMachineParsableString () {
 
 		warning)
 			if [ "$statusInfo" = 'testing' ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashError" "$msg" "$file" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashError" "$msg" "$pathOrFile" )"
 			elif [ -n "$hashError" ]; then
-				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashError" "$msg" "$file" )"
+				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$hashError" "$msg" "$pathOrFile" )"
 			else
 				str="$( printf "%s|%s|%s|%s|%s|%s\n" "$pid" "$msgType" "$statusInfo" "$statusData" "$msg" "$pathOrFile" )"
 			fi
@@ -581,7 +581,7 @@ getHumanReadableString () {
 		numberOfThreads=0
 	fi
 
-	if [ -n "$fileName" ]; then
+	if [ -n "$pathOrFile" ]; then
 		pathOrFile="$fileName"
 	elif [ -n "$path" ]; then
 		pathOrFile="$path"
@@ -592,7 +592,7 @@ getHumanReadableString () {
 	case "$msgType" in
 		info)
 			if [ "$statusInfo" = 'hashing' -a -n "$statusData" ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}%s ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$msg" "${statusData}" "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}%s ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$msg" "${statusData}" "$pathOrFile" )"
 			elif [ -n "$msg" ]; then
 				str="$( printf "${Clr_B_Bk} * ${Clr_Rst}%s\n" "$msg" )"
 			fi
@@ -606,7 +606,7 @@ getHumanReadableString () {
 
 		success)
 			if [ "$statusInfo" = 'track_gain' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$gain dB" "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$gain dB" "$pathOrFile" )"
 			elif [ "$statusInfo" = 'album_gain' ]; then
 				if [ -n "$pathOrFile" ]; then
 					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst} %s\n" "$gain dB" 'Album gain' "$pathOrFile" )"
@@ -614,66 +614,66 @@ getHumanReadableString () {
 					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst}\n" "$gain dB" 'Album gain' )"
 				fi
 			elif [ "$statusInfo" = 'track_dr' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}DR ${Clr_Rst}%2u ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber $statusData "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}DR ${Clr_Rst}%2u ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber $statusData "$pathOrFile" )"
 			elif [ "$statusInfo" = 'album_dr' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}DR ${Clr_Rst}%2u ${Clr_B_Bl}%s${Clr_Rst}\n" $statusData 'Album dynamic range' )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}DR ${Clr_Rst}%2u ${Clr_B_Bl}%s${Clr_Rst} %s\n" $statusData 'Album dynamic range' "$pathOrFile" )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}TF ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$dateTime" "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}TF ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$dateTime" "$pathOrFile" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}TF ${Clr_Rst}%10s ${Clr_B_Bl}%s${Clr_Rst}\n" "$albumTime" 'Album length' )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}TF ${Clr_Rst}%10s ${Clr_B_Bl}%s${Clr_Rst} %s\n" "$albumTime" 'Album length' "$pathOrFile" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$numberOfThreads" ]; then
 					if [ $numberOfThreads -lt 2 ]; then
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$hashType" "$fileName" )"
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$hashType" "$pathOrFile" )"
 					elif [ $numberOfThreads -ge 2 -a $numberOfThreads -lt 4 ]; then
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_N_Gr}%2ux ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$hashType" "$fileName" )"
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_N_Gr}%2ux ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$hashType" "$pathOrFile" )"
 					elif [ $numberOfThreads -ge 4 ]; then
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}%2ux ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$hashType" "$fileName" )"
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}%2ux ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$hashType" "$pathOrFile" )"
 					fi
 				else
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hashType" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hashType" "$pathOrFile" )"
 				fi
 			elif [ "$statusInfo" = 'duration' ]; then
 				hours="${duration%%:*}" msms="${duration#*:}"
 				if [ "$hours" = '00' ]; then
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}HMS ${Clr_B_Bk}%s:${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hours" "$msms" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}HMS ${Clr_B_Bk}%s:${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hours" "$msms" "$pathOrFile" )"
 				else
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}HMS ${Clr_Rst}%s:%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hours" "$msms" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}HMS ${Clr_Rst}%s:%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hours" "$msms" "$pathOrFile" )"
 				fi
 			elif [ "$statusInfo" = 'album_duration' ]; then
 				hours="${duration%%:*}" msms="${duration#*:}"
 				if [ "$hours" = '00' ]; then
-					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}HMS ${Clr_B_Bk}%s:${Clr_Rst}%s ${Clr_B_Bl}%s${Clr_Rst}\n" "$hours" "$msms" "Total duration" )"
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}HMS ${Clr_B_Bk}%s:${Clr_Rst}%s ${Clr_B_Bl}%s${Clr_Rst} %s\n" "$hours" "$msms" "Total duration" "$pathOrFile" )"
 				else
-					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}HMS ${Clr_Rst}%s:%s ${Clr_B_Bl}%s${Clr_Rst}\n" "$hours" "$msms" "Total duration" )"
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}HMS ${Clr_Rst}%s:%s ${Clr_B_Bl}%s${Clr_Rst} %s\n" "$hours" "$msms" "Total duration" "$pathOrFile" )"
 				fi
 			elif [ "$statusInfo" = 'characteristics' ]; then
 				data="${characteristics}"
 				data="${data//;/|}"
 				if [ "${msg}" = 'CDDA' ]; then
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}CD ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}CD ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$pathOrFile" )"
 				elif [ "${msg}" = 'CDDA-compatible' ]; then
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}DM ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}DM ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$pathOrFile" )"
 				else
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bl}OM ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bl}OM ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "${data}" "$pathOrFile" )"
 				fi
-			elif [ -n "$file" ]; then # transcoding or hashing
+			elif [ -n "$path" ]; then # transcoding or hashing
 				if [ -n "$percentDone" ]; then
-					str="$( printf "${Clr_B_Bk}%3u%% ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $percentDone "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%3u%% ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $percentDone "$pathOrFile" )"
 				elif [ -n "$processNumber" ]; then
 					if [ -n "$numberOfThreads" ]; then
 						if [ $numberOfThreads -lt 2 ]; then
-							str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$fileName" )"
+							str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$pathOrFile" )"
 						elif [ $numberOfThreads -ge 2 -a $numberOfThreads -lt 4 ]; then
-							str="$( printf "${Clr_B_Bk}%2u ${Clr_N_Gr}%2ux ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$fileName" )"
+							str="$( printf "${Clr_B_Bk}%2u ${Clr_N_Gr}%2ux ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$pathOrFile" )"
 						elif [ $numberOfThreads -ge 4 ]; then
-							str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}%2ux ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$fileName" )"
+							str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}%2ux ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$pathOrFile" )"
 						fi
 					else
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$pathOrFile" )"
 					fi
 				else
-					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" "$fileName" )"
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}OK ${Clr_N_Cy}%s${Clr_Rst}\n" "$pathOrFile" )"
 				fi
 			elif [ -n "$msg" ]; then
 				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}OK${Clr_Rst}: %s\n" "$msg" )"
@@ -682,39 +682,39 @@ getHumanReadableString () {
 
 		error)
 			if [ "$statusInfo" = 'decoding' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ko}DC ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ko}DC ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$pathOrFile" )"
 			elif [ "$statusInfo" = 'encoding' ]; then
 				if [ -n "$msg" ]; then
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ko}EC ${Clr_N_Cy}%s ${Clr_Rst}: %s\n" $processNumber "$numberOfThreads" "$fileName" "$msg" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ko}EC ${Clr_N_Cy}%s ${Clr_Rst}: %s\n" $processNumber "$numberOfThreads" "$pathOrFile" "$msg" )"
 				else
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ko}EC ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Ko}EC ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$numberOfThreads" "$pathOrFile" )"
 				fi
 			elif [ "$statusInfo" = 'processing' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}PR ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}PR ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$pathOrFile" )"
 			elif [ "$statusInfo" = 'album_gain' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}RG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber 'Album gain' )"
 			elif [ "$statusInfo" = 'track_gain' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}RG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}RG ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$pathOrFile" )"
 			elif [ "$statusInfo" = 'album_dr' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}DR ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber 'Album dynamic range' )"
 			elif [ "$statusInfo" = 'track_dr' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}DR ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}DR ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$pathOrFile" )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}TF ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}TF ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$pathOrFile" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}TF ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber 'Album length' )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$hashType" ]; then
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hashType" "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$hashType" "$pathOrFile" )"
 				elif [ -n "$msg" ]; then
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $processNumber "$fileName" "$msg" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $processNumber "$pathOrFile" "$msg" )"
 				else
-					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$fileName" )"
+					str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$pathOrFile" )"
 				fi
 			elif [ "$statusInfo" = 'duration' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$duration" "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$duration" "$pathOrFile" )"
 			elif [ "$statusInfo" = 'characteristics' ]; then
-				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$characteristics" "$fileName" )"
+				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ko}ER ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$characteristics" "$pathOrFile" )"
 			elif [ -n "$pathOrFile" ]; then
 				if [ -n "$msg" ]; then
 					if [ -n "$processNumber" ]; then
@@ -742,12 +742,12 @@ getHumanReadableString () {
 			if [ -n "$file" ]; then
 				if [ -n "$processNumber" ]; then
 					if [ -n "$numberOfThreads" ]; then
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $processNumber "$numberOfThreads" "$fileName" "$msg" )"
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_B_Bk}%2ux ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $processNumber "$numberOfThreads" "$pathOrFile" "$msg" )"
 					else
-						str="$( printf "${Clr_B_Bk}%2u ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $processNumber "$fileName" "$msg" )"
+						str="$( printf "${Clr_B_Bk}%2u ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" $processNumber "$pathOrFile" "$msg" )"
 					fi
 				else
-					str="$( printf "${Clr_B_Bk} * ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" "$fileName" "$msg" )"
+					str="$( printf "${Clr_B_Bk} * ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" "$pathOrFile" "$msg" )"
 				fi
 			elif [ -n "$pathOrFile" ]; then
 				str="$( printf "${Clr_B_Bk} * ${Clr_Wg}WG ${Clr_N_Cy}%s${Clr_Rst}: %s\n" "$pathOrFile" "$msg" )"
@@ -1540,174 +1540,6 @@ checkInputFiles () {
 		egrep -s '\.(flac|wv|ape|ogg|mp3)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
 	fi
 	numberOfSourceFiles="$( cat "${Self_Data_Dir}/sourceFiles.txt" | wc -l | tr -cd '[:digit:]' )"
-
-	# while read inputFile; do
-	# 	addToSourceFiles='false'
-	# 	if [ ! -r "$inputFile" ]; then
-	# 		printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'no such file, or not a regular file, or insufficient rights.' ; exitCode=$Ex_No_Input
-	# 	elif [ "$computeReplayGain" = 'true' -a -z "$outputCodecs" -a ! -w "$inputFile" ]; then
-	# 		printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
-	# 	elif [ "$reverseReplayGain" = 'true' -a ! -w "$inputFile" ]; then
-	# 		printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'cannot open file for writing (permission denied).' ; exitCode=$Ex_Cant_Create
-	# 	elif [ "$touchFiles" = 'true' -a ! -w "$inputFile" ]; then
-	# 		printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" 'refusing to touch file that is read-only.' ; exitCode=$Ex_Cant_Create
-	# 	else
-	# 		addToSourceFiles='false'
-	# 		if [ -n "$outputCodecs" ]; then # transcode
-	# 			inputDirName="$( getDirName "$inputFile" )"
-	# 			for outputCodec in $outputCodecs; do
-	# 				getOutputCodecDestFile "$inputFile" "$outputCodec"
-	# 				copyPath="$( copyPathOrNot "$outputCodec" )"
-	# 				if [ "$copyPath" = 'true' ]; then
-	# 					cdpath='/./' pdpath='/../'
-	# 					if [ "${inputFile:0:2}" = './' -o "${inputFile:0:3}" = '../' -o "$inputDirName" != "${inputDirName//$cdpath/@}" -o "$inputDirName" != "${inputDirName//$pdpath/@}" ]; then
-	# 						printMessage 'warning' 'usage' 'filesystem' "path:${inputFile}" "can't use paths containing ./ or ../ with caudec -P." ; exitCode=$Ex_Usage
-	# 						continue
-	# 					fi
-	# 				fi
-
-	# 				case "$inputFile" in
-	# 					*.wav|*.aiff|*.caf|*.flac|*.wv|*.ape|*.m4a)
-	# 						addToSourceFiles='true'
-	# 						case "$inputFile" in
-	# 							*.m4a)
-	# 								codec="$( ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$inputFile" 2>/dev/null )"
-	# 								if [ "$codec" != "alac" ]; then
-	# 									addToSourceFiles='false'
-	# 									printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" "refusing to transcode from lossy codec ($codec)." ; exitCode=$Ex_Data_Err
-	# 								fi
-	# 								;;
-	# 						esac
-	# 						if [ "$addToSourceFiles" = 'false' ]; then continue ; fi
-	# 						if [ "$keepExistingFiles" = 'true' ]; then
-	# 							if [ -e "$destFile" ]; then
-	# 								addToSourceFiles='false'
-	# 								printMessage 'warning' 'usage' 'filesystem' 'verbose' "-k: \"$destFile\" exists already."
-	# 							fi
-	# 						fi
-	# 						if [ "$keepNewerFiles" = 'true' ]; then
-	# 							if [ -e "$destFile" ]; then
-	# 								if isFileNewer "$destFile" "$inputFile"; then
-	# 									addToSourceFiles='false'
-	# 									printMessage 'warning' 'usage' 'filesystem' 'verbose' "-K: \"$destFile\" is newer that the source."
-	# 								fi
-	# 							else
-	# 								addToSourceFiles='true'
-	# 							fi
-	# 						fi
-	# 						;;
-
-	# 					*)
-	# 						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-	# 							printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-	# 							exitCode=$Ex_Data_Err
-	# 						fi
-	# 						continue
-	# 						;;
-	# 				esac
-	# 			done
-	# 		fi
-
-	# 		if [ "$displayInternalHash" = 'true' ]; then
-	# 			case "$inputFile" in
-	# 				*.flac|*.wv) addToSourceFiles='true' ;;
-	# 				*)
-	# 					if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-	# 						printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-	# 						exitCode=$Ex_Data_Err
-	# 					fi
-	# 					continue
-	# 					;;
-	# 			esac
-	# 		elif [ "$checkFiles" = 'true' ]; then
-	# 			case "$inputFile" in
-	# 				*.flac|*.wv|*.ape) addToSourceFiles='true' ;;
-	# 				*)
-	# 					if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-	# 						printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-	# 						exitCode=$Ex_Data_Err
-	# 					fi
-	# 					continue
-	# 					;;
-	# 			esac
-	# 		fi
-
-	# 		if [ "$showInformation" = 'true' -o "$showDurations" = 'true' ]; then
-	# 			case "$inputFile" in
-	# 				*.flac|*.wv|*.ape|*.ogg|*.m4a|*.mp3|*.opus) addToSourceFiles='true' ;;
-	# 				*)
-	# 					if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-	# 						printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-	# 						exitCode=$Ex_Data_Err
-	# 					fi
-	# 					continue
-	# 					;;
-	# 			esac
-	# 		fi
-
-	# 		if [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
-	# 			inputFileExtension="${inputFile##*.}"
-	# 			case "$inputFileExtension" in
-	# 				flac|wv|ape|ogg|m4a|mp3|opus)
-	# 					addToSourceFiles='true'
-	# 					if [ -z "$commonFileExtension" ]; then
-	# 						commonFileExtension="$inputFileExtension"
-	# 					elif [ "$inputFileExtension" != "$commonFileExtension" ]; then
-	# 						inputCodecsAreAllTheSame='false'
-	# 						addToSourceFiles='false'
-	# 						if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-	# 							printMessage 'error' 'usage' 'filesystem' "file:${inputFile}" "all files must have the same file extension"
-	# 							exitCode=$Ex_Data_Err
-	# 						fi
-	# 						continue
-	# 					fi
-	# 					;;
-
-	# 				*)
-	# 					if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-	# 						printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-	# 						exitCode=$Ex_Data_Err
-	# 					fi
-	# 					continue
-	# 					;;
-	# 			esac
-	# 		fi
-
-	# 		if [ "$applyGain" = 'true' ]; then
-	# 			if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-	# 				printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-	# 				exitCode=$Ex_Data_Err
-	# 			fi
-	# 			continue
-	# 		fi
-
-	# 		if [ "$touchFiles" = 'true' ]; then
-	# 			addToSourceFiles='true'
-	# 		fi
-	# 	fi
-
-	# 	if [ "$computeDynamicRange" = 'true' ]; then
-	# 		inputFileExtension="${inputFile##*.}"
-	# 		case "$inputFileExtension" in
-	# 			flac|wv|ape|ogg|mp3)
-	# 				addToSourceFiles='true'
-	# 				;;
-
-	# 			*)
-	# 				if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-	# 					printMessage 'warning' 'processing' 'unsupported' "file:${inputFile}" 'unsupported format.'
-	# 					exitCode=$Ex_Data_Err
-	# 				fi
-	# 				continue
-	# 				;;
-	# 		esac
-	# 	fi
-
-	# 	if [ "$addToSourceFiles" = 'true' ]; then
-	# 		echo "$inputFile" >> "${Self_Data_Dir}/sourceFiles.txt"
-	# 		(( numberOfSourceFiles++ ))
-	# 	fi
-	# done < "${Self_Data_Dir}/inputFiles.txt"
 
 	rm -f "${Self_Data_Dir}/inputFiles.txt"
 
@@ -4587,22 +4419,22 @@ encode () {
 			case $outputCodec in
 				WavPackHybrid)
 					if [ -n "$destLinkPath" ]; then
-						printMessage 'success' "$statusInfo" "file:${destFile}" "outputCodec:${outputCodec}" "threads:$nThreads"  "percentDone:$percentEncoded" "$destLinkPath"
+						printMessage 'success' "$statusInfo" "path:${displayPath}" "outputCodec:${outputCodec}" "threads:$nThreads"  "percentDone:$percentEncoded" "$destLinkPath"
 					else
-						printMessage 'success' "$statusInfo" "file:${destFile}" "outputCodec:${outputCodec}" "threads:$nThreads" "percentDone:$percentEncoded"
+						printMessage 'success' "$statusInfo" "path:${displayPath}" "outputCodec:${outputCodec}" "threads:$nThreads" "percentDone:$percentEncoded"
 					fi
 					;;
 
 				*)
-					printMessage 'success' "$statusInfo" "file:${destFile}" "outputCodec:${outputCodec}" "threads:$nThreads" "percentDone:$percentEncoded"
+					printMessage 'success' "$statusInfo" "path:${displayPath}" "outputCodec:${outputCodec}" "threads:$nThreads" "percentDone:$percentEncoded"
 					;;
 			esac
 		fi
 	elif [ $exitCode -eq $Ex_Io_Err ]; then
-		printMessage 'error' "$statusInfo" "file:${destFile}" $processNumber 'destination is read-only.'
+		printMessage 'error' "$statusInfo" "path:${displayPath}" $processNumber 'destination is read-only.'
 	else
 		rm -f "$encodedFile" 1>/dev/null 2>&1 # in case it exists
-		printMessage 'error' "$statusInfo" "file:${destFile}" $processNumber
+		printMessage 'error' "$statusInfo" "path:${displayPath}" $processNumber
 	fi
 
 	return $exitCode
@@ -4844,16 +4676,16 @@ testFile () {
 
 		*)
 			if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-				printMessage 'warning' 'testing' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format'
+				printMessage 'warning' 'testing' 'unsupported' "path:${sourceFile}" $processNumber 'unsupported format'
 			fi
 			return $Ex_Data_Err
 			;;
 	esac
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' 'testing' $processNumber "threads:$nThreads" "file:${sourceFile}"
+		printMessage 'success' 'testing' $processNumber "threads:$nThreads" "path:${sourceFile}"
 	else
-		printMessage 'error' 'testing' $processNumber "file:${sourceFile}"
+		printMessage 'error' 'testing' $processNumber "path:${sourceFile}"
 	fi
 
 	return $exitCode
@@ -4881,16 +4713,16 @@ showInternalHash () {
 		*.wv) hash="$( wvunpack -f7 "$sourceFile" 2>/dev/null )" ;;
 		*)
 			if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-				printMessage 'warning' 'hashing' '' 'unsupported format' "file:${sourceFile}" $processNumber
+				printMessage 'warning' 'hashing' '' 'unsupported format' "path:${sourceFile}" $processNumber
 			fi
 			return $Ex_Data_Err
 			;;
 	esac
 
 	if [ $exitCode -eq $Ex_Ok -a -n "$hash" ]; then
-		printMessage 'info' 'hashing' "hash:$hash" "hashType:MD5" "file:${sourceFile}" "threads:1" $processNumber
+		printMessage 'info' 'hashing' "hash:$hash" "hashType:MD5" "path:${sourceFile}" $processNumber
 	else
-		printMessage 'error' 'hashing' "" "file doesn't have an internal hash" "file:${sourceFile}" $processNumber
+		printMessage 'error' 'hashing' "" "file doesn't have an internal hash" "path:${sourceFile}" $processNumber
 	fi
 	return $exitCode
 }
@@ -4910,9 +4742,12 @@ showInternalHashes () {
 }
 
 showAlbumDuration () {
-	local msLeft=$1 hours=0 minutes=0 seconds=0 milliseconds=0 paddedDuration msg
+	local msLeft=$1 hours=0 minutes=0 seconds=0 milliseconds=0 paddedDuration msg albumDir
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
+		if [ -z "$albumDir" ]; then
+			albumDir="$( getDirName "$sourceFile" )"
+		fi
 		msLeft=$(( msLeft + fileMilliseconds ))
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
@@ -4926,7 +4761,7 @@ showAlbumDuration () {
 	paddedDuration="$( printf "%02i:%02i:%02i.%03i" $hours $minutes $seconds $milliseconds )"
 	msg="$( printf "%02ih %02im %02is %03ims" $hours $minutes $seconds $milliseconds )"
 
-	printMessage 'success' 'album_duration' "duration:${paddedDuration}" "Duration: $msg"
+	printMessage 'success' 'album_duration' "duration:${paddedDuration}" "Duration: $msg" "path:$albumDir"
 }
 
 showTrackDuration () {
@@ -4942,7 +4777,7 @@ showTrackDuration () {
 	paddedDuration="$( printf "%02i:%02i:%02i.%03i" $hours $minutes $seconds $milliseconds )"
 	msg="$( printf "%02ih %02im %02is %03ims" $hours $minutes $seconds $milliseconds )"
 
-	printMessage 'success' "duration" "duration:${paddedDuration}" "Duration: $msg" "file:${sourceFile}" $processNumber
+	printMessage 'success' "duration" "duration:${paddedDuration}" "Duration: $msg" "path:${sourceFile}" $processNumber
 }
 
 showTracksDurations () {
@@ -5045,9 +4880,9 @@ showTrackInformation () {
 	bitrate="$( printf "%7i" "$bitrate" )"
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth};${samplingRate};${bitrate}" "mediaType:${mediaType}" "file:${sourceFile}" $processNumber
+		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth};${samplingRate};${bitrate}" "mediaType:${mediaType}" "path:${sourceFile}" $processNumber
 	else
-		printMessage 'error' 'characteristics' "characteristics:0;00;00000;0" "mediaType:${mediaType}" "file:${sourceFile}" $processNumber
+		printMessage 'error' 'characteristics' "characteristics:0;00;00000;0" "mediaType:${mediaType}" "path:${sourceFile}" $processNumber
 	fi
 	return $exitCode
 }
@@ -5390,7 +5225,7 @@ computeTrackGain () {
 				;;
 
 			*)
-				printMessage 'warning' 'track_gain' 'unsupported' "file:${file}" $processNumber 'unsupported format'
+				printMessage 'warning' 'track_gain' 'unsupported' "path:${file}" $processNumber 'unsupported format'
 				return $Ex_Data_Err
 				;;
 		esac
@@ -5405,10 +5240,10 @@ computeTrackGain () {
 				if [ "${trackGain:0:1}" != '-' -a "${trackGain:0:1}" != '+' ]; then
 					trackGain="+${trackGain}"
 				fi
-				printMessage 'success' 'track_gain' $processNumber "$trackGain dB" "Track gain: $trackGain dB" "file:${file}"
+				printMessage 'success' 'track_gain' $processNumber "$trackGain dB" "Track gain: $trackGain dB" "path:${file}"
 			fi
 		else
-			printMessage 'error' 'track_gain' "file:${file}" $processNumber
+			printMessage 'error' 'track_gain' "path:${file}" $processNumber
 		fi
 	fi
 	return $exitCode
@@ -5439,7 +5274,7 @@ computeTrackGains () {
 processFilesForAlbumGain () {
 	local trackGain
 
-	trackSeconds="$( printf "%.0f" "$( echo "scale=3; $milliseconds / 1000" | bc )" )"
+	trackSeconds="$( printf "%.0f" "$( echo "scale=3; $fileMilliseconds / 1000" | bc )" )"
 	if [ -z "$trackSeconds" ]; then
 		trackSeconds=1
 	fi
@@ -5458,7 +5293,7 @@ computeAlbumGain () {
 	local exitCode=$Ex_Ok codec="$1" albumPath="$2" processNumber=$3 PINK_REF_COMPLEMENT="35.18" secondsIndex rank
 	local trackGain albumGain trackSeconds=1 albumSeconds=0 increment=0 trackGainFile trackPeakFile albumPeak
 	local albumAudioPeak trackGainsFile trackPeaksFile albumGainFilesIndex
-	local outputCodec milliseconds paddedFileIndex destPath destFile
+	local outputCodec fileMilliseconds paddedFileIndex destPath destFile
 
 	trackGainsFile="${Self_Data_Dir}/trackgains_${codec}_{$processNumber}"
 	trackPeaksFile="${Self_Data_Dir}/trackpeaks_${codec}_{$processNumber}"
@@ -5466,7 +5301,7 @@ computeAlbumGain () {
 	echo -n "" > "$trackPeaksFile"
 
 	if [ "$codec" != 'any' ]; then
-		while read outputCodec milliseconds paddedFileIndex destPath; do
+		while read outputCodec fileMilliseconds paddedFileIndex destPath; do
 			trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${codec}.txt"
 			trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${codec}.txt"
 			processFilesForAlbumGain
@@ -5528,7 +5363,7 @@ computeAlbumGain () {
 	fi
 
 	if [ "$codec" != 'any' ]; then
-		while read outputCodec milliseconds paddedFileIndex destPath; do
+		while read outputCodec fileMilliseconds paddedFileIndex destPath; do
 			albumGainFile="${Self_Data_Dir}/${paddedFileIndex}_albumgain_${codec}.txt"
 			albumPeakFile="${Self_Data_Dir}/${paddedFileIndex}_albumpeak_${codec}.txt"
 			jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
@@ -5538,6 +5373,9 @@ computeAlbumGain () {
 		done < <( fgrep "$albumPath" "${Self_Data_Dir}/destPaths.txt" )
 	else
 		while read fileMilliseconds paddedFileIndex sourceFile; do
+			if [ -z "$albumPath" ]; then
+				albumPath="$( getDirName "$sourceFile" )"
+			fi
 			albumGainFile="${Self_Data_Dir}/${paddedFileIndex}_albumgain_any.txt"
 			albumPeakFile="${Self_Data_Dir}/${paddedFileIndex}_albumpeak_any.txt"
 			jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
@@ -5547,12 +5385,7 @@ computeAlbumGain () {
 		done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 	fi
 
-	if [ -n "$albumPath" ]; then
-		# basePath="$( basename "$albumPath" )"
-		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:${albumPath}"
-	else
-		printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB"
-	fi
+	printMessage 'success' 'album_gain' "${albumGain} dB" "Album gain: $albumGain dB" "path:${albumPath}"
 
 	return $exitCode
 }
@@ -5744,7 +5577,7 @@ computeM4AGain () {
 						if [ "${trackGain:0:1}" != '-' -a "${trackGain:0:1}" != '+' ]; then
 							trackGain="+${trackGain}"
 						fi
-						printMessage 'success' 'track_gain' $processNumber "$trackGain dB" "Track gain: $trackGain dB" "file:${trackFiles[$trackFileIndex]}"
+						printMessage 'success' 'track_gain' $processNumber "$trackGain dB" "Track gain: $trackGain dB" "path:${trackFiles[$trackFileIndex]}"
 					fi
 					;;
 			esac
@@ -5815,7 +5648,7 @@ computeOpusAlbumGain () {
 				signedTrackGain="+${signedTrackGain}"
 			fi
 			if [ -z "$albumPath" ]; then
-				printMessage 'success' 'track_gain' $processNumber "$signedTrackGain dB" "Track gain: $signedTrackGain dB" "file:${trackFile}"
+				printMessage 'success' 'track_gain' $processNumber "$signedTrackGain dB" "Track gain: $signedTrackGain dB" "path:${trackFile}"
 			fi
 		done
 		signedAlbumGain="$albumPlaybackGain"
@@ -5849,7 +5682,7 @@ reverseOpusTrackGains () {
 			fi
 		else
 			if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-				printMessage 'warning' 'processing' 'unsupported' "file:${sourceFile}" 'unsupported format.'
+				printMessage 'warning' 'processing' 'unsupported' "path:${sourceFile}" 'unsupported format.'
 			fi
 		fi
 	done
@@ -5862,7 +5695,7 @@ reverseOpusTrackGains () {
 			chmod u=rw,go=r "${sourceFiles[@]}" 1>/dev/null 2>> "$Self_Errors_File"
 
 			for sourceFile in "${sourceFiles[@]}"; do
-				printMessage 'success' 'track_gain' 0 "-0 dB" "file:${sourceFile}"
+				printMessage 'success' 'track_gain' 0 "-0 dB" "path:${sourceFile}"
 			done
 		else
 			printMessage 'error' 'track_gain' "Track gain"
@@ -5974,7 +5807,7 @@ reverseTrackGain () {
 
 			*)
 				if [ "$ignoreUnsupportedFiles" = 'false' ]; then
-					printMessage 'warning' 'track_gain' 'unsupported' "file:${sourceFile}" $processNumber 'unsupported format'
+					printMessage 'warning' 'track_gain' 'unsupported' "path:${sourceFile}" $processNumber 'unsupported format'
 				fi
 				return $Ex_Data_Err
 				;;
@@ -5985,10 +5818,10 @@ reverseTrackGain () {
 
 	if [ $exitCode -eq $Ex_Ok ]; then
 		if [ "$verbose" = 'true' ]; then
-			printMessage 'success' 'track_gain' $processNumber "-0 dB" "file:${sourceFile}"
+			printMessage 'success' 'track_gain' $processNumber "-0 dB" "path:${sourceFile}"
 		fi
 	else
-		printMessage 'error' 'track_gain' "file:${sourceFile}" $processNumber
+		printMessage 'error' 'track_gain' "path:${sourceFile}" $processNumber
 	fi
 	return $exitCode
 }
@@ -6041,10 +5874,10 @@ computeTracksDR () {
 			if [ $exitCode -eq $Ex_Ok ]; then
 				if [ "$verbose" = 'true' ]; then
 					DR="$( printf "%.0f" "$audioTrackDR" )"
-					printMessage 'success' 'track_dr' $processNumber "DR:$DR" "Track dynamic range: $DR" "file:${sourceFile}"
+					printMessage 'success' 'track_dr' $processNumber "DR:$DR" "Track dynamic range: $DR" "path:${sourceFile}"
 				fi
 			else
-				printMessage 'error' 'track_dr' "file:${sourceFile}" $processNumber
+				printMessage 'error' 'track_dr' "path:${sourceFile}" $processNumber
 			fi
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
@@ -6153,7 +5986,7 @@ computeAlbumDR () {
 				printMessage 'success' 'album_dr' $processNumber "DR:$audioAlbumDR" "Album dynamic range: $audioAlbumDR" "path:${albumPath}"
 			fi
 		else
-			printMessage 'error' 'album_dr' "file:${sourceFile}" $processNumber
+			printMessage 'error' 'album_dr' "path:${albumPath}" $processNumber
 		fi
 		return $Ex_Ok
 	else
@@ -6232,9 +6065,9 @@ computeTrackDateTime () {
 	esac
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' 'touch_file' $processNumber "dateTime:${trackYear}-${trackMonth}-${trackDay}" "file:${sourceFile}"
+		printMessage 'success' 'touch_file' $processNumber "dateTime:${trackYear}-${trackMonth}-${trackDay}" "path:${sourceFile}"
 	else
-		printMessage 'error' 'touch_file' $processNumber "dateTime:${trackYear}-${trackMonth}-${trackDay}" "file:${sourceFile}"
+		printMessage 'error' 'touch_path' $processNumber "dateTime:${trackYear}-${trackMonth}-${trackDay}" "path:${sourceFile}"
 	fi
 
 	return $exitCode
@@ -6274,6 +6107,7 @@ touchAllFiles () {
 	dirIndex=0
 	while read fileMilliseconds paddedFileIndex sourceFile; do
 		sourceDirname="$( getDirName "$sourceFile" )"
+		albumDir="$sourceDirname"
 		curDir="$( readlink -f "$sourceDirname" )"
 		if [ "$curDir" != "$lastDir" ]; then
 			discDirs[$dirIndex]="$curDir"
@@ -6401,9 +6235,9 @@ touchAllFiles () {
 		discHours="${touchString:8:2}"
 		discMinutes="${touchString:10:2}"
 		albumSeconds="${touchString:13:2}"
-		printMessage 'success' 'touch_files' "albumTime:${discHours}:${discMinutes}:${albumSeconds}"
+		printMessage 'success' 'touch_files' "albumTime:${discHours}:${discMinutes}:${albumSeconds}" "path:${albumDir}"
 	else
-		printMessage 'error' 'touch_files' "Album length"
+		printMessage 'error' 'touch_files' "Album length" "path:${albumDir}"
 	fi
 
 	return $exitCode
@@ -6498,9 +6332,11 @@ getOutputCodecDestFile () {
 	if [ "$copyPath" = 'true' ]; then
 		destPath="${destDir}/${sourceDirname#/}"
 		destFile="${destPath}/${destFilename}"
+		displayPath="${sourceDirname#/}/${destFilename}"
 	else
 		destPath="$destDir"
 		destFile="${destDir}/${destFilename}"
+		displayPath="${destFilename}"
 	fi
 }
 
@@ -6537,6 +6373,7 @@ getFileProps () {
 			fi
 			destPath="${destDir}/${sourceDirname#/}"
 			destFile="${destPath}/${destFilename}"
+			displayPath="${sourceDirname#/}/${destFilename}"
 			if [ -n "$linkDir" ]; then
 				destLinkPath="${linkDir}/${sourceDirname#/}"
 				destLinkFile="${destLinkPath}/${destFilename}"
@@ -6544,6 +6381,7 @@ getFileProps () {
 		else
 			destPath="$destDir"
 			destFile="${destDir}/${destFilename}"
+			displayPath="${destFilename}"
 			if [ -n "$linkDir" ]; then
 				destLinkPath="$linkDir"
 				destLinkFile="${linkDir}/${destFilename}"
