@@ -2004,15 +2004,21 @@ getNumberOfCaudecProcesses () {
 
 getNumberOfProcessedFiles () {
 	local numberOfProcessedFiles
-	numberOfProcessedFiles="$( ls -1 "${Self_Control_Dir}" 2>/dev/null | fgrep -s '_all_processed.info' 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
+	numberOfProcessedFiles="$( ls -1 "${Self_Control_Dir}" 2>/dev/null | fgrep -s -c '_all_processed.info' 2>/dev/null )"
 	echo $(( numberOfProcessedFiles * nCodecs ))
 }
 
 getNumberOfAvailableThreads () {
-	local index="$1" maxThreads="$2" nProcessedFiles nAvailableProcesses nMillisecondsLeft=0 nThreads=1
+	local index="$1" maxThreads="$2" nJobsLeft nProcessedFiles nAvailableProcesses nMillisecondsLeft=0 nThreads=1
 
 	if [ -z "$maxThreads" ]; then
 		maxThreads=999999
+	fi
+
+	nJobsLeft="$( ls -1 "${Self_Control_Dir}" 2>/dev/null | fgrep -s -c '.job' 2>/dev/null )"
+	if [ $nJobsLeft -ge $maxProcessesSetByUser -o $nJobsLeft -ge $maxProcessesSetByUser ]; then
+		echo 1
+		return
 	fi
 
 	nProcessedFiles="$( getNumberOfProcessedFiles )"
@@ -4571,7 +4577,7 @@ encode () {
 				fi
 			fi
 
-			numberOfEncodingJobsDone="$( ls -1 "${Self_Control_Dir}" 2>/dev/null | fgrep "_encoded.info" | wc -l | tr -cd '[:digit:]' )"
+			numberOfEncodingJobsDone="$( ls -1 "${Self_Control_Dir}" 2>/dev/null | fgrep -s -c "_encoded.info" 2>/dev/null )"
 			percentEncoded="$( echo "scale=0; ($numberOfEncodingJobsDone + 1) * 100 / $numberOfOutputFiles" | bc )"
 			if [ $percentEncoded -gt 99 ]; then
 				percentEncoded=99
@@ -4829,12 +4835,10 @@ testFile () {
 		*.flac) flac -st "$sourceFile" 1>/dev/null 2>&1; exitCode=$? ;;
 
 		*.wv)
-			# nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" $WavPack_Max_Threads )
 			wvunpack --threads=$nThreads -qvv "$sourceFile" 1>/dev/null 2>&1; exitCode=$?
 			;;
 
 		*.ape)
-			# nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" )
 			mac "$sourceFile" -v -threads=$nThreads 1>/dev/null 2>&1; exitCode=$?
 			;;
 
