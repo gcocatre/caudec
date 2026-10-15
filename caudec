@@ -2004,7 +2004,7 @@ getNumberOfCaudecProcesses () {
 
 getNumberOfProcessedFiles () {
 	local numberOfProcessedFiles
-	numberOfProcessedFiles="$( ls -1 "${Self_Control_Dir}"/*"_all_processed.info" 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
+	numberOfProcessedFiles="$( ls -1 "${Self_Control_Dir}" 2>/dev/null | fgrep -s '_all_processed.info' 2>/dev/null | wc -l | tr -cd '[:digit:]' )"
 	echo $(( numberOfProcessedFiles * nCodecs ))
 }
 
