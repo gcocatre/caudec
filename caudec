@@ -271,22 +271,6 @@ Global parameters:
 
 -------------------------------------------------------------------------------
 
-Applying gain after decoding and before encoding:
-
-  -G ARG    apply ReplayGain ('album' or 'track') if found in source file
-            metadata. Note: it is possible to specify a preamp value with an
-            additional -G GAIN parameter (see below), for instance
-            '-G album -G -3' or '-G track -G +2'.
-
-  -G ARG    apply peak normalization ('albumpeak' or 'trackpeak'); same as
-            above, except album or track peak values are used as a starting
-            point instead of album or track gain values. An additional preamp
-            value may be specified as well (see -G GAIN below).
-
-  -G GAIN   apply arbitrary GAIN (signed number from -99.99 to +99.99)
-
--------------------------------------------------------------------------------
-
 Resampling after decoding and before encoding:
 
   -2        convert to stereo: 2.1, 4.0, 5.0, 5.1 and 7.1 audio will be
@@ -399,11 +383,7 @@ ReplayGain parameters (mutually exclusive from all other actions, except -g):
 
   -g        generate ReplayGain metadata, using the new ITU-R BS.1770 algorithm
 
-  -G ARG    MP3: apply ReplayGain ('album' or 'track') using MP3's gain header.
-            This uses the original ReplayGain algorithm.
-
-  -G undo   MP3: reverse ReplayGain using MP3's gain header.
-            Other codecs: remove ReplayGain metadata.
+  -G undo   remove ReplayGain metadata.
 
 -------------------------------------------------------------------------------
 
@@ -1299,10 +1279,6 @@ checkBinaries () {
 		fi
 		if [ "$gotM4a" = 'true' ]; then
 			checkBinary 'ffmpeg' 'ffprobe'
-		fi
-
-		if [ "$applyGain" = 'true' ]; then
-			checkBinary 'sox'
 		fi
 	fi
 
@@ -3556,7 +3532,7 @@ processWavFile () {
 		fi
 	fi
 
-	if [ "$convertToStereo" = 'false' -a -z "$bitDepth" -a -z "$samplingRate" -a "$applyGain" = 'false' ]; then
+	if [ "$convertToStereo" = 'false' -a -z "$bitDepth" -a -z "$samplingRate" ]; then
 		wavMustBeProcessed='false'
 		return $Ex_Ok
 	fi
@@ -3581,66 +3557,6 @@ processWavFile () {
 
 	if [ "$preventClipping" = 'true' ]; then
 		soxGuard='-G'
-	fi
-
-	if [ "$applyGain" = 'true' ]; then
-		if [ "$applyGainType" = 'ALBUM' -o "$applyGainType" = 'TRACK' ]; then
-			if [ "$applyGainType" = 'ALBUM' ]; then
-				gainValue="$( fgrep -s -i 'replaygain_album_gain' "$sourceTagFile" 2>/dev/null | cut -d '=' -f 2 | cut -d ' ' -f 1 )"
-			else
-				gainValue="$( fgrep -s -i 'replaygain_track_gain' "$sourceTagFile" 2>/dev/null | cut -d '=' -f 2 | cut -d ' ' -f 1 )"
-			fi
-			if [ -n "$gainValue" ]; then
-				if [ "${preamp:0:1}" = '-' ]; then
-					gainValue="$( printf '%.2f' "$( echo "scale=5; ($gainValue - ${preamp:1}) / 1" | bc 2>> "$Self_Errors_File" )" )"
-				elif [ "${preamp:0:1}" = '+' ]; then
-					gainValue="$( printf '%.2f' "$( echo "scale=5; ($gainValue + ${preamp:1}) / 1" | bc 2>> "$Self_Errors_File" )" )"
-				fi
-				if [ "${gainValue:0:1}" != '-' -a "${gainValue:0:1}" != '+' ]; then
-					gainValue="+${gainValue}"
-				fi
-			fi
-		elif [ "$applyGainType" = 'ALBUM_PEAK' -o "$applyGainType" = 'TRACK_PEAK' ]; then
-			if [ "$applyGainType" = 'ALBUM_PEAK' ]; then
-				gainPeak="$( fgrep -s -i 'replaygain_album_peak' "$sourceTagFile" 2>/dev/null | cut -d '=' -f 2 )"
-			elif [ "$applyGainType" = 'TRACK_PEAK' ]; then
-				gainPeak="$( fgrep -s -i 'replaygain_track_peak' "$sourceTagFile" 2>/dev/null | cut -d '=' -f 2 )"
-			fi
-			if [ -n "$gainPeak" ]; then
-				if [ "${gainPeak:0:1}" = '0' ]; then
-					gainValue="$( computeGainFromPeak "$gainPeak" )"
-					if [ "${gainValue:0:1}" != '-' ]; then # gainValue is positive
-						if [ "${peakReference:0:1}" = '-' ]; then
-							gainValue="${peakReference}"
-						else
-							gainValue=''
-						fi
-					else # gainValue is negative
-						if [ "${peakReference:0:1}" = '-' ]; then
-							gainValue="$( printf "%.2f" "$( echo "scale=5; (${gainValue:1} + ${peakReference}) / 1" | bc 2>> "$Self_Errors_File" )" )"
-							if [ "${gainValue:0:1}" != '-' ]; then
-								gainValue="+${gainValue}"
-							fi
-						else
-							gainValue="+${gainValue:1}"
-						fi
-					fi
-				elif [ "${peakReference:0:1}" = '-' ]; then
-					gainValue="$peakReference"
-				fi
-			fi
-		else
-			gainValue="$applyGainType"
-		fi
-
-		if [ -n "$gainValue" ]; then
-			gaincmd="gain $gainValue"
-		fi
-	fi
-
-	if [ "$applyGain" = 'true' -a -z "$gainValue" ]; then
-		printMessage 'error' 'processing' "file:${sourceFile}" $processNumber "threads:1" "no gain value"
-		return $Ex_Io_Err
 	fi
 
 	# convert to stereo (and at the same time, resample and / or apply gain if requested)
@@ -5321,40 +5237,20 @@ computeAlbumGain () {
 		return $Ex_Ko
 	fi
 
-	if [ "$applyGain" = 'true' -a "$applyGainType" = 'ALBUM_PEAK' ]; then
-		albumGain="$( computeGainFromPeak "$albumPeak" )"
-		if [ "${albumGain:0:1}" = '-' ]; then
-			albumGain="${albumGain:1}"
-			if [ "${peakReference:0:1}" = '-' ]; then
-				albumGain="$( printf "%.2f" "$( echo "scale=3; ($albumGain + $peakReference) / 1" | bc 2>> "$Self_Errors_File" )" )"
-			fi
-		elif [ "${peakReference:0:1}" = '-' ]; then
-			albumGain="$peakReference"
-		else
-			albumGain="0.00"
-		fi
-	else
-		sort -n "$trackGainsFile" > "${trackGainsFile}.tmp" 2>/dev/null
-		mv "${trackGainsFile}.tmp" "$trackGainsFile"
+	sort -n "$trackGainsFile" > "${trackGainsFile}.tmp" 2>/dev/null
+	mv "${trackGainsFile}.tmp" "$trackGainsFile"
 
-		rank="$( printf "%.0f" "$( echo "scale=5; ((${PINK_REF_COMPLEMENT} / 100) * $albumSeconds) / 1" | bc 2>> "$Self_Errors_File" )" )"
-		while read trackGain trackSeconds; do
-			increment=$(( increment + trackSeconds ))
-			if [ $increment -ge $rank ]; then
-				albumGain="$trackGain"
-				break
-			fi
-		done < "$trackGainsFile"
-		if [ -z "$albumGain" ]; then
-			printMessage 'error' 'album_gain' "Album gain"
-			return $Ex_Ko
-		elif [ "$applyGain" = 'true' -a "$applyGainType" = 'ALBUM' -a -n "$preamp" ]; then
-			if [ "${preamp:0:1}" = '-' ]; then
-				albumGain="$( printf "%.2f" "$( echo "scale=3; ($albumGain - ${preamp:1}) / 1" | bc 2>> "$Self_Errors_File" )" )"
-			elif [ "${preamp:0:1}" = '+' ]; then
-				albumGain="$( printf "%.2f" "$( echo "scale=3; ($albumGain + ${preamp:1}) / 1" | bc 2>> "$Self_Errors_File" )" )"
-			fi
+	rank="$( printf "%.0f" "$( echo "scale=5; ((${PINK_REF_COMPLEMENT} / 100) * $albumSeconds) / 1" | bc 2>> "$Self_Errors_File" )" )"
+	while read trackGain trackSeconds; do
+		increment=$(( increment + trackSeconds ))
+		if [ $increment -ge $rank ]; then
+			albumGain="$trackGain"
+			break
 		fi
+	done < "$trackGainsFile"
+	if [ -z "$albumGain" ]; then
+		printMessage 'error' 'album_gain' "Album gain"
+		return $Ex_Ko
 	fi
 	rm -f "$trackGainsFile"
 
@@ -6949,7 +6845,7 @@ allCodecsString="${losslessCodecsString} ${lossyCodecsString}"
 verbose='true'
 outputCodecs='' lastCodec='' nCodecs=0 gotWavOutputCodec='false'
 defaultDestDir="$PWD" linkDir='' gotLinkedDir='false'
-bitDepth='' samplingRate='' preserveMetadata='' applyGain='false' applyGainType='' preamp='' convertToStereo='false'
+bitDepth='' samplingRate='' preserveMetadata='' convertToStereo='false'
 computeReplayGain='false' computeCaugain='false' reverseReplayGain='false'
 keepExistingFiles='false' keepNewerFiles='false' macHasVerify='false' outputMode='human'
 checkFiles='false' displayInternalHash='false' touchFiles='false' peakReference=0
@@ -7474,51 +7370,12 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:RS:sTtuVZz' o ; do
 			fi
 			;;
 
-		# FIXME
 		G)
-			if [ -z "$outputCodecs" ]; then
-				case "$OPTARG" in
-					album) gainValue='ALBUM'; computeReplayGain='true' applyGain='true' applyGainType="$gainValue" ;;
-					track) gainValue='TRACK'; computeReplayGain='true' applyGain='true' applyGainType="$gainValue"  ;;
-					undo) reverseReplayGain='true' ;;
-					caugain) computeReplayGain='true' computeCaugain='true';;
-					*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -G: MP3 gain type must be 'album', 'track' or 'undo'" ; exit $Ex_Usage ;;
-				esac
-			else
-				case "$OPTARG" in
-					album) gainValue='ALBUM' ;;
-					track) gainValue='TRACK' ;;
-					albumpeak) gainValue='ALBUM_PEAK' ;;
-					trackpeak) gainValue='TRACK_PEAK' ;;
-					+[0-9]|+[1-9][0-9]) gainValue="${OPTARG}.00" ;; # integer
-					+[0-9].[0-9]|+[1-9][0-9].[0-9]) gainValue="${OPTARG}0" ;; # floating point, 1 decimal
-					+[0-9].[0-9][0-9]|+[1-9][0-9].[0-9][0-9]) gainValue="$OPTARG" ;; # floating point, 2 decimals
-					-[0-9]|-[1-9][0-9]) gainValue="${OPTARG}.00" ;; # integer
-					-[0-9].[0-9]|-[1-9][0-9].[0-9]) gainValue="${OPTARG}0" ;; # floating point, 1 decimal
-					-[0-9].[0-9][0-9]|-[1-9][0-9].[0-9][0-9]) gainValue="$OPTARG" ;; # floating point, 2 decimals
-					*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -G: gain type must be either album or track, albumpeak or trackpeak, or a signed number between -99.99 and +99.99" ; exit $Ex_Usage
-				esac
-				if [ "$applyGain" = 'true' ]; then
-					case "$applyGainType" in
-						ALBUM|TRACK)
-							preamp="$gainValue"
-							;;
-
-						ALBUM_PEAK|TRACK_PEAK)
-							if [ "${gainValue:0:1}" = '-' ]; then
-								peakReference="$gainValue"
-							fi
-							;;
-					esac
-				else
-					applyGainType="$gainValue"
-				fi
-				applyGain='true'
-				if [ "${gainValue:1}" = '0.00' ]; then
-					printMessage 'error' 'usage' 'bad_value' "$Self_Name -G: gain value must not be equal to 0" ; exit $Ex_Usage
-				fi
-				unset gainValue
-			fi
+			case "$OPTARG" in
+				undo) reverseReplayGain='true' ;;
+				caugain) computeReplayGain='true' computeCaugain='true';;
+				*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -G: argument must be 'undo'" ; exit $Ex_Usage ;;
+			esac
 			;;
 
 # -----------------------------------------------------------------------------
@@ -7557,10 +7414,6 @@ if [ $# -lt 1 ]; then
 fi
 
 outputCodecs="${outputCodecs# }"
-
-if [ "$outputCodecs" = 'WAV' -a "$applyGain" = 'true' ]; then
-	wavMustBeProcessed='forced'
-fi
 
 # transcode, test, replaygain, touch, hash
 if [ -z "$outputCodecs" -a "$checkFiles" = 'false' -a "$computeReplayGain" = 'false' -a "$reverseReplayGain" = 'false' \
