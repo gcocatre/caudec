@@ -32,22 +32,6 @@ Global parameters:
 
 -------------------------------------------------------------------------------
 
-Applying gain after decoding and before encoding:
-
-  -G ARG    apply ReplayGain ('album' or 'track') if found in source file
-            metadata. Note: it is possible to specify a preamp value with an
-            additional -G GAIN parameter (see below), for instance
-            '-G album -G -3' or '-G track -G +2'.
-
-  -G ARG    apply peak normalization ('albumpeak' or 'trackpeak'); same as
-            above, except album or track peak values are used as a starting
-            point instead of album or track gain values. An additional preamp
-            value may be specified as well (see -G GAIN below).
-
-  -G GAIN   apply arbitrary GAIN (signed number from -99.99 to +99.99)
-
--------------------------------------------------------------------------------
-
 Resampling after decoding and before encoding:
 
   -2        convert to stereo: 2.1, 4.0, 5.0, 5.1 and 7.1 audio will be
@@ -157,9 +141,6 @@ Decoding parameters (all mutually exlusive from each other and other actions):
 ReplayGain parameters (mutually exclusive from all other actions, except -g):
 
   -g        generate ReplayGain metadata, using the new ITU-R BS.1770 algorithm
-
-  -G ARG    MP3: apply ReplayGain ('album' or 'track') using MP3's gain header.
-            This uses the original ReplayGain algorithm.
 
   -G undo   MP3: reverse ReplayGain using MP3's gain header.
             Other codecs: remove ReplayGain metadata.
