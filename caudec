@@ -609,18 +609,18 @@ getHumanReadableString () {
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$gain dB" "$pathOrFile" )"
 			elif [ "$statusInfo" = 'album_gain' ]; then
 				if [ -n "$pathOrFile" ]; then
-					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst} %s\n" "$gain dB" 'Album gain' "$pathOrFile" )"
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_B_Bl}%s ${Clr_N_Cy}%s ${Clr_Rst}\n" "$gain dB" 'Album gain' "$pathOrFile" )"
 				else
 					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}RG ${Clr_Rst}%9s ${Clr_B_Bl}%s${Clr_Rst}\n" "$gain dB" 'Album gain' )"
 				fi
 			elif [ "$statusInfo" = 'track_dr' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}DR ${Clr_Rst}%2u ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber $statusData "$pathOrFile" )"
 			elif [ "$statusInfo" = 'album_dr' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}DR ${Clr_Rst}%2u ${Clr_B_Bl}%s${Clr_Rst} %s\n" $statusData 'Album dynamic range' "$pathOrFile" )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}DR ${Clr_Rst}%2u ${Clr_B_Bl}%s ${Clr_N_Cy}%s ${Clr_Rst}\n" $statusData 'Album dynamic range' "$pathOrFile" )"
 			elif [ "$statusInfo" = 'touch_file' ]; then
 				str="$( printf "${Clr_B_Bk}%2u ${Clr_Ok}TF ${Clr_Rst}%s ${Clr_N_Cy}%s${Clr_Rst}\n" $processNumber "$dateTime" "$pathOrFile" )"
 			elif [ "$statusInfo" = 'touch_files' ]; then
-				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}TF ${Clr_Rst}%10s ${Clr_B_Bl}%s${Clr_Rst} %s\n" "$albumTime" 'Album length' "$pathOrFile" )"
+				str="$( printf "${Clr_B_Bk} * ${Clr_Ok}TF ${Clr_Rst}%10s ${Clr_B_Bl}%s ${Clr_N_Cy}%s ${Clr_Rst}\n" "$albumTime" 'Album length' "$pathOrFile" )"
 			elif [ "$statusInfo" = 'testing' ]; then
 				if [ -n "$numberOfThreads" ]; then
 					if [ $numberOfThreads -lt 2 ]; then
@@ -643,9 +643,9 @@ getHumanReadableString () {
 			elif [ "$statusInfo" = 'album_duration' ]; then
 				hours="${duration%%:*}" msms="${duration#*:}"
 				if [ "$hours" = '00' ]; then
-					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}HMS ${Clr_B_Bk}%s:${Clr_Rst}%s ${Clr_B_Bl}%s${Clr_Rst} %s\n" "$hours" "$msms" "Total duration" "$pathOrFile" )"
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}HMS ${Clr_B_Bk}%s:${Clr_Rst}%s ${Clr_B_Bl}%s ${Clr_N_Cy}%s ${Clr_Rst}\n" "$hours" "$msms" "Total duration" "$pathOrFile" )"
 				else
-					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}HMS ${Clr_Rst}%s:%s ${Clr_B_Bl}%s${Clr_Rst} %s\n" "$hours" "$msms" "Total duration" "$pathOrFile" )"
+					str="$( printf "${Clr_B_Bk} * ${Clr_Ok}HMS ${Clr_Rst}%s:%s ${Clr_B_Bl}%s ${Clr_N_Cy}%s ${Clr_Rst}\n" "$hours" "$msms" "Total duration" "$pathOrFile" )"
 				fi
 			elif [ "$statusInfo" = 'characteristics' ]; then
 				data="${characteristics}"
