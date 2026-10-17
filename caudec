@@ -1790,8 +1790,11 @@ getNumberOfChannels () {
 	echo "$numberOfChannels"
 }
 
-getCpuUsage () {
-	ps -A -o '%cpu' | awk '{s+=$1} END {print s ""}'
+getCoreUsage () {
+	local cpuUsage coreUsage
+	cpuUsage="$( printf '%.0f' "$( ps -A -o '%cpu' | awk '{s+=$1} END {print s ""}' )" )"
+	coreUsage="$( echo "scale=0; $cpuUsage / 100 + 1 / 2" | bc )"
+	echo $coreUsage
 }
 
 getNumberOfCaudecInstances () {
@@ -1818,6 +1821,40 @@ getNumberOfProcessedFiles () {
 	local numberOfProcessedFiles
 	numberOfProcessedFiles="$( ls -1 "${Self_Control_Dir}" 2>/dev/null | fgrep -s -c '_all_processed.info' 2>/dev/null )"
 	echo $(( numberOfProcessedFiles * nCodecs ))
+}
+
+getNumberOfAvailableThreadsByCpuUsage () {
+	local index="$1" maxThreads="$2" cpuUsage coreUsage=1 nJobsLeft nProcessedFiles nAvailableProcesses nMillisecondsLeft=0 nThreads=1
+
+	nJobsLeft="$( ls -1 "${Self_Control_Dir}" 2>/dev/null | fgrep -s -c '.job' 2>/dev/null )"
+	if [ $nJobsLeft -ge $maxProcessesSetByUser -o $nJobsLeft -ge $maxProcessesSetByUser ]; then
+		nThreads=1
+		# debug "nThreads=[$nThreads] coreUsage=[$coreUsage]"
+		echo $nThreads
+		return
+	fi
+
+	if [ -z "$maxThreads" ]; then
+		maxThreads=$maxProcessesSetByUser
+	fi
+	if [ $maxThreads -gt $maxProcessesSetByUser ]; then
+		maxThreads=$maxProcessesSetByUser
+	fi
+	nThreads=$maxThreads
+
+	cpuUsage="$( getCpuUsage )"
+	coreUsage="$( echo "scale=0; $cpuUsage / 100 + 1 / 2" | bc )"
+	if [ $coreUsage -gt $nThreads ]; then
+		nThreads=1
+	else
+		nThreads=$(( maxThreads - coreUsage ))
+	fi
+	if [ $nThreads -lt 1 ]; then
+		nThreads=1
+	fi
+	# debug "nThreads=[$nThreads] coreUsage=[$coreUsage]"
+	echo $nThreads
+	return
 }
 
 getNumberOfAvailableThreads () {
@@ -1862,7 +1899,6 @@ getNumberOfAvailableThreads () {
 	fi
 	echo $nThreads
 }
-
 
 tagline () {
 	local IFS=' ' tags switch value pattern nLines ereg=""
