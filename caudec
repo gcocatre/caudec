@@ -4335,22 +4335,22 @@ encode () {
 			case $outputCodec in
 				WavPackHybrid)
 					if [ -n "$destLinkPath" ]; then
-						printMessage 'success' "$statusInfo" "path:${displayPath}" "outputCodec:${outputCodec}" "threads:$nThreads"  "percentDone:$percentEncoded" "$destLinkPath"
+						printMessage 'success' "$statusInfo" "file:${destFile}" "path:${displayPath}" "outputCodec:${outputCodec}" "threads:$nThreads"  "percentDone:$percentEncoded" "$destLinkPath"
 					else
-						printMessage 'success' "$statusInfo" "path:${displayPath}" "outputCodec:${outputCodec}" "threads:$nThreads" "percentDone:$percentEncoded"
+						printMessage 'success' "$statusInfo" "file:${destFile}" "path:${displayPath}" "outputCodec:${outputCodec}" "threads:$nThreads" "percentDone:$percentEncoded"
 					fi
 					;;
 
 				*)
-					printMessage 'success' "$statusInfo" "path:${displayPath}" "outputCodec:${outputCodec}" "threads:$nThreads" "percentDone:$percentEncoded"
+					printMessage 'success' "$statusInfo" "file:${destFile}" "path:${displayPath}" "outputCodec:${outputCodec}" "threads:$nThreads" "percentDone:$percentEncoded"
 					;;
 			esac
 		fi
 	elif [ $exitCode -eq $Ex_Io_Err ]; then
-		printMessage 'error' "$statusInfo" "path:${displayPath}" $processNumber 'destination is read-only.'
+		printMessage 'error' "$statusInfo" "file:${destFile}" "path:${displayPath}" $processNumber 'destination is read-only.'
 	else
 		rm -f "$encodedFile" 1>/dev/null 2>&1 # in case it exists
-		printMessage 'error' "$statusInfo" "path:${displayPath}" $processNumber
+		printMessage 'error' "$statusInfo" "file:${destFile}" "path:${displayPath}" $processNumber
 	fi
 
 	return $exitCode
@@ -5964,7 +5964,9 @@ computeTrackDateTime () {
 	esac
 
 	if [ $exitCode -eq $Ex_Ok ]; then
-		printMessage 'success' 'touch_file' $processNumber "dateTime:${trackYear}-${trackMonth}-${trackDay}" "path:${sourceFile}"
+		if [ -z "$outputCodecs" ]; then
+			printMessage 'success' 'touch_file' $processNumber "dateTime:${trackYear}-${trackMonth}-${trackDay}" "path:${sourceFile}"
+		fi
 	else
 		printMessage 'error' 'touch_path' $processNumber "dateTime:${trackYear}-${trackMonth}-${trackDay}" "path:${sourceFile}"
 	fi
