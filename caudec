@@ -1415,11 +1415,11 @@ findInputFiles () {
 	local location="$1"
 
 	if [ "$OS" = 'Darwin' ]; then
-		# find -s -E "$location" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
-		find -s -E "$location" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' 2>/dev/null
+		# find -s -E "$location" -type f -regex '.*\.(aiff|ape|caf|flac|m4a|mp3|ogg|opus|wav|wv)$' -print0 2>/dev/null
+		find -s -E "$location" -type f -regex '.*\.(aiff|ape|caf|flac|m4a|mp3|ogg|opus|wav|wv)$' 2>/dev/null
 	else
-		# find "$location" -type f -regextype 'posix-egrep' -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' -print0 2>/dev/null
-		find "$location" -type f -regextype 'posix-egrep' -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' 2>/dev/null
+		# find "$location" -type f -regextype 'posix-egrep' -regex '.*\.(aiff|ape|caf|flac|m4a|mp3|ogg|opus|wav|wv)$' -print0 2>/dev/null
+		find "$location" -type f -regextype 'posix-egrep' -regex '.*\.(aiff|ape|caf|flac|m4a|mp3|ogg|opus|wav|wv)$' 2>/dev/null
 	fi
 }
 
@@ -1493,27 +1493,27 @@ checkInputFiles () {
 	# fi
 
 	if [ "$touchFiles" = 'true' ]; then
-		egrep -q -s -c -m 1 '\.(aiff|caf|wav|flac|wv|ape|m4a|ogg|opus|mp3)$' "${Self_Data_Dir}/inputFiles.txt" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Data_Err
+		egrep -q -s -c -m 1 '\.(aiff|ape|caf|flac|m4a|mp3|ogg|opus|wav|wv)$' "${Self_Data_Dir}/inputFiles.txt" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Data_Err
 		if [ $exitCode -ne $Ex_Ok ]; then
 			printMessage 'warning' 'usage' 'filesystem' 'verbose' "At least one supported file needed, none found (FLAC, WavPack, Monkey's Audio, ALAC, Ogg Vorbis, Opus, MP3)"
 			printMessage 'abort' 'verbose'
 			cleanExit $exitCode
 		fi
-		egrep -s '\.(flac|wv|ape|m4a|ogg|opus|mp3)$' "${Self_Data_Dir}/inputFiles.txt" 2>> "$Self_Errors_File" | sort > "${Self_Data_Dir}/sourceFiles.txt"
+		egrep -s '\.(ape|flac|m4a|mp3|ogg|opus|wv)$' "${Self_Data_Dir}/inputFiles.txt" 2>> "$Self_Errors_File" | sort > "${Self_Data_Dir}/sourceFiles.txt"
 		egrep -s '\.(aiff|caf|wav)$' "${Self_Data_Dir}/inputFiles.txt" 2>> "$Self_Errors_File" | sort >> "${Self_Data_Dir}/sourceFiles.txt"
-		egrep -sv '\.(aiff|caf|wav|flac|wv|ape|m4a|ogg|opus|mp3)$' "${Self_Data_Dir}/inputFiles.txt" 2>> "$Self_Errors_File" | sort >> "${Self_Data_Dir}/sourceFiles.txt"
+		egrep -sv '\.(aiff|ape|caf|flac|m4a|mp3|ogg|opus|wav|wv)$' "${Self_Data_Dir}/inputFiles.txt" 2>> "$Self_Errors_File" | sort >> "${Self_Data_Dir}/sourceFiles.txt"
 	elif [ -n "$outputCodecs" ]; then # transcode
-		egrep -s '\.(wav|aiff|caf|flac|wv|ape|m4a)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
+		egrep -s '\.(aiff|ape|caf|flac|m4a|wav|wv)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
 	elif [ "$displayInternalHash" = 'true' ]; then
 		egrep -s '\.(flac|wv)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
 	elif [ "$checkFiles" = 'true' ]; then
-		egrep -s '\.(flac|wv|ape)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
+		egrep -s '\.(ape|flac|wv)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
 	elif [ "$showInformation" = 'true' -o "$showDurations" = 'true' ]; then
-		egrep -s '\.(flac|wv|ape|ogg|m4a|mp3|opus)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
+		egrep -s '\.(ape|flac|m4a|mp3|ogg|opus|wv)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
 	elif [ "$computeReplayGain" = 'true' -o "$reverseReplayGain" = 'true' ]; then
-		egrep -s '\.(flac|wv|ape|ogg|m4a|mp3|opus)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
+		egrep -s '\.(ape|flac|m4a|mp3|ogg|opus|wv)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
 	elif [ "$computeDynamicRange" = 'true' ]; then
-		egrep -s '\.(flac|wv|ape|ogg|mp3)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
+		egrep -s '\.(ape|flac|mp3|ogg|wv)$' "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/sourceFiles.txt" 2>> "$Self_Errors_File"
 	fi
 	numberOfSourceFiles="$( cat "${Self_Data_Dir}/sourceFiles.txt" | wc -l | tr -cd '[:digit:]' )"
 
@@ -1567,6 +1567,10 @@ getFileMilliseconds () {
 	local exitCode=$Ex_Ok file="$1" seconds=0 line samplingRate bitDepth format nChannels channelMask nSamples rest
 
 	case "$file" in
+		*.ape|*.m4a)
+			seconds="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | fgrep -s -m 1 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '[:digit:].' )"
+			;;
+
 		*.wv)
 				line="$( wvunpack -f "$file" 2>/dev/null )"
 				OIFS="$IFS"
@@ -1577,11 +1581,7 @@ getFileMilliseconds () {
 				return $Ex_Ok
 			;;
 
-		*.ape|*.m4a)
-			seconds="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | fgrep -s -m 1 'duration=' 2>/dev/null | cut -d '=' -f 2 | tr -cd '[:digit:].' )"
-			;;
-
-		*.wav|*.aiff|*.caf|*.flac|*.ogg|*.mp3|*.opus) seconds="$( soxi -D "$file" )" ;;
+		*.aiff|*.caf|*.flac|*.mp3|*.ogg|*.opus|*.wav) seconds="$( soxi -D "$file" )" ;;
 	esac
 
 	if [ -n "$seconds" -a "$seconds" != "0" ]; then
@@ -1613,7 +1613,7 @@ createControlFiles () {
 
 	while read sourceFile; do
 		case "$sourceFile" in
-			*.wav|*.aiff|*.caf|*.flac|*.ogg|*.mp3|*.opus) gotAllSoxiDurations='true' gotAllWavPackDurations='false' ;;
+			*.aiff|*.caf|*.flac|*.mp3|*.ogg|*.opus|*.wav) gotAllSoxiDurations='true' gotAllWavPackDurations='false' ;;
 			*.wv) gotAllSoxiDurations='false' gotAllWavPackDurations='true' ;;
 			*) gotAllSoxiDurations='false'  gotAllWavPackDurations='false' ; break ;;
 		esac
@@ -1777,12 +1777,12 @@ getNumberOfChannels () {
 	local file="$1" numberOfChannels=0
 
 	case "$file" in
-		*.wav|*.aiff|*.caf) numberOfChannels="$( soxi -c "$file" 2>/dev/null )" ;;
+		*.aiff|*.caf|*.wav) numberOfChannels="$( soxi -c "$file" 2>/dev/null )" ;;
 		*.flac) numberOfChannels="$( metaflac --show-channels "$file" 2>/dev/null )" ;;
-		*.wv) numberOfChannels="$( wvunpack -f4 "$file" 2>/dev/null )" ;;
+		*.mp3) numberOfChannels="$( soxi -c "$file" 2>/dev/null | tr -cd '[:digit:]' )" ;;
 		*.ogg) numberOfChannels="$( ogginfo "$file" 2>/dev/null | egrep -s -m 1 '^Channels:' 2>/dev/null | tr -cd '[:digit:]' )" ;;
 		*.opus) numberOfChannels="$( opusinfo "$file" | fgrep -s -m 1 'Channels: ' 2>/dev/null | tr -cd '[:digit:]' )" ;;
-		*.mp3) numberOfChannels="$( soxi -c "$file" 2>/dev/null | tr -cd '[:digit:]' )" ;;
+		*.wv) numberOfChannels="$( wvunpack -f4 "$file" 2>/dev/null )" ;;
 		*) numberOfChannels="$( ffprobe -print_format 'default' -show_streams -select_streams 'a:0' "$file" 2>/dev/null | fgrep -s -m 1 'channels=' 2>/dev/null | tr -cd '[:digit:]' )" ;;
 	esac
 
@@ -3834,7 +3834,7 @@ copyOrLinkAllFiles () {
 	local codec="$1" sourceDirFile otherFileBasename destOtherFile destOtherLinkedFile
 	for sourceDirFile in "$sourceDirname"/*; do
 		case "$sourceDirFile" in
-			*.wav|*.caf|*.aiff|*.flac|*.wv|*.wvc|*.ape|*.ogg|*.mp3|*.m4a|*.opus) continue ;;
+			*.aiff|*.ape|*.caf|*.flac|*.m4a|*.mp3|*.ogg|*.opus|*.wav|*.wv|*.wvc) continue ;;
 		esac
 		if [ -f "$sourceDirFile" ]; then
 			otherFileBasename="${sourceDirFile##*/}"
@@ -4580,14 +4580,14 @@ testFile () {
 	local exitCode=$Ex_Ok nThreads=1
 
 	case "$sourceFile" in
+		*.ape)
+			mac "$sourceFile" -v -threads=$nThreads 1>/dev/null 2>&1; exitCode=$?
+			;;
+
 		*.flac) flac -st "$sourceFile" 1>/dev/null 2>&1; exitCode=$? ;;
 
 		*.wv)
 			wvunpack --threads=$nThreads -qvv "$sourceFile" 1>/dev/null 2>&1; exitCode=$?
-			;;
-
-		*.ape)
-			mac "$sourceFile" -v -threads=$nThreads 1>/dev/null 2>&1; exitCode=$?
 			;;
 
 		*)
@@ -4752,7 +4752,7 @@ showTrackInformation () {
 	fi
 
 	case "$sourceFile" in
-		*.flac|*.wv|*.ape|*.m4a)
+		*.ape|*.flac|*.m4a|*.wv)
 			if [ -n "$nSamples" ]; then
 				sectorSize=$(( samplingRate / 75 ))
 				multiples=$(( nSamples / sectorSize ))
@@ -4832,6 +4832,51 @@ saveReplayGain () {
 	fi
 
 	case "$file" in
+		*.ape)
+			if [ "$computeAudioCharacteristics" = 'true' ]; then
+				schag -z \
+					-r "AUDIO_ALBUM_PEAK" \
+					-r "AUDIO_TRACK_PEAK" \
+					-r "AUDIO_TARGET_LOUDNESS" \
+					-r "REPLAYGAIN_ALBUM_PEAK" \
+					-r "REPLAYGAIN_ALBUM_GAIN" \
+					-r "REPLAYGAIN_TRACK_PEAK" \
+					-r "REPLAYGAIN_TRACK_GAIN" \
+					-r "REPLAYGAIN_ALGORITHM" \
+					-r "REPLAYGAIN_REFERENCE_LEVEL" \
+					-r "REPLAYGAIN_TARGET_LOUDNESS" \
+					-r "REPLAYGAIN_VERSION" \
+					-t "AUDIO_ALBUM_PEAK=${albumPeakDbfs} dBFS" \
+					-t "AUDIO_TRACK_PEAK=${trackPeakDbfs} dBFS" \
+					-t "AUDIO_TARGET_LOUDNESS=${AUDIO_TARGET_LOUDNESS} LUFS" \
+					-t "REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
+					-t "REPLAYGAIN_ALBUM_GAIN=${albumGain} dB" \
+					-t "REPLAYGAIN_TRACK_PEAK=${trackPeak}" \
+					-t "REPLAYGAIN_TRACK_GAIN=${trackGain} dB" \
+					-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
+					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			else
+				schag -z \
+					-r "AUDIO_ALBUM_PEAK" \
+					-r "AUDIO_TRACK_PEAK" \
+					-r "AUDIO_TARGET_LOUDNESS" \
+					-r "REPLAYGAIN_ALBUM_PEAK" \
+					-r "REPLAYGAIN_ALBUM_GAIN" \
+					-r "REPLAYGAIN_TRACK_PEAK" \
+					-r "REPLAYGAIN_TRACK_GAIN" \
+					-r "REPLAYGAIN_ALGORITHM" \
+					-r "REPLAYGAIN_REFERENCE_LEVEL" \
+					-r "REPLAYGAIN_TARGET_LOUDNESS" \
+					-r "REPLAYGAIN_VERSION" \
+					-t "REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
+					-t "REPLAYGAIN_ALBUM_GAIN=${albumGain} dB" \
+					-t "REPLAYGAIN_TRACK_PEAK=${trackPeak}" \
+					-t "REPLAYGAIN_TRACK_GAIN=${trackGain} dB" \
+					-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
+					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			fi
+			;;
+
 		*.flac)
 			if [ "$computeAudioCharacteristics" = 'true' ]; then
 				metaflac \
@@ -4873,6 +4918,73 @@ saveReplayGain () {
 					--set-tag="REPLAYGAIN_TRACK_PEAK=${trackPeak}" \
 					--set-tag="REPLAYGAIN_TRACK_GAIN=${trackGain} dB" \
 					--set-tag="REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
+					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			fi
+			;;
+
+		*.mp3)
+			if [ "$computeAudioCharacteristics" = 'true' ]; then
+				eyeD3 --quiet --to-v2.4 \
+					--user-text-frame "AUDIO_ALBUM_PEAK:" \
+					--user-text-frame "AUDIO_TRACK_PEAK:" \
+					--user-text-frame "AUDIO_TARGET_LOUDNESS:" \
+					--user-text-frame "REPLAYGAIN_ALBUM_PEAK:" \
+					--user-text-frame "REPLAYGAIN_ALBUM_GAIN:" \
+					--user-text-frame "REPLAYGAIN_TRACK_PEAK:" \
+					--user-text-frame "REPLAYGAIN_TRACK_GAIN:" \
+					--user-text-frame "REPLAYGAIN_ALGORITHM:" \
+					--user-text-frame "REPLAYGAIN_REFERENCE_LEVEL:" \
+					--user-text-frame "REPLAYGAIN_TARGET_LOUDNESS:" \
+					--user-text-frame "REPLAYGAIN_VERSION:" \
+					--user-text-frame "audio_album_peak:" \
+					--user-text-frame "audio_track_peak:" \
+					--user-text-frame "audio_target_loudness:" \
+					--user-text-frame "replaygain_album_peak:" \
+					--user-text-frame "replaygain_album_gain:" \
+					--user-text-frame "replaygain_track_peak:" \
+					--user-text-frame "replaygain_track_gain:" \
+					--user-text-frame "replaygain_algorithm:" \
+					--user-text-frame "replaygain_reference_level:" \
+					--user-text-frame "replaygain_target_loudness:" \
+					--user-text-frame "replaygain_version:" \
+					--user-text-frame "AUDIO_ALBUM_PEAK:${albumPeakDbfs} dBFS" \
+					--user-text-frame "AUDIO_TRACK_PEAK:${trackPeakDbfs} dBFS" \
+					--user-text-frame "AUDIO_TARGET_LOUDNESS:${AUDIO_TARGET_LOUDNESS} LUFS" \
+					--user-text-frame "REPLAYGAIN_ALBUM_PEAK:${albumPeak}" \
+					--user-text-frame "REPLAYGAIN_ALBUM_GAIN:${albumGain} dB" \
+					--user-text-frame "REPLAYGAIN_TRACK_PEAK:${trackPeak}" \
+					--user-text-frame "REPLAYGAIN_TRACK_GAIN:${trackGain} dB" \
+					--user-text-frame "REPLAYGAIN_ALGORITHM:${REPLAYGAIN_ALGORITHM}" \
+					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			else
+				eyeD3 --quiet --to-v2.4 \
+					--user-text-frame "AUDIO_ALBUM_PEAK:" \
+					--user-text-frame "AUDIO_TRACK_PEAK:" \
+					--user-text-frame "AUDIO_TARGET_LOUDNESS:" \
+					--user-text-frame "REPLAYGAIN_ALBUM_PEAK:" \
+					--user-text-frame "REPLAYGAIN_ALBUM_GAIN:" \
+					--user-text-frame "REPLAYGAIN_TRACK_PEAK:" \
+					--user-text-frame "REPLAYGAIN_TRACK_GAIN:" \
+					--user-text-frame "REPLAYGAIN_ALGORITHM:" \
+					--user-text-frame "REPLAYGAIN_REFERENCE_LEVEL:" \
+					--user-text-frame "REPLAYGAIN_TARGET_LOUDNESS:" \
+					--user-text-frame "REPLAYGAIN_VERSION:" \
+					--user-text-frame "audio_album_peak:" \
+					--user-text-frame "audio_track_peak:" \
+					--user-text-frame "audio_target_loudness:" \
+					--user-text-frame "replaygain_album_peak:" \
+					--user-text-frame "replaygain_album_gain:" \
+					--user-text-frame "replaygain_track_peak:" \
+					--user-text-frame "replaygain_track_gain:" \
+					--user-text-frame "replaygain_algorithm:" \
+					--user-text-frame "replaygain_reference_level:" \
+					--user-text-frame "replaygain_target_loudness:" \
+					--user-text-frame "replaygain_version:" \
+					--user-text-frame "REPLAYGAIN_ALBUM_PEAK:${albumPeak}" \
+					--user-text-frame "REPLAYGAIN_ALBUM_GAIN:${albumGain} dB" \
+					--user-text-frame "REPLAYGAIN_TRACK_PEAK:${trackPeak}" \
+					--user-text-frame "REPLAYGAIN_TRACK_GAIN:${trackGain} dB" \
+					--user-text-frame "REPLAYGAIN_ALGORITHM:${REPLAYGAIN_ALGORITHM}" \
 					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			fi
 			;;
@@ -4966,118 +5078,6 @@ saveReplayGain () {
 					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			fi
 			;;
-
-		*.ape)
-			if [ "$computeAudioCharacteristics" = 'true' ]; then
-				schag -z \
-					-r "AUDIO_ALBUM_PEAK" \
-					-r "AUDIO_TRACK_PEAK" \
-					-r "AUDIO_TARGET_LOUDNESS" \
-					-r "REPLAYGAIN_ALBUM_PEAK" \
-					-r "REPLAYGAIN_ALBUM_GAIN" \
-					-r "REPLAYGAIN_TRACK_PEAK" \
-					-r "REPLAYGAIN_TRACK_GAIN" \
-					-r "REPLAYGAIN_ALGORITHM" \
-					-r "REPLAYGAIN_REFERENCE_LEVEL" \
-					-r "REPLAYGAIN_TARGET_LOUDNESS" \
-					-r "REPLAYGAIN_VERSION" \
-					-t "AUDIO_ALBUM_PEAK=${albumPeakDbfs} dBFS" \
-					-t "AUDIO_TRACK_PEAK=${trackPeakDbfs} dBFS" \
-					-t "AUDIO_TARGET_LOUDNESS=${AUDIO_TARGET_LOUDNESS} LUFS" \
-					-t "REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
-					-t "REPLAYGAIN_ALBUM_GAIN=${albumGain} dB" \
-					-t "REPLAYGAIN_TRACK_PEAK=${trackPeak}" \
-					-t "REPLAYGAIN_TRACK_GAIN=${trackGain} dB" \
-					-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
-					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-			else
-				schag -z \
-					-r "AUDIO_ALBUM_PEAK" \
-					-r "AUDIO_TRACK_PEAK" \
-					-r "AUDIO_TARGET_LOUDNESS" \
-					-r "REPLAYGAIN_ALBUM_PEAK" \
-					-r "REPLAYGAIN_ALBUM_GAIN" \
-					-r "REPLAYGAIN_TRACK_PEAK" \
-					-r "REPLAYGAIN_TRACK_GAIN" \
-					-r "REPLAYGAIN_ALGORITHM" \
-					-r "REPLAYGAIN_REFERENCE_LEVEL" \
-					-r "REPLAYGAIN_TARGET_LOUDNESS" \
-					-r "REPLAYGAIN_VERSION" \
-					-t "REPLAYGAIN_ALBUM_PEAK=${albumPeak}" \
-					-t "REPLAYGAIN_ALBUM_GAIN=${albumGain} dB" \
-					-t "REPLAYGAIN_TRACK_PEAK=${trackPeak}" \
-					-t "REPLAYGAIN_TRACK_GAIN=${trackGain} dB" \
-					-t "REPLAYGAIN_ALGORITHM=${REPLAYGAIN_ALGORITHM}" \
-					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-			fi
-			;;
-
-		*.mp3)
-			if [ "$computeAudioCharacteristics" = 'true' ]; then
-				eyeD3 --quiet --to-v2.4 \
-					--user-text-frame "AUDIO_ALBUM_PEAK:" \
-					--user-text-frame "AUDIO_TRACK_PEAK:" \
-					--user-text-frame "AUDIO_TARGET_LOUDNESS:" \
-					--user-text-frame "REPLAYGAIN_ALBUM_PEAK:" \
-					--user-text-frame "REPLAYGAIN_ALBUM_GAIN:" \
-					--user-text-frame "REPLAYGAIN_TRACK_PEAK:" \
-					--user-text-frame "REPLAYGAIN_TRACK_GAIN:" \
-					--user-text-frame "REPLAYGAIN_ALGORITHM:" \
-					--user-text-frame "REPLAYGAIN_REFERENCE_LEVEL:" \
-					--user-text-frame "REPLAYGAIN_TARGET_LOUDNESS:" \
-					--user-text-frame "REPLAYGAIN_VERSION:" \
-					--user-text-frame "audio_album_peak:" \
-					--user-text-frame "audio_track_peak:" \
-					--user-text-frame "audio_target_loudness:" \
-					--user-text-frame "replaygain_album_peak:" \
-					--user-text-frame "replaygain_album_gain:" \
-					--user-text-frame "replaygain_track_peak:" \
-					--user-text-frame "replaygain_track_gain:" \
-					--user-text-frame "replaygain_algorithm:" \
-					--user-text-frame "replaygain_reference_level:" \
-					--user-text-frame "replaygain_target_loudness:" \
-					--user-text-frame "replaygain_version:" \
-					--user-text-frame "AUDIO_ALBUM_PEAK:${albumPeakDbfs} dBFS" \
-					--user-text-frame "AUDIO_TRACK_PEAK:${trackPeakDbfs} dBFS" \
-					--user-text-frame "AUDIO_TARGET_LOUDNESS:${AUDIO_TARGET_LOUDNESS} LUFS" \
-					--user-text-frame "REPLAYGAIN_ALBUM_PEAK:${albumPeak}" \
-					--user-text-frame "REPLAYGAIN_ALBUM_GAIN:${albumGain} dB" \
-					--user-text-frame "REPLAYGAIN_TRACK_PEAK:${trackPeak}" \
-					--user-text-frame "REPLAYGAIN_TRACK_GAIN:${trackGain} dB" \
-					--user-text-frame "REPLAYGAIN_ALGORITHM:${REPLAYGAIN_ALGORITHM}" \
-					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-			else
-				eyeD3 --quiet --to-v2.4 \
-					--user-text-frame "AUDIO_ALBUM_PEAK:" \
-					--user-text-frame "AUDIO_TRACK_PEAK:" \
-					--user-text-frame "AUDIO_TARGET_LOUDNESS:" \
-					--user-text-frame "REPLAYGAIN_ALBUM_PEAK:" \
-					--user-text-frame "REPLAYGAIN_ALBUM_GAIN:" \
-					--user-text-frame "REPLAYGAIN_TRACK_PEAK:" \
-					--user-text-frame "REPLAYGAIN_TRACK_GAIN:" \
-					--user-text-frame "REPLAYGAIN_ALGORITHM:" \
-					--user-text-frame "REPLAYGAIN_REFERENCE_LEVEL:" \
-					--user-text-frame "REPLAYGAIN_TARGET_LOUDNESS:" \
-					--user-text-frame "REPLAYGAIN_VERSION:" \
-					--user-text-frame "audio_album_peak:" \
-					--user-text-frame "audio_track_peak:" \
-					--user-text-frame "audio_target_loudness:" \
-					--user-text-frame "replaygain_album_peak:" \
-					--user-text-frame "replaygain_album_gain:" \
-					--user-text-frame "replaygain_track_peak:" \
-					--user-text-frame "replaygain_track_gain:" \
-					--user-text-frame "replaygain_algorithm:" \
-					--user-text-frame "replaygain_reference_level:" \
-					--user-text-frame "replaygain_target_loudness:" \
-					--user-text-frame "replaygain_version:" \
-					--user-text-frame "REPLAYGAIN_ALBUM_PEAK:${albumPeak}" \
-					--user-text-frame "REPLAYGAIN_ALBUM_GAIN:${albumGain} dB" \
-					--user-text-frame "REPLAYGAIN_TRACK_PEAK:${trackPeak}" \
-					--user-text-frame "REPLAYGAIN_TRACK_GAIN:${trackGain} dB" \
-					--user-text-frame "REPLAYGAIN_ALGORITHM:${REPLAYGAIN_ALGORITHM}" \
-					"$file" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-			fi
-			;;
 	esac
 
 	return $exitCode
@@ -5106,7 +5106,7 @@ computeTrackGain () {
 		shopt -qs nocasematch
 		fileExtension="${file##*.}"
 		case "$file" in
-			*.wav|*.flac|*.wv|*.ape|*.ogg)
+			*.ape|*.flac|*.ogg|*.wav|*.wv)
 				OIFS="$IFS"
 				IFS="$( echo -en "\t" )"
 				read rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment < <( rsgain custom -q -O -t -s i -l "$AUDIO_TARGET_LOUDNESS" "$file" 2>> "$Self_Errors_File" | fgrep -sv 'Loudness (LUFS)' 2>/dev/null )
@@ -5610,6 +5610,21 @@ reverseTrackGain () {
 
 	if [ -e "$sourceFile" ]; then
 		case "$sourceFile" in
+			*.ape) schag -z \
+				-r "AUDIO_ALBUM_PEAK" \
+				-r "AUDIO_TRACK_PEAK" \
+				-r "AUDIO_TARGET_LOUDNESS" \
+				-r "REPLAYGAIN_ALBUM_PEAK" \
+				-r "REPLAYGAIN_ALBUM_GAIN" \
+				-r "REPLAYGAIN_TRACK_PEAK" \
+				-r "REPLAYGAIN_TRACK_GAIN" \
+				-r "REPLAYGAIN_ALGORITHM" \
+				-r "REPLAYGAIN_REFERENCE_LEVEL" \
+				-r "REPLAYGAIN_TARGET_LOUDNESS" \
+				-r "REPLAYGAIN_VERSION" \
+				"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" ; exitCode=$?
+				;;
+
 			*.flac) metaflac \
 				--remove-tag="AUDIO_ALBUM_PEAK" \
 				--remove-tag="AUDIO_TRACK_PEAK" \
@@ -5624,49 +5639,8 @@ reverseTrackGain () {
 				--remove-tag="REPLAYGAIN_VERSION" \
 				"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" ; exitCode=$? ;;
 
-			*.ogg) vorbiscomment \
-				-d "AUDIO_ALBUM_PEAK" \
-				-d "AUDIO_TRACK_PEAK" \
-				-d "AUDIO_TARGET_LOUDNESS" \
-				-d "REPLAYGAIN_ALBUM_PEAK" \
-				-d "REPLAYGAIN_ALBUM_GAIN" \
-				-d "REPLAYGAIN_TRACK_PEAK" \
-				-d "REPLAYGAIN_TRACK_GAIN" \
-				-d "REPLAYGAIN_ALGORITHM" \
-				-d "REPLAYGAIN_REFERENCE_LEVEL" \
-				-d "REPLAYGAIN_TARGET_LOUDNESS" \
-				-d "REPLAYGAIN_VERSION" \
-				"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
-				;;
-
-			*.wv) wvtag --no-utf8-convert \
-				-w "AUDIO_ALBUM_PEAK=" \
-				-w "AUDIO_TRACK_PEAK=" \
-				-w "AUDIO_TARGET_LOUDNESS=" \
-				-w "REPLAYGAIN_ALBUM_PEAK=" \
-				-w "REPLAYGAIN_ALBUM_GAIN=" \
-				-w "REPLAYGAIN_TRACK_PEAK=" \
-				-w "REPLAYGAIN_TRACK_GAIN=" \
-				-w "REPLAYGAIN_ALGORITHM=" \
-				-w "REPLAYGAIN_REFERENCE_LEVEL=" \
-				-w "REPLAYGAIN_TARGET_LOUDNESS=" \
-				-w "REPLAYGAIN_VERSION=" \
-				"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" ; exitCode=$?
-				;;
-
-			*.ape) schag -z \
-				-r "AUDIO_ALBUM_PEAK" \
-				-r "AUDIO_TRACK_PEAK" \
-				-r "AUDIO_TARGET_LOUDNESS" \
-				-r "REPLAYGAIN_ALBUM_PEAK" \
-				-r "REPLAYGAIN_ALBUM_GAIN" \
-				-r "REPLAYGAIN_TRACK_PEAK" \
-				-r "REPLAYGAIN_TRACK_GAIN" \
-				-r "REPLAYGAIN_ALGORITHM" \
-				-r "REPLAYGAIN_REFERENCE_LEVEL" \
-				-r "REPLAYGAIN_TARGET_LOUDNESS" \
-				-r "REPLAYGAIN_VERSION" \
-				"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" ; exitCode=$?
+			*.m4a)
+				mp3rgain -u -s d "$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				;;
 
 			*.mp3)
@@ -5697,8 +5671,34 @@ reverseTrackGain () {
 					"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 				;;
 
-			*.m4a)
-				mp3rgain -u -s d "$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			*.ogg) vorbiscomment \
+				-d "AUDIO_ALBUM_PEAK" \
+				-d "AUDIO_TRACK_PEAK" \
+				-d "AUDIO_TARGET_LOUDNESS" \
+				-d "REPLAYGAIN_ALBUM_PEAK" \
+				-d "REPLAYGAIN_ALBUM_GAIN" \
+				-d "REPLAYGAIN_TRACK_PEAK" \
+				-d "REPLAYGAIN_TRACK_GAIN" \
+				-d "REPLAYGAIN_ALGORITHM" \
+				-d "REPLAYGAIN_REFERENCE_LEVEL" \
+				-d "REPLAYGAIN_TARGET_LOUDNESS" \
+				-d "REPLAYGAIN_VERSION" \
+				"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File"; exitCode=$?
+				;;
+
+			*.wv) wvtag --no-utf8-convert \
+				-w "AUDIO_ALBUM_PEAK=" \
+				-w "AUDIO_TRACK_PEAK=" \
+				-w "AUDIO_TARGET_LOUDNESS=" \
+				-w "REPLAYGAIN_ALBUM_PEAK=" \
+				-w "REPLAYGAIN_ALBUM_GAIN=" \
+				-w "REPLAYGAIN_TRACK_PEAK=" \
+				-w "REPLAYGAIN_TRACK_GAIN=" \
+				-w "REPLAYGAIN_ALGORITHM=" \
+				-w "REPLAYGAIN_REFERENCE_LEVEL=" \
+				-w "REPLAYGAIN_TARGET_LOUDNESS=" \
+				-w "REPLAYGAIN_VERSION=" \
+				"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" ; exitCode=$?
 				;;
 
 			*)
@@ -5797,12 +5797,30 @@ saveTracksDR () {
 			audioAlbumDR="$( printf "%.0f" "$audioAlbumDR" )"
 
 			case "$sourceFile" in
+				*.ape)
+					schag -z \
+						-r "AUDIO_TRACK_DR" \
+						-r "AUDIO_ALBUM_DR" \
+						-t "AUDIO_TRACK_DR=${audioTrackDR}" \
+						-t "AUDIO_ALBUM_DR=${audioAlbumDR}" \
+						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					;;
+
 				*.flac)
 					metaflac \
 						--remove-tag="AUDIO_TRACK_DR" \
 						--remove-tag="AUDIO_ALBUM_DR" \
 						--set-tag="AUDIO_TRACK_DR=${audioTrackDR}" \
 						--set-tag="AUDIO_ALBUM_DR=${audioAlbumDR}" \
+						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+					;;
+
+				*.mp3)
+					eyeD3 --quiet --to-v2.4 \
+						--user-text-frame "AUDIO_TRACK_DR:" \
+						--user-text-frame "AUDIO_ALBUM_DR:" \
+						--user-text-frame "AUDIO_TRACK_DR:${audioTrackDR}" \
+						--user-text-frame "AUDIO_ALBUM_DR:${audioAlbumDR}" \
 						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 					;;
 
@@ -5821,24 +5839,6 @@ saveTracksDR () {
 						-w "AUDIO_ALBUM_DR=" \
 						-w "AUDIO_TRACK_DR=${audioTrackDR}" \
 						-w "AUDIO_ALBUM_DR=${audioAlbumDR}" \
-						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-					;;
-
-				*.ape)
-					schag -z \
-						-r "AUDIO_TRACK_DR" \
-						-r "AUDIO_ALBUM_DR" \
-						-t "AUDIO_TRACK_DR=${audioTrackDR}" \
-						-t "AUDIO_ALBUM_DR=${audioAlbumDR}" \
-						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
-					;;
-
-				*.mp3)
-					eyeD3 --quiet --to-v2.4 \
-						--user-text-frame "AUDIO_TRACK_DR:" \
-						--user-text-frame "AUDIO_ALBUM_DR:" \
-						--user-text-frame "AUDIO_TRACK_DR:${audioTrackDR}" \
-						--user-text-frame "AUDIO_ALBUM_DR:${audioAlbumDR}" \
 						"$sourceFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 					;;
 
@@ -5922,15 +5922,15 @@ computeTrackDateTime () {
 	local exitCode=$Ex_Ok trackYear trackMonth trackDay
 
 	case "$sourceFile" in
-		*.flac|*ogg|*.m4a|*.wv|*.ape|*.opus|*.mp3)
+		*.ape|*.flac|*.m4a|*.mp3|*ogg|*.opus|*.wv)
 			case "$sourceFile" in
-				*.flac) date=$( metaflac --no-filename --show-tag=date "$sourceFile" | tr -cd "[:digit:]-" ) ;;
-				*.ogg) date=$( vorbiscomment "$sourceFile" | egrep -si '^date=' 2>/dev/null | tr -cd "[:digit:]-" ) ;;
-				*.m4a) date=$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | egrep -si '^format.tags.date' 2>/dev/null | cut -d '.' -f 3- | tr -cd "[:digit:]-" ) ;;
-				*.wv) date=$( wvtag -x Year "$sourceFile" 2>/dev/null | tr -cd "[:digit:]-" ) ;;
 				*.ape) date=$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | egrep -si '^format.tags.year' 2>/dev/null | cut -d '.' -f 3- | tr -cd "[:digit:]-" ) ;;
-				*.opus) date=$( opusinfo "$sourceFile" | egrep -si '^date=' 2>/dev/null | tr -cd "[:digit:]-" ) ;;
+				*.flac) date=$( metaflac --no-filename --show-tag=date "$sourceFile" | tr -cd "[:digit:]-" ) ;;
+				*.m4a) date=$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | egrep -si '^format.tags.date' 2>/dev/null | cut -d '.' -f 3- | tr -cd "[:digit:]-" ) ;;
 				*.mp3) date=$( ffmpeg -i "$sourceFile" -f ffmetadata - 2>/dev/null | egrep -si '^(date|TDOR|TDRC|TDRL)=[0-9]{4}' 2>/dev/null | head -n 1 | tr -cd "[:digit:]-" ) ;;
+				*.ogg) date=$( vorbiscomment "$sourceFile" | egrep -si '^date=' 2>/dev/null | tr -cd "[:digit:]-" ) ;;
+				*.opus) date=$( opusinfo "$sourceFile" | egrep -si '^date=' 2>/dev/null | tr -cd "[:digit:]-" ) ;;
+				*.wv) date=$( wvtag -x Year "$sourceFile" 2>/dev/null | tr -cd "[:digit:]-" ) ;;
 			esac
 			if [ ${#date} -eq 4 ]; then
 				trackYear="$date"
@@ -6026,7 +6026,7 @@ touchAllFiles () {
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
 			case "$sourceFile" in
-				*aiff|*caf|*.wav|*.flac|*ogg|*.m4a|*.wv|*.ape|*.mp3|*.opus) audioFiles[$audioFileIndex]="$sourceFile" ; (( audioFileIndex++ )) ;;
+				*.aiff|*.ape|*.caf|*.flac|*.m4a|*.mp3|*.ogg|*.opus|*.wav|*.wv) audioFiles[$audioFileIndex]="$sourceFile" ; (( audioFileIndex++ )) ;;
 				*.wvc) continue ;; # will be touched when the matching .wv file is touched
 				*) otherFiles[$otherFileIndex]="$sourceFile" ; (( otherFileIndex++ )) ;; # all non-audio files
 			esac
@@ -6063,7 +6063,7 @@ touchAllFiles () {
 			if [ -z "$fileMilliseconds" ]; then fileMilliseconds=0; fi
 
 			case "$sourceFile" in
-				*.flac|*ogg|*m4a|*.wv|*.ape|*.mp3|*.opus)
+				*.ape|*.flac|*.m4a|*.mp3|*.ogg|*.opus|*.wv)
 					read trackDate < "$sourceTagFile"
 					;;
 
@@ -7142,21 +7142,20 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:RS:sTtuVZz' o ; do
 
 		c|C)
 			case "$OPTARG" in
-				wav)                 lastCodec='WAV' gotWavOutputCodec='true' ;;
+				aac)                 lastCodec='AAC' ;;
 				aiff)                lastCodec='AIFF' ;;
+				alac)                lastCodec='ALAC' ;;
+				ape)                 lastCodec='MonkeysAudio' ;;
 				caf)                 lastCodec='CAF' ;;
 				flac)                lastCodec='FLAC' ;;
-				alac)                lastCodec='ALAC' ;;
-				wv)                  lastCodec='WavPack' ;;
-				wvh)                 lastCodec='WavPackHybrid' ;;
-
-				wvl)                 lastCodec='WavPackLossy' ;;
-				aac)                 lastCodec='AAC' ;;
-				ape)                 lastCodec='MonkeysAudio' ;;
 				lossyFLAC|lossyflac) lastCodec='lossyFLAC' ;;
 				mp3)                 lastCodec='MP3' ;;
 				ogg|vorbis)          lastCodec='OggVorbis' ;;
 				opus)                lastCodec='Opus' ;;
+				wav)                 lastCodec='WAV' gotWavOutputCodec='true' ;;
+				wv)                  lastCodec='WavPack' ;;
+				wvh)                 lastCodec='WavPackHybrid' ;;
+				wvl)                 lastCodec='WavPackLossy' ;;
 				*) printMessage 'error' 'usage' 'bad_value' "$Self_Name -c: invalid codec (try $Self_Name -h)" ; exit $Ex_Usage ;;
 			esac
 
