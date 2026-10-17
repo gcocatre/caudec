@@ -96,21 +96,6 @@ if [ -r "${HOME}/.caudecrc" ]; then
 	. "${HOME}/.caudecrc"
 fi
 
-if [ "$transcaudeTouchFiles" != 'false' ]; then
-  transcaudeTouchFiles='true'
-fi
-if [ "$computeLosslessReplayGain" != 'false' ]; then
-  computeLosslessReplayGain='true'
-fi
-if [ "$computeLossyReplayGain" != 'false' ]; then
-  computeLossyReplayGain='true'
-fi
-if [ "$transcaudeOnly" = 'true' ]; then
-  computeLosslessReplayGain='false'
-  computeLossyReplayGain='false'
-  transcaudeTouchFiles='false'
-fi
-
 datecmd='date' gnudate='true'
 findcmd='find' gnufind='true'
 sedcmd='sed' gnused='true'
@@ -140,9 +125,9 @@ Copyright © 2012 - 2026 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
 Usage: $Self_Name [ PARAMS ] [ CAUDEC PARAMS ] DIR(S)
-Mass transcode albums using caudec, while optionally computing ReplayGain,
-and touching the resulting directories to reflect their date of release, and
-track durations. A single directory, or multiple directories, must be passed as
+Mass transcode albums using caudec, while computing ReplayGain, and touching
+the resulting directories to reflect their date of release, and track
+durations. A single directory, or multiple directories, must be passed as
 arguments. Run 'caudec -h' to learn about CAUDEC PARAMS.
 
 -------------------------------------------------------------------------------
@@ -153,15 +138,6 @@ Global parameters:
   -V        output version information and exit
   -s        be silent, only print to STDOUT what directory is being transcoded,
             and errors to STDERR
-
--------------------------------------------------------------------------------
-
-Disable additional actions:
-
-  -R        do not compute ReplayGain to lossless targets (useful if you know
-            that your lossless source already has ReplayGain data)
-  -M        do not touch target files and directories modification times
-  -0        transcode only, don't compute ReplayGain, don't touch mtimes
 
 -------------------------------------------------------------------------------
 
@@ -209,55 +185,6 @@ outputWarningOrError () {
       echo -e "$str" 1>&2
 			;;
 	esac
-}
-
-computeReplayGain () {
-  local exitCode=$Ex_Ok processId status context data message path
-
-  case "$lastCodec" in
-    FLAC|WavPack*|lossyFLAC|MonkeysAudio|OggVorbis|MP3|Opus)
-      if [ "$Self_Verbose" = 'true' ]; then
-        echo
-        echo "Computing ReplayGain for $lastCodec in \"$lastDir\":"
-      fi
-      if [ "$lastCodec" = 'MP3' ]; then
-        if [ "$Self_Verbose" = 'true' ]; then
-          caudec -Z -i -G album "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
-        else
-          caudec -z -i -G album "${files[@]}" 1> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
-        fi
-      else
-        if [ "$Self_Verbose" = 'true' ]; then
-          caudec -Z -i -g "${files[@]}" 2> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
-        else
-          caudec -z -i -g "${files[@]}" 1> "${Self_ReplayGain_Log}_${lastCodec}" || exitCode=$Ex_Ko
-        fi
-      fi
-
-      if [ "$Self_Verbose" = 'false' ]; then
-        # processId|status|context|data|message|path
-        while read processId status context data message path; do
-          message="${message//¦/|}"
-          if [ "$status" != 'success' ]; then
-            outputWarningOrError
-            exitCode=$Ex_Ko
-          fi
-        done < <( grep -F "_gain|" "${Self_ReplayGain_Log}_${lastCodec}" 2>/dev/null )
-      fi
-      ;;
-
-    *)
-      if [ "$Self_Verbose" = 'true' ]; then
-        echo
-        status="warning"
-        message="Not computing ReplayGain for unsupported codec $lastCodec in \"$lastDir\"."
-        outputWarningOrError
-        exitCode=$Ex_Ko
-      fi
-      ;;
-  esac
-
-  return $exitCode
 }
 
 touchFiles () {
@@ -314,10 +241,10 @@ transcodeAudioDirectory () {
 
   if [ "$Self_Verbose" = 'true' ]; then
     echo "Transcoding \"$audioDirectory\":"
-    caudec -Z -i "${caudecParams[@]}" "$audioDirectory" 2> "$Self_Encoding_Log"; exitCode=$?
+    caudec -Z -i -g "${caudecParams[@]}" "$audioDirectory" 2> "$Self_Encoding_Log"; exitCode=$?
   else
     echo "$audioDirectory"
-    caudec -z -i "${caudecParams[@]}" "$audioDirectory" &> "$Self_Encoding_Log"; exitCode=$?
+    caudec -z -i -g "${caudecParams[@]}" "$audioDirectory" &> "$Self_Encoding_Log"; exitCode=$?
   fi
 
   if [ $exitCode -eq $Ex_Ok ]; then
@@ -337,21 +264,7 @@ transcodeAudioDirectory () {
       codec="$data"
       if [ -n "$lastCodec" -a -n "$lastDir" ]; then
         if [ "$codec" != "$lastCodec" -o "$dir" != "$lastDir" ]; then
-          case "$lastCodec" in
-            FLAC|WavPack*|MonkeysAudio)
-              if [ "$computeLosslessReplayGain" = 'true' ]; then
-                computeReplayGain || exitCode=$Ex_Ko
-              fi
-              ;;
-            *)
-              if [ "$computeLossyReplayGain" = 'true' ]; then
-                computeReplayGain || exitCode=$Ex_Ko
-              fi
-              ;;
-          esac
-          if [ "$transcaudeTouchFiles" = 'true' ]; then
-            touchFiles "$lastMessage" || exitCode=$Ex_Ko
-          fi
+          touchFiles "$lastMessage" || exitCode=$Ex_Ko
           unset files
           declare -a files=()
           index=0
@@ -367,7 +280,7 @@ transcodeAudioDirectory () {
       lastCodec="$codec"
       lastDir="$dir"
       lastMessage="$message"
-    done < <( grep -F "|encoding|" "$Self_Encoding_Log" 2>/dev/null )
+    done < <( fgrep "|encoding|" "$Self_Encoding_Log" 2>/dev/null )
     IFS="$OIFS"
   elif [ "$Self_Verbose" = 'false' ]; then
     OIFS="$IFS"
@@ -375,7 +288,7 @@ transcodeAudioDirectory () {
     while read processId status context data message path; do
       message="${message//¦/|}"
       outputWarningOrError
-    done < <( grep -vF "|success|" "$Self_Encoding_Log" 2>/dev/null )
+    done < <( fgrep -v "|success|" "$Self_Encoding_Log" 2>/dev/null )
     IFS="$OIFS"
   fi
 
@@ -392,9 +305,9 @@ findAudioDirectories () {
 	local arg="$1"
 
 	if [ "$gnufind" = 'true' ]; then
-		$findcmd "$arg" -type f -regextype 'posix-egrep' -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' 2>/dev/null | sed -e 's@/[^/]*\.*$@@' -e 's@^\./@@' | sort -u
+		$findcmd "$arg" -type f -regextype 'posix-egrep' -regex '.*\.(aiff|ape|caf|flac|m4a|mp3|ogg|opus|wav|wv)$' 2>/dev/null | sed -e 's@/[^/]*\.*$@@' -e 's@^\./@@' | sort -u
 	else
-		$findcmd -E "$arg" -type f -regex '.*\.(wav|aiff|caf|flac|wv|ape|mp3|m4a|ogg|opus)$' 2>/dev/null | sed -e 's@/[^/]*\.*$@@' -e 's@^\./@@' | sort -u
+		$findcmd -E "$arg" -type f -regex '.*\.(aiff|ape|caf|flac|m4a|mp3|ogg|opus|wav|wv)$' 2>/dev/null | sed -e 's@/[^/]*\.*$@@' -e 's@^\./@@' | sort -u
 	fi
 }
 
@@ -433,24 +346,18 @@ elif [ ! -w "$Self_Tmp_Dir" ]; then
 fi
 
 Self_Encoding_Log="${Self_Tmp_Dir}/encoding_log"
-Self_ReplayGain_Log="${Self_Tmp_Dir}/replay_gain_log"
 Self_Touch_Log="${Self_Tmp_Dir}/touch_log"
 Self_Exit_Code="${Self_Tmp_Dir}/exit_code"
 echo $Ex_Ok > "$Self_Exit_Code"
 
 Self_Verbose='true'
 
-computeLosslessReplayGain='true'
-
 for arg in "$@"; do
   case "$arg" in
     '-h') printUsage ; cleanExit $Ex_Ok ;;
-    '-M') transcaudeTouchFiles='false' ; shift 1 ;;
-    '-R') computeLosslessReplayGain='false' ; shift 1 ;;
-    '-0') computeLosslessReplayGain='false' computeLossyReplayGain='false' transcaudeTouchFiles='false' ; shift 1 ;;
     '-s') Self_Verbose='false' ; shift 1 ;;
     '-V') echo "$Self_Name $Self_Version" ; cleanExit $Ex_Ok ;;
-    '-z'|'-Z') echo "$Self_Name: error: don't specify either -z or -Z." 1>&2; cleanExit $Ex_Usage ;;
+    '-z'|'-Z'|'-g'|'-G') echo "$Self_Name: error: don't specify ${arg}." 1>&2; cleanExit $Ex_Usage ;;
   esac
 done
 
