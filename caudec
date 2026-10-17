@@ -5927,7 +5927,12 @@ computeTrackDateTime () {
 				*.ape) date=$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | egrep -si '^format.tags.year' 2>/dev/null | cut -d '.' -f 3- | tr -cd "[:digit:]-" ) ;;
 				*.flac) date=$( metaflac --no-filename --show-tag=date "$sourceFile" | tr -cd "[:digit:]-" ) ;;
 				*.m4a) date=$( ffprobe -show_format -print_format flat "$sourceFile" 2>/dev/null | egrep -si '^format.tags.date' 2>/dev/null | cut -d '.' -f 3- | tr -cd "[:digit:]-" ) ;;
-				*.mp3) date=$( ffmpeg -i "$sourceFile" -f ffmetadata - 2>/dev/null | egrep -si '^(date|TDOR|TDRC|TDRL)=[0-9]{4}' 2>/dev/null | head -n 1 | tr -cd "[:digit:]-" ) ;;
+				*.mp3)
+					date=$( ffmpeg -i "$sourceFile" -f ffmetadata - 2>/dev/null | egrep -si '^date=' 2>/dev/null | tr -cd "[:digit:]-" )
+					if [ -z "$date" ]; then
+						date=$( ffmpeg -i "$sourceFile" -f ffmetadata - 2>/dev/null | egrep -si '^(TDOR|TDRC|TDRL)=[0-9]{4}' 2>/dev/null | head -n 1 | tr -cd "[:digit:]-" )
+					fi
+					;;
 				*.ogg) date=$( vorbiscomment "$sourceFile" | egrep -si '^date=' 2>/dev/null | tr -cd "[:digit:]-" ) ;;
 				*.opus) date=$( opusinfo "$sourceFile" | egrep -si '^date=' 2>/dev/null | tr -cd "[:digit:]-" ) ;;
 				*.wv) date=$( wvtag -x Year "$sourceFile" 2>/dev/null | tr -cd "[:digit:]-" ) ;;
@@ -5950,7 +5955,7 @@ computeTrackDateTime () {
 				trackDay="$( $datecmd "+%d" )"
 			fi
 
-			echo "${trackYear}${trackMonth}${trackDay}" > "$sourceTagFile"
+			echo "${trackYear}${trackMonth}${trackDay}" > "$sourceDateFile"
 			;;
 
 		*)
@@ -5971,7 +5976,7 @@ computeTrackDateTimes () {
 	local exitCode=$Ex_Ok jobFile
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
+		sourceDateFile="${Self_Swap_Dir}/${paddedFileIndex}_date.txt"
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 
 		if getLock "$jobFile"; then
@@ -5987,7 +5992,7 @@ touchAllFiles () {
 	local exitCode=$Ex_Ok audioFileIndex otherFileIndex dirIndex
 	local trackDate fileTrackDate albumSeconds discSeconds milliseconds discHours discMinutes discSeconds
 	local defaultTrackDate lastDir="" curDir artistDir albumDir albumLinkDir albumPath dirPath inode linkedFile linkPath
-	local touchString discDirs linkedDiscDirs audioFiles otherFiles otherFile audioFile sourceFile sourceTagFile
+	local touchString discDirs linkedDiscDirs audioFiles otherFiles otherFile audioFile sourceFile sourceDateFile
 
 	trackDate="$( $datecmd "+%Y%m%d" )"
 	defaultTrackDate="$trackDate"
@@ -6057,12 +6062,12 @@ touchAllFiles () {
 			sourceDirname="$( getDirName "$sourceFile" )"
 			dirPath="$( readlink -f "$sourceDirname" )"
 			if [ "$dirPath" != "$curDir" ]; then continue; fi
-			sourceTagFile="${Self_Swap_Dir}/${paddedFileIndex}_tags_input.txt"
+			sourceDateFile="${Self_Swap_Dir}/${paddedFileIndex}_date.txt"
 			if [ -z "$fileMilliseconds" ]; then fileMilliseconds=0; fi
 
 			case "$sourceFile" in
 				*.ape|*.flac|*.m4a|*.mp3|*.ogg|*.opus|*.wv)
-					read trackDate < "$sourceTagFile"
+					read trackDate < "$sourceDateFile"
 					;;
 
 				*.wvc) continue ;;
