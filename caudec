@@ -5954,9 +5954,7 @@ computeTrackDateTime () {
 			;;
 
 		*)
-			trackYear="$( $datecmd "+%Y" )"
-			trackMonth="$( $datecmd "+%m" )"
-			trackDay="$( $datecmd "+%d" )"
+			return $Ex_Ok
 			;;
 	esac
 
