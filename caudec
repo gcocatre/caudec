@@ -140,7 +140,6 @@ fi
 if [ -r '/etc/caudecrc' ]; then
 	. '/etc/caudecrc'
 	test -n "$maxInstances" && rootMaxInstances="$maxInstances"
-	test -n "$maxInputFiles" && rootMaxInputFiles="$maxInputFiles"
 	test -n "$preloadSources" && rootPreloadSources="$preloadSources"
 fi
 
@@ -193,12 +192,6 @@ if [ -n "$rootMaxInstances" ]; then maxInstances="$rootMaxInstances"; fi
 case "$maxInstances" in
 	[0-9]*) if [ $maxInstances -lt 1 ]; then maxInstances=1 ; fi ;;
 	*) maxInstances=1 ;;
-esac
-
-if [ -n "$rootMaxInputFiles" ]; then maxInputFiles="$rootMaxInputFiles"; fi
-case "$maxInputFiles" in
-	[0-9]*) if [ $maxInputFiles -lt 1 ]; then maxInputFiles=100 ; fi ;;
-	*) maxInputFiles=100 ;;
 esac
 
 # true by default
@@ -1488,13 +1481,6 @@ getInputFiles () {
 checkInputFiles () {
 	local exitCode=$Ex_Ok inputFile inputDirName commonFileExtension inputFileExtension
 	local inputCodecsAreAllTheSame='true' cdpath pdpath addToSourceFiles outputCodec copyPath codec
-
-	# FIXME
-	# if [ $numberOfInputFiles -gt $maxInputFiles ]; then
-	# 	printMessage 'warning' 'usage' 'quota' "the number of input files ($numberOfInputFiles) is greater than maxInputFiles=${maxInputFiles}."
-	# 	printMessage 'abort'
-	# 	cleanExit $Ex_Usage
-	# fi
 
 	if [ "$touchFiles" = 'true' ]; then
 		egrep -q -s -c -m 1 '\.(aiff|ape|caf|flac|m4a|mp3|ogg|opus|wav|wv)$' "${Self_Data_Dir}/inputFiles.txt" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Data_Err
