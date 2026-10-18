@@ -308,9 +308,9 @@ findAudioDirectories () {
 	local arg="$1"
 
 	if [ "$gnufind" = 'true' ]; then
-		$findcmd "$arg" -type f -regextype 'posix-egrep' -regex '.*\.(aiff|ape|caf|flac|m4a|mp3|ogg|opus|wav|wv)$' 2>/dev/null | sed -e 's@/[^/]*\.*$@@' -e 's@^\./@@' | sort -u
+		$findcmd "$arg" -type f -regextype 'posix-egrep' -regex '.*\.(aiff|ape|caf|flac|m4a|wav|wv)$' 2>/dev/null | sed -e 's@/[^/]*\.*$@@' -e 's@^\./@@' | sort -u
 	else
-		$findcmd -E "$arg" -type f -regex '.*\.(aiff|ape|caf|flac|m4a|mp3|ogg|opus|wav|wv)$' 2>/dev/null | sed -e 's@/[^/]*\.*$@@' -e 's@^\./@@' | sort -u
+		$findcmd -E "$arg" -type f -regex '.*\.(aiff|ape|caf|flac|m4a|wav|wv)$' 2>/dev/null | sed -e 's@/[^/]*\.*$@@' -e 's@^\./@@' | sort -u
 	fi
 }
 
@@ -389,13 +389,25 @@ gotOutputDirectory='false'
 for (( argIndex=lastArgIndex; argIndex > -1; argIndex-- )); do
   arg="${arguments[$argIndex]}"
   if [ $argIndex = 2 -a $numberOfDirectyArguments -eq 0 ]; then
-    echo "$Self_Name: error: at least one directory containing audio files must be provided" 1>&2
+    if [ $gotOutputDirectory = 'true' ]; then
+      echo "$Self_Name: error: at least one directory containing audio files must be provided" 1>&2
+    else
+      echo "$Self_Name: error: at least one output directory must be provided, with -o, -O or -P" 1>&2
+    fi
     cleanExit $Ex_Usage
   else
     argMinusOneIndex=$(( argIndex - 1 ))
-    argMinusOne="${arguments[$argMinusOneIndex]}"
+    if [ $argMinusOneIndex -ge 0 ]; then
+      argMinusOne="${arguments[$argMinusOneIndex]}"
+    else
+      argMinusOne=''
+    fi
     argMinusTwoIndex=$(( argIndex - 2 ))
-    argMinusTwo="${arguments[$argMinusTwoIndex]}"
+    if [ $argMinusTwoIndex -ge 0 ]; then
+      argMinusTwo="${arguments[$argMinusTwoIndex]}"
+    else
+      argMinusTwo=''
+    fi
     if [ -d "$arg" ]; then
       if [ "$argMinusOne" = '-o' -o "$argMinusOne" = '-O' -o "$argMinusOne" = '-P' ]; then
         gotOutputDirectory='true'
