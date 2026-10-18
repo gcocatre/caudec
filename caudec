@@ -1456,7 +1456,7 @@ getInputFiles () {
 	rm -f "${Self_Data_Dir}/inputFilesAndDirs.txt"
 
 	if [ $numberOfInputFiles -eq 0 ]; then
-		exitCode=$Ex_Io_Err
+		exitCode=$Ex_No_Input
 		printMessage 'warning' 'usage' 'filesystem' "no valid files provided."
 	fi
 
