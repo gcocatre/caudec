@@ -1460,7 +1460,6 @@ getInputFiles () {
 		printMessage 'warning' 'usage' 'filesystem' "no valid files provided."
 	fi
 
-	fi
 	if [ $exitCode -ne $Ex_Ok ]; then
 		printMessage 'abort' 'verbose'
 		cleanExit $exitCode
