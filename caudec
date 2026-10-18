@@ -4325,9 +4325,9 @@ encode () {
 	fi
 
 	if [ ! -w "$destPath" ]; then
-		exitCode=$Ex_Io_Err
+		exitCode=$Ex_Cant_Create
 	elif [ -e "$destFile" -a ! -w "$destFile" ]; then
-		exitCode=$Ex_Io_Err
+		exitCode=$Ex_Cant_Create
 	fi
 
 	if [ $exitCode -eq $Ex_Ok ]; then
@@ -4375,7 +4375,7 @@ encode () {
 					;;
 			esac
 		fi
-	elif [ $exitCode -eq $Ex_Io_Err ]; then
+	elif [ $exitCode -eq $Ex_Cant_Create ]; then
 		printMessage 'error' "$statusInfo" "file:${destFile}" "path:${displayPath}" $processNumber 'destination is read-only.'
 	else
 		rm -f "$encodedFile" 1>/dev/null 2>&1 # in case it exists
@@ -6107,9 +6107,9 @@ touchAllFiles () {
 			esac
 
 			touchString="$( getTouchString $trackDate $discSeconds )"
-			touch -t "$touchString" "$sourceFile" || exitCode=$Ex_Io_Err
+			touch -t "$touchString" "$sourceFile" || exitCode=$Ex_No_Perm
 			if [ -e "${sourceFile}c" ]; then  # WavPack correction file
-				touch -t "$touchString" "${sourceFile}c" || exitCode=$Ex_Io_Err
+				touch -t "$touchString" "${sourceFile}c" || exitCode=$Ex_No_Perm
 			fi
 			discSeconds="$( echo "scale=3; ($discSeconds + ($fileMilliseconds / 1000)) / 1" | bc )"
 			albumSeconds="$( echo "scale=3; ($albumSeconds + ($fileMilliseconds / 1000)) / 1" | bc )"
@@ -6117,14 +6117,14 @@ touchAllFiles () {
 
 		for otherFile in "${otherFiles[@]}"; do
 			touchString="$( getTouchString $trackDate $discSeconds )"
-			touch -t "$touchString" "$otherFile" 2>> "$Self_Errors_File" || exitCode=$Ex_Io_Err
+			touch -t "$touchString" "$otherFile" 2>> "$Self_Errors_File" || exitCode=$Ex_No_Perm
 		done
 
 		if [ ! -w "$curDir" ]; then
 			printMessage 'warning' 'usage' 'filesystem' "path:${curDir}" 'refusing to touch directory that is read-only.'
 		else
 			touchString="$( getTouchString $trackDate $discSeconds )"
-			touch -t "$touchString" "$curDir" || exitCode=$Ex_Io_Err
+			touch -t "$touchString" "$curDir" || exitCode=$Ex_No_Perm
 		fi
 
 		if [ -n "$linkPath" ]; then
@@ -6132,7 +6132,7 @@ touchAllFiles () {
 				printMessage 'warning' 'usage' 'filesystem' "path:${linkPath}" 'refusing to touch directory that is read-only.'
 			else
 				touchString="$( getTouchString $trackDate $discSeconds )"
-				touch -t "$touchString" "$linkPath" || exitCode=$Ex_Io_Err
+				touch -t "$touchString" "$linkPath" || exitCode=$Ex_No_Perm
 			fi
 		fi
 	done
@@ -6147,7 +6147,7 @@ touchAllFiles () {
 				printMessage 'warning' 'usage' 'filesystem' "path:${albumDir}" 'refusing to touch directory that is read-only.'
 			else
 				touchString="$( getTouchString $trackDate $albumSeconds )"
-				touch -t "$touchString" "$albumDir" || exitCode=$Ex_Io_Err
+				touch -t "$touchString" "$albumDir" || exitCode=$Ex_No_Perm
 			fi
 
 			if [ -n "$curLinkedDir" ]; then
@@ -6156,7 +6156,7 @@ touchAllFiles () {
 					printMessage 'warning' 'usage' 'filesystem' "path:${albumLinkDir}" 'refusing to touch directory that is read-only.'
 				else
 					touchString="$( getTouchString $trackDate $albumSeconds )"
-					touch -t "$touchString" "$albumLinkDir" || exitCode=$Ex_Io_Err
+					touch -t "$touchString" "$albumLinkDir" || exitCode=$Ex_No_Perm
 				fi
 			fi
 		done
