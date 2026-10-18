@@ -4670,6 +4670,9 @@ showInternalHash () {
 		printMessage 'info' 'hashing' "hash:$hash" "hashType:MD5" "path:${sourceFile}" $processNumber
 	else
 		printMessage 'error' 'hashing' "" "file doesn't have an internal hash" "path:${sourceFile}" $processNumber
+		if [ -z "$hash" ]; then
+			exitCode=$Ex_Ko
+		fi
 	fi
 	return $exitCode
 }
@@ -4689,12 +4692,17 @@ showInternalHashes () {
 }
 
 showAlbumDuration () {
-	local msLeft=$1 hours=0 minutes=0 seconds=0 milliseconds=0 processNumber paddedDuration msg albumDir
+	local msLeft=$1 exitCode=$Ex_Ok hours=0 minutes=0 seconds=0 milliseconds=0 processNumber paddedDuration msg albumDir
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		read processNumber paddedDuration msg < "${Self_Data_Dir}/${paddedFileIndex}_duration.txt"
-		printMessage 'success' "duration" "duration:${paddedDuration}" "Duration: $msg" "path:${sourceFile}" $processNumber
-		rm -f "${Self_Data_Dir}/${paddedFileIndex}_duration.txt"
+		durationFile="${Self_Data_Dir}/${paddedFileIndex}_duration.txt"
+		if [ -e "$durationFile" ]; then
+			read processNumber paddedDuration msg < "$durationFile"
+			printMessage 'success' "duration" "duration:${paddedDuration}" "Duration: $msg" "path:${sourceFile}" $processNumber
+			rm -f "$durationFile"
+		else
+			exitCode=$Ex_Ko
+		fi
 		if [ -z "$albumDir" ]; then
 			albumDir="$( getDirName "$sourceFile" )"
 		fi
@@ -4711,11 +4719,18 @@ showAlbumDuration () {
 	paddedDuration="$( printf "%02i:%02i:%02i.%03i" $hours $minutes $seconds $milliseconds )"
 	msg="$( printf "%02ih %02im %02is %03ims" $hours $minutes $seconds $milliseconds )"
 
-	printMessage 'success' 'album_duration' "duration:${paddedDuration}" "Duration: $msg" "path:$albumDir"
+	if [ $exitCode -eq $Ex_Ok ]; then
+		printMessage 'success' 'album_duration' "duration:${paddedDuration}" "Duration: $msg" "path:$albumDir"
+	else
+		printMessage 'error' 'album_duration' "path:$albumDir"
+		exitCode=$Ex_Ko
+	fi
+	return $exitCode
 }
 
 computeTrackDuration () {
 	local msLeft=$1 hours=0 minutes=0 seconds=0 milliseconds=0 paddedDuration msg
+	local durationFile="${Self_Data_Dir}/${paddedFileIndex}_duration.txt"
 
 	hours=$(( msLeft / 3600000 ))
 	msLeft=$(( msLeft - (hours * 3600000) ))
@@ -4726,7 +4741,7 @@ computeTrackDuration () {
 
 	paddedDuration="$( printf "%02i:%02i:%02i.%03i" $hours $minutes $seconds $milliseconds )"
 	msg="$( printf "%02ih %02im %02is %03ims" $hours $minutes $seconds $milliseconds )"
-	echo "$processNumber $paddedDuration $msg" > "${Self_Data_Dir}/${paddedFileIndex}_duration.txt"
+	echo "$processNumber $paddedDuration $msg" > "$durationFile"
 }
 
 computeTracksDurations () {
@@ -4832,6 +4847,7 @@ showTrackInformation () {
 		printMessage 'success' "characteristics" "characteristics:${nChannels};${bitDepth};${samplingRate};${bitrate}" "mediaType:${mediaType}" "path:${sourceFile}" $processNumber
 	else
 		printMessage 'error' 'characteristics' "characteristics:0;00;00000;0" "mediaType:${mediaType}" "path:${sourceFile}" $processNumber
+		exitCode=$Ex_Ko
 	fi
 	return $exitCode
 }
