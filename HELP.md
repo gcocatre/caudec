@@ -75,6 +75,8 @@ Encoding parameters (mutually exclusive from all other actions):
 
   -C CODEC  use specified CODEC, but discard existing metadata
 
+  -d        decode lossless to WAV (same as -c wav)
+
   -q ARG    set compression level (variable bitrate mode; try -q help for
             a list of valid values)
 
@@ -133,14 +135,15 @@ Little to no extra storage will be used (just extra inodes).
 
 Decoding parameters (all mutually exlusive from each other and other actions):
 
-  -d        decode to WAV (input: AIFF, ALAC, APE, CAF, FLAC, WavPack)
+  -R        compute dynamic range (see: https://dr.loudness-war.info/)
   -t        test file integrity
 
 -------------------------------------------------------------------------------
 
-ReplayGain parameters (mutually exclusive from all other actions, except -g):
+ReplayGain parameters (mutually exclusive from all other actions):
 
   -g        generate ReplayGain metadata, using the new ITU-R BS.1770 algorithm
+            for track gains, and caudec's heuristic for album gains (±1 dB)
 
   -G undo   MP3: reverse ReplayGain using MP3's gain header.
             Other codecs: remove ReplayGain metadata.
@@ -158,12 +161,13 @@ Touching file times (mutually exclusive from all other actions):
 
 -------------------------------------------------------------------------------
 
-Information:
+Information (mutually exclusive from all other actions):
 
-  -h        display this help and exit
   -D        display track & total durations
   -H        show internal hash, if available
   -I        display channels, bit depth, sampling rate and bit rate
+
+  -h        display this help and exit
   -V        output version information and exit
 
 -------------------------------------------------------------------------------
