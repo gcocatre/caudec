@@ -1474,6 +1474,10 @@ getInputFiles () {
 	fi
 
 	if [ $exitCode -eq $Ex_Ok ]; then
+		if [ "$showDurations" = 'true' ]; then
+			sort "${Self_Data_Dir}/inputFiles.txt" > "${Self_Data_Dir}/inputFiles.tmp"
+			mv "${Self_Data_Dir}/inputFiles.tmp" "${Self_Data_Dir}/inputFiles.txt"
+		fi
 		return $Ex_Ok
 	else
 		printMessage 'abort' 'verbose'
@@ -1701,7 +1705,7 @@ setupControlDir () {
 		cleanExit $exitCode
 	fi
 
-	if [ "$touchFiles" = 'true' ]; then
+	if [ "$showDurations" = 'true' -o "$displayInternalHash" = 'true' -o "$showInformation" = 'true' -o "$touchFiles" = 'true' ]; then
 		orderStrategy='none'
 	fi
 
@@ -1711,7 +1715,6 @@ setupControlDir () {
 			cat "${Self_Data_Dir}/destPaths_"*.txt >> "${Self_Data_Dir}/destPaths.txt"
 		done
 		rm -f "${Self_Data_Dir}/destFiles_"*.list "${Self_Data_Dir}/destPaths_"*.list
-		orderStrategy='none'
 	fi
 
 	case "$orderStrategy" in
@@ -4698,9 +4701,12 @@ showInternalHashes () {
 }
 
 showAlbumDuration () {
-	local msLeft=$1 hours=0 minutes=0 seconds=0 milliseconds=0 paddedDuration msg albumDir
+	local msLeft=$1 hours=0 minutes=0 seconds=0 milliseconds=0 processNumber paddedDuration msg albumDir
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
+		read processNumber paddedDuration msg < "${Self_Data_Dir}/${paddedFileIndex}_duration.txt"
+		printMessage 'success' "duration" "duration:${paddedDuration}" "Duration: $msg" "path:${sourceFile}" $processNumber
+		rm -f "${Self_Data_Dir}/${paddedFileIndex}_duration.txt"
 		if [ -z "$albumDir" ]; then
 			albumDir="$( getDirName "$sourceFile" )"
 		fi
@@ -4720,7 +4726,7 @@ showAlbumDuration () {
 	printMessage 'success' 'album_duration' "duration:${paddedDuration}" "Duration: $msg" "path:$albumDir"
 }
 
-showTrackDuration () {
+computeTrackDuration () {
 	local msLeft=$1 hours=0 minutes=0 seconds=0 milliseconds=0 paddedDuration msg
 
 	hours=$(( msLeft / 3600000 ))
@@ -4732,18 +4738,17 @@ showTrackDuration () {
 
 	paddedDuration="$( printf "%02i:%02i:%02i.%03i" $hours $minutes $seconds $milliseconds )"
 	msg="$( printf "%02ih %02im %02is %03ims" $hours $minutes $seconds $milliseconds )"
-
-	printMessage 'success' "duration" "duration:${paddedDuration}" "Duration: $msg" "path:${sourceFile}" $processNumber
+	echo "$processNumber $paddedDuration $msg" > "${Self_Data_Dir}/${paddedFileIndex}_duration.txt"
 }
 
-showTracksDurations () {
+computeTracksDurations () {
 	local exitCode=$Ex_Ok jobFile
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
 		jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
 
 		if getLock "$jobFile"; then
-			showTrackDuration $fileMilliseconds || exitCode=$Ex_Ko
+			computeTrackDuration $fileMilliseconds || exitCode=$Ex_Ko
 		fi
 	done < "${Self_Data_Dir}/millisecondsAndFileIndexes.list"
 
@@ -7095,6 +7100,9 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:RS:sTtuVZz' o ; do
 		s) verbose='false' ;;
 
 		S)
+			if [ "$showDurations" = 'true' -o "$displayInternalHash" = 'true' -o "$showInformation" = 'true' -o "$touchFiles" = 'true' ]; then
+				printMessage 'error' 'usage' 'bad_value' "$Self_Name -S cannot be used with -D/H/I/T" ; exit $Ex_Usage
+			fi
 			case "$OPTARG" in
 				n|none) orderStrategy='none' ;;
 				s|shortest) orderStrategy='shortest' ;;
@@ -7426,7 +7434,7 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:RS:sTtuVZz' o ; do
 
 		R) computeDynamicRange='true' ;;
 
-		T) touchFiles='true' ;;
+		T) touchFiles='true' orderStrategy='none' ;;
 
 # -----------------------------------------------------------------------------
 
@@ -7843,7 +7851,7 @@ elif [ "$showDurations" = 'true' ]; then
 		time1="$( $datecmd '+%s' ).0"
 	fi
 	for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
-		showTracksDurations &
+		computeTracksDurations &
 	done
 elif [ "$showInformation" = 'true' ]; then
 	adjustNumberOfProcesses $numberOfSourceFiles
