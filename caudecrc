@@ -73,8 +73,7 @@ transferInternalArtwork='true' # transfer internal artwork or not (-a and setCov
 transferInternalBinaries='true' # transfer embedded APEv2 binaries or not
 
 maxInstances=10 # maximum number of caudec instances allowed to run concurrently
-maxInputFiles=900 # raise a warning and exit if the number of input files is higher than that
-preloadSources='false' # cache source files to temporary directory (e.g. a fast SSD) before processing them
+preloadSources='false' # cache source files to CAUDEC_SWAP_DIR (e.g. a fast SSD) before processing them
 
 # strategy for processing files in order of duration: 'longest', 'shortest' or 'none':
 orderStrategy='none'
@@ -82,7 +81,6 @@ orderStrategy='none'
 # Automatically downsample if needed. Format: 'channels/bits per sample/sampling rate' (see caudec -h)
 resamplingProfile=''
 
-# https://dr.loudness-war.info/faq
 computeAudioCharacteristics='false' # when computing ReplayGain, also include audio peaks in dBFS
 preventClipping='true' # reduce volume to prevent clipping, when resampling
 
