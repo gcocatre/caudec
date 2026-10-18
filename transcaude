@@ -356,6 +356,9 @@ echo $Ex_Ok > "$Self_Exit_Code"
 Self_Verbose='true'
 
 doTouchFiles='false'
+if [ "$transcaudeTouchFiles" = 'true' ]; then
+  doTouchFiles='true'
+fi
 for arg in "$@"; do
   case "$arg" in
     '-h') printUsage ; cleanExit $Ex_Ok ;;
