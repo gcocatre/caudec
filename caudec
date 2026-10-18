@@ -1457,9 +1457,9 @@ getInputFiles () {
 
 	if [ $numberOfInputFiles -eq 0 ]; then
 		exitCode=$Ex_Io_Err
+		printMessage 'warning' 'usage' 'filesystem' "no valid files provided."
 	fi
-	if [ $exitCode -eq $Ex_Io_Err ]; then
-		printMessage 'warning' 'usage' 'filesystem' "the operating system cannot handle this many files."
+
 	fi
 	if [ $exitCode -ne $Ex_Ok ]; then
 		printMessage 'abort' 'verbose'
