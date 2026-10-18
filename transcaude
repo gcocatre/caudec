@@ -125,8 +125,8 @@ Copyright © 2012 - 2026 Guillaume Cocatre-Zilgien
 https://github.com/gcocatre/caudec
 
 Usage: $Self_Name [ PARAMS ] [ CAUDEC PARAMS ] DIR(S)
-Mass transcode albums using caudec, while computing ReplayGain, and touching
-the resulting directories to reflect their date of release, and track
+Mass transcode albums using caudec, while computing ReplayGain, and optionally
+touching the resulting directories to reflect their date of release, and track
 durations. A single directory, or multiple directories, must be passed as
 arguments. Run 'caudec -h' to learn about CAUDEC PARAMS.
 
@@ -138,6 +138,7 @@ Global parameters:
   -V        output version information and exit
   -s        be silent, only print to STDOUT what directory is being transcoded,
             and errors to STDERR
+  -T        touch files to reflect their release date and track durations
 
 -------------------------------------------------------------------------------
 
@@ -264,7 +265,9 @@ transcodeAudioDirectory () {
       codec="$data"
       if [ -n "$lastCodec" -a -n "$lastDir" ]; then
         if [ "$codec" != "$lastCodec" -o "$dir" != "$lastDir" ]; then
-          touchFiles "$lastMessage" || exitCode=$Ex_Ko
+          if [ "$doTouchFiles" = 'true' ]; then
+            touchFiles "$lastMessage" || exitCode=$Ex_Ko
+          fi
           unset files
           declare -a files=()
           index=0
@@ -352,11 +355,13 @@ echo $Ex_Ok > "$Self_Exit_Code"
 
 Self_Verbose='true'
 
+doTouchFiles='false'
 for arg in "$@"; do
   case "$arg" in
     '-h') printUsage ; cleanExit $Ex_Ok ;;
     '-s') Self_Verbose='false' ; shift 1 ;;
     '-V') echo "$Self_Name $Self_Version" ; cleanExit $Ex_Ok ;;
+    '-T') doTouchFiles='true' ; shift 1 ;;
     '-z'|'-Z'|'-g'|'-G') echo "$Self_Name: error: don't specify ${arg}." 1>&2; cleanExit $Ex_Usage ;;
   esac
 done
