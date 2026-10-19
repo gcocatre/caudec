@@ -58,7 +58,7 @@ higher resolution than the specified values:
 
 -------------------------------------------------------------------------------
 
-Encoding parameters (mutually exclusive from all other actions):
+Encoding parameters (exclusive from other actions except resampling and -g):
 
   -c CODEC  use specified CODEC: wav, aiff, caf,
             flac, wv (WavPack), wvh (WavPack Hybrid), wvl (WavPack lossy),
@@ -133,24 +133,25 @@ Little to no extra storage will be used (just extra inodes).
 
 -------------------------------------------------------------------------------
 
-Decoding parameters (all mutually exlusive from each other and other actions):
+Decoding parameters (exlusive from other actions):
 
   -R        compute dynamic range (see: https://dr.loudness-war.info/)
   -t        test file integrity
 
 -------------------------------------------------------------------------------
 
-ReplayGain parameters (mutually exclusive from all other actions):
+ReplayGain parameters:
 
   -g        generate ReplayGain metadata, using the new ITU-R BS.1770 algorithm
-            for track gains, and caudec's heuristic for album gains (±1 dB)
+            for track gains, and caudec's heuristic for album gains (±1 dB).
+            Note: this will compute an album gain for all tracks. Make sure
+            to use it on a single album.
 
-  -G undo   MP3: reverse ReplayGain using MP3's gain header.
-            Other codecs: remove ReplayGain metadata.
+  -G undo   remove ReplayGain metadata (exclusive from other actions).
 
 -------------------------------------------------------------------------------
 
-Touching file times (mutually exclusive from all other actions):
+Touching file times (exclusive from other actions):
 
   -T        touch files using metadata to reflect the music's release date
             and duration. Provide all files as arguments, not just audio files,
@@ -161,7 +162,7 @@ Touching file times (mutually exclusive from all other actions):
 
 -------------------------------------------------------------------------------
 
-Information (mutually exclusive from all other actions):
+Information (exclusive from other actions):
 
   -D        display track & total durations
   -H        show internal hash, if available
