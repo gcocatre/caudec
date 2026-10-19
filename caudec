@@ -4062,9 +4062,8 @@ encode () {
 				padding=$(( padding + embeddedArtworkBytes ))
 			fi
 			nThreads=$( getNumberOfAvailableThreads "$paddedFileIndex" $Flac_Max_Threads )
-			if [ $nThreads -gt 1 ]; then mParam='-M'; fi
 
-			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac $mParam -j $nThreads -P $padding $kfm -${compression_FLAC} -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
+			printf -- "-s`tagline -T`\x00%s" "$wavFile" | xargs -0 flac -M -j $nThreads -P $padding $kfm -${compression_FLAC} -o "$encodedFile" 1>/dev/null 2>> "$Self_Errors_File" || exitCode=$Ex_Ko
 			if [ $exitCode -eq $Ex_Ok ]; then
 				if [ "$doEmbedUserCoverArt" = 'true' ]; then
 					importArtworkIntoFLAC || exitCode=$Ex_Ko
