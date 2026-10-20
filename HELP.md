@@ -13,12 +13,12 @@ Supported input files: .wav, .aiff, .caf, .flac, .wv, .ape, .m4a
 
 Global parameters:
 
-  -n N      launch N processes concurrently (1 or more);
+  -n NUM    launch NUM processes concurrently (1 or more);
             by default, the number of CPU cores.
 
-  -n p      (Apple silicon only): saturate all cores at all times and set the
-            minimum number of threads to the number of power cores with codecs
-            that are multithreaded.
+  -n p      (Apple silicon only): saturate all cores and set the minimum number
+            of threads to the number of power cores with codecs that are
+            multithreaded (FLAC, Monkey's Audio, WavPack).
 
   -i        ignore unsupported files
 
