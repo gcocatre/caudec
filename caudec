@@ -5326,7 +5326,7 @@ computeAlbumGain () {
 		while read outputCodec fileMilliseconds paddedFileIndex destPath; do
 			albumGainFile="${Self_Data_Dir}/${paddedFileIndex}_albumgain_${codec}.txt"
 			albumPeakFile="${Self_Data_Dir}/${paddedFileIndex}_albumpeak_${codec}.txt"
-			jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
+			jobFile="${Self_Control_Dir}/${paddedFileIndex}_albumgain_${codec}.job"
 			touch "$jobFile"
 			echo "$albumGain" > "$albumGainFile"
 			echo "$albumPeak" > "$albumPeakFile"
@@ -5338,7 +5338,7 @@ computeAlbumGain () {
 			fi
 			albumGainFile="${Self_Data_Dir}/${paddedFileIndex}_albumgain_any.txt"
 			albumPeakFile="${Self_Data_Dir}/${paddedFileIndex}_albumpeak_any.txt"
-			jobFile="${Self_Control_Dir}/${paddedFileIndex}_any.job"
+			jobFile="${Self_Control_Dir}/${paddedFileIndex}_albumgain_any.job"
 			touch "$jobFile"
 			echo "$albumGain" > "$albumGainFile"
 			echo "$albumPeak" > "$albumPeakFile"
