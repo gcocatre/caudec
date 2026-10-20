@@ -16,6 +16,10 @@ Global parameters:
   -n N      launch N processes concurrently (1 or more);
             by default, the number of CPU cores.
 
+  -n p      (Apple silicon only): saturate all cores at all times and set the
+            minimum number of threads to the number of power cores with codecs
+            that are multithreaded.
+
   -i        ignore unsupported files
 
   -s        be silent, only print errors

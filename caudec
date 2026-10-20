@@ -248,6 +248,10 @@ Global parameters:
   -n N      launch N processes concurrently (1-${maxProcesses});
             by default, the number of CPU cores.
 
+	-n p      (Apple silicon only): saturate all cores at all times and set the
+            minimum number of threads to the number of power cores with codecs
+            that are multithreaded.
+
   -i        ignore unsupported files
 
   -s        be silent, only print errors
@@ -1706,6 +1710,9 @@ setupControlDir () {
 		rm -f "${Self_Data_Dir}/destFiles_"*.list "${Self_Data_Dir}/destPaths_"*.list
 	fi
 
+	if [ -n "$outputCodecs" -a -n "$nPerformanceCores" -a "$usePerformanceCores" = 'true' ]; then
+		orderStrategy='none'
+	fi
 	case "$orderStrategy" in
 		longest) sort -n -r "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
 		shortest) sort -n "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
@@ -1851,6 +1858,12 @@ getNumberOfAvailableThreadsByCpuUsage () {
 
 getNumberOfAvailableThreads () {
 	local index="$1" maxThreads="$2" nJobsLeft nProcessedFiles nAvailableProcesses nMillisecondsLeft=0 nThreads=1
+
+	# macOS with Apple Silicon Only
+	if [ -n "$nPerformanceCores" -a "$usePerformanceCores" = 'true' ]; then
+		echo $nPerformanceCores
+		return
+	fi
 
 	if [ -z "$maxThreads" ]; then
 		maxThreads=999999
@@ -6869,15 +6882,21 @@ checkMaxSamplingRate () {
 checkMainBinaries
 
 maxProcesses=''
-if which 'nproc' 1>/dev/null 2>&1; then # GNU Coreutils installed
+if [ "$OS" = 'Darwin' ]; then # macOS
+	# Many thanks to Tobias Link for helping me port caudec to macOS
+	maxProcesses="$( system_profiler -detailLevel full SPHardwareDataType 2>/dev/null | fgrep -s -m 1 'Total Number of Cores:' 2>/dev/null | cut -d ':' -f 2 2>/dev/null | tr -d ' ' | cut -d '(' -f 1 2>/dev/null )"
+	# macOS with Apple Silicon Only:
+	nPerformanceCores="$( system_profiler -detailLevel full SPHardwareDataType 2>/dev/null | fgrep -s -m 1 'Total Number of Cores:' 2>/dev/null | fgrep -s -m 1 ' Performance ' 2>/dev/null | cut -d '(' -f 2 2>/dev/null | cut -d ' ' -f 1 2>/dev/null )"
+	case "$nPerformanceCores" in
+		[1-9]|[1-9][0-9]) true ;;
+		*) nPerformanceCores="" ;;
+	esac
+elif which 'nproc' 1>/dev/null 2>&1; then # GNU Coreutils installed
 	maxProcesses="$( nproc 2>/dev/null )"
 elif which 'gnproc' 1>/dev/null 2>&1; then # GNU Coreutils installed on macOS
 	maxProcesses="$( gnproc 2>/dev/null )"
 elif [ -e '/proc/cpuinfo' ]; then # Linux
 	maxProcesses="$( fgrep -sc 'cpu MHz' /proc/cpuinfo 2>/dev/null )"
-elif [ "$OS" = 'Darwin' ]; then # macOS
-	# Many thanks to Tobias Link for helping me port caudec to macOS
-	maxProcesses="$( system_profiler -detailLevel full SPHardwareDataType 2>/dev/null | fgrep -s -m 1 'Total Number of Cores:' 2>/dev/null | cut -d ':' -f 2 2>/dev/null | tr -d ' ' | cut -d '(' -f 1 2>/dev/null )"
 fi
 
 nProcesses=1
@@ -6906,6 +6925,7 @@ checkFiles='false' displayInternalHash='false' touchFiles='false' peakReference=
 allFilesAreOpus='true' allFilesAreM4A='true'
 setArtworkParam='false' copyFilesParam='false' showInformation='false' showDurations='false'
 computeDynamicRange='false'
+usePerformanceCores='false'
 
 maxChannels='' maxBitDepth='' maxSamplingRate='' minimumSamplingRate=44100
 
@@ -7092,6 +7112,16 @@ while getopts '2a:B:b:C:c:dDf:G:ghHiIKkL:l:n:O:o:P:q:r:RS:sTtuVZz' o ; do
 						maxProcessesSetByUser=$OPTARG
 					else
 						printMessage 'error' 'usage' 'bad_value' "$Self_Name -n: the number of processes must be an integer between 1 and $maxProcesses" ; exit $Ex_Usage
+					fi
+					;;
+
+				p)
+					if [ -n "$nPerformanceCores" ]; then
+						usePerformanceCores='true'
+						nProcesses=$maxProcesses
+						maxProcessesSetByUser=$maxProcesses
+					else
+						printMessage 'error' 'usage' 'bad_value' "$Self_Name -n p: not available on this platform" ; exit $Ex_Os_Err
 					fi
 					;;
 
