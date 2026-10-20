@@ -249,7 +249,7 @@ Global parameters:
             by default, the number of CPU cores.
 
   -n p      (Apple silicon only): saturate all cores and set the minimum number
-            of threads to the number of power cores with codecs that are
+            of threads to the number of power (p) cores with codecs that are
             multithreaded (FLAC, Monkey's Audio, WavPack).
 
   -i        ignore unsupported files
