@@ -1638,22 +1638,34 @@ createControlFiles () {
 		else
 			fileMilliseconds="$( getFileMilliseconds "$sourceFile" 2>> "$Self_Errors_File" )"
 		fi
-		touch "${Self_Control_Dir}/${paddedFileIndex}_any.job"
 		echo "$fileMilliseconds $paddedFileIndex $sourceFile" >> "${Self_Data_Dir}/millisecondsAndFileIndexes_${jobIndex}.list"
 
-		for outputCodec in $outputCodecs; do
-			touch "${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info" \
-				"${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
-		done
-
-		if [ "$computeReplayGain" = 'true' ]; then
+		if [ -z "$outputCodecs" ]; then
+			touch "${Self_Control_Dir}/${paddedFileIndex}_any.job"
+		else
 			for outputCodec in $outputCodecs; do
-				if [ "$outputCodecs" != 'Opus' ]; then
-					touch "${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
+				if [ "$computeReplayGain" = 'true' ]; then
+					if [ "$outputCodecs" != 'Opus' ]; then
+						touch \
+							"${Self_Control_Dir}/${paddedFileIndex}_any.job" \
+							"${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info" \
+							"${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
+					else
+							touch \
+							"${Self_Control_Dir}/${paddedFileIndex}_any.job" \
+							"${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info" \
+							"${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job" \
+							"${Self_Control_Dir}/${paddedFileIndex}_replaygain_${outputCodec}.job"
+					fi
+					getOutputCodecDestFile "$sourceFile" "$outputCodec"
+					echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${destFile}" >> "${Self_Data_Dir}/destFiles_${jobIndex}.txt"
+					echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${destPath}" >> "${Self_Data_Dir}/destPaths_${jobIndex}.txt"
+				else
+					touch \
+						"${Self_Control_Dir}/${paddedFileIndex}_any.job" \
+						"${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info" \
+						"${Self_Control_Dir}/${paddedFileIndex}_encoding_${outputCodec}.job"
 				fi
-				getOutputCodecDestFile "$sourceFile" "$outputCodec"
-				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${destFile}" >> "${Self_Data_Dir}/destFiles_${jobIndex}.txt"
-				echo "${outputCodec} ${fileMilliseconds} ${paddedFileIndex} ${destPath}" >> "${Self_Data_Dir}/destPaths_${jobIndex}.txt"
 			done
 		fi
 		(( fileIndex ++))
