@@ -1607,8 +1607,9 @@ sliceSourceFileList () {
 
 createControlFiles () {
 	local jobIndex=$1 fileIndex=$2 headValue=$3 tailValue=$4 filesPerJob=$5
-	local sourceFile paddedFileIndex fileMilliseconds outputCodec msArray=[] msArrayIndex=0
-	local gotAllSoxiDurations='true' gotAllWavPackDurations='true' lastExtension
+	local sourceFile paddedFileIndex fileMilliseconds outputCodec codec codecs msArray=[] msArrayIndex=0
+	local gotAllSoxiDurations='true' gotAllWavPackDurations='true'
+	local destFile destPath
 
 	sliceSourceFileList $headValue $tailValue $filesPerJob > "${Self_Data_Dir}/milliseconds_${jobIndex}.list"
 
@@ -1646,15 +1647,23 @@ createControlFiles () {
 
 		if [ -z "$outputCodecs" ]; then
 			if [ "$computeReplayGain" = 'true' ]; then
-				touch "${Self_Control_Dir}/${paddedFileIndex}_trackgain_any.job" \
-					"${Self_Control_Dir}/${paddedFileIndex}_albumgain_any.job"
+				codec="$( getCodecFromExtension "$sourceFile" )"
+				if [ -n "$codec" ]; then
+					touch \
+						"${Self_Control_Dir}/${paddedFileIndex}_any.job" \
+						"${Self_Control_Dir}/${paddedFileIndex}_trackgain_${codec}.job" \
+						"${Self_Control_Dir}/${paddedFileIndex}_albumgain_${codec}.job"
+					destPath="$( getDirName "$sourceFile" )"
+					echo "${codec} ${fileMilliseconds} ${paddedFileIndex} ${sourceFile}" >> "${Self_Data_Dir}/destFiles_${codec}_${jobIndex}.list"
+					echo "${codec} ${fileMilliseconds} ${paddedFileIndex} ${destPath}" >> "${Self_Data_Dir}/destPaths_${codec}_${jobIndex}.list"
+				fi
 			else
 				touch "${Self_Control_Dir}/${paddedFileIndex}_any.job"
 			fi
 		else
 			for outputCodec in $outputCodecs; do
 				if [ "$computeReplayGain" = 'true' ]; then
-					if [ "$outputCodecs" != 'Opus' ]; then
+					if [ "$outputCodecs" != 'Opus' -a "$outputCodecs" != 'AAC' ]; then
 						touch \
 							"${Self_Control_Dir}/${paddedFileIndex}_any.job" \
 							"${Self_Control_Dir}/${paddedFileIndex}_needsWAV_${outputCodec}.info" \
@@ -1684,7 +1693,7 @@ createControlFiles () {
 }
 
 setupControlDir () {
-	local fileIndex maxThreads filesPerJob threadIndex lastThreadIndex fileIndex headValue tailValue
+	local fileIndex maxThreads filesPerJob threadIndex lastThreadIndex fileIndex headValue tailValue codec codecs
 
 	maxThreads=$maxProcessesSetByUser
 	if [ $maxThreads -ge $numberOfSourceFiles ]; then
@@ -1725,14 +1734,31 @@ setupControlDir () {
 	fi
 
 	if [ "$computeReplayGain" = 'true' ]; then
-		for outputCodec in $outputCodecs; do
-			cat "${Self_Data_Dir}/destFiles_${outputCodec}"*.list >> "${Self_Data_Dir}/destFiles_${outputCodec}.list"
-			cat "${Self_Data_Dir}/destPaths_${outputCodec}"*.list >> "${Self_Data_Dir}/destPaths_${outputCodec}.list"
-		done
+		if [ -n "$outputCodecs" ]; then
+			for outputCodec in $outputCodecs; do
+				cat "${Self_Data_Dir}/destFiles_${outputCodec}"*.list >> "${Self_Data_Dir}/destFiles_${outputCodec}.list"
+				cat "${Self_Data_Dir}/destPaths_${outputCodec}"*.list >> "${Self_Data_Dir}/destPaths_${outputCodec}.list"
+			done
+		else
+			codecs=""
+			egrep -s -m 1 '\.m4a$' "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list 1>/dev/null 2>&1 && codecs="${codecs}AAC "
+			ls -1 "${Self_Data_Dir}/destPaths_FLAC"_*".list" 1>/dev/null 2>&1 && codecs="${codecs}FLAC "
+			ls -1 "${Self_Data_Dir}/destPaths_MP3"_*".list" 1>/dev/null 2>&1 && codecs="${codecs}MP3 "
+			ls -1 "${Self_Data_Dir}/destPaths_MonkeysAudio"_*".list" 1>/dev/null 2>&1 && codecs="${codecs}MonkeysAudio "
+			ls -1 "${Self_Data_Dir}/destPaths_OggVorbis"_*".list" 1>/dev/null 2>&1 && codecs="${codecs}OggVorbis "
+			egrep -s -m 1 '\.opus$' "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list 1>/dev/null 2>&1 && codecs="${codecs}Opus "
+			ls -1 "${Self_Data_Dir}/destPaths_WavPack"_*".list" 1>/dev/null 2>&1 && codecs="${codecs}WavPack "
+			for codec in $codecs; do
+				cat "${Self_Data_Dir}/destFiles_${codec}"*.list >> "${Self_Data_Dir}/destFiles_${codec}.list"
+				cat "${Self_Data_Dir}/destPaths_${codec}"*.list >> "${Self_Data_Dir}/destPaths_${codec}.list"
+			done
+		fi
 		rm -f "${Self_Data_Dir}/destFiles_"*"_"*.list "${Self_Data_Dir}/destPaths_"*"_"*.list
 	fi
 
 	if [ -n "$outputCodecs" -a -n "$nPerformanceCores" -a "$usePerformanceCores" = 'true' ]; then
+		orderStrategy='none'
+	elif [ -n "$codecs" ]; then
 		orderStrategy='none'
 	fi
 	case "$orderStrategy" in
@@ -5190,11 +5216,10 @@ computeGainDbfsFromPeak () {
 # FIXME
 computeTrackGain () {
 	local exitCode=$Ex_Ok file="$1" line nLines=0 decimals trackGain trackPeak albumGain destTagFile
-	local nThreads fileExtension line rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment
+	local nThreads line rsFile rsLoudness rsGain rsPeak rsPeakDb rsPeakType rsClippingAdjustment
 
 	if [ -e "$file" ]; then
 		shopt -qs nocasematch
-		fileExtension="${file##*.}"
 		case "$file" in
 			*.ape|*.flac|*.ogg|*.wav|*.wv)
 				OIFS="$IFS"
@@ -5230,6 +5255,8 @@ computeTrackGain () {
 				fi
 				;;
 
+			*.opus|*.m4a) true ;;
+
 			*)
 				printMessage 'warning' 'track_gain' 'unsupported' "path:${file}" $processNumber 'unsupported format'
 				return $Ex_Data_Err
@@ -5240,7 +5267,7 @@ computeTrackGain () {
 		exitCode=$Ex_Ko
 	fi
 
-	if [ "$sourceExtension" != "opus" -a "$sourceExtension" != 'wav' ]; then
+	if [ "$sourceExtension" != "opus" -a "$sourceExtension" != 'm4a' -a "$sourceExtension" != 'wav' ]; then
 		if [ $exitCode -eq $Ex_Ok ]; then
 			if [ "$verbose" = 'true' -a -z "$outputCodecs" ]; then
 				if [ "${trackGain:0:1}" != '-' -a "${trackGain:0:1}" != '+' ]; then
@@ -5257,16 +5284,17 @@ computeTrackGain () {
 
 # FIXME
 computeTrackGains () {
-	local exitCode=$Ex_Ok jobFile
+	local exitCode=$Ex_Ok fileMilliseconds paddedFileIndex sourceFile jobFile outputCodec destPath
 
 	while read fileMilliseconds paddedFileIndex sourceFile; do
-		destFile="$sourceFile"
 		sourceFilename="$( getFileName "$sourceFile" )"
 		sourceExtension="${sourceFile##*.}"
-		jobFile="${Self_Control_Dir}/${paddedFileIndex}_trackgain_any.job"
+		destPath="$( getDirName "$sourceFile" )"
+		outputCodec="$( getCodecFromExtension "$sourceFile" )"
+		jobFile="${Self_Control_Dir}/${paddedFileIndex}_trackgain_${outputCodec}.job"
 		wasProcessedFile="${Self_Control_Dir}/${paddedFileIndex}_all_processed.info"
-		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_any.txt"
-		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_any.txt"
+		trackGainFile="${Self_Data_Dir}/${paddedFileIndex}_trackgain_${outputCodec}.txt"
+		trackPeakFile="${Self_Data_Dir}/${paddedFileIndex}_trackpeak_${outputCodec}.txt"
 
 		if getLock "$jobFile"; then
 			computeTrackGain "$sourceFile" || exitCode=$Ex_Ko
@@ -6254,6 +6282,27 @@ getCodecExtension () {
 	esac
 
 	echo "$ext"
+}
+
+getCodecFromExtension () {
+	local file="$1" codec
+
+	shopt -qs nocasematch
+	case "$file" in
+		*.wav)					codec='WAV' ;;
+		*.aiff)         codec='AIFF' ;;
+		*.caf)          codec='CAF' ;;
+		*.flac)         codec='FLAC' ;;
+		*.wv)           codec='WavPack' ;;
+		*.ape)          codec='MonkeysAudio' ;;
+		*.ogg)          codec='OggVorbis' ;;
+		*.mp3)          codec='MP3' ;;
+		*.m4a)          codec='AAC' ;;
+		*.opus)         codec='Opus' ;;
+	esac
+	shopt -qu nocasematch
+
+	echo "$codec"
 }
 
 getCodecFullName () {
@@ -7941,52 +7990,49 @@ exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$E
 if [ $exitCode -eq $Ex_Ok ]; then
 	if [ "$computeReplayGain" = 'true' ]; then
 		if [ -z "$outputCodecs" ]; then
-			if [ "$allFilesAreOpus" = 'true' ]; then
-				processNumber=0
-				computeOpusAlbumGain '' || exitCode=$Ex_Ko
-			elif [ "$computeCaugain" = 'true' ]; then
+			if [ "$computeCaugain" = 'true' ]; then
 				computeRsgain || exitCode=$Ex_Ko
-			elif [ "$allFilesAreM4A" = 'true' ]; then
-				processNumber=0
-				computeM4AGain '' || exitCode=$Ex_Ko
 			else
-				computeAlbumGain 'any' '' $processNumber || exitCode=$Ex_Ko
-				for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
-					saveTracksGains 'any' '' $processNumber &
-				done
-				exitCode=$Ex_Ok ; for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
-				rm -f "${Self_Data_Dir}/${paddedFileIndex}_"*"gain_any.txt" \
-					"${Self_Data_Dir}/${paddedFileIndex}_"*"peak_any.txt"
+				rgCodecs=""
+				egrep -s -m 1 '\.m4a$' "${Self_Data_Dir}/millisecondsAndFileIndexes.list" 1>/dev/null 2>&1 && rgCodecs="${rgCodecs}AAC "
+				test -e "${Self_Data_Dir}/destPaths_FLAC.list" && rgCodecs="${rgCodecs}FLAC "
+				test -e "${Self_Data_Dir}/destPaths_MP3.list" && rgCodecs="${rgCodecs}MP3 "
+				test -e "${Self_Data_Dir}/destPaths_MonkeysAudio.list" && rgCodecs="${rgCodecs}MonkeysAudio "
+				test -e "${Self_Data_Dir}/destPaths_OggVorbis.list" && rgCodecs="${rgCodecs}OggVorbis "
+				egrep -s -m 1 '\.opus$' "${Self_Data_Dir}/millisecondsAndFileIndexes.list" 1>/dev/null 2>&1 && rgCodecs="${rgCodecs}Opus "
+				test -e "${Self_Data_Dir}/destPaths_WavPack.list" && rgCodecs="${rgCodecs}WavPack "
 			fi
-		else
-			processNumber=0
-			for outputCodec in $outputCodecs; do
-				codecFullName="$( getCodecFullName "$outputCodec" )"
-				printMessage 'style' ' '
-				printMessage 'info' "Computing ReplayGain album gain(s) for ${codecFullName}…"
-				previousDestPath=''
-				exitCode=$Ex_Ok
-				while read codec fileMilliseconds paddedFileIndex destPath; do
-					if [ "$destPath" = "$previousDestPath" ]; then continue; fi
-					if [ "$codec" = 'Opus' ]; then
-						computeOpusAlbumGain "$destPath" || exitCode=$Ex_Ko
-					elif [ "$codec" = 'AAC' ]; then
-						computeM4AGain "$destPath" || exitCode=$Ex_Ko
-					else
-						computeAlbumGain "$codec" "$destPath" $processNumber || exitCode=$Ex_Ko
-						for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
-							saveTracksGains "$codec" "$destPath" $processNumber &
-						done
-						for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
-						rm -f "${Self_Data_Dir}/${paddedFileIndex}_"*"gain_${codec}.txt" \
-							"${Self_Data_Dir}/${paddedFileIndex}_"*"peak_${codec}.txt"
-					fi
-					previousDestPath="$destPath"
-				done < "${Self_Data_Dir}/destPaths_${outputCodec}.list"
-				rm -f "${Self_Data_Dir}/destPaths_${outputCodec}.list"
-			done
-			printMessage 'style' ' '
 		fi
+		processNumber=0
+		if [ -n "$outputCodecs" ]; then
+			rgCodecs="$outputCodecs"
+		fi
+		for rgCodec in $rgCodecs; do
+			codecFullName="$( getCodecFullName "$rgCodec" )"
+			printMessage 'style' ' '
+			printMessage 'info' "Computing ReplayGain album gain(s) for ${codecFullName}…"
+			previousDestPath=''
+			exitCode=$Ex_Ok
+			while read codec fileMilliseconds paddedFileIndex destPath; do
+				if [ "$destPath" = "$previousDestPath" ]; then continue; fi
+				if [ "$codec" = 'Opus' ]; then
+					computeOpusAlbumGain "$destPath" || exitCode=$Ex_Ko
+				elif [ "$codec" = 'AAC' ]; then
+					computeM4AGain "$destPath" || exitCode=$Ex_Ko
+				else
+					computeAlbumGain "$codec" "$destPath" $processNumber || exitCode=$Ex_Ko
+					for (( processNumber=0; processNumber < nProcesses; processNumber++ )); do
+						saveTracksGains "$codec" "$destPath" $processNumber &
+					done
+					for jobIndex in $( jobs -p ); do wait $jobIndex || exitCode=$Ex_Ko ; done
+					rm -f "${Self_Data_Dir}/${paddedFileIndex}_"*"gain_${codec}.txt" \
+						"${Self_Data_Dir}/${paddedFileIndex}_"*"peak_${codec}.txt"
+				fi
+				previousDestPath="$destPath"
+			done < "${Self_Data_Dir}/destPaths_${rgCodec}.list"
+			rm -f "${Self_Data_Dir}/destPaths_${rgCodec}.list"
+		done
+		printMessage 'style' ' '
 	elif [ "$showDurations" = 'true' ]; then
 		showAlbumDuration || exitCode=$Ex_Ko
 	elif [ "$touchFiles" = 'true' ]; then
