@@ -1607,7 +1607,7 @@ sliceSourceFileList () {
 
 createControlFiles () {
 	local jobIndex=$1 fileIndex=$2 headValue=$3 tailValue=$4 filesPerJob=$5
-	local sourceFile paddedFileIndex fileMilliseconds outputCodec codec codecs msArray=[] msArrayIndex=0
+	local sourceFile paddedFileIndex fileMilliseconds outputCodec rgCodec msArray=[] msArrayIndex=0
 	local gotAllSoxiDurations='true' gotAllWavPackDurations='true'
 	local destFile destPath
 
@@ -1647,15 +1647,15 @@ createControlFiles () {
 
 		if [ -z "$outputCodecs" ]; then
 			if [ "$computeReplayGain" = 'true' ]; then
-				codec="$( getCodecFromExtension "$sourceFile" )"
-				if [ -n "$codec" ]; then
+				rgCodec="$( getCodecFromExtension "$sourceFile" )"
+				if [ -n "$rgCodec" ]; then
 					touch \
 						"${Self_Control_Dir}/${paddedFileIndex}_any.job" \
-						"${Self_Control_Dir}/${paddedFileIndex}_trackgain_${codec}.job" \
-						"${Self_Control_Dir}/${paddedFileIndex}_albumgain_${codec}.job"
+						"${Self_Control_Dir}/${paddedFileIndex}_trackgain_${rgCodec}.job" \
+						"${Self_Control_Dir}/${paddedFileIndex}_albumgain_${rgCodec}.job"
 					destPath="$( getDirName "$sourceFile" )"
-					echo "${codec} ${fileMilliseconds} ${paddedFileIndex} ${sourceFile}" >> "${Self_Data_Dir}/destFiles_${codec}_${jobIndex}.list"
-					echo "${codec} ${fileMilliseconds} ${paddedFileIndex} ${destPath}" >> "${Self_Data_Dir}/destPaths_${codec}_${jobIndex}.list"
+					echo "${rgCodec} ${fileMilliseconds} ${paddedFileIndex} ${sourceFile}" >> "${Self_Data_Dir}/destFiles_${rgCodec}_${jobIndex}.list"
+					echo "${rgCodec} ${fileMilliseconds} ${paddedFileIndex} ${destPath}" >> "${Self_Data_Dir}/destPaths_${rgCodec}_${jobIndex}.list"
 				fi
 			else
 				touch "${Self_Control_Dir}/${paddedFileIndex}_any.job"
@@ -1693,7 +1693,7 @@ createControlFiles () {
 }
 
 setupControlDir () {
-	local fileIndex maxThreads filesPerJob threadIndex lastThreadIndex fileIndex headValue tailValue codec codecs
+	local fileIndex maxThreads filesPerJob threadIndex lastThreadIndex fileIndex headValue tailValue rgCodec rgCodecs
 
 	maxThreads=$maxProcessesSetByUser
 	if [ $maxThreads -ge $numberOfSourceFiles ]; then
@@ -1733,32 +1733,9 @@ setupControlDir () {
 		orderStrategy='none'
 	fi
 
-	if [ "$computeReplayGain" = 'true' ]; then
-		if [ -n "$outputCodecs" ]; then
-			for outputCodec in $outputCodecs; do
-				cat "${Self_Data_Dir}/destFiles_${outputCodec}"*.list >> "${Self_Data_Dir}/destFiles_${outputCodec}.list"
-				cat "${Self_Data_Dir}/destPaths_${outputCodec}"*.list >> "${Self_Data_Dir}/destPaths_${outputCodec}.list"
-			done
-		else
-			codecs=""
-			egrep -s -m 1 '\.m4a$' "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list 1>/dev/null 2>&1 && codecs="${codecs}AAC "
-			ls -1 "${Self_Data_Dir}/destPaths_FLAC"_*".list" 1>/dev/null 2>&1 && codecs="${codecs}FLAC "
-			ls -1 "${Self_Data_Dir}/destPaths_MP3"_*".list" 1>/dev/null 2>&1 && codecs="${codecs}MP3 "
-			ls -1 "${Self_Data_Dir}/destPaths_MonkeysAudio"_*".list" 1>/dev/null 2>&1 && codecs="${codecs}MonkeysAudio "
-			ls -1 "${Self_Data_Dir}/destPaths_OggVorbis"_*".list" 1>/dev/null 2>&1 && codecs="${codecs}OggVorbis "
-			egrep -s -m 1 '\.opus$' "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list 1>/dev/null 2>&1 && codecs="${codecs}Opus "
-			ls -1 "${Self_Data_Dir}/destPaths_WavPack"_*".list" 1>/dev/null 2>&1 && codecs="${codecs}WavPack "
-			for codec in $codecs; do
-				cat "${Self_Data_Dir}/destFiles_${codec}"*.list >> "${Self_Data_Dir}/destFiles_${codec}.list"
-				cat "${Self_Data_Dir}/destPaths_${codec}"*.list >> "${Self_Data_Dir}/destPaths_${codec}.list"
-			done
-		fi
-		rm -f "${Self_Data_Dir}/destFiles_"*"_"*.list "${Self_Data_Dir}/destPaths_"*"_"*.list
-	fi
-
 	if [ -n "$outputCodecs" -a -n "$nPerformanceCores" -a "$usePerformanceCores" = 'true' ]; then
 		orderStrategy='none'
-	elif [ -n "$codecs" ]; then
+	elif [ -z "$outputCodecs" -a "$computeReplayGain" = 'true' ]; then
 		orderStrategy='none'
 	fi
 	case "$orderStrategy" in
@@ -1767,6 +1744,22 @@ setupControlDir () {
 		*) cat "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list > "${Self_Data_Dir}/millisecondsAndFileIndexes.list" ;;
 	esac
 	rm -f "${Self_Data_Dir}/millisecondsAndFileIndexes_"*.list
+
+	if [ "$computeReplayGain" = 'true' ]; then
+		if [ -n "$outputCodecs" ]; then
+			for outputCodec in $outputCodecs; do
+				cat "${Self_Data_Dir}/destFiles_${outputCodec}"*.list >> "${Self_Data_Dir}/destFiles_${outputCodec}.list"
+				cat "${Self_Data_Dir}/destPaths_${outputCodec}"*.list >> "${Self_Data_Dir}/destPaths_${outputCodec}.list"
+			done
+		else
+			rgCodecs="$( getReplayGainCodecsFromFileList "${Self_Data_Dir}/millisecondsAndFileIndexes.list" )"
+			for rgCodec in $rgCodecs; do
+				cat "${Self_Data_Dir}/destFiles_${rgCodec}"*.list >> "${Self_Data_Dir}/destFiles_${rgCodec}.list"
+				cat "${Self_Data_Dir}/destPaths_${rgCodec}"*.list >> "${Self_Data_Dir}/destPaths_${rgCodec}.list"
+			done
+		fi
+		rm -f "${Self_Data_Dir}/destFiles_"*"_"*.list "${Self_Data_Dir}/destPaths_"*"_"*.list
+	fi
 }
 
 
@@ -6328,6 +6321,19 @@ getCodecFullName () {
 	echo "$codecFullName"
 }
 
+getReplayGainCodecsFromFileList () {
+	local list="$1"
+
+	$sedcmd -E 's@.*\.(ape|flac|m4a|mp3|ogg|opus|wv)@\1@g' "$list" 2>/dev/null | uniq | tr '\n' ' ' | $sedcmd -E \
+		-e 's@ape@MonkeysAudio@' \
+		-e 's@flac@FLAC@' \
+		-e 's@m4a@AAC@' \
+		-e 's@mp3@MP3@' \
+		-e 's@ogg@OggVorbis@' \
+		-e 's@opus@Opus@' \
+		-e 's@wv@WavPack@'
+}
+
 getDirName () {
 	local file="$1" dirName
 
@@ -7993,14 +7999,7 @@ if [ $exitCode -eq $Ex_Ok ]; then
 			if [ "$computeCaugain" = 'true' ]; then
 				computeRsgain || exitCode=$Ex_Ko
 			else
-				rgCodecs=""
-				egrep -s -m 1 '\.m4a$' "${Self_Data_Dir}/millisecondsAndFileIndexes.list" 1>/dev/null 2>&1 && rgCodecs="${rgCodecs}AAC "
-				test -e "${Self_Data_Dir}/destPaths_FLAC.list" && rgCodecs="${rgCodecs}FLAC "
-				test -e "${Self_Data_Dir}/destPaths_MP3.list" && rgCodecs="${rgCodecs}MP3 "
-				test -e "${Self_Data_Dir}/destPaths_MonkeysAudio.list" && rgCodecs="${rgCodecs}MonkeysAudio "
-				test -e "${Self_Data_Dir}/destPaths_OggVorbis.list" && rgCodecs="${rgCodecs}OggVorbis "
-				egrep -s -m 1 '\.opus$' "${Self_Data_Dir}/millisecondsAndFileIndexes.list" 1>/dev/null 2>&1 && rgCodecs="${rgCodecs}Opus "
-				test -e "${Self_Data_Dir}/destPaths_WavPack.list" && rgCodecs="${rgCodecs}WavPack "
+				rgCodecs="$( getReplayGainCodecsFromFileList "${Self_Data_Dir}/millisecondsAndFileIndexes.list" )"
 			fi
 		fi
 		processNumber=0
